@@ -11,7 +11,7 @@ import os
 url = os.environ.get('SHOOT_URL') or ((pathlib.Path(__file__).resolve().parent.parent / 'site' / 'index.html').as_uri() + '?noadapt')
 async def main():
     async with async_playwright() as p:
-        b = await p.chromium.launch(args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files'])
+        b = await p.chromium.launch(executable_path=os.environ.get('SHOOT_CHROME') or None, args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files'])
         ctx = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1, is_mobile=w < 700, has_touch=w < 700)
         pg = await ctx.new_page()
         msgs = []
