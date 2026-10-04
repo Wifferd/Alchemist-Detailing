@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- HEAD START -->
+<title>Alchemist Detailing</title>
+<meta name="description" content="Premium hand car detailing in Parker, Texas. Mobile within about 10 miles of Parker, or come to us.">
+<meta name="theme-color" content="#050505">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@1,500&family=Manrope:wght@400;500;600;700&display=swap">
+<!-- HEAD END -->
+<link rel="stylesheet" href="css/alchemist.css">
+</head>
+<body>
+<!-- BODY START -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="adGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbe0a0"/><stop offset=".42" stop-color="#d8a640"/><stop offset=".72" stop-color="#9a6618"/><stop offset="1" stop-color="#f0c56a"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6d28a"/><stop offset=".5" stop-color="#8a5a14"/><stop offset="1" stop-color="#f0c56a"/>
+    </linearGradient>
+    <symbol id="ad-mark" viewBox="0 20 570 590">
+      <path fill="url(#adGold)" d="M20.2 547.5 L237.6 201.5 L408.5 508.0 C433.8 508.0 500.0 473.5 500.0 393.0 C500.0 312.5 433.8 278.0 402.0 278.0 L315.0 278.0 L291.5 236.0 L427.0 236.0 C463.6 236.0 549.0 298.3 549.0 391.7 C549.0 485.2 463.6 547.5 427.0 547.5 L379.4 547.5 L232.8 282.0 L70.3 547.5 Z M131.5 508.0 L314.5 508.0 L336.5 547.5 L106.6 547.5 Z M297.0 36.0 C297.0 124.0 306.4 146.0 344.0 146.0 C306.4 146.0 297.0 155.2 297.0 192.0 C297.0 155.2 287.2 146.0 248.0 146.0 C287.2 146.0 297.0 124.0 297.0 36.0 Z M232.5 348.0 C232.5 401.6 242.8 415.0 284.0 415.0 C242.8 415.0 232.5 429.4 232.5 487.0 C232.5 429.4 221.8 415.0 179.0 415.0 C221.8 415.0 232.5 401.6 232.5 348.0 Z M294.6 180 L299.4 180 L299.4 238 L294.6 238 Z M295.6 553 L298.4 553 L297.6 596 L296.4 596 Z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="topbar" id="topbar">
+  <div class="bar">
+    <div class="bar-left">
+      <button class="icon-btn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+        <span class="ring"></span>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h11M4 17h16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="page-name" id="pageName" aria-live="polite"><span>Home</span></div>
+    <div class="bar-right">
+      <a class="brand-link" href="#home" aria-label="Alchemist Detailing home"><svg aria-hidden="true"><use href="#ad-mark"/></svg></a>
+      <a class="icon-btn" href="#account" aria-label="Your account">
+        <span class="ring"></span>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8.6" r="3.6"/><path d="M4.8 20c.9-3.8 3.7-5.8 7.2-5.8s6.3 2 7.2 5.8"/></g></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="scrim" id="scrim"></div>
+<aside class="menu" id="menu" aria-label="Menu" aria-hidden="true">
+  <div class="menu-head">
+    <a class="menu-brand" href="#home"><svg aria-hidden="true"><use href="#ad-mark"/></svg><span><b>Alchemist</b><small>Detailing</small></span></a>
+    <button class="icon-btn menu-close" id="menuClose" type="button" aria-label="Close menu">
+      <span class="ring"></span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <nav aria-label="Pages">
+    <a href="#home" style="--i:0">Home</a>
+    <a href="#services" style="--i:1">Services</a>
+    <a href="#book" style="--i:2">Book Now</a>
+    <a href="#appointments" style="--i:3">Appointments</a>
+    <a href="#reviews" style="--i:4">Reviews</a>
+    <a href="#tips" style="--i:5">Tips</a>
+    <a href="#faq" style="--i:6">FAQ</a>
+    <a href="#about" style="--i:7">About</a>
+    <a href="#contact" style="--i:8">Contact</a>
+    <a href="#account" style="--i:9" class="sep">Account</a>
+  </nav>
+  <div class="menu-foot">
+    <a class="btn btn-gold shine" href="#book">Book Now <span class="arrow" aria-hidden="true">→</span></a>
+    <a class="call" href="tel:+19453617551"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6.6 3.8l2.3-.4 1.6 3.9-1.8 1.3a11 11 0 0 0 4.7 4.7l1.3-1.8 3.9 1.6-.4 2.3a2 2 0 0 1-2 1.7A15.6 15.6 0 0 1 4.9 5.8a2 2 0 0 1 1.7-2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>(945) 361-7551</a>
+  </div>
+</aside>
+
+<main id="main">
+
+<!-- ================================================================ HOME -->
+<div class="view" data-view="home">
+
+  <section class="hero" id="top" aria-label="Alchemist Detailing">
+    <canvas class="hero-gl" id="heroGl" aria-hidden="true"></canvas>
+    <div class="hero-inner">
+      <img class="hero-mark" data-in style="--d:0" src="img/mono-metallic.webp" alt="" width="547" height="601">
+      <h1 data-in style="--d:140"><span class="l1 gold-text">Alchemist</span><span class="l2">Detailing</span></h1>
+      <p class="sub" data-in style="--d:320">Precision<i>.</i> Protection<i>.</i> Perfection<i>.</i></p>
+      <div class="actions" data-in style="--d:480">
+        <a class="btn btn-gold shine" href="#book">Book Now <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn btn-glass" href="#services" data-scroll="services">Explore Services</a>
+      </div>
+      <p class="place" data-in style="--d:640">Parker, Texas · Mobile within about 10 miles</p>
+    </div>
+    <a class="scroll-cue" href="#home" data-scroll="standard" aria-label="Scroll down">Scroll<span></span></a>
+  </section>
+
+  <section class="section standard" id="standard">
+    <div class="wrap">
+      <div class="emblem" data-reveal>
+        <svg class="circle" viewBox="0 0 132 132" aria-hidden="true"><circle cx="66" cy="66" r="64"/></svg>
+        <img src="img/mono-metallic.webp" alt="" width="547" height="601">
+      </div>
+      <h2 class="eyebrow">The Alchemist Standard</h2>
+      <p class="statement">Professional-grade detailing, carefully performed with premium products and <em>attention to every surface.</em></p>
+      <p class="script">Our chemicals make your car shine like gold ✦</p>
+      <div class="facts"><span>Hand wash · hand dry</span><span>Professional-grade chemicals</span><span>We come to you</span></div>
+    </div>
+  </section>
+
+  <section class="wash" id="wash" aria-labelledby="svcTitle">
+    <div class="wash-stage" id="washStage">
+      <canvas class="wash-bg" id="washBg" data-art="gloss" data-t="10.25" data-k="0.5" aria-hidden="true"></canvas>
+      <div class="wash-shade" aria-hidden="true"></div>
+      <div class="wash-title" aria-hidden="true">
+        <p class="eyebrow">What we do</p>
+        <p class="display gold-text big">Services</p>
+        <p>Exterior · Interior · Bundles · Protection</p>
+      </div>
+      <div class="wash-services" id="washServices">
+        <div class="wrap" id="svcWrap">
+          <div class="svc-head" data-enter="head">
+            <div><p class="eyebrow">Services</p><h2 class="display" id="svcTitle">Choose your finish</h2></div>
+            <p>Professional-grade products, finished by hand. Prices are for standard-size vehicles.</p>
+          </div>
+          <div class="svc-grid">
+            <a class="svc-card" data-enter="up" href="#services-exterior">
+              <canvas class="art" data-art="gloss" data-t="10.1" aria-hidden="true"></canvas>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.1 5.5 7.3 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.8 8.8 7.6 12 3.5z"/><path d="M9.4 14.2a2.7 2.7 0 0 0 2.6 2.6"/></g></svg>
+              <span class="kind">Exterior</span>
+              <span class="from">From <span class="price tnum">$49.99</span></span>
+              <p class="desc">Snow-foam pre-wash, wheels, tires and glass, then a hand wash and hand dry.</p>
+              <span class="go"><span>Explore<span class="go-k"> Exterior</span></span><span class="arrow" aria-hidden="true">→</span></span>
+            </a>
+            <a class="svc-card" data-enter="side" href="#services-interior">
+              <canvas class="art" data-art="leather" data-t="10.6" aria-hidden="true"></canvas>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h5.5a1.5 1.5 0 0 1 1.5 1.6l-.6 7.4H9.3L7.4 5.3A1.5 1.5 0 0 1 8 3.5z"/><path d="M8.6 12.5h8.1a1.6 1.6 0 0 1 1.5 2.1l-.9 2.9H8.2l-1.1-3.1a1.4 1.4 0 0 1 1.5-1.9z"/><path d="M9 17.5l-1 3M16.3 17.5l1 3"/></g></svg>
+              <span class="kind">Interior</span>
+              <span class="from">From <span class="price tnum">$59.99</span></span>
+              <p class="desc">Vacuum, plastics, rubber and glass. Deluxe adds deep steam or shampoo and leather care.</p>
+              <span class="go"><span>Explore<span class="go-k"> Interior</span></span><span class="arrow" aria-hidden="true">→</span></span>
+            </a>
+            <a class="svc-card" data-enter="grow" href="#services-bundles">
+              <canvas class="art" data-art="split" data-t="10.4" aria-hidden="true"></canvas>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8l8.2 4.4L12 12.6 3.8 8.2z"/><path d="M3.8 12.1L12 16.5l8.2-4.4"/><path d="M3.8 16L12 20.4l8.2-4.4"/></g></svg>
+              <span class="kind">Bundles</span>
+              <span class="from">From <span class="price tnum">$99.99</span></span>
+              <p class="desc">Exterior and interior together, for less than booking them separately.</p>
+              <span class="go"><span>Explore<span class="go-k"> Bundles</span></span><span class="arrow" aria-hidden="true">→</span></span>
+            </a>
+            <a class="svc-card" data-enter="fade" href="#services-protection">
+              <canvas class="art" data-art="beads" data-t="9.2" aria-hidden="true"></canvas>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3l7 2.6v5.4c0 4.6-3 8.1-7 9.5-4-1.4-7-4.9-7-9.5V5.9z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></g></svg>
+              <span class="kind">Protection</span>
+              <span class="from">From <span class="price tnum">$44.99</span></span>
+              <p class="desc">Perfect Finish Sealant, added after a wash. Lasts about 8 to 12 weeks.</p>
+              <span class="go"><span>Explore<span class="go-k"> Protection</span></span><span class="arrow" aria-hidden="true">→</span></span>
+            </a>
+          </div>
+          <p class="svc-note" data-enter="note">Mobile service adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.</p>
+        </div>
+      </div>
+      <div class="cannon" id="cannon" aria-hidden="true">
+        <svg viewBox="0 0 560 300">
+          <defs>
+            <linearGradient id="cnBlack" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#46403a"/><stop offset=".16" stop-color="#1d1b18"/><stop offset=".62" stop-color="#090908"/><stop offset="1" stop-color="#1b1916"/>
+            </linearGradient>
+            <linearGradient id="cnGold" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fff0c4"/><stop offset=".28" stop-color="#e9bd62"/><stop offset=".64" stop-color="#94621a"/><stop offset="1" stop-color="#d8a640"/>
+            </linearGradient>
+            <linearGradient id="cnGlass" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#fff" stop-opacity=".26"/><stop offset=".22" stop-color="#fff" stop-opacity=".07"/><stop offset=".78" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#fff" stop-opacity=".16"/>
+            </linearGradient>
+            <linearGradient id="cnSoap" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#fbf6ea" stop-opacity=".9"/><stop offset=".5" stop-color="#e9e1d0" stop-opacity=".62"/><stop offset="1" stop-color="#fbf6ea" stop-opacity=".85"/>
+            </linearGradient>
+          </defs>
+          <!-- bottle, tilted toward the nozzle -->
+          <g transform="rotate(14 262 132)">
+            <rect x="244" y="128" width="36" height="24" rx="4" fill="url(#cnGold)"/>
+            <path d="M222 152h80a22 22 0 0 1 22 22v96a28 28 0 0 1-28 28h-68a28 28 0 0 1-28-28v-96a22 22 0 0 1 22-22z" fill="url(#cnGlass)" stroke="#fff" stroke-opacity=".3" stroke-width="1.5"/>
+            <path d="M201 206q61-12 122 0v64a27 27 0 0 1-27 27h-68a27 27 0 0 1-27-27z" fill="url(#cnSoap)"/>
+            <path d="M212 172v98" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
+            <path d="M308 186h8M308 202h5M308 218h8M308 234h5M308 250h8" stroke="#f6d28a" stroke-opacity=".7" stroke-width="1.5"/>
+          </g>
+          <!-- foam chamber and nozzle -->
+          <rect x="74" y="98" width="114" height="24" rx="7" fill="url(#cnBlack)"/>
+          <path d="M82 102h96" stroke="#fff" stroke-opacity=".16" stroke-width="2" stroke-linecap="round"/>
+          <path d="M16 101l30-6v30l-30-6z" fill="url(#cnGold)"/>
+          <rect x="42" y="91" width="38" height="38" rx="7" fill="url(#cnGold)"/>
+          <path d="M51 94v32M57 94v32M63 94v32M69 94v32" stroke="#6b4510" stroke-opacity=".55" stroke-width="1.3"/>
+          <!-- head with the adjustment dial -->
+          <rect x="184" y="84" width="150" height="52" rx="13" fill="url(#cnBlack)"/>
+          <rect x="184" y="84" width="11" height="52" rx="4" fill="url(#cnGold)"/>
+          <rect x="323" y="84" width="11" height="52" rx="4" fill="url(#cnGold)"/>
+          <path d="M200 91h118" stroke="#fff" stroke-opacity=".2" stroke-width="2" stroke-linecap="round"/>
+          <rect x="234" y="52" width="52" height="34" rx="7" fill="url(#cnBlack)"/>
+          <path d="M242 58v24M250 58v24M258 58v24M266 58v24M274 58v24" stroke="#fff" stroke-opacity=".12" stroke-width="1.2"/>
+          <ellipse cx="260" cy="53" rx="26" ry="5.5" fill="url(#cnGold)"/>
+          <!-- quick connect, wand and gun -->
+          <rect x="334" y="96" width="46" height="28" rx="6" fill="url(#cnGold)"/>
+          <path d="M343 98v24M350 98v24M357 98v24" stroke="#6b4510" stroke-opacity=".5" stroke-width="1.2"/>
+          <rect x="380" y="103" width="96" height="14" rx="5" fill="url(#cnBlack)"/>
+          <path d="M470 88h72a18 18 0 0 1 18 18v14a10 10 0 0 1-10 10h-16l18 140h-46l-15-140h-21a10 10 0 0 1-10-10v-22a10 10 0 0 1 10-10z" fill="url(#cnBlack)"/>
+          <path d="M498 130q-7 32 4 58q7 5 11-2q-9-28-3-56z" fill="url(#cnGold)"/>
+          <circle id="nozTip" cx="16" cy="110" r="1" fill="none"/>
+          <circle id="nozBack" cx="130" cy="110" r="1" fill="none"/>
+        </svg>
+      </div>
+      <canvas class="foam-gl" id="foamGl" aria-hidden="true"></canvas>
+      <p class="wash-hint" aria-hidden="true">Keep scrolling</p>
+    </div>
+  </section>
+
+  <section class="section why" id="why">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Why Alchemist</p>
+        <h2 class="display">Done properly, by hand</h2>
+        <div class="rule" data-reveal></div>
+      </div>
+      <div class="why-grid">
+        <div class="why-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.8-6.5-11a6.5 6.5 0 0 1 13 0c0 5.2-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></g></svg>
+          <h3>We come to you</h3>
+          <p>Mobile detailing within about 10 miles of Parker, or bring your car to us in Parker.</p>
+        </div>
+        <div class="why-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.5h5M10.5 3.5v5.2L5.6 17.4a2.2 2.2 0 0 0 1.9 3.1h9a2.2 2.2 0 0 0 1.9-3.1l-4.9-8.7V3.5"/><path d="M7.8 14.5h8.4"/></g></svg>
+          <h3>Professional products</h3>
+          <p>Koch-Chemie Hydro Foam Sealant on paint, Top Star on plastics, Gummifix on rubber and Leather Star on leather.</p>
+        </div>
+        <div class="why-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 12.6V4.8a1 1 0 0 1 1-1h7.8l7.6 7.6a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0z"/><circle cx="8.3" cy="8.3" r="1.5"/></g></svg>
+          <h3>Clear prices</h3>
+          <p>Prices are listed for standard-size vehicles. For larger vehicles or extra work, we tell you the price first.</p>
+        </div>
+        <div class="why-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 9.5h18M6.5 14.5h4"/></g></svg>
+          <h3>Nothing to pay online</h3>
+          <p>Request a time online and we confirm it with you. You pay in person.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section how" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How booking works</p>
+        <h2 class="display">Four steps to a booked detail</h2>
+        <div class="rule" data-reveal></div>
+      </div>
+      <ol class="steps">
+        <li class="step"><span class="n">01</span><h3>Choose where</h3><p>We come to you within about 10 miles of Parker, or you come to us.</p></li>
+        <li class="step"><span class="n">02</span><h3>Pick your service</h3><p>Choose services for your vehicle and see the price as you go.</p></li>
+        <li class="step"><span class="n">03</span><h3>Pick a time</h3><p>Open start times from 10 AM to 7 PM, up to 60 days ahead.</p></li>
+        <li class="step"><span class="n">04</span><h3>We confirm</h3><p>Your time is held for 24 hours while we review your request and confirm it.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section cta" id="cta">
+    <div class="cta-band">
+      <p class="eyebrow">Ready when you are</p>
+      <h2 class="display gold-text">Shine like gold</h2>
+      <p>Request a time online, or call us at <span class="tnum">(945) 361-7551</span>.</p>
+      <div class="actions">
+        <a class="btn btn-gold shine" href="#book">Book Now <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn btn-glass" href="tel:+19453617551">Call (945) 361-7551</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ================================================================ SERVICES -->
+<div class="view" data-view="services" hidden>
+  <section class="svc-top">
+    <canvas data-art="split" data-t="10.8" data-k="0.5" aria-hidden="true"></canvas>
+    <div class="wrap">
+      <p class="eyebrow">Services</p>
+      <h1 class="display gold-text">The Menu</h1>
+      <p>Professional-grade products, finished by hand. Prices are for standard-size vehicles, and you pay in person.</p>
+      <nav class="svc-jump" aria-label="Service groups">
+        <a href="#services-exterior">Exterior</a><a href="#services-interior">Interior</a><a href="#services-bundles">Bundles</a><a href="#services-protection">Add-ons</a>
+      </nav>
+    </div>
+  </section>
+  <div class="wrap">
+    <section class="svc-group" id="svc-exterior" aria-labelledby="gExterior">
+      <div class="group-head">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.1 5.5 7.3 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.8 8.8 7.6 12 3.5z"/><path d="M9.4 14.2a2.7 2.7 0 0 0 2.6 2.6"/></g></svg>
+        <h2 class="display" id="gExterior">Exterior</h2>
+        <p>Wash, wheels, tires and glass, finished by hand.</p>
+      </div>
+      <div class="price-grid">
+        <article class="price-card">
+          <h3>Exterior Basic</h3>
+          <p class="amount tnum">$49.99</p>
+          <div class="line"></div>
+          <ul class="checks"><li>Snow-foam pre-wash</li><li>Brake Buster wheel and tire cleaning</li><li>Tire cleaning</li><li>Exterior glass</li><li>Thorough hand wash and hand dry with professional-grade chemicals</li></ul>
+          <a class="btn btn-glass" href="#book">Book this service <span class="arrow" aria-hidden="true">→</span></a>
+        </article>
+        <article class="price-card featured">
+          <span class="tag">Deluxe</span>
+          <h3>Exterior Deluxe</h3>
+          <p class="amount tnum">$94.99</p>
+          <div class="line"></div>
+          <ul class="checks"><li>Everything in Exterior Basic</li><li>Green Star pre-treatment where appropriate</li><li>Koch-Chemie Hydro Foam Sealant S0.03</li><li>Enhanced gloss and water-beading protection</li></ul>
+          <a class="btn btn-gold shine" href="#book">Book this service <span class="arrow" aria-hidden="true">→</span></a>
+        </article>
+      </div>
+    </section>
+
+    <section class="svc-group" id="svc-interior" aria-labelledby="gInterior">
+      <div class="group-head">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h5.5a1.5 1.5 0 0 1 1.5 1.6l-.6 7.4H9.3L7.4 5.3A1.5 1.5 0 0 1 8 3.5z"/><path d="M8.6 12.5h8.1a1.6 1.6 0 0 1 1.5 2.1l-.9 2.9H8.2l-1.1-3.1a1.4 1.4 0 0 1 1.5-1.9z"/><path d="M9 17.5l-1 3M16.3 17.5l1 3"/></g></svg>
+        <h2 class="display" id="gInterior">Interior</h2>
+        <p>From a full vacuum and wipe-down to deep steam and leather care.</p>
+      </div>
+      <div class="price-grid">
+        <article class="price-card">
+          <h3>Interior Basic</h3>
+          <p class="amount tnum">$59.99</p>
+          <div class="line"></div>
+          <ul class="checks"><li>Full interior vacuum</li><li>Dash and plastics cleaned</li><li>Top Star on plastics</li><li>Gummifix on rubber and mats</li><li>Interior glass</li><li>General wipe-down</li></ul>
+          <a class="btn btn-glass" href="#book">Book this service <span class="arrow" aria-hidden="true">→</span></a>
+        </article>
+        <article class="price-card featured">
+          <span class="tag">Deluxe</span>
+          <h3>Interior Deluxe</h3>
+          <p class="amount tnum">$134.99</p>
+          <div class="line"></div>
+          <ul class="checks"><li>Everything in Interior Basic</li><li>Deep steam or shampoo</li><li>Carpet and upholstery cleaning</li><li>Drill-brush agitation</li><li>Pol Star and Green Star</li><li>Deeper stain and dirt removal</li><li>Leather Star conditioning</li><li>Steam cleaning included</li></ul>
+          <a class="btn btn-gold shine" href="#book">Book this service <span class="arrow" aria-hidden="true">→</span></a>
+        </article>
+      </div>
+    </section>
+
+    <section class="svc-group" id="svc-bundles" aria-labelledby="gBundles">
+      <div class="group-head">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8l8.2 4.4L12 12.6 3.8 8.2z"/><path d="M3.8 12.1L12 16.5l8.2-4.4"/><path d="M3.8 16L12 20.4l8.2-4.4"/></g></svg>
+        <h2 class="display" id="gBundles">Bundles</h2>
+        <p>Exterior and interior together, for less.</p>
+      </div>
+      <div class="price-grid">
+        <article class="price-card">
+          <h3>Signature Combo</h3>
+          <p class="amount tnum">$99.99</p>
+          <p class="saving">$109.98 booked separately. You save <b class="tnum">$9.99</b>.</p>
+          <div class="line"></div>
+          <ul class="checks"><li>Exterior Basic</li><li>Interior Basic</li></ul>
+          <a class="btn btn-glass" href="#book">Book this service <span class="arrow" aria-hidden="true">→</span></a>
+        </article>
+        <article class="price-card featured">
+          <span class="tag">Complete</span>
+          <h3>Full Detail Bundle</h3>
+          <p class="amount tnum">$209.99</p>
+          <p class="saving">$229.98 booked separately. You save <b class="tnum">$19.99</b>.</p>
+          <div class="line"></div>
+          <ul class="checks"><li>Exterior Deluxe</li><li>Interior Deluxe</li><li>Steam cleaning included</li></ul>
+          <a class="btn btn-gold shine" href="#book">Book this service <span class="arrow" aria-hidden="true">→</span></a>
+        </article>
+      </div>
+    </section>
+
+    <section class="svc-group" id="svc-protection" aria-labelledby="gAddons">
+      <div class="group-head">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3l7 2.6v5.4c0 4.6-3 8.1-7 9.5-4-1.4-7-4.9-7-9.5V5.9z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></g></svg>
+        <h2 class="display" id="gAddons">Protection and add-ons</h2>
+        <p>Added to a detail, never booked on their own.</p>
+      </div>
+      <div class="price-grid">
+        <article class="price-card featured">
+          <span class="tag">Protection</span>
+          <h3>Perfect Finish Sealant</h3>
+          <p class="amount tnum"><small>From</small>$44.99</p>
+          <div class="line"></div>
+          <dl class="sizes">
+            <div><dt>Car, coupe or sedan</dt><dd class="tnum">$44.99</dd></div>
+            <div><dt>Crossover, SUV or minivan</dt><dd class="tnum">$54.99</dd></div>
+            <div><dt>Truck or large SUV</dt><dd class="tnum">$64.99</dd></div>
+          </dl>
+          <ul class="fine-list"><li>Paint protection added after a wash, with an exterior service.</li><li>Lasts about 8 to 12 weeks. Don't wash the car for about 24 hours afterwards.</li></ul>
+        </article>
+        <article class="price-card">
+          <h3>Steam Cleaning</h3>
+          <p class="amount tnum">$49.99</p>
+          <div class="line"></div>
+          <ul class="checks"><li>Deep steam treatment for carpets, upholstery and interior surfaces</li><li>Already included in Interior Deluxe and the Full Detail Bundle</li></ul>
+        </article>
+      </div>
+    </section>
+
+    <div class="svc-notes">
+      <div><h3>Mobile service</h3><p>We come to you within about 10 miles of Parker. Mobile adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles. We use your outdoor water and power.</p></div>
+      <div><h3>Larger vehicles</h3><p>Prices shown are for standard-size vehicles. For a larger vehicle, we tell you the price before we confirm.</p></div>
+      <div><h3>Payment</h3><p>You pay in person. Nothing is charged online.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ OTHER PAGES (until they're built) -->
+<div class="view" data-view="page" hidden>
+  <section class="page">
+    <div class="card">
+      <p class="eyebrow" id="pgEyebrow">Coming next</p>
+      <h1 class="display" id="pgTitle">Page</h1>
+      <p id="pgText"></p>
+      <div id="pgExtra"></div>
+      <div class="actions">
+        <a class="btn btn-gold shine" href="#book" id="pgPrimary">Book Now <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn btn-glass" href="#home">Back to home</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="foot-brand" href="#home"><svg aria-hidden="true"><use href="#ad-mark"/></svg><span><b>Alchemist</b><small>Detailing</small></span></a>
+        <p class="script foot-script">Our chemicals make your car shine like gold ✦</p>
+      </div>
+      <div><h4>Where</h4><p>Parker, Texas</p><p>Mobile within about 10 miles</p></div>
+      <div><h4>Hours</h4><p>Every day</p><p>Start times 10 AM – 7 PM</p></div>
+      <div><h4>Contact</h4><a href="tel:+19453617551" class="tnum">(945) 361-7551</a><a href="#book">Book online</a><a href="#services">Services and prices</a></div>
+    </div>
+    <div class="fine"><span>© 2026 Alchemist Detailing</span><span>Prices are for standard-size vehicles. Payment in person.</span></div>
+  </div>
+</footer>
+
+<div class="veil" id="veil" aria-hidden="true"></div>
+<!-- BODY END -->
+<script src="js/hero-gl.js"></script>
+<script src="js/foam.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

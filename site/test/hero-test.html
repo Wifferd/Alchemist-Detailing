@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8">
+<style>html,body{margin:0;height:100%;background:#000}canvas{width:100vw;height:100vh;display:block}</style>
+<canvas id="c"></canvas>
+<script src="../js/hero-gl.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+AlchemistHero.start(document.getElementById('c'), { scene: q.get('scene') || 'beads', time: +(q.get('t') || 10), still: true, scale: +(q.get('s') || 1) });
+</script>

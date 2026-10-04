@@ -1,0 +1,9 @@
+# Build output and local files
+dist/
+shots/
+node_modules/
+.DS_Store
+.env
+.env.*
+# Never commit secret keys (the publishable key in site/js/config.js is public by design)
+*.secret

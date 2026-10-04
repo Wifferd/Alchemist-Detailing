@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8">
+<style>html,body{margin:0;background:#000}body{display:flex;gap:12px;padding:12px;flex-wrap:wrap}canvas{display:block;border-radius:18px}</style>
+<script src="../js/hero-gl.js"></script>
+<script>
+addEventListener('DOMContentLoaded', () => {
+const q = new URLSearchParams(location.search);
+const scenes = (q.get('scenes') || 'gloss,leather,split,beads').split(',');
+const w = +(q.get('w') || 300), h = +(q.get('h') || 470), t = +(q.get('t') || 10.2);
+for (const s of scenes) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; c.style.width = w + 'px'; c.style.height = h + 'px';
+  document.body.appendChild(c);
+  const src = AlchemistHero.art(s, w, h, s === 'beads' ? t - 1.2 : t);
+  c.getContext('2d').drawImage(src, 0, 0);
+}
+});
+</script>
