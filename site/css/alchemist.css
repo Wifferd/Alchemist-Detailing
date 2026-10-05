@@ -485,7 +485,7 @@ section { position: relative; }
 .foam-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
 .cannon {
   position: absolute;
-  z-index: 3;
+  z-index: 5;   /* in front of the foam it sprays */
   left: 0;
   bottom: -2vh;
   width: clamp(250px, 36vw, 560px);
@@ -495,7 +495,8 @@ section { position: relative; }
   pointer-events: none;
   will-change: transform;
 }
-.cannon svg { width: 100%; height: auto; overflow: visible; transform: scaleX(-1); filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .7)); }
+.cannon img { display: block; width: 100%; height: auto; filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .7)); }
+.cannon i { position: absolute; width: 1px; height: 1px; }
 
 .wash-services {
   position: absolute;

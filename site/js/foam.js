@@ -59,7 +59,7 @@
   // Where and when every blob of foam lands. Coordinates: x in [0, aspect],
   // y in [0, 1] from the top. A blob lands when the stream reaches it, so the
   // left lands first and the right last, in a band that leans with the spray.
-  function sweepRange(asp) { return [-0.02, asp + 0.06]; }
+  function sweepRange(asp) { return [-0.2, asp + 0.06]; }
   function layout(asp, seed) {
     const R = mulberry32(seed);
     const out = [];
