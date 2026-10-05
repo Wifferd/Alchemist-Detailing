@@ -175,7 +175,7 @@
   }
   // keyboard users who tab into the services before they're revealed jump to the reveal
   $('#washServices').addEventListener('focusin', () => {
-    if (wash && !$('#washStage').classList.contains('revealed')) window.scrollTo({ top: wash.progressTo(1), behavior: 'auto' });
+    if (wash && !$('#washStage').classList.contains('revealed')) wash.finish();
   });
 
   // ---------------------------------------------------------------- motion (doc 18 design upgrade, first pass)
@@ -332,7 +332,7 @@
       e.preventDefault();
       const go = () => {
         let y = 0;
-        if (a.dataset.scroll === 'services') y = wash ? wash.progressTo(1) : $('#wash').getBoundingClientRect().top + window.scrollY;
+        if (a.dataset.scroll === 'services') { y = $('#wash').getBoundingClientRect().top + window.scrollY; if (wash) wash.begin(); }
         else y = $('#' + a.dataset.scroll).getBoundingClientRect().top + window.scrollY - 40;
         window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
       };
@@ -375,5 +375,5 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(settle); else setTimeout(settle, 300);
 
   // used by the screenshot checks
-  window.__alchemist = { wash, goTo: (p) => wash && window.scrollTo(0, wash.progressTo(p)) };
+  window.__alchemist = { wash, goTo: (p) => { if (!wash) return; window.scrollTo(0, wash.top()); wash.seek(p); } };
 })();

@@ -70,7 +70,7 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 
 | Path | What |
 | --- | --- |
-| `site/` | The website: `index.html`, `css/alchemist.css`, `js/hero-gl.js` (hero and still pictures), `js/foam.js` (the scroll-controlled wash), `js/app.js` (menu, routing, page logic), `js/config.js` (Supabase URL and publishable key), `img/` |
+| `site/` | The website: `index.html`, `css/alchemist.css`, `js/hero-gl.js` (hero and still pictures), `js/foam.js` (the wash: plays once, left to right, on its own clock), `js/app.js` (menu, routing, page logic), `js/config.js` (Supabase URL and publishable key), `img/` |
 | `brand/` | The owner's logo (`logo-source.png`), the redrawn AD monogram (`ad-mark.svg`, path data), metallic cut-outs, and the scripts that made them |
 | `supabase/migrations/` | Migration 001 (six files, both projects) and Migration 002 (two files dated 20261005, test project only so far) |
 | `supabase/functions/` | Edge Functions: `admin-create-team-account`, `cleanup-unattached-photos` |

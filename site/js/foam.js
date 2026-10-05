@@ -1,9 +1,10 @@
 /* Alchemist Detailing — the wash.
-   A foam cannon slides in and sprays the screen, foam builds up from the edges
-   until the screen is covered, then a sheet of rinse water sweeps it away and
-   the services appear. Scroll position drives every step, so scrolling back
-   plays it in reverse. While the visitor keeps scrolling through the spray,
-   the cannon fires a live stream of foam; when they stop, it stops.
+   When the stage comes into view the foam cannon walks in from the left and
+   sprays a steady stream across the screen, left to right, until the screen is
+   covered; then a sheet of rinse water sweeps across and the services appear.
+   It plays once, on its own clock, and stays finished: scrolling never rewinds
+   it, and the page itself never pins or stretches for it. The clock only runs
+   while the stage is on screen, so leaving mid-wash pauses it.
 
    Rendering, in two WebGL passes:
      1. Every foam blob is drawn as a soft disc into a small field texture
@@ -16,17 +17,21 @@
 (function () {
   'use strict';
 
-  // Timeline, as progress through the pinned section (0..1).
+  // Timeline, as a fraction of the whole wash (0..1); DUR is the wash in ms.
+  const DUR = 8200;
   const T = {
-    cannonIn: [0.015, 0.11],
-    spray: [0.09, 0.50],       // foam lands, edges first
-    cannonOut: [0.50, 0.60],
-    titleOut: [0.17, 0.42],
-    sag: [0.42, 0.80],         // the foam slides down a little
-    rinse: [0.58, 0.88],       // the water sheet sweeps across
-    drops: [0.83, 0.97],       // droplets left on the glass fade away
+    cannonIn: [0.0, 0.1],
+    spray: [0.08, 0.56],       // the nozzle sweeps left to right; foam lands along the stream
+    cannonOut: [0.56, 0.66],
+    titleOut: [0.14, 0.4],
+    sag: [0.45, 0.82],         // the foam slides down a little
+    rinse: [0.62, 0.9],        // the water sheet sweeps across
+    drops: [0.86, 0.985],      // droplets left on the glass fade away
   };
-  const CANNON_ROT = 24;       // degrees: nozzle points up and to the left
+  const CANNON_ROT = -58;      // degrees: nozzle points up and to the right
+  const BAND = 0.34;           // the stream leans right as it rises: landing x = nozzle x + BAND * height above the nozzle
+  const NOZ_Y = 0.9;           // nozzle height used for the landing map (screen units, y down)
+  const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
 
   const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
   const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -45,8 +50,8 @@
     };
   }
 
-  // The rinse sweeps mostly downward, leaning right (screen space, y down).
-  const D = (() => { const x = 0.42, y = 1, l = Math.hypot(x, y); return [x / l, y / l]; })();
+  // The rinse sweeps left to right, leaning down a little (screen space, y down).
+  const D = (() => { const x = 1, y = 0.36, l = Math.hypot(x, y); return [x / l, y / l]; })();
   function front(p, asp) {
     const k = clamp((p - T.rinse[0]) / (T.rinse[1] - T.rinse[0]), 0, 1);
     const sMin = -0.3, sMax = asp * D[0] + D[1] + 0.32;
@@ -54,7 +59,9 @@
   }
 
   // Where and when every blob of foam lands. Coordinates: x in [0, aspect],
-  // y in [0, 1] from the top. Edges are covered first, the centre last.
+  // y in [0, 1] from the top. A blob lands when the stream reaches it, so the
+  // left lands first and the right last, in a band that leans with the spray.
+  function sweepRange(asp) { return [-0.02, asp + 0.06]; }
   function layout(asp, seed) {
     const R = mulberry32(seed);
     const out = [];
@@ -62,15 +69,16 @@
     const x0 = -0.1, y0 = -0.1, w = asp + 0.2, h = 1.2;
     const nx = Math.max(3, Math.round(w / g)), ny = Math.round(h / g);
     const gx = w / nx, gy = h / ny;
-    const maxE = Math.min(asp, 1) * 0.5;
-    const span = T.spray[1] - T.spray[0] - 0.06;
+    const [xs, xe] = sweepRange(asp);
+    const span = T.spray[1] - T.spray[0] - 0.03;
     for (let j = 0; j < ny; j++) {
       for (let i = 0; i < nx; i++) {
         const x = x0 + (i + 0.5 + (R() - 0.5) * 0.85) * gx;
         const y = y0 + (j + 0.5 + (R() - 0.5) * 0.85) * gy;
         const r = g * (1.0 + R() * 0.5);
-        const e = clamp(Math.min(x, asp - x, y, 1 - y) / maxE, 0, 1);
-        const a = T.spray[0] + 0.012 + span * clamp(e * 0.86 + (R() - 0.5) * 0.3 + 0.05, 0, 1);
+        const need = x - BAND * (NOZ_Y - y);               // nozzle x at which the stream reaches this spot
+        const u = clamp((need - xs) / (xe - xs) + (R() - 0.5) * 0.06, 0, 1);
+        const a = T.spray[0] + 0.006 + span * easeInOutSine(u);
         out.push({ x, y, r, a, w: R(), k: 0, n: 0, L: 0 });
       }
     }
@@ -383,32 +391,52 @@ void main(){
     }
 
     // ---------------------------------------------------------------- live spray stream
+    // Globs leave the nozzle and arc up to a point on the landing band, where the
+    // foam appears; the arc bends over like a real stream under gravity.
     const parts = [];
-    function spawn(now, noz, dir, count) {
-      const base = Math.atan2(dir[1], dir[0]);
-      for (let i = 0; i < count && parts.length < 170; i++) {
-        const ang = base + (Math.random() - 0.5) * 0.95;
-        const dist = 0.3 + Math.random() * 1.15;
+    function spawn(now, noz, count) {
+      for (let i = 0; i < count && parts.length < 240; i++) {
+        const y1 = -0.04 + Math.random() * 1.06;
+        const x1 = noz[0] + BAND * (noz[1] - y1) + (Math.random() - 0.5) * 0.1;
+        const rise = Math.max(0.05, noz[1] - y1);
         parts.push({
-          x0: noz[0], y0: noz[1],
-          x1: noz[0] + Math.cos(ang) * dist, y1: noz[1] + Math.sin(ang) * dist,
-          t0: now, dur: 240 + Math.random() * 240, r1: 0.014 + Math.random() * 0.026,
+          x0: noz[0], y0: noz[1], x1, y1,
+          cx: (noz[0] + x1) / 2 + 0.04 + rise * 0.1, cy: Math.min(noz[1], y1) - 0.06 - rise * 0.12,
+          t0: now, dur: 220 + rise * 330 + Math.random() * 120, r1: 0.013 + Math.random() * 0.024,
         });
       }
     }
 
     // ---------------------------------------------------------------- per-frame state
-    let p = 0, lastP = null, lastT = performance.now(), vel = 0, spray = 0, carry = 0;
-    let noz = [asp * 0.7, 0.8], dir = [-0.9, -0.42];
+    let p = 0, lastT = performance.now(), spray = 0, carry = 0;
+    let noz = [0, NOZ_Y], dir = [BAND, -1];
     let drewLast = false, active = false, raf = 0;
     let slowFrames = 0, shrink = false;
     const adaptive = o.adaptive !== false;
     const t0 = performance.now();
+    let started = false, elapsed = 0, frozen = null;   // the wash's own clock; frozen is set by seek()
+    let tipOff = 0, cannonW = 0;                       // the nozzle's x inside the cannon element, and its width (px)
 
-    function progress() {
-      const r = section.getBoundingClientRect();
-      const total = r.height - innerHeight;
-      return total > 0 ? clamp(-r.top / total, 0, 1) : 0;
+    function progress(dt) {
+      if (frozen != null) return frozen;
+      if (started) elapsed = Math.min(DUR, elapsed + dt * 1000);
+      return elapsed / DUR;
+    }
+    function begin() { if (!started) { started = true; setActive(true); } }
+    function finish() { started = true; elapsed = DUR; }
+
+    // the cannon's nozzle, in screen units, across the whole wash
+    function measureCannon() {
+      cannon.style.transform = `rotate(${CANNON_ROT}deg)`;
+      const sr = stage.getBoundingClientRect(), a = tip.getBoundingClientRect(), c = cannon.getBoundingClientRect();
+      tipOff = a.left + a.width / 2 - sr.left; cannonW = c.width;
+    }
+    function nozzleX(p, cw, ch) {
+      const [xs, xe] = sweepRange(asp);
+      const hidden = (tipOff - cannonW - 40) / ch, gone = (cw + tipOff + 40) / ch;
+      if (p < T.spray[0]) return lerp(hidden, xs, easeOut3(clamp((p - T.cannonIn[0]) / (T.cannonIn[1] - T.cannonIn[0]), 0, 1)));
+      if (p < T.cannonOut[0]) return lerp(xs, xe, easeInOutSine(clamp((p - T.spray[0]) / (T.spray[1] - T.spray[0]), 0, 1)));
+      return lerp(xe, gone, easeIn2(clamp((p - T.cannonOut[0]) / (T.cannonOut[1] - T.cannonOut[0]), 0, 1)));
     }
 
     function readNozzle() {
@@ -459,9 +487,10 @@ void main(){
         const k = (now - q.t0) / q.dur;
         if (k >= 1) { parts.splice(i, 1); continue; }
         for (let j = 0; j < 3; j++) {   // the glob and a short trail behind it
-          const kk = Math.max(0, k - j * 0.07);
-          const e = Math.pow(kk, 1.4);
-          writeBlob(n++, lerp(q.x0, q.x1, e), lerp(q.y0, q.y1, e), q.r1 * (0.12 + 0.88 * kk * kk) * (1 - j * 0.28), -1);
+          const kk = Math.max(0, k - j * 0.06);
+          const e = 1 - Math.pow(1 - kk, 1.6), f = 1 - e;
+          const x = f * f * q.x0 + 2 * f * e * q.cx + e * e * q.x1, y = f * f * q.y0 + 2 * f * e * q.cy + e * e * q.y1;
+          writeBlob(n++, x, y, q.r1 * (0.2 + 0.8 * kk) * (1 - j * 0.28), -1);
         }
       }
       return n;
@@ -531,31 +560,29 @@ void main(){
       lastT = now;
       if (shrink) { shrink = false; W = 0; measure(); }
       readNozzle();   // last frame's cannon position: no forced layout
-      p = progress();
+      p = progress(dt);
       const fr = front(p, asp);
 
-      // spray strength follows forward scrolling through the spray window
-      const v = lastP == null ? 0 : (p - lastP) / dt;
-      lastP = p;
-      vel = lerp(vel, v, 1 - Math.exp(-dt * 12));
-      const cin = clamp((p - T.cannonIn[0]) / (T.cannonIn[1] - T.cannonIn[0]), 0, 1);
-      const cout = clamp((p - T.cannonOut[0]) / (T.cannonOut[1] - T.cannonOut[0]), 0, 1);
-      const inWindow = p > T.spray[0] - 0.005 && p < T.spray[1] + 0.02 && cin > 0.6;
-      const target = inWindow ? clamp(vel * 7, 0, 1) : 0;
-      spray = lerp(spray, target, 1 - Math.exp(-dt * (target > spray ? 14 : 7)));
-      if (spray > 0.04) {
-        carry += spray * 95 * dt;
+      // a steady stream while the nozzle sweeps; it ramps up and trails off
+      const inWindow = p > T.cannonIn[1] * 0.75 && p < T.spray[1] - 0.01;   // the cannon is on screen before it fires
+      const target = inWindow ? 1 : 0;
+      spray = lerp(spray, target, 1 - Math.exp(-dt * (target > spray ? 9 : 6)));
+      if (spray > 0.04 && frozen == null) {
+        carry += spray * 120 * dt;
         const c = Math.floor(carry);
         carry -= c;
-        if (c > 0) spawn(now, noz, dir, c);
+        if (c > 0) spawn(now, noz, c);
       }
 
-      // the cannon: slides in, kicks a little while firing, slides out
-      const cx = 1 - easeOut3(cin) + easeIn2(cout);
-      const kick = spray * 1.6;
+      // the cannon walks in from the left, sweeps across while firing, and leaves on the right
+      const cw = canvas.clientWidth || 1, ch = canvas.clientHeight || 1;
+      const nx = nozzleX(p, cw, ch) * ch - tipOff;
+      const walk = Math.sin((now - t0) / 1000 * Math.PI * 2 * 1.5);
+      const bob = walk * 4 * spray, sway = walk * 1.2 * spray;
+      const kick = spray * 0.9;
       const jx = (Math.random() - 0.5) * kick, jy = (Math.random() - 0.5) * kick;
-      cannon.style.transform = `translate(${(cx * 70).toFixed(2)}%, ${(cx * 60).toFixed(2)}%) rotate(${CANNON_ROT}deg) translate(${jx.toFixed(2)}px, ${jy.toFixed(2)}px)`;
-      cannon.style.visibility = cx >= 0.999 ? 'hidden' : 'visible';
+      cannon.style.transform = `translate(${nx.toFixed(1)}px, ${(bob + jy).toFixed(2)}px) rotate(${(CANNON_ROT + sway).toFixed(2)}deg) translate(${jx.toFixed(2)}px, 0)`;
+      cannon.style.visibility = p <= 0 || p >= T.cannonOut[1] ? 'hidden' : 'visible';
 
       // page state that follows the wash
       stage.style.setProperty('--title-out', sstep(T.titleOut[0], T.titleOut[1], p).toFixed(3));
@@ -568,7 +595,7 @@ void main(){
       }
 
       // draw only while there's something to show
-      const visible = (p > T.spray[0] - 0.005 && p < T.drops[1] + 0.01) || parts.length > 0 || spray > 0.01;
+      const visible = (p > T.spray[0] - 0.01 && p < T.drops[1] + 0.01) || parts.length > 0 || spray > 0.01;
       if (visible) {
         draw(now, fr);
         drewLast = true;
@@ -584,23 +611,26 @@ void main(){
     function setActive(on) {
       if (on === active) return;
       active = on;
-      if (on) { lastT = performance.now(); lastP = null; measure(); raf = requestAnimationFrame(frame); }
+      if (on) { lastT = performance.now(); measure(); measureCannon(); raf = requestAnimationFrame(frame); }
       else cancelAnimationFrame(raf);
     }
+    // the frame loop runs while the stage is near the screen; the wash starts once half of it is in view
     const io = new IntersectionObserver((es) => setActive(es[0].isIntersecting), { rootMargin: '25% 0px 25% 0px' });
-    io.observe(section);
+    io.observe(stage);
+    const io2 = new IntersectionObserver((es) => { if (es[0].isIntersecting) { begin(); io2.disconnect(); } }, { threshold: 0.5 });
+    io2.observe(stage);
     let rt = 0;
-    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { W = 0; measure(); }, 120); });
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { W = 0; measure(); measureCannon(); }, 120); });
 
     return {
-      debug() { return { p, lastN, lastFr, W, H, fw, fh, asp, blobs: blobs.length, parts: parts.length, err: gl.getError(), drewLast }; },
-      refresh() { W = 0; measure(); },
-      progressTo(target) {   // scroll position for a given progress
-        const r = section.getBoundingClientRect();
-        return scrollY + r.top + (r.height - innerHeight) * target;
-      },
+      debug() { return { p, lastN, lastFr, W, H, fw, fh, asp, blobs: blobs.length, parts: parts.length, err: gl.getError(), drewLast, started, elapsed }; },
+      refresh() { W = 0; measure(); measureCannon(); },
+      begin, finish,
+      done() { return p >= 1; },
+      seek(target) { frozen = target == null ? null : clamp(target, 0, 1); started = true; if (frozen != null) elapsed = frozen * DUR; setActive(true); },   // for the screenshot checks
+      top() { return scrollY + stage.getBoundingClientRect().top; },
     };
   }
 
-  window.AlchemistWash = { start, T };
+  window.AlchemistWash = { start, T, DUR };
 })();

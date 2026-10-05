@@ -26,13 +26,12 @@ async def main():
             elif act.startswith('y='):
                 await pg.evaluate(f'window.scrollTo(0,{act[2:]})')
             elif act.startswith('p='):
-                # approach the target gradually so the spray reacts like a real scroll
+                # freeze the wash at a progress; let the live stream settle first so a few globs are in flight
                 target = float(act[2:])
-                await pg.evaluate(f'window.__alchemist.goTo({max(0, target - 0.02)})')
+                await pg.evaluate(f'window.__alchemist.goTo({max(0, target - 0.015)})')
+                await pg.wait_for_timeout(250)
+                await pg.evaluate(f'window.__alchemist.goTo({target})')
                 await pg.wait_for_timeout(120)
-                for k in range(1, 5):
-                    await pg.evaluate(f'window.__alchemist.goTo({max(0, target - 0.02) + 0.02 * k / 4})')
-                    await pg.wait_for_timeout(60)
             elif act.startswith('sel='):
                 await pg.evaluate(f'document.querySelector({act[4:]!r}).scrollIntoView({{block:"start"}})')
             elif act.startswith('route='):
