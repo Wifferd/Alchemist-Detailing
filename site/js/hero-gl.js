@@ -39,8 +39,8 @@ float noise(vec2 p){
   return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a*noise(p); p = p*2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
-const vec3 GOLD = vec3(1.0, 0.66, 0.20);      // the logo's saturated gold
-const vec3 GOLD_HI = vec3(1.0, 0.83, 0.50);
+const vec3 GOLD = vec3(1.0, 0.78, 0.38);      // the logo's saturated gold
+const vec3 GOLD_HI = vec3(1.0, 0.90, 0.64);
 // The gold light: a soft-edged streak that sweeps diagonally across the surface.
 float lightPos(float t){ return fract(t*0.075 + 0.62)*3.6 - 1.4; }
 vec3 finish(vec3 c, vec2 uv){
@@ -63,7 +63,7 @@ vec3 env(vec2 q, float t, float sharp){
   float w = waviness(q);
   float pp = sin(t*0.07)*0.55;
   float dp = (q.x*0.55 + q.y*0.84) - pp + w*2.0;
-  c += vec3(0.030, 0.026, 0.020)*exp(-dp*dp*2.2) + vec3(0.012, 0.012, 0.015)*exp(-dp*dp*0.5);
+  c += vec3(0.026, 0.026, 0.028)*exp(-dp*dp*2.2) + vec3(0.012, 0.012, 0.015)*exp(-dp*dp*0.5);
   float d = (q.x*0.82 - q.y*0.57) - lightPos(t) + w;
   float k = mix(30.0, 420.0, sharp);
   float core = exp(-d*d*k);
@@ -174,14 +174,14 @@ vec3 leather(vec2 uv, float asp, float t){
   vec2 grain = -c1.yz*0.22*smoothstep(0.02, 0.45, c1.x);
   vec3 n = normalize(vec3(-grad*0.055 + grain, 1.0));
   float key = exp(-dot(q - vec2(-0.45, 0.55), q - vec2(-0.45, 0.55))*1.1);
-  vec3 base = vec3(0.064, 0.054, 0.047);
+  vec3 base = vec3(0.055, 0.055, 0.058);
   float diff = clamp(dot(n, L), 0.0, 1.0);
   vec3 col = base*(0.25 + 1.0*key)*(0.35 + 0.95*diff);
   col *= 0.55 + 0.45*smoothstep(0.0, 0.35, h);        // creases at the stitches
   col *= 0.92 + (fbm(q*5.0 + 2.0) - 0.5)*0.3;
   vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
   float spec = pow(max(dot(n, H), 0.0), 14.0);
-  col += vec3(0.16, 0.14, 0.12)*spec*(0.25 + key)*0.8;
+  col += vec3(0.15, 0.15, 0.16)*spec*(0.25 + key)*0.8;
   float d = (q.x*0.82 - q.y*0.57) - lightPos(t)*0.8;
   float band = exp(-d*d*3.5);
   col += GOLD*band*(0.02 + spec*0.42)*uIntro;
@@ -197,7 +197,7 @@ vec3 leather(vec2 uv, float asp, float t){
     if (a < 1.0){
       float br = sqrt(max(1.0 - a*a, 0.0));
       float sh = 0.45 + 0.7*br*(0.55 + 0.45*sin(st*3.1416));
-      vec3 th = vec3(0.86, 0.6, 0.24)*sh*(0.45 + key*0.75);
+      vec3 th = vec3(0.92, 0.74, 0.36)*sh*(0.45 + key*0.75);
       th += vec3(1.0, 0.9, 0.7)*pow(br, 10.0)*(0.12 + band*0.9)*uIntro;
       col = mix(col, th, dash*smoothstep(1.0, 0.7, a));
       col *= 1.0 - (1.0 - dash)*0.5*smoothstep(1.0, 0.0, a);   // needle holes
@@ -232,7 +232,7 @@ void main(){
     vec3 b = leather(uv, asp, uTime + 3.0);
     c = mix(b, a, smoothstep(-0.004, 0.004, m));
     float trim = exp(-m*m*26000.0);
-    c = mix(c, vec3(1.0, 0.72, 0.28), trim*0.9);
+    c = mix(c, vec3(1.0, 0.80, 0.42), trim*0.9);
     c += GOLD*exp(-m*m*900.0)*0.12;
   }
   gl_FragColor = vec4(finish(c, uv), 1.0);
