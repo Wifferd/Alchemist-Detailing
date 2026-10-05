@@ -10,7 +10,7 @@
   const glOk = (() => { try { return !!document.createElement('canvas').getContext('webgl'); } catch (e) { return false; } })();
   if (!glOk) root.classList.add('no-webgl');
 
-  const NAMES = { home: 'Home', services: 'Services', book: 'Book', appointments: 'Appointments', reviews: 'Reviews', tips: 'Tips', faq: 'FAQ', about: 'About', contact: 'Contact', account: 'Account', admin: 'Admin' };
+  const NAMES = { home: 'Home', services: 'Services', book: 'Book', appointments: 'Appointments', reviews: 'Reviews', tips: 'Tips', faq: 'FAQ', about: 'About', contact: 'Contact', account: 'Account', admin: 'Admin', team: 'Team' };
   const PHONE = '(945) 361-7551', TEL = 'tel:+19453617551';
   // Pages that come later in the build. Nothing here is a feature that exists yet.
   const PAGES = {
@@ -203,7 +203,7 @@
   }
   function render(first) {
     const { r, sub } = parse();
-    const view = ['home', 'services', 'book', 'account', 'appointments', 'admin'].includes(r) ? r : 'page';
+    const view = ['home', 'services', 'book', 'account', 'appointments', 'admin', 'team'].includes(r) ? r : 'page';
     if (cur) memo[cur] = window.scrollY;
     const changed = r !== cur;
     if (changed) {
@@ -219,6 +219,7 @@
       if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
       if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
       if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
+      if (view === 'team' && window.AlchemistTeam) window.AlchemistTeam.mount($('#teamApp'));
       setName(NAMES[r]);
       $$('nav a', menu).forEach((a) => {
         if (a.getAttribute('href') === '#' + r) a.setAttribute('aria-current', 'page');
