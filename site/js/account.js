@@ -12,7 +12,7 @@
   const roots = { account: null, appointments: null };
   const signin = { phone: '', first: '', sent: false, busy: false };
   const acct = { first: '', last: '', vehicles: [], editing: null, form: null, loading: true, saved: false };
-  const appts = { list: null, open: null };
+  const appts = { list: null, open: null, reviews: null, form: null };
 
   function load() {
     if (ready) return ready;
@@ -142,7 +142,7 @@
     root.replaceChildren(el('div.bk-loading', el('span.bk-spin'), 'Loading…'));
     await load();
     if (!session) { root.replaceChildren(shell('Appointments', 'Your details', el('div.bk-grid', el('p.bk-muted', 'Sign in to see your upcoming and past details.'), signInBox(renderAppointments)))); return; }
-    if (appts.list == null) { try { appts.list = await D.myBookings(); } catch (e) { appts.list = []; toast(e.message); } }
+    if (appts.list == null) { try { [appts.list, appts.reviews] = await Promise.all([D.myBookings(), D.myReviews().catch(() => [])]); } catch (e) { appts.list = []; appts.reviews = []; toast(e.message); } }
     const today = D.helpers.isoDate(D.helpers.todayLocal());
     const live = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= today;
     const upcoming = appts.list.filter(live), past = appts.list.filter((b) => !live(b));
@@ -172,8 +172,24 @@
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
           b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))] : null),
         el('div.bk-summary-card', priceLines(b)),
+        b.status === 'completed' ? reviewBlock(b) : null,
         el('p.bk-muted', 'Payment in person after your detail. To cancel or change, call ' + phone + '.')) : null);
     return c;
+  }
+  function reviewBlock(b) {
+    const mine = (appts.reviews || []).find((r) => r.appointment_id === b.id);
+    if (mine) return el('div.rv-mine', el('span.eyebrow', mine.status === 'approved' ? 'Your review is published' : mine.status === 'hidden' ? 'Your review' : 'Your review is waiting for approval'),
+      el('p', '\u2726'.repeat(mine.rating) + ' ' + mine.body), mine.owner_reply ? el('p.bk-muted', 'Alchemist replied: ' + mine.owner_reply) : null);
+    const f = appts.form && appts.form.id === b.id ? appts.form : null;
+    if (!f) return el('div', el('button.btn.btn-gold', { type: 'button', onclick: () => { appts.form = { id: b.id, rating: 5, body: '' }; renderAppointments(); } }, 'Leave a review'));
+    const box = el('div.adm-panel', { dataset: { field: 'review' } }, el('h3.bk-h2', 'How was your detail?'),
+      el('div.star-pick', { role: 'radiogroup', 'aria-label': 'Rating' }, [1, 2, 3, 4, 5].map((i) => el('button', { type: 'button', role: 'radio', 'aria-checked': f.rating === i ? 'true' : 'false', class: i <= f.rating ? 'on' : '', 'aria-label': i + ' stars', onclick: () => { f.rating = i; renderAppointments(); } }, '\u2726'))),
+      field({ id: 'review_body', label: 'A few words', required: true, multiline: true, rows: 3, maxlength: 1000, value: f.body, hint: 'Shown with your first name and last initial once the owner approves it. No links.', oninput: (e) => { f.body = e.target.value; } }),
+      el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: async () => {
+        try { await D.submitReview(b.id, f.rating, f.body); appts.form = null; appts.list = null; toast('Thank you! Your review is waiting for approval.'); renderAppointments(); }
+        catch (e) { if (!showError(roots.appointments, e.hint === 'body' ? 'review_body' : e.hint, e.message)) toast(e.message); }
+      } }, 'Send review'), el('button.btn.btn-glass', { type: 'button', onclick: () => { appts.form = null; renderAppointments(); } }, 'Cancel')));
+    return box;
   }
   function priceLines(b) {
     const rows = (b.lines || []).map((l) => el('div.pr-line', { class: l.included ? 'inc' : '' }, el('span', l.name, l.included ? el('small', ' · Included') : null), el('span.tnum', l.included ? '$0.00' : l.price_cents == null ? 'Confirmed by us' : money(l.price_cents))));

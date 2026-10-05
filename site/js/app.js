@@ -14,7 +14,6 @@
   const PHONE = '(945) 361-7551', TEL = 'tel:+19453617551';
   // Pages that come later in the build. Nothing here is a feature that exists yet.
   const PAGES = {
-    reviews: { eyebrow: 'Customers', title: 'Reviews', text: 'Reviews from Alchemist customers will appear here.' },
     tips: { eyebrow: 'Car care', title: 'Tips', text: 'Advice on keeping your car clean and protected between details is coming soon.' },
     faq: { eyebrow: 'Questions', title: 'FAQ', text: 'Answers to common questions are coming soon. Until then, call ' + PHONE + '.' },
     about: { eyebrow: 'Our story', title: 'About', text: 'The Alchemist story is coming soon.' },
@@ -203,7 +202,7 @@
   }
   function render(first) {
     const { r, sub } = parse();
-    const view = ['home', 'services', 'book', 'account', 'appointments', 'admin', 'team'].includes(r) ? r : 'page';
+    const view = ['home', 'services', 'book', 'account', 'appointments', 'admin', 'team', 'reviews'].includes(r) ? r : 'page';
     if (cur) memo[cur] = window.scrollY;
     const changed = r !== cur;
     if (changed) {
@@ -220,6 +219,7 @@
       if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
       if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
       if (view === 'team' && window.AlchemistTeam) window.AlchemistTeam.mount($('#teamApp'));
+      if (view === 'reviews' && window.AlchemistReviews) window.AlchemistReviews.mount($('#reviewsApp'));
       setName(NAMES[r]);
       $$('nav a', menu).forEach((a) => {
         if (a.getAttribute('href') === '#' + r) a.setAttribute('aria-current', 'page');

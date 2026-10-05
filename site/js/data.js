@@ -528,6 +528,53 @@
       await sb.auth.signOut();
     },
 
+    // ---- reviews (Migration 002 part 5) ----
+    async publicReviews() {
+      await init();
+      if (mode === 'preview') return previewReviews.filter((r) => r.status === 'approved').map((r) => ({ id: r.id, name: r.display_name, rating: r.rating, body: r.body, is_gold: r.is_gold, reply: r.owner_reply, created_at: r.created_at, services: r.services }));
+      return (await rpc('public_reviews', { p_limit: 50 })) || [];
+    },
+    async myReviews() {
+      await init();
+      if (mode === 'preview') return previewSession ? previewReviews.filter((r) => r.user_id === previewSession.userId) : [];
+      const { data, error } = await sb.from('reviews').select('id,appointment_id,rating,body,status,is_gold,owner_reply,created_at');
+      if (error) throw fromDb(error);
+      return data || [];
+    },
+    async submitReview(appointmentId, rating, body) {
+      await init();
+      const v = String(body || '').trim();
+      if (!(rating >= 1 && rating <= 5)) throw fail('invalid_input', 'Choose 1 to 5 stars.', 'rating');
+      if (!v || v.length > 1000 || /https?:\/\/|www\./i.test(v)) throw fail('invalid_input', 'Write a few words (under 1,000 characters, no links).', 'body');
+      if (mode === 'preview') {
+        const b = previewBookings.find((x) => x.id === appointmentId);
+        if (previewReviews.some((r) => r.appointment_id === appointmentId)) throw fail('wrong_state', "You've already reviewed this detail. Thank you!", 'appointment');
+        const s = previewSession || {};
+        const r = { id: uuid(), appointment_id: appointmentId, user_id: s.userId, rating, body: v, status: 'pending', is_gold: !!(b && b.total_cents >= 20000),
+          display_name: (s.firstName || 'A customer') + (s.lastName ? ' ' + s.lastName[0] + '.' : ''), owner_reply: null, created_at: new Date().toISOString(),
+          services: b ? b.lines.filter((l) => !l.included && !/^cond_/.test(l.code)).map((l) => l.name).join(' + ') : '' };
+        previewReviews.unshift(r); return r;
+      }
+      return rpc('submit_review', { p_appointment: appointmentId, p_rating: rating, p_body: v });
+    },
+    async allReviews() {
+      await init();
+      if (mode === 'preview') return previewReviews.slice();
+      const { data, error } = await sb.from('reviews').select('id,appointment_id,rating,body,status,is_gold,display_name,owner_reply,created_at').order('created_at', { ascending: false });
+      if (error) throw fromDb(error);
+      return data || [];
+    },
+    async reviewSetStatus(id, status) {
+      await init();
+      if (mode === 'preview') { const r = previewReviews.find((x) => x.id === id); if (r) r.status = status; return r; }
+      return rpc('review_set_status', { p_id: id, p_status: status });
+    },
+    async reviewReply(id, text) {
+      await init();
+      if (mode === 'preview') { const r = previewReviews.find((x) => x.id === id); if (r) r.owner_reply = (text || '').trim() || null; return r; }
+      return rpc('review_reply', { p_id: id, p_reply: text });
+    },
+
     // ---- staff side (the admin console and the team view) ----
     client() { return sb; },
     rpc(name, args) { return rpc(name, args); },
@@ -568,6 +615,7 @@
     },
   };
   let previewStaff = null;
+  const previewReviews = [];
 
   // Re-encode a picture through a canvas: location data and other metadata are
   // dropped, and very large pictures are brought down to a sensible size.

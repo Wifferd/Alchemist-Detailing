@@ -9,7 +9,7 @@
   const { el, money, minutesText, clock, longDate, shortDate, phonePretty, field, choices, miniBtn, showError, clearError, toast } = U;
   const H = () => D.helpers;
 
-  const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
+  const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
   const LANES = [['requests', 'Requests'], ['review', 'Review'], ['spam', 'Spam']];
   const STATUS = { requested: 'Requested', needs_information: 'Needs info', confirmed: 'Confirmed', in_progress: 'In progress', completed: 'Completed', declined: 'Declined', cancelled: 'Cancelled' };
 
@@ -111,7 +111,7 @@
     if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || phonePretty(staff.phone || '')) + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
     if (staff.mfaRequired && staff.aal !== 'aal2') return root.replaceChildren(shell('Authenticator', mfaStep()));
     if (st.bookings == null) { try { await loadBookings(); } catch (e) { st.bookings = []; toast(e.message); } }
-    const body = { morning: morning, requests: requests, calendar: calendar, customers: customers, team: team, settings: settingsScreen, log: logScreen }[screen];
+    const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, team: team, settings: settingsScreen, log: logScreen }[screen];
     root.replaceChildren(shell(SCREENS.find(([k]) => k === screen)[1], await body(), true));
   }
   function shell(title, body, nav) {
@@ -303,6 +303,36 @@
     try {
       if (D.isLive) { const { error } = await sb().from('business_settings').update({ customer_notice: text, updated_at: new Date().toISOString() }).eq('id', 1); if (error) throw error; }
       settings.customer_notice = text; toast('Note saved');
+    } catch (e) { toast(e.message || 'Not allowed'); }
+  }
+
+  async function reviewsScreen() {
+    if (st.reviews == null) { try { st.reviews = await D.allReviews(); } catch (e) { st.reviews = []; toast(e.message); } }
+    const groups = [['pending', 'Waiting for you'], ['approved', 'Published'], ['hidden', 'Hidden']];
+    const stars = (n) => '\u2726'.repeat(n) + '\u2727'.repeat(5 - n);
+    const card = (r) => el('article.appt.adm', { class: (r.is_gold ? 'gold ' : '') + 'open' },
+      el('div.appt-body',
+        el('div.rv-head', el('span.stars', stars(r.rating)), el('b', r.display_name), r.is_gold ? el('span.rv-gold', 'Gold detail') : null, el('span.bk-muted', new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))),
+        el('p.adm-quote', r.body),
+        r.owner_reply ? el('p.bk-muted', 'Your reply: ' + r.owner_reply) : null,
+        el('div.adm-actions',
+          r.status !== 'approved' ? el('button.btn.btn-gold', { type: 'button', onclick: () => rv('reviewSetStatus', r.id, 'approved', 'Published') }, 'Approve') : null,
+          r.status !== 'hidden' ? el('button.btn.btn-glass', { type: 'button', onclick: () => rv('reviewSetStatus', r.id, 'hidden', 'Hidden') }, 'Hide') : null,
+          el('button.btn.btn-glass', { type: 'button', onclick: () => { st.panel = { kind: 'reply', id: r.id, note: r.owner_reply || '' }; render(); } }, r.owner_reply ? 'Edit reply' : 'Reply')),
+        st.panel && st.panel.kind === 'reply' && st.panel.id === r.id ? el('div.adm-panel', field({ id: 'p_reply', label: 'Your public reply', multiline: true, rows: 2, maxlength: 1000, value: st.panel.note, oninput: (e) => { st.panel.note = e.target.value; } }),
+          el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => rv('reviewReply', r.id, st.panel.note, 'Reply saved') }, 'Save reply'), el('button.btn.btn-glass', { type: 'button', onclick: () => { st.panel = null; render(); } }, 'Back'))) : null));
+    async function rv(fn, id, arg, ok) { try { await D[fn](id, arg); st.reviews = null; st.panel = null; toast(ok); render(); } catch (e) { toast(e.message); } }
+    const link = el('section.acct-sec', el('h2.bk-h2', 'Google reviews link', el('small', 'shown on the Reviews page when set')),
+      field({ id: 'google_url', label: 'Link', optional: true, type: 'url', value: settings.google_reviews_url || '', hint: 'Starts with https://', oninput: (e) => { st.googleDraft = e.target.value; } }),
+      staff.role === 'admin' ? el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveGoogle }, 'Save link')) : null);
+    return el('div.bk-grid', groups.map(([k, title]) => { const list = st.reviews.filter((r) => r.status === k); return el('section.acct-sec', el('h2.bk-h2', title + ' \u00b7 ' + list.length), list.length ? list.map(card) : el('p.bk-muted', k === 'pending' ? 'No reviews waiting.' : '\u2014')); }), link);
+  }
+  async function saveGoogle() {
+    const text = (st.googleDraft != null ? st.googleDraft : settings.google_reviews_url || '').trim() || null;
+    if (text && !/^https:\/\//.test(text)) return toast('The link must start with https://');
+    try {
+      if (D.isLive) { const { error } = await sb().from('business_settings').update({ google_reviews_url: text, updated_at: new Date().toISOString() }).eq('id', 1); if (error) throw error; }
+      settings.google_reviews_url = text; toast('Link saved');
     } catch (e) { toast(e.message || 'Not allowed'); }
   }
 

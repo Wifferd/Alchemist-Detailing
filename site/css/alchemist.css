@@ -1070,3 +1070,24 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .bk-notice p { margin: 0; color: var(--ink); }
 @media (max-width: 980px) { .cal-cols.week { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-cols { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .appt.adm .appt-head { grid-template-columns: 1fr auto; } .cal-cols.week { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------------- reviews */
+.rv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.rv { display: grid; gap: 10px; padding: 22px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, #111111, #080808); }
+.rv.gold { border-color: rgba(226, 185, 82, .5); background: radial-gradient(120% 80% at 100% 0%, rgba(226, 185, 82, .14), transparent 60%), linear-gradient(180deg, #121212, #080808); --shine-delay: 2s; }
+.rv-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stars { color: var(--gold); letter-spacing: .1em; font-size: 15px; }
+.stars i { font-style: normal; opacity: .25; }
+.stars i.on { opacity: 1; }
+.rv-gold { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--gold-hi); font: 700 10px/1 var(--font-ui); letter-spacing: .18em; text-transform: uppercase; }
+.rv-body { margin: 0; color: var(--ink); font-size: 16px; line-height: 1.55; }
+.rv-who { margin: 0; color: var(--muted); font-size: 13.5px; }
+.rv-who b { color: var(--ink-2); font-weight: 600; }
+.rv-reply { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; border-left: 2px solid var(--gold); background: rgba(255, 255, 255, .03); }
+.rv-reply p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+.rv-mine { display: grid; gap: 6px; padding: 14px 16px; border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: rgba(226, 185, 82, .05); }
+.rv-mine p { margin: 0; color: var(--ink); }
+.star-pick { display: flex; gap: 6px; }
+.star-pick button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .3); color: var(--muted); font-size: 22px; cursor: pointer; transition: all .25s var(--ease); }
+.star-pick button.on { color: var(--gold-hi); border-color: var(--gold); text-shadow: 0 0 12px rgba(226, 185, 82, .6); }
+@media (max-width: 720px) { .rv-grid { grid-template-columns: 1fr; } }
