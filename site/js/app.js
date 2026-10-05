@@ -162,11 +162,71 @@
     if (wash && !$('#washStage').classList.contains('revealed')) window.scrollTo({ top: wash.progressTo(1), behavior: 'auto' });
   });
 
-  // ---------------------------------------------------------------- reveals (decorative lines only)
+  // ---------------------------------------------------------------- motion (doc 18 design upgrade, first pass)
+  // The hero headline rises in letter by letter while a line of gold light passes.
+  (function splitHeadline() {
+    const l1 = $('.hero h1 .l1');
+    if (!l1 || reduce) return;
+    const text = l1.textContent;
+    l1.setAttribute('aria-label', text);
+    l1.textContent = '';
+    Array.from(text).forEach((ch, i) => {
+      const sp = document.createElement('span');
+      sp.className = 'ch'; sp.textContent = ch; sp.style.setProperty('--i', i); sp.setAttribute('aria-hidden', 'true');
+      l1.appendChild(sp);
+    });
+    l1.classList.add('split');
+  })();
+  // Sections rise in as they enter the screen, children staggered; lines draw.
   const io = new IntersectionObserver((es) => {
     es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, { threshold: 0.35 });
-  $$('[data-reveal]').forEach((el) => io.observe(el));
+  }, { threshold: 0.2 });
+  function armReveals(scope) {
+    $$('[data-reveal]', scope).forEach((el) => io.observe(el));
+    if (reduce) return;
+    ['.why-item', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts'].forEach((sel) => {
+      $$(sel, scope).forEach((el, i) => { if (el.dataset.rise) return; el.dataset.rise = ''; el.style.setProperty('--k', i % 8); io.observe(el); });
+    });
+  }
+  armReveals(document);
+  // A gold glint follows the pointer over cards and gold buttons, like light on polished paint.
+  if (!reduce && window.matchMedia('(hover: hover)').matches) {
+    document.addEventListener('pointermove', (e) => {
+      const t = e.target.closest('.svc-card, .price-card, .svc-opt, .why-item, .btn-gold, .choice-item.on, .appt, .rv');
+      if (!t) return;
+      const r = t.getBoundingClientRect();
+      t.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+      t.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+      t.classList.add('glint');
+    }, { passive: true });
+    document.addEventListener('pointerout', (e) => { const t = e.target.closest && e.target.closest('.glint'); if (t && !t.contains(e.relatedTarget)) t.classList.remove('glint'); }, { passive: true });
+  }
+  // The hero text drifts up slower than the page (a light parallax).
+  const heroInner = $('.hero-inner');
+  if (heroInner && !reduce) {
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+      if (ticking || cur !== 'home') return;
+      ticking = true;
+      requestAnimationFrame(() => { const y = Math.min(window.scrollY, 900); heroInner.style.transform = 'translateY(' + (y * 0.18).toFixed(1) + 'px)'; heroInner.style.opacity = String(Math.max(0, 1 - y / 700)); ticking = false; });
+    }, { passive: true });
+  }
+  // Light mode ("showroom", doc 29): a toggle in the menu, remembered on this device.
+  (function theme() {
+    let saved = null;
+    try { saved = localStorage.getItem('ad.theme'); } catch (e) { /* storage unavailable */ }
+    if (saved === 'light') root.setAttribute('data-theme', 'light');
+    const btn = $('#themeBtn');
+    if (!btn) return;
+    const paint = () => { const light = root.getAttribute('data-theme') === 'light'; btn.querySelector('span').textContent = light ? 'Dark mode' : 'Light mode'; btn.setAttribute('aria-pressed', light ? 'true' : 'false'); };
+    paint();
+    btn.addEventListener('click', () => {
+      const light = root.getAttribute('data-theme') !== 'light';
+      if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+      try { localStorage.setItem('ad.theme', light ? 'light' : 'dark'); } catch (e) { /* storage unavailable */ }
+      paint();
+    });
+  })();
 
   // ---------------------------------------------------------------- routing
   const memo = {};
@@ -239,6 +299,7 @@
       requestAnimationFrame(() => {
         if (view === 'home') { fitServices(); if (wash) wash.refresh(); }
         paintArt();
+        armReveals($$('.view').find((v) => !v.hidden) || document);
       });
     }
   }
