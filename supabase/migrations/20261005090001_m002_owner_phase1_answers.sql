@@ -11,3 +11,8 @@ update public.services set name = 'WetGloss', duration_min = 30 where code = 'pe
 
 -- Travel time after a mobile job: 10 minutes. None after a driveway job.
 update public.business_settings set mobile_buffer_min = 10, shop_buffer_min = 0, updated_at = now() where id = 1;
+
+-- WetGloss description (doc 24). Applied to test on Oct 5 2026.
+update public.services
+set description = 'Spray-on sealant for gloss and water beading, added after a wash with an exterior service. Lasts several weeks, depending on weather and washing.'
+where code = 'perfect_finish_sealant';

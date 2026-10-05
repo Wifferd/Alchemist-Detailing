@@ -1,6 +1,6 @@
 # Alchemist Detailing — website and booking platform
 
-Read this first, then `docs/18-handoff-and-booking-plan-2026-10-03.md` for where the work stands, then `docs/19-portal-architecture-and-ai-plan-2026-10-04.md` for the whole-portal architecture, build phases and the AI plan (AI features are PROPOSED until the owner approves).
+Read this first, then `docs/18-handoff-and-booking-plan-2026-10-03.md` for where the work stands, then `docs/19-portal-architecture-and-ai-plan-2026-10-04.md` for the whole-portal architecture, build phases and the AI plan (AI features are PROPOSED until the owner approves). Docs 23 and 24 hold the owner's phase 1 answers (Oct 5): read them before touching prices, conditions or the service area.
 
 ## What this is
 
@@ -25,6 +25,15 @@ The website and booking/account platform for **Alchemist Detailing**, a car deta
 - One-week time-off notice is a house rule; owner and manager approve and can override.
 - First AI features approved (staff only, under $10/month): request triage, reply drafts, morning summary.
 
+## Phase 1 answers (docs 23 and 24, Oct 5)
+
+- Two bundles for launch; the owner's four-tier menu is a future idea, recorded in doc 23, not built.
+- **Conditions and fees (Migration 002):** a mandatory "what's the car like" choice with any interior service: None, Pet hair $15, Excessive dirt / mud / sand $10, Spills / food / light stains $10, Heavy or set-in stains $30, Other (note required, goes to Review). Interior Deluxe and Full Detail include the $10 and $15 ones, never heavy stains. No fees on exterior-only bookings; bugs, tar and the like go in the notes. Odor is retired. Nothing in the old stain list holds the price any more.
+- Steam Cleaning: 30 min, only with an interior service that doesn't include it. The sealant is **WetGloss** (Koch-Chemie), 30 min, "lasts several weeks".
+- Buffers: 10 min after a mobile job, 0 after a driveway job (`business_settings`).
+- The public area stays Parker, Texas; the 10-mile circle is measured from the owner's home. ZIPs 75072, 75407 and 75042 are in (owner's "okay with all of these"; confirm once).
+- Migration 002 (two files, `20261005…`) is applied to the **test** project with 37 passing checks in `db-tests/m002_tests_conditions.sql`. **Not applied to live yet.**
+
 ## How to work with the owner now (doc 22)
 
 The owner has stopped the question rounds and wants **Claude Code to ask whatever it needs**. Use the list in `docs/22-owner-answers-round-13-and-open-questions-2026-10-04.md`: ask one phase's questions at a time, in plain words, with a recommendation. Settled in doc 22: gold belongs to the booking (gold review) and the customer (Gold client); tips don't count; only the owner records payments, whoever did the job takes payment; the team member enters time off and the owner or a manager approves; the calendar notice box is approved. Parked: Gold client perks beyond gold reviews, loyalty discounts, customer AI, rigs.
@@ -38,7 +47,7 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 5. **Browser input is untrusted.** The database re-checks everything: prices, times, ownership and roles. The website only displays what the database returns.
 6. **The owner's home address is private.** The public area is "Parker, Texas". His address is sent only with a confirmed "Come to us" booking.
 7. **Supabase safety:** never run destructive SQL on the live project without the owner's explicit OK. Never work around Supabase's confirmation prompts. Use the test project for experiments.
-8. **Unbooked services stay off the booking.** Perfect Finish Sealant and Steam Cleaning have no minutes set yet, so the database refuses them (`not_bookable_yet`). Unpriced services (bundle tiers, ceramic, wax, plastic or rubber care, restorations) are not offered at all.
+8. **Unpriced services stay off the booking.** Bundle tiers, ceramic, wax, plastic or rubber care and restorations are not offered at all. WetGloss on a Van, Convertible or Other vehicle has no price yet, so the quote holds the price. (Steam and WetGloss have minutes since Migration 002 and are bookable.)
 
 ## Repository layout
 
@@ -46,10 +55,10 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 | --- | --- |
 | `site/` | The website: `index.html`, `css/alchemist.css`, `js/hero-gl.js` (hero and still pictures), `js/foam.js` (the scroll-controlled wash), `js/app.js` (menu, routing, page logic), `js/config.js` (Supabase URL and publishable key), `img/` |
 | `brand/` | The owner's logo (`logo-source.png`), the redrawn AD monogram (`ad-mark.svg`, path data), metallic cut-outs, and the scripts that made them |
-| `supabase/migrations/` | Migration 001, six files, applied to both projects |
+| `supabase/migrations/` | Migration 001 (six files, both projects) and Migration 002 (two files dated 20261005, test project only so far) |
 | `supabase/functions/` | Edge Functions: `admin-create-team-account`, `cleanup-unattached-photos` |
-| `db-tests/` | The Migration 001 test suites: 472 checks, plus 6,480 price combinations |
-| `docs/` | Every decision, audit and report, numbered in order (01 to 22), plus the owner's design and animation direction |
+| `db-tests/` | Migration 001 suites (472 checks, 6,480 price combinations) and Migration 002 suites (`m002_tests_conditions.sql`, `m002_tests_pricing.sql`) |
+| `docs/` | Every decision, audit and report, numbered in order (01 to 24), plus the owner's design and animation direction |
 | `tools/` | `build_artifact.py` (single-file preview), `shoot.py` (screenshots with Playwright) |
 
 ## Previewing the site
@@ -78,7 +87,7 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
   - `email_allowed(p text)`
 - **Tables visitors can read:** `services`, `vehicle_types`, `form_options`, `bundle_parts`, `service_includes`, `addon_rules`, `service_type_prices`, `service_zip_codes`.
 - **Signed-in users:**
-  - `submit_booking(p jsonb)`: needs a text-confirmed phone.
+  - `submit_booking(p jsonb)`: needs a text-confirmed phone. Since Migration 002, `conditions` is required with an interior service (`none` or codes from `form_options`), `other` needs `special_request`, and `quote_booking` takes `conditions` too (fee lines carry `"condition": true`).
   - `my_bookings()`
   - `update_my_profile(first, last)`
   - `delete_my_vehicle(id)`
@@ -95,14 +104,7 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 - Optional: leaked-password protection.
 - Run `bootstrap_admin` after the owner's first sign-in.
 
-**Values the owner still owes:**
-- X-4: bundle tiers.
-- X-5: what Steam Cleaning can be added to.
-- X-7: sealant and steam minutes.
-- X-8: buffer and travel minutes.
-- X-25: which stains hold the price.
-- His private address.
-- Three borderline ZIP codes: 75072, 75407 and 75042.
+**Values the owner still owes:** none from phase 1 (all answered in docs 23 and 24). Next: the phase 2 questions in doc 22. Apply Migration 002 to live only with the owner's OK, after the booking app has been tested end to end on the test project.
 
 ## Design system (in `site/css/alchemist.css`)
 

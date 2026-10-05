@@ -111,6 +111,7 @@ language sql volatile as $$
            'vehicle_type', 'sedan', 'vehicle_size', 'standard',
            'bundle', 'signature_combo',
            'damage', jsonb_build_array('none'),
+           'conditions', jsonb_build_array('none'),   -- required with an interior service since Migration 002
            'address', case when p_loc = 'mobile' then '123 Main St' end,
            'address_zip', case when p_loc = 'mobile' then '75002' end)
          || p_extra
