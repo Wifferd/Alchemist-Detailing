@@ -32,7 +32,8 @@ The website and booking/account platform for **Alchemist Detailing**, a car deta
 - Steam Cleaning: 30 min, only with an interior service that doesn't include it. The sealant is **WetGloss** (Koch-Chemie), 30 min, "lasts several weeks".
 - Buffers: 10 min after a mobile job, 0 after a driveway job (`business_settings`).
 - The public area stays Parker, Texas; the 10-mile circle is measured from the owner's home. ZIPs 75072, 75407 and 75042 are in (owner's "okay with all of these"; confirm once).
-- Migration 002 (two files, `20261005…`) is applied to the **test** project with 37 passing checks in `db-tests/m002_tests_conditions.sql`. **Not applied to live yet.**
+- Migration 002 (five files, `20261005090001…090005`) is applied to **both** projects (live on Oct 5, 2026 with the owner's OK, doc 32); 37 passing checks in `db-tests/m002_tests_conditions.sql`.
+- Migration 003 (`20261005210001_m003_weekly_hours.sql`, doc 32): `weekly_closures` (ISO weekday, minutes) and `open_starts` skips them; Mon–Thu closed 4–8 PM, Fri closed 12–5 PM; hours stay 10 AM–7 PM, jobs end by 8 PM. Applied to both projects; 25 checks in `db-tests/m003_tests_hours.sql` (one DO block: top-level `set role` hangs the Supabase MCP, so tests run as DO blocks with `execute 'set local role …'`). `get_public_settings()` now returns `weekly_closures`.
 
 ## Phase 2 answers (doc 26, Oct 5)
 
@@ -72,9 +73,9 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 | --- | --- |
 | `site/` | The website: `index.html`, `css/alchemist.css`, `js/hero-gl.js` (hero and still pictures), `js/foam.js` (the wash: plays once, left to right, on its own clock), `js/app.js` (menu, routing, page logic), `js/config.js` (Supabase URL and publishable key), `img/` |
 | `brand/` | The owner's logo (`logo-source.png`), the redrawn AD monogram (`ad-mark.svg`, path data), metallic cut-outs, and the scripts that made them |
-| `supabase/migrations/` | Migration 001 (six files, both projects) and Migration 002 (two files dated 20261005, test project only so far) |
+| `supabase/migrations/` | Migration 001 (six files), Migration 002 (five files dated 20261005) and Migration 003 (weekly hours), all on both projects |
 | `supabase/functions/` | Edge Functions: `admin-create-team-account`, `cleanup-unattached-photos` |
-| `db-tests/` | Migration 001 suites (472 checks, 6,480 price combinations) and Migration 002 suites (`m002_tests_conditions.sql`, `m002_tests_pricing.sql`) |
+| `db-tests/` | Migration 001 suites (472 checks, 6,480 price combinations), Migration 002 suites (`m002_tests_conditions.sql`, `m002_tests_pricing.sql`, `m002_tests_reviews.sql`) and `m003_tests_hours.sql` |
 | `docs/` | Every decision, audit and report, numbered in order (01 to 24), plus the owner's design and animation direction |
 | `tools/` | `build_artifact.py` (single-file preview), `shoot.py` (screenshots with Playwright) |
 
@@ -121,7 +122,7 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 - Optional: leaked-password protection.
 - Run `bootstrap_admin` after the owner's first sign-in.
 
-**Values the owner still owes:** none from phase 1 (all answered in docs 23 and 24). Next: the phase 2 questions in doc 22. Apply Migration 002 to live only with the owner's OK, after the booking app has been tested end to end on the test project.
+**Values the owner still owes:** none from phase 1 (all answered in docs 23 and 24). Next: the phase 2 questions in doc 22. Migrations 002 and 003 are live (doc 32). Still owed by the owner: the texting service, the domain pick (doc 32 lists the available names), an interior photo, the Google reviews link.
 
 ## Design system (in `site/css/alchemist.css`)
 
