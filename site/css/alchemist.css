@@ -1219,3 +1219,17 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 [data-theme="light"] .wash-title p.big { color: transparent; }
 [data-theme="light"] .svc-top::after { background: linear-gradient(180deg, rgba(246, 243, 236, .2), rgba(246, 243, 236, .6) 60%, var(--bg)); }
 [data-theme="light"] .svc-top canvas { opacity: .25; }
+
+/* ---------------------------------------------------------------- content pages */
+.faq { display: grid; gap: 8px; }
+.faq-item { border-radius: 14px; border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .025); padding: 0 18px; transition: border-color .3s var(--ease); }
+.faq-item[open] { border-color: var(--line); }
+.faq-item summary { cursor: pointer; padding: 15px 0; font: 600 15.5px/1.4 var(--font-ui); color: var(--ink); list-style: none; display: flex; justify-content: space-between; gap: 14px; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; color: var(--gold); font-weight: 400; font-size: 20px; line-height: 1; transition: transform .3s var(--ease); }
+.faq-item[open] summary::after { transform: rotate(45deg); }
+.faq-item p { margin: 0 0 16px; color: var(--ink-2); line-height: 1.6; max-width: 65ch; }
+.about { display: grid; gap: 14px; }
+.about p { margin: 0; font-size: 17px; line-height: 1.65; color: var(--ink-2); max-width: 62ch; }
+.about p:first-child { font-size: 19px; color: var(--ink); }
+[data-theme="light"] .faq-item { background: var(--panel); border-color: rgba(20, 18, 12, .1); }
