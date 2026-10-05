@@ -12,3 +12,9 @@ Direct answers to the phase 2 questions from doc 22, given after seeing the book
 ## Reported problem
 
 On the owner's phone, pressing **Send Request** on the last step took him back to the **Vehicle** step instead of the Thank-you screen, with no message. Cause: the final check re-runs every step's rules, and a problem on a step that isn't on screen couldn't show its message, so the page jumped back silently. Fixed on Oct 5: the booking now goes to the step *and* shows the reason next to the field. The owner is asked what he had filled in, to find the rule that fired.
+
+## Hosting, same day
+
+- The owner installed Vercel's GitHub app on the repo. Vercel project `alchemist-detailing` created on the Wiffy_Washes team, root `site/`, production branch `main`. First deployment ready at https://alchemist-detailing.vercel.app (commit 463172e).
+- The old `wiffy-washes` Vercel project (a Next.js experiment, not linked to any repo): the owner asked for it to be deleted; Vercel only allows that from its dashboard, so the owner does it there.
+- Testing with the owner's own phone number is postponed by the owner.

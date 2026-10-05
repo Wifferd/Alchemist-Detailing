@@ -39,6 +39,10 @@ The website and booking/account platform for **Alchemist Detailing**, a car deta
 - Customer account: profile, vehicles and bookings only. **No online cancel or reschedule**: customers contact the owner; the account shows the phone number for that.
 - The booking app (`site/js/data.js`, `ui.js`, `booking.js`) is built and runs in preview mode in the claude.ai artifact and in live mode against Supabase; `tools/shoot_booking.py` walks it for screenshots.
 
+## Hosting (Oct 5)
+
+- Vercel project **alchemist-detailing** (team Wiffy_Washes), linked to the GitHub repo, root directory `site/`, no build step. Every push to `main` deploys to **https://alchemist-detailing.vercel.app**. Add `?project=test` to use the test database. The owner's domain comes later.
+
 ## How to work with the owner now (doc 22)
 
 The owner has stopped the question rounds and wants **Claude Code to ask whatever it needs**. Use the list in `docs/22-owner-answers-round-13-and-open-questions-2026-10-04.md`: ask one phase's questions at a time, in plain words, with a recommendation. Settled in doc 22: gold belongs to the booking (gold review) and the customer (Gold client); tips don't count; only the owner records payments, whoever did the job takes payment; the team member enters time off and the owner or a manager approves; the calendar notice box is approved. Parked: Gold client perks beyond gold reviews, loyalty discounts, customer AI, rigs.
