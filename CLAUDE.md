@@ -41,7 +41,9 @@ The website and booking/account platform for **Alchemist Detailing**, a car deta
 
 ## Hosting (Oct 5)
 
-- Vercel project **alchemist-detailing** (team Wiffy_Washes), linked to the GitHub repo, root directory `site/`, no build step. Every push to `main` deploys to **https://alchemist-detailing.vercel.app**. Add `?project=test` to use the test database. The owner's domain comes later.
+- Two Vercel projects on the Wiffy_Washes team, both linked to the GitHub repo, root directory `site/`, no build step, redeployed on every push to `main`:
+  - **https://alchemist-detailing.vercel.app** → the live Supabase project (real bookings). The owner's domain comes later.
+  - **https://alchemist-detailing-test.vercel.app** → the test Supabase project (practice bookings; `config.js` picks the project from the hostname). `?project=test` on any address does the same.
 
 ## How to work with the owner now (doc 22)
 
