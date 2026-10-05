@@ -1,10 +1,9 @@
 /* Alchemist Detailing — the wash.
-   When the stage comes into view the foam cannon walks in from the left and
-   sprays a steady stream across the screen, left to right, until the screen is
+   Scrolling drives the wash: the foam cannon walks in from the left and sprays
+   a steady stream across the screen, left to right, until the screen is
    covered; then a sheet of rinse water sweeps across and the services appear.
-   It plays once, on its own clock, and stays finished: scrolling never rewinds
-   it, and the page itself never pins or stretches for it. The clock only runs
-   while the stage is on screen, so leaving mid-wash pauses it.
+   Once the wash has finished it stays finished: the section lets go of the
+   page (no more pinning) and scrolling back up never rewinds it.
 
    Rendering, in two WebGL passes:
      1. Every foam blob is drawn as a soft disc into a small field texture
@@ -17,8 +16,7 @@
 (function () {
   'use strict';
 
-  // Timeline, as a fraction of the whole wash (0..1); DUR is the wash in ms.
-  const DUR = 8200;
+  // Timeline, as progress through the pinned section (0..1).
   const T = {
     cannonIn: [0.0, 0.1],
     spray: [0.08, 0.56],       // the nozzle sweeps left to right; foam lands along the stream
@@ -408,22 +406,35 @@ void main(){
     }
 
     // ---------------------------------------------------------------- per-frame state
-    let p = 0, lastT = performance.now(), spray = 0, carry = 0;
+    let p = 0, lastP = null, lastT = performance.now(), vel = 0, spray = 0, carry = 0;
     let noz = [0, NOZ_Y], dir = [BAND, -1];
     let drewLast = false, active = false, raf = 0;
     let slowFrames = 0, shrink = false;
     const adaptive = o.adaptive !== false;
     const t0 = performance.now();
-    let started = false, elapsed = 0, frozen = null;   // the wash's own clock; frozen is set by seek()
-    let tipOff = 0, cannonW = 0;                       // the nozzle's x inside the cannon element, and its width (px)
+    let done = false;                 // finished once: never rewinds
+    let tipOff = 0, cannonW = 0;      // the nozzle's x inside the cannon element, and its width (px)
 
-    function progress(dt) {
-      if (frozen != null) return frozen;
-      if (started) elapsed = Math.min(DUR, elapsed + dt * 1000);
-      return elapsed / DUR;
+    function progress() {
+      if (done) return 1;
+      const r = section.getBoundingClientRect();
+      const total = r.height - innerHeight;
+      const v = total > 0 ? clamp(-r.top / total, 0, 1) : 0;
+      if (v >= 0.995) { settle(); return 1; }
+      return v;
     }
-    function begin() { if (!started) { started = true; setActive(true); } }
-    function finish() { started = true; elapsed = DUR; }
+    // The wash is over: the section shrinks to one screen and the page carries on from here.
+    // The scroll position is moved by the same amount, so nothing on screen shifts.
+    function settle() {
+      if (done) return;
+      done = true;
+      const before = section.getBoundingClientRect();
+      section.classList.add('washed');
+      const after = section.getBoundingClientRect();
+      window.scrollBy({ top: -(before.height - after.height), left: 0, behavior: 'instant' });
+      stage.classList.add('revealed');
+    }
+    function finish() { settle(); window.scrollTo({ top: scrollY + stage.getBoundingClientRect().top, behavior: 'auto' }); }
 
     // the cannon's nozzle, in screen units, across the whole wash
     function measureCannon() {
@@ -560,14 +571,17 @@ void main(){
       lastT = now;
       if (shrink) { shrink = false; W = 0; measure(); }
       readNozzle();   // last frame's cannon position: no forced layout
-      p = progress(dt);
+      p = progress();
       const fr = front(p, asp);
 
-      // a steady stream while the nozzle sweeps; it ramps up and trails off
+      // the stream runs while the nozzle sweeps: a steady trickle, stronger the faster the visitor scrolls
+      const v = lastP == null ? 0 : (p - lastP) / dt;
+      lastP = p;
+      vel = lerp(vel, v, 1 - Math.exp(-dt * 12));
       const inWindow = p > T.cannonIn[1] * 0.75 && p < T.spray[1] - 0.01;   // the cannon is on screen before it fires
-      const target = inWindow ? 1 : 0;
-      spray = lerp(spray, target, 1 - Math.exp(-dt * (target > spray ? 9 : 6)));
-      if (spray > 0.04 && frozen == null) {
+      const target = inWindow ? clamp(0.3 + vel * 5, 0, 1) : 0;
+      spray = lerp(spray, target, 1 - Math.exp(-dt * (target > spray ? 12 : 6)));
+      if (spray > 0.04) {
         carry += spray * 120 * dt;
         const c = Math.floor(carry);
         carry -= c;
@@ -611,26 +625,26 @@ void main(){
     function setActive(on) {
       if (on === active) return;
       active = on;
-      if (on) { lastT = performance.now(); measure(); measureCannon(); raf = requestAnimationFrame(frame); }
+      if (on) { lastT = performance.now(); lastP = null; measure(); measureCannon(); raf = requestAnimationFrame(frame); }
       else cancelAnimationFrame(raf);
     }
-    // the frame loop runs while the stage is near the screen; the wash starts once half of it is in view
     const io = new IntersectionObserver((es) => setActive(es[0].isIntersecting), { rootMargin: '25% 0px 25% 0px' });
-    io.observe(stage);
-    const io2 = new IntersectionObserver((es) => { if (es[0].isIntersecting) { begin(); io2.disconnect(); } }, { threshold: 0.5 });
-    io2.observe(stage);
+    io.observe(section);
     let rt = 0;
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { W = 0; measure(); measureCannon(); }, 120); });
 
     return {
-      debug() { return { p, lastN, lastFr, W, H, fw, fh, asp, blobs: blobs.length, parts: parts.length, err: gl.getError(), drewLast, started, elapsed }; },
+      debug() { return { p, lastN, lastFr, W, H, fw, fh, asp, blobs: blobs.length, parts: parts.length, err: gl.getError(), drewLast, done }; },
       refresh() { W = 0; measure(); measureCannon(); },
-      begin, finish,
-      done() { return p >= 1; },
-      seek(target) { frozen = target == null ? null : clamp(target, 0, 1); started = true; if (frozen != null) elapsed = frozen * DUR; setActive(true); },   // for the screenshot checks
+      finish,
+      done() { return done; },
       top() { return scrollY + stage.getBoundingClientRect().top; },
+      progressTo(target) {   // scroll position for a given progress (the stage top once the wash is done)
+        const r = section.getBoundingClientRect();
+        return scrollY + r.top + (done ? 0 : (r.height - innerHeight) * target);
+      },
     };
   }
 
-  window.AlchemistWash = { start, T, DUR };
+  window.AlchemistWash = { start, T };
 })();
