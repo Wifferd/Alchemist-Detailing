@@ -14,7 +14,7 @@ First answers given directly to Claude Code, to the phase 1 list in doc 22. Reco
 | X-25 | Which stains hold the price | Not answered in this round. | OPEN, asked again |
 | — | Service area | The owner's base is **around Collin College in Wylie**, ZIP given as **75002**. He wants a **10-mile radius until he gets a rig**. | See the contradiction below. |
 | — | Borderline ZIPs 75072, 75407, 75042 | Not answered as such; the radius center may have moved, so the whole list is re-checked once the center is confirmed. | OPEN |
-| — | Private address | **Received.** It is kept out of this repository on purpose (CLAUDE.md rule 6). It goes only into `business_settings.shop_address`, with the owner's OK for the live project. | Received, not yet stored |
+| — | Private address | **Received.** It is kept out of this repository on purpose (CLAUDE.md rule 6). It goes only into `business_settings.shop_address`, with the owner's OK for the live project. | **Stored** in the live project's settings on Oct 5 (owner's OK). |
 
 ## Contradiction to settle: where is "home"?
 
@@ -58,3 +58,11 @@ The owner asked whether the designs get better later. Yes: the design upgrade is
 3. WetGloss: keep the description "lasts about 8 to 12 weeks; don't wash for about 24 hours"?
 4. OK to write the add-on minutes, the steam rule, the WetGloss name and the 10-minute mobile buffer to the **test** project now, and to **live** once checked?
 5. OK to store the private address in the live project's settings?
+
+## Done on Oct 5 after the owner's OK
+
+- Test project: Migration 002 part 1 applied (`20261005090001_m002_owner_phase1_answers.sql`): steam 30 min and interior-only, WetGloss name and 30 min, mobile buffer 10 min. **Live: not yet.**
+- Live project: the private address stored in `business_settings.shop_address`.
+- Site: the sealant is now called WetGloss on the home and services pages. Its description still says "8 to 12 weeks" pending the owner's answer (retailers quote about 3 to 6 weeks).
+- Owner's reading of "home": the radius is measured from his home address; the public area name was not restated. Follow-up: confirm "Parker, Texas" stays as the public name.
+- Owner's new direction on conditions (pet hair and the like): a mandatory "what's the car like" step with a None option and an Other option, where some conditions add a fee that depends on the service chosen. This is a pricing change and needs a proposal he approves before Migration 002 part 2.
