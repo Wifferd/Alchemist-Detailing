@@ -82,6 +82,10 @@
 <div class="view" data-view="home">
 
   <section class="hero" id="top" aria-label="Alchemist Detailing">
+    <picture class="hero-photo" aria-hidden="true">
+      <source media="(max-width: 720px)" srcset="img/work/hero-tall.webp">
+      <img src="img/work/hero-wide.webp" alt="" width="1920" height="1080" fetchpriority="high" decoding="async">
+    </picture>
     <canvas class="hero-gl" id="heroGl" aria-hidden="true"></canvas>
     <div class="hero-inner">
       <img class="hero-mark" data-in style="--d:0" src="img/mono-metallic.webp" alt="" width="547" height="601">
@@ -126,7 +130,7 @@
           </div>
           <div class="svc-grid">
             <a class="svc-card" data-enter="up" href="#services-exterior">
-              <canvas class="art" data-art="gloss" data-t="10.1" aria-hidden="true"></canvas>
+              <img class="photo" src="img/work/card-exterior.webp" alt="" width="720" height="960" loading="lazy" decoding="async">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.1 5.5 7.3 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.8 8.8 7.6 12 3.5z"/><path d="M9.4 14.2a2.7 2.7 0 0 0 2.6 2.6"/></g></svg>
               <span class="kind">Exterior</span>
               <span class="from">From <span class="price tnum">$49.99</span></span>
@@ -142,7 +146,7 @@
               <span class="go"><span>Explore<span class="go-k"> Interior</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
             <a class="svc-card" data-enter="grow" href="#services-bundles">
-              <canvas class="art" data-art="split" data-t="10.4" aria-hidden="true"></canvas>
+              <img class="photo" src="img/work/card-bundles.webp" alt="" width="720" height="960" loading="lazy" decoding="async">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8l8.2 4.4L12 12.6 3.8 8.2z"/><path d="M3.8 12.1L12 16.5l8.2-4.4"/><path d="M3.8 16L12 20.4l8.2-4.4"/></g></svg>
               <span class="kind">Bundles</span>
               <span class="from">From <span class="price tnum">$99.99</span></span>
@@ -150,7 +154,7 @@
               <span class="go"><span>Explore<span class="go-k"> Bundles</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
             <a class="svc-card" data-enter="fade" href="#services-protection">
-              <canvas class="art" data-art="beads" data-t="9.2" aria-hidden="true"></canvas>
+              <img class="photo" src="img/work/card-protection.webp" alt="" width="720" height="960" loading="lazy" decoding="async">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3l7 2.6v5.4c0 4.6-3 8.1-7 9.5-4-1.4-7-4.9-7-9.5V5.9z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></g></svg>
               <span class="kind">Protection</span>
               <span class="from">From <span class="price tnum">$44.99</span></span>
@@ -246,6 +250,35 @@
     </div>
   </section>
 
+  <section class="section work" id="work" aria-labelledby="workTitle">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Our work</p>
+        <h2 class="display" id="workTitle">Finished, up close</h2>
+        <p>Real cars, real details. Every picture is ours.</p>
+        <span class="rule" data-reveal></span>
+      </div>
+    </div>
+    <div class="work-strip" id="workStrip" role="list">
+      <figure class="work-item" role="listitem"><img src="img/work/vent-600.webp" srcset="img/work/vent-600.webp 600w, img/work/vent-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Water beading on a carbon-fibre hood vent after a wash" width="600" height="800" loading="lazy" decoding="async"><figcaption>Beading on carbon</figcaption></figure>
+      <figure class="work-item" role="listitem"><img src="img/work/front-600.webp" srcset="img/work/front-600.webp 600w, img/work/front-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Front of a white BMW M2 after an exterior detail" width="600" height="800" loading="lazy" decoding="async"><figcaption>Exterior detail</figcaption></figure>
+      <figure class="work-item" role="listitem"><img src="img/work/brake-600.webp" srcset="img/work/brake-600.webp 600w, img/work/brake-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Cleaned black wheel with a red brake caliper" width="600" height="800" loading="lazy" decoding="async"><figcaption>Wheels and calipers</figcaption></figure>
+      <figure class="work-item" role="listitem"><img src="img/work/mirror-600.webp" srcset="img/work/mirror-600.webp 600w, img/work/mirror-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Water beading on a side mirror" width="600" height="800" loading="lazy" decoding="async"><figcaption>Protection at work</figcaption></figure>
+      <figure class="work-item" role="listitem"><img src="img/work/badge-600.webp" srcset="img/work/badge-600.webp 600w, img/work/badge-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="M2 badge on wet white paint" width="600" height="800" loading="lazy" decoding="async"><figcaption>Badges and trim</figcaption></figure>
+      <figure class="work-item" role="listitem"><img src="img/work/wheel-600.webp" srcset="img/work/wheel-600.webp 600w, img/work/wheel-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Rear wheel and arch after cleaning" width="600" height="800" loading="lazy" decoding="async"><figcaption>Tires dressed</figcaption></figure>
+      <figure class="work-item" role="listitem"><img src="img/work/lip-600.webp" srcset="img/work/lip-600.webp 600w, img/work/lip-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Carbon-fibre front lip with water beading" width="600" height="800" loading="lazy" decoding="async"><figcaption>Carbon care</figcaption></figure>
+      <figure class="work-item" role="listitem"><img src="img/work/side-600.webp" srcset="img/work/side-600.webp 600w, img/work/side-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Side skirt and carbon trim after a wash" width="600" height="800" loading="lazy" decoding="async"><figcaption>Every panel</figcaption></figure>
+    </div>
+    <div class="wrap work-foot">
+      <a class="btn btn-glass" href="https://www.instagram.com/alchemy_details" target="_blank" rel="noopener">More on Instagram <span class="arrow" aria-hidden="true">→</span></a>
+    </div>
+  </section>
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Photo">
+    <button class="icon-btn lightbox-x" id="lightboxX" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    <img id="lightboxImg" src="" alt="">
+    <p class="lightbox-cap" id="lightboxCap"></p>
+  </div>
+
   <section class="section how" id="how">
     <div class="wrap">
       <div class="section-head">
@@ -279,7 +312,7 @@
 <!-- ================================================================ SERVICES -->
 <div class="view" data-view="services" hidden>
   <section class="svc-top">
-    <canvas data-art="split" data-t="10.8" data-k="0.5" aria-hidden="true"></canvas>
+    <img class="top-photo" src="img/work/hero-wide.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async">
     <div class="wrap">
       <p class="eyebrow">Services</p>
       <h1 class="display gold-text">The Menu</h1>

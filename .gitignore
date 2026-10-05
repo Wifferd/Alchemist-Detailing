@@ -7,3 +7,4 @@ node_modules/
 .env.*
 # Never commit secret keys (the publishable key in site/js/config.js is public by design)
 *.secret
+work/

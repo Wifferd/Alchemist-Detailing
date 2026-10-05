@@ -28,6 +28,25 @@
     try { window.AlchemistHero.start($('#heroGl'), { scene, still: reduce }); } catch (e) { root.classList.add('no-hero-gl'); }
   }
 
+  // ---------------------------------------------------------------- our work: lightbox
+  (function lightbox() {
+    const box = $('#lightbox'), img = $('#lightboxImg'), cap = $('#lightboxCap');
+    if (!box) return;
+    let lastFocus = null;
+    function open(fig) {
+      const src = fig.querySelector('img');
+      img.src = src.currentSrc ? src.currentSrc.replace('-600.webp', '-1200.webp') : src.src.replace('-600.webp', '-1200.webp');
+      img.alt = src.alt; cap.textContent = fig.querySelector('figcaption').textContent;
+      box.hidden = false; requestAnimationFrame(() => box.classList.add('on'));
+      lastFocus = document.activeElement; $('#lightboxX').focus(); root.style.overflow = 'hidden';
+    }
+    function close() { box.classList.remove('on'); setTimeout(() => { box.hidden = true; img.src = ''; }, 300); root.style.overflow = ''; if (lastFocus) lastFocus.focus(); }
+    $$('.work-item').forEach((fig) => { fig.tabIndex = 0; fig.setAttribute('role', 'button'); fig.addEventListener('click', () => open(fig)); fig.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(fig); } }); });
+    $('#lightboxX').addEventListener('click', close);
+    box.addEventListener('click', (e) => { if (e.target === box) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) close(); });
+  })();
+
   // ---------------------------------------------------------------- the bar's page name
   const pageName = $('#pageName');
   function setName(text) {
