@@ -135,7 +135,8 @@
     root.innerHTML = '';
     if (st.receipt) { root.appendChild(renderSent()); return; }
     const shell = el('div.bk',
-      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is sent. Any 6-digit code works.') : null,
+      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is sent. Any 6-digit code works.')
+        : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — this is a practice booking on the test database.') : null),
       renderProgress(),
       el('div.bk-body', { id: 'bk-body' }, el('div.bk-step', { class: st.direction > 0 ? 'in-right' : 'in-left' }, renderStep())),
       renderNav());
