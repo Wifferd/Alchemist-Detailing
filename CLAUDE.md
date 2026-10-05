@@ -38,6 +38,7 @@ The website and booking/account platform for **Alchemist Detailing**, a car deta
 
 - Customer account: profile, vehicles and bookings only. **No online cancel or reschedule**: customers contact the owner; the account shows the phone number for that.
 - The booking app (`site/js/data.js`, `ui.js`, `booking.js`) is built and runs in preview mode in the claude.ai artifact and in live mode against Supabase; `tools/shoot_booking.py` walks it for screenshots.
+- Phase 2 (`site/js/account.js`): `#account` (phone-code sign-in, name, saved vehicles, sign out) and `#appointments` (upcoming and past from `my_bookings`, with the phone number for cancellations). `tools/shoot_account.py` walks it. Not yet tested in live mode (texting isn't set up).
 
 ## Hosting (Oct 5)
 

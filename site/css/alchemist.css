@@ -988,3 +988,39 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
   .bk-nav-mid { display: none; }
   .cal-day { font-size: 13px; }
 }
+
+/* ---------------------------------------------------------------- account and appointments */
+.acct { padding-bottom: clamp(22px, 4vw, 44px); }
+.acct-sec { display: grid; gap: 14px; padding-bottom: 22px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.acct-sec:last-child { border-bottom: 0; }
+.acct-static { margin: 0; min-height: 50px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .06); background: rgba(0, 0, 0, .2); color: var(--ink-2); }
+.acct-static small { color: var(--gold); font-size: 12px; }
+.acct-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.acct-actions .btn { --h: 46px; padding: 0 20px; }
+.veh-list { display: grid; gap: 8px; }
+.veh { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .025); }
+.veh.editing { border-color: var(--line); }
+.veh-main { display: grid; gap: 2px; min-width: 0; }
+.veh-main b { font-weight: 600; }
+.veh-actions { display: flex; gap: 14px; flex-shrink: 0; }
+.veh-form { display: grid; gap: 18px; padding: 18px; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .25); }
+.appt { border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, #121111, #0b0b0b); overflow: hidden; }
+.appt.open { border-color: var(--line); }
+.appt-head { width: 100%; display: grid; grid-template-columns: 1.2fr 1.4fr auto auto; align-items: center; gap: 14px; padding: 14px 18px; background: none; border: 0; color: var(--ink); text-align: left; cursor: pointer; }
+.appt-head:hover { background: rgba(255, 255, 255, .02); }
+.appt-when { display: grid; gap: 2px; }
+.appt-when b { font-weight: 600; }
+.appt-when span { color: var(--muted); font-size: 13px; }
+.appt-what { color: var(--ink-2); font-size: 14px; min-width: 0; }
+.appt-status { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); font: 700 10.5px/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+.st-confirmed .appt-status, .st-in_progress .appt-status { border-color: var(--gold); color: var(--gold-hi); background: rgba(216, 166, 64, .1); }
+.st-requested .appt-status, .st-needs_information .appt-status { border-color: rgba(216, 166, 64, .4); color: var(--gold); }
+.st-declined .appt-status, .st-cancelled .appt-status { color: var(--muted); }
+.st-completed .appt-status { border-color: rgba(255, 255, 255, .2); color: var(--ink); }
+.appt-ref { color: var(--muted); font-size: 12px; letter-spacing: .06em; }
+.appt-body { display: grid; gap: 14px; padding: 4px 18px 18px; border-top: 1px solid rgba(255, 255, 255, .06); }
+@media (max-width: 720px) {
+  .appt-head { grid-template-columns: 1fr auto; }
+  .appt-what, .appt-ref { grid-column: 1 / -1; }
+  .veh { flex-direction: column; align-items: flex-start; }
+}

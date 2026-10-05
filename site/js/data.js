@@ -241,6 +241,8 @@
   let settingsCache = null;
   const previewPhotos = {};
   let previewSession = null;
+  const previewBookings = [];   // receipts made in this preview, newest first
+  const previewVehicles = [];
 
   function withTimeout(promise, ms) {
     return new Promise((resolve, reject) => {
@@ -338,10 +340,52 @@
 
     async myVehicles() {
       await init();
-      if (mode === 'preview') return [];
+      if (mode === 'preview') return previewSession ? previewVehicles.slice() : [];
       const { data, error } = await sb.from('vehicles').select('id,make,model,year,color,vehicle_type,size,modifications').is('deleted_at', null).order('created_at');
       if (error) throw fromDb(error);
       return data || [];
+    },
+
+    // Account: profile, saved vehicles and the customer's own bookings.
+    async updateProfile(first, last) {
+      await init();
+      if (!isValidName(first)) throw fail('invalid_input', 'Enter your first name using letters only.', 'first_name');
+      if (last && !isValidName(last)) throw fail('invalid_input', 'Enter your last name using letters only, or leave it empty.', 'last_name');
+      if (mode === 'preview') { if (previewSession) { previewSession.firstName = first.trim(); previewSession.lastName = (last || '').trim() || null; } return previewSession; }
+      await rpc('update_my_profile', { p_first_name: first.trim(), p_last_name: (last || '').trim() });
+      return api.session();
+    },
+
+    async saveVehicle(v) {
+      await init();
+      const row = {
+        make: String(v.make || '').trim(), model: String(v.model || '').trim(), year: v.year ? Number(v.year) : null,
+        color: String(v.color || '').trim() || null, vehicle_type: v.vehicle_type, size: v.size || 'standard', modifications: v.modifications || [],
+      };
+      if (!row.make || row.make.length > 40) throw fail('invalid_input', 'Enter the vehicle make.', 'vehicle_make');
+      if (!row.model || row.model.length > 40) throw fail('invalid_input', 'Enter the vehicle model.', 'vehicle_model');
+      if (v.year && !/^\d{4}$/.test(String(v.year))) throw fail('invalid_input', 'Enter a 4-digit year.', 'vehicle_year');
+      if (!row.vehicle_type) throw fail('invalid_input', 'Choose a vehicle type.', 'vehicle_type');
+      if (mode === 'preview') {
+        if (v.id) { const i = previewVehicles.findIndex((x) => x.id === v.id); if (i >= 0) previewVehicles[i] = Object.assign({}, previewVehicles[i], row); return previewVehicles[i]; }
+        const made = Object.assign({ id: uuid() }, row); previewVehicles.push(made); return made;
+      }
+      const q = v.id ? sb.from('vehicles').update(row).eq('id', v.id) : sb.from('vehicles').insert(row);
+      const { data, error } = await q.select('id,make,model,year,color,vehicle_type,size,modifications').single();
+      if (error) throw fromDb(error);
+      return data;
+    },
+
+    async deleteVehicle(id) {
+      await init();
+      if (mode === 'preview') { const i = previewVehicles.findIndex((x) => x.id === id); if (i >= 0) previewVehicles.splice(i, 1); return; }
+      await rpc('delete_my_vehicle', { p_id: id });
+    },
+
+    async myBookings() {
+      await init();
+      if (mode === 'preview') return previewSession ? previewBookings.slice() : [];
+      return (await rpc('my_bookings')) || [];
     },
 
     async sendPhoneCode(phone, names) {
@@ -461,15 +505,19 @@
         const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let ref = 'AD-'; for (let i = 0; i < 8; i++) ref += alphabet[Math.floor(Math.random() * alphabet.length)];
         const created = new Date();
-        return {
+        const r = {
           id: uuid(), ref, status: 'requested', service_date: p.service_date, start_min: p.start_min,
           duration_min: q.duration_min, end_min: p.start_min + q.duration_min, location_type: p.location_type,
           address: p.address || null, address_zip: p.address_zip || null,
+          vehicle: { make: p.vehicle_make || null, model: p.vehicle_model || null, year: p.vehicle_year || null, color: p.vehicle_color || null,
+                     type: p.vehicle_type || null, size: p.vehicle_size || 'standard', not_sure: !!p.not_sure, description: p.vehicle_description || null },
           hold_expires_at: new Date(created.getTime() + SEED.settings.hold_hours * 3600000).toISOString(),
           value_cents: q.value_cents, bundle_savings_cents: q.bundle_savings_cents, mobile_cents: q.mobile_cents,
           price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
-          created_at: created.toISOString(), preview: true,
+          created_at: created.toISOString(), preview: true, shop_address: null, team: [], history: [],
         };
+        previewBookings.unshift(r);
+        return r;
       }
       return rpc('submit_booking', { p });
     },

@@ -687,6 +687,7 @@
       const r = await D.submit(payload());
       st.receipt = r;
       busy = false;
+      if (window.AlchemistAccount) window.AlchemistAccount.refresh();
       render();
       window.scrollTo({ top: root.getBoundingClientRect().top + window.scrollY - 80, behavior: reduce ? 'auto' : 'smooth' });
       // the guest is signed out once the request is in (audit, flow step 7)

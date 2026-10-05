@@ -14,13 +14,11 @@
   const PHONE = '(945) 361-7551', TEL = 'tel:+19453617551';
   // Pages that come later in the build. Nothing here is a feature that exists yet.
   const PAGES = {
-    appointments: { eyebrow: 'Your details', title: 'Appointments', text: 'Your upcoming and completed details will appear here once you sign in. This page comes with the account build.' },
     reviews: { eyebrow: 'Customers', title: 'Reviews', text: 'Reviews from Alchemist customers will appear here.' },
     tips: { eyebrow: 'Car care', title: 'Tips', text: 'Advice on keeping your car clean and protected between details is coming soon.' },
     faq: { eyebrow: 'Questions', title: 'FAQ', text: 'Answers to common questions are coming soon. Until then, call ' + PHONE + '.' },
     about: { eyebrow: 'Our story', title: 'About', text: 'The Alchemist story is coming soon.' },
     contact: { eyebrow: 'Get in touch', title: 'Contact', text: 'Call to book or to ask a question.', contact: true, primary: { href: TEL, label: 'Call ' + PHONE } },
-    account: { eyebrow: 'Your account', title: 'Account', text: 'Sign-in, your vehicles and your details will live here. This page comes with the account build.' },
   };
 
   // ---------------------------------------------------------------- hero
@@ -205,7 +203,7 @@
   }
   function render(first) {
     const { r, sub } = parse();
-    const view = r === 'home' || r === 'services' || r === 'book' ? r : 'page';
+    const view = ['home', 'services', 'book', 'account', 'appointments'].includes(r) ? r : 'page';
     if (cur) memo[cur] = window.scrollY;
     const changed = r !== cur;
     if (changed) {
@@ -218,6 +216,8 @@
       });
       if (view === 'page') fillPage(r);
       if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'));
+      if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
+      if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
       setName(NAMES[r]);
       $$('nav a', menu).forEach((a) => {
         if (a.getAttribute('href') === '#' + r) a.setAttribute('aria-current', 'page');
