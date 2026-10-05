@@ -197,54 +197,63 @@
   }
 
   // ---------------------------------------------------------------- validation per step (the database checks again)
+  // A problem found while checking a step: go to that step if we're not on it,
+  // then show the message next to the field (the field only exists once the
+  // step is on screen). Used when "Send Request" re-checks every step.
+  function flag(n, hint, text) {
+    if (step !== n) { st.direction = n > step ? 1 : -1; step = n; render(); window.scrollTo({ top: root.getBoundingClientRect().top + window.scrollY - 80, behavior: reduce ? 'auto' : 'smooth' }); }
+    setTimeout(() => { if (!showError(root, hint, text)) toast(text); }, 40);
+    return false;
+  }
+
   async function validate(n) {
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when;
     const H = D.helpers;
     if (n === 1) {
-      if (!H.isValidName(c.first)) return showError(root, 'first_name', 'Enter your first name using letters only.');
-      if (c.last.trim() && !H.isValidName(c.last)) return showError(root, 'last_name', 'Enter your last name using letters only, or leave it empty.');
-      if (!H.normalizePhone(c.phone)) return showError(root, 'phone', 'Enter a 10-digit US phone number.');
-      if (!c.phoneConfirmed) return showError(root, 'phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press "Send code" and confirm your phone to continue.');
-      if (c.email.trim() && !H.isValidEmail(c.email)) return showError(root, 'email', 'Enter a valid email, or leave it empty.');
-      if (c.email.trim() && c.emailState === 'sent') return showError(root, 'email', 'Enter the email code, or press Skip.');
+      if (!H.isValidName(c.first)) return flag(n, 'first_name', 'Enter your first name using letters only.');
+      if (c.last.trim() && !H.isValidName(c.last)) return flag(n, 'last_name', 'Enter your last name using letters only, or leave it empty.');
+      if (!H.normalizePhone(c.phone)) return flag(n, 'phone', 'Enter a 10-digit US phone number.');
+      if (!c.phoneConfirmed) return flag(n, 'phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press "Send code" and confirm your phone to continue.');
+      if (c.email.trim() && !H.isValidEmail(c.email)) return flag(n, 'email', 'Enter a valid email, or leave it empty.');
+      if (c.email.trim() && c.emailState === 'sent') return flag(n, 'email', 'Enter the email code, or press Skip.');
       return true;
     }
     if (n === 2) {
       if (!v.vehicleId) {
         if (v.notSure) {
-          if (!v.description.trim()) return showError(root, 'vehicle_description', 'Describe the vehicle in a few words (no links).');
+          if (!v.description.trim()) return flag(n, 'vehicle_description', 'Describe the vehicle in a few words (no links).');
         } else {
-          if (!v.make.trim()) return showError(root, 'vehicle_make', 'Enter the vehicle make.');
-          if (!v.model.trim()) return showError(root, 'vehicle_model', 'Enter the vehicle model.');
-          if (v.year.trim() && !/^\d{4}$/.test(v.year.trim())) return showError(root, 'vehicle_year', 'Enter a 4-digit year.');
-          if (!v.type) return showError(root, 'vehicle_type', 'Choose a vehicle type.');
+          if (!v.make.trim()) return flag(n, 'vehicle_make', 'Enter the vehicle make.');
+          if (!v.model.trim()) return flag(n, 'vehicle_model', 'Enter the vehicle model.');
+          if (v.year.trim() && !/^\d{4}$/.test(v.year.trim())) return flag(n, 'vehicle_year', 'Enter a 4-digit year.');
+          if (!v.type) return flag(n, 'vehicle_type', 'Choose a vehicle type.');
         }
       }
-      if (!v.conditions.length) return showError(root, 'conditions', 'Tell us what the inside of the car is like, or choose None.');
-      if (v.conditions.includes('other') && !s.notes.trim()) return showError(root, 'special_request', 'Describe it in a few words.');
-      if (!v.damage.length) return showError(root, 'damage', 'Choose "No known damage" or the damage you know of.');
+      if (!v.conditions.length) return flag(n, 'conditions', 'Tell us what the inside of the car is like, or choose None.');
+      if (v.conditions.includes('other') && !s.notes.trim()) return flag(n, 'special_request', 'Describe it in a few words.');
+      if (!v.damage.length) return flag(n, 'damage', 'Choose "No known damage" or the damage you know of.');
       const needsNote = menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code));
-      if (needsNote && !v.damageNote.trim()) return showError(root, 'damage_note', 'Describe the damage in a few words.');
+      if (needsNote && !v.damageNote.trim()) return flag(n, 'damage_note', 'Describe the damage in a few words.');
       return true;
     }
     if (n === 3) {
-      if (!l.type) return showError(root, 'location_type', 'Choose "We come to you" or "Come to us".');
+      if (!l.type) return flag(n, 'location_type', 'Choose "We come to you" or "Come to us".');
       if (l.type === 'mobile') {
-        if (!l.address.trim()) return showError(root, 'address', 'Enter the street address where the vehicle will be.');
-        if (!/^\d{5}$/.test(l.zip.trim())) return showError(root, 'address_zip', 'Enter a 5-digit ZIP code.');
-        if (!menu.zips.has(l.zip.trim())) return showError(root, 'address_zip', 'We come to you within about ' + settings.mobile_radius_miles + ' miles of ' + settings.public_area + '. For other areas, call ' + phone + '.');
+        if (!l.address.trim()) return flag(n, 'address', 'Enter the street address where the vehicle will be.');
+        if (!/^\d{5}$/.test(l.zip.trim())) return flag(n, 'address_zip', 'Enter a 5-digit ZIP code.');
+        if (!menu.zips.has(l.zip.trim())) return flag(n, 'address_zip', 'We come to you within about ' + settings.mobile_radius_miles + ' miles of ' + settings.public_area + '. For other areas, call ' + phone + '.');
       }
       return true;
     }
     if (n === 4) {
-      if (!mainsChosen()) return showError(root, 'services', 'Choose a bundle, or an exterior and/or an interior service.');
+      if (!mainsChosen()) return flag(n, 'services', 'Choose a bundle, or an exterior and/or an interior service.');
       const q = await refreshQuote();
       if (q && q.error) return showDbError(q.error);
       return true;
     }
     if (n === 5) {
-      if (!w.date) return showError(root, 'service_date', 'Choose a day.');
-      if (w.start == null) return showError(root, 'start_min', 'Choose one of the start times shown.');
+      if (!w.date) return flag(n, 'service_date', 'Choose a day.');
+      if (w.start == null) return flag(n, 'start_min', 'Choose one of the start times shown.');
       return true;
     }
     return true;
@@ -668,7 +677,7 @@
 
   async function send() {
     if (busy) return;
-    for (const n of [1, 2, 3, 4, 5]) { if (!(await validate(n))) { if (step !== n) go(n); return; } }
+    for (const n of [1, 2, 3, 4, 5]) { if (!(await validate(n))) return; }
     busy = true;
     const btn = root.querySelector('#bk-next'); if (btn) { btn.disabled = true; btn.firstChild.textContent = 'Sending… '; }
     const veil = document.getElementById('veil');
