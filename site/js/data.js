@@ -524,10 +524,50 @@
 
     async signOut() {
       await init();
-      if (mode === 'preview') { previewSession = null; return; }
+      if (mode === 'preview') { previewSession = null; previewStaff = null; return; }
       await sb.auth.signOut();
     },
+
+    // ---- staff side (the admin console and the team view) ----
+    client() { return sb; },
+    rpc(name, args) { return rpc(name, args); },
+    fail,
+
+    // Who is signed in, with their role and whether the authenticator step is done.
+    async staffSession() {
+      await init();
+      if (mode === 'preview') return previewStaff;
+      const s = await api.session();
+      if (!s) return null;
+      const { data: prof } = await sb.from('profiles').select('id,role,first_name,last_name,is_active').eq('id', s.userId).maybeSingle();
+      let aal = 'aal1', nextLevel = 'aal1';
+      try { const { data } = await sb.auth.mfa.getAuthenticatorAssuranceLevel(); aal = data.currentLevel; nextLevel = data.nextLevel; } catch (e) { /* no MFA support */ }
+      const { data: factors } = await sb.auth.mfa.listFactors().catch(() => ({ data: null }));
+      return Object.assign({}, s, { role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
+        hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
+    },
+    previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; return previewStaff; },
+
+    // Authenticator app (TOTP): enrol, then verify a code; later, challenge and verify.
+    async mfaEnroll() {
+      const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Alchemist admin' });
+      if (error) throw fail('mfa_error', error.message, 'mfa_code');
+      return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret };
+    },
+    async mfaVerify(factorId, code) {
+      const { data: ch, error: e1 } = await sb.auth.mfa.challenge({ factorId });
+      if (e1) throw fail('mfa_error', e1.message, 'mfa_code');
+      const { error } = await sb.auth.mfa.verify({ factorId, challengeId: ch.id, code: String(code).replace(/\D/g, '') });
+      if (error) throw fail('bad_code', "That code didn't match. Try the next one from the app.", 'mfa_code');
+      return true;
+    },
+    async mfaFactorId() {
+      const { data } = await sb.auth.mfa.listFactors();
+      const f = data && data.totp && data.totp.find((x) => x.status === 'verified');
+      return f ? f.id : null;
+    },
   };
+  let previewStaff = null;
 
   // Re-encode a picture through a canvas: location data and other metadata are
   // dropped, and very large pictures are brought down to a sensible size.

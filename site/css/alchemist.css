@@ -1024,3 +1024,47 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
   .appt-what, .appt-ref { grid-column: 1 / -1; }
   .veh { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------------------------------------------------------------- admin console */
+.bk.admin { width: min(100%, 1100px); }
+.adm-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-nav a { padding: 9px 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .1); color: var(--ink-2); font: 700 11px/1 var(--font-ui); letter-spacing: .18em; text-transform: uppercase; text-decoration: none; transition: border-color .3s var(--ease), color .3s var(--ease); }
+.adm-nav a:hover { border-color: var(--gold); color: var(--gold-hi); }
+.adm-nav a.on { border-color: var(--gold); color: var(--on-gold); background: var(--gold-grad); }
+.adm-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.adm-who { display: grid; gap: 4px; justify-items: end; color: var(--ink-2); font-size: 14px; }
+.adm-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.adm-tile { display: grid; gap: 4px; padding: 16px 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .025); }
+.adm-tile b { font: 600 30px/1 var(--font-ui); color: var(--gold-hi); }
+.adm-tile span { font: 700 11px/1 var(--font-ui); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-2); }
+.adm-tile small { color: var(--muted); font-size: 12.5px; }
+.appt.adm .appt-head { grid-template-columns: 1fr 1.6fr auto auto; }
+.appt.adm .appt-what b { color: var(--ink); font-weight: 600; }
+.appt.gold { border-color: rgba(216, 166, 64, .45); background: radial-gradient(120% 80% at 100% 0%, rgba(216, 166, 64, .10), transparent 60%), linear-gradient(180deg, #14120f, #0b0b0b); }
+.appt.gold .appt-ref { color: var(--gold-hi); }
+.adm-cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
+.adm-quote { white-space: pre-wrap; color: var(--ink-2); font-style: italic; }
+.adm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-actions .btn { --h: 42px; padding: 0 16px; font-size: 11.5px; }
+.adm-actions .btn.attention { border-color: var(--gold); color: var(--gold-hi); }
+.adm-actions .btn.danger:hover { border-color: #d46a5a; color: #f0a090; }
+.adm-panel { display: grid; gap: 14px; padding: 16px; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .3); }
+.adm-history summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.adm-history ul { margin: 8px 0 0; padding: 0 0 0 18px; color: var(--ink-2); font-size: 13.5px; display: grid; gap: 4px; }
+.adm-qr { width: 200px; height: 200px; border-radius: 12px; background: #fff; padding: 8px; }
+.cal-cols { display: grid; gap: 10px; }
+.cal-cols.week { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-col { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 12px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .07); background: rgba(255, 255, 255, .02); }
+.cal-col.blocked { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(216, 166, 64, .07) 8px 10px); }
+.cal-col .bk-h2 { font-size: 12px; }
+.cal-col .bk-h2 small { color: var(--gold); }
+.cal-item { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .3); color: var(--ink); font-size: 12.5px; cursor: pointer; min-width: 0; }
+.cal-item b { color: var(--gold-hi); }
+.cal-item small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-item.st-requested, .cal-item.st-needs_information { border-style: dashed; }
+.cal-item.gold { border-color: rgba(216, 166, 64, .5); }
+.adm-log { margin: 0; padding: 0 0 0 18px; color: var(--ink-2); font-size: 14px; display: grid; gap: 6px; }
+.bk-notice { display: grid; gap: 6px; padding: 14px 18px; border-radius: var(--r-md); border: 1px solid var(--line); background: radial-gradient(100% 120% at 0% 0%, rgba(216, 166, 64, .12), transparent 60%); }
+.bk-notice p { margin: 0; color: var(--ink); }
+@media (max-width: 980px) { .cal-cols.week { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-cols { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .appt.adm .appt-head { grid-template-columns: 1fr auto; } .cal-cols.week { grid-template-columns: 1fr; } }

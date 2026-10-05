@@ -584,6 +584,7 @@
     const today = D.helpers.todayLocal();
     const first = D.helpers.addDays(today, settings.min_days_ahead), last = D.helpers.addDays(today, settings.max_days_ahead);
     if (!w.month) w.month = new Date(first.getFullYear(), first.getMonth(), 1);
+    if (settings.customer_notice) box.appendChild(el('div.bk-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', settings.customer_notice)));
     const cal = el('div.cal', { dataset: { field: 'service_date' } });
     const monthName = w.month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const prevOk = new Date(w.month.getFullYear(), w.month.getMonth(), 0) >= new Date(first.getFullYear(), first.getMonth(), 1);
