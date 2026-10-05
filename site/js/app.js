@@ -14,7 +14,6 @@
   const PHONE = '(945) 361-7551', TEL = 'tel:+19453617551';
   // Pages that come later in the build. Nothing here is a feature that exists yet.
   const PAGES = {
-    book: { eyebrow: 'Booking', title: 'Book Now', text: 'The booking app is the next part of the build. Until it opens, call ' + PHONE + ' to book.', primary: { href: TEL, label: 'Call ' + PHONE } },
     appointments: { eyebrow: 'Your details', title: 'Appointments', text: 'Your upcoming and completed details will appear here once you sign in. This page comes with the account build.' },
     reviews: { eyebrow: 'Customers', title: 'Reviews', text: 'Reviews from Alchemist customers will appear here.' },
     tips: { eyebrow: 'Car care', title: 'Tips', text: 'Advice on keeping your car clean and protected between details is coming soon.' },
@@ -206,7 +205,7 @@
   }
   function render(first) {
     const { r, sub } = parse();
-    const view = r === 'home' || r === 'services' ? r : 'page';
+    const view = r === 'home' || r === 'services' || r === 'book' ? r : 'page';
     if (cur) memo[cur] = window.scrollY;
     const changed = r !== cur;
     if (changed) {
@@ -218,6 +217,7 @@
         if (on && !first && !reduce) { void v.offsetWidth; v.classList.add('enter'); }
       });
       if (view === 'page') fillPage(r);
+      if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'));
       setName(NAMES[r]);
       $$('nav a', menu).forEach((a) => {
         if (a.getAttribute('href') === '#' + r) a.setAttribute('aria-current', 'page');

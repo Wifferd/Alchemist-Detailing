@@ -33,7 +33,7 @@ The owner's direction: a **mandatory** "what's the car like" choice in the booki
 
 ## What this changes in the build
 
-- **Migration 002, part 2:** a fee per condition (`form_options.price_cents`), which services include which conditions (new table `condition_includes`), condition fees in `quote_booking` (with the 2.5% / 7% mobile rule, as for add-ons), `submit_booking` refusing a booking with no condition choice when an interior service is chosen, and "none" exclusive. Tests added to `db-tests/`. Test project first, then live with the owner's OK.
+- **Migration 002, part 2 (as built):** each fee is a service of kind `addon` with a `cond_` code (`cond_pet_hair` and so on), linked from the condition list by `form_options.fee_code`; "included in" uses the existing `service_includes` table; the fees need an interior service through `addon_rules`; `quote_booking` takes `conditions` and adds the fee lines (2.5% mobile, marked `"condition": true`); `submit_booking` refuses a booking with no condition choice when an interior service is chosen, keeps "none" exclusive, needs the note with "Other" and sends "Other" to Review. Tests in `db-tests/`. Test project first, then live with the owner's OK.
 - **Booking step 02:** the mandatory condition cards with fees and "Included" badges, the heavy-stain line, Other with a required note, and the notes box.
 - The old `holds_price` on Heavy stains is turned off.
 
