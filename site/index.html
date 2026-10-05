@@ -60,6 +60,7 @@
   <nav aria-label="Pages">
     <a href="#home" style="--i:0">Home</a>
     <a href="#services" style="--i:1">Services</a>
+    <a href="#gallery" style="--i:1">Gallery</a>
     <a href="#book" style="--i:2">Book Now</a>
     <a href="#appointments" style="--i:3">Appointments</a>
     <a href="#reviews" style="--i:4">Reviews</a>
@@ -270,6 +271,7 @@
       <figure class="work-item" role="listitem"><img src="img/work/side-600.webp" srcset="img/work/side-600.webp 600w, img/work/side-1200.webp 1200w" sizes="(max-width: 720px) 72vw, 360px" alt="Side skirt and carbon trim after a wash" width="600" height="800" loading="lazy" decoding="async"><figcaption>Every panel</figcaption></figure>
     </div>
     <div class="wrap work-foot">
+      <a class="btn btn-gold shine" href="#gallery">See the gallery <span class="arrow" aria-hidden="true">→</span></a>
       <a class="btn btn-glass" href="https://www.instagram.com/alchemy_details" target="_blank" rel="noopener">More on Instagram <span class="arrow" aria-hidden="true">→</span></a>
     </div>
   </section>
@@ -466,6 +468,11 @@
   <section class="book-page" aria-label="Reviews"><div id="reviewsApp"></div></section>
 </div>
 
+<!-- ================================================================ GALLERY -->
+<div class="view" data-view="gallery" hidden>
+  <section class="book-page gal-page" aria-label="Gallery"><div id="galleryApp"></div></section>
+</div>
+
 <!-- ================================================================ CONTENT PAGES (drafts) -->
 <div class="view" data-view="content" hidden>
   <section class="book-page" aria-label="Page"><div id="contentApp"></div></section>
@@ -520,6 +527,7 @@
 <script src="js/team.js"></script>
 <script src="js/reviews.js"></script>
 <script src="js/content.js"></script>
+<script src="js/gallery.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

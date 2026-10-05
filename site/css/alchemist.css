@@ -1268,3 +1268,36 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 [data-theme="light"] .lightbox { background: rgba(246, 243, 236, .94); }
 [data-theme="light"] .work-item { border-color: rgba(20, 18, 12, .1); }
 @media (prefers-reduced-motion: reduce) { .hero-photo img { animation: none; transform: none; } }
+
+/* ---------------------------------------------------------------- the gallery */
+.gal-page { padding-inline: var(--gutter); }
+.gal { width: min(100%, var(--col)); margin-inline: auto; display: grid; gap: 22px; }
+.gal-head { display: grid; gap: 10px; }
+.gal-intro { margin: 0; color: var(--ink-2); max-width: 50ch; }
+.gal-filters { gap: 8px; }
+.gal-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 240px; grid-auto-flow: dense; gap: 14px; perspective: 1200px; }
+.gal-tile { position: relative; margin: 0; border-radius: var(--r-lg); overflow: hidden; background: var(--panel); border: 1px solid rgba(255, 255, 255, .07); cursor: zoom-in; isolation: isolate;
+  opacity: 0; transform: translateY(28px) scale(.98); transition: opacity .8s var(--ease), transform .9s var(--ease), border-color .4s var(--ease); transition-delay: calc(var(--i, 0) * 60ms); transform-style: preserve-3d; }
+.gal-tile.tall { grid-row: span 2; }
+.gal-tile.in { opacity: 1; transform: translateY(var(--drift, 0px)) scale(1); transition-delay: calc(var(--i, 0) * 60ms), calc(var(--i, 0) * 60ms), 0s; }
+.gal-tile.in.tilt { transition-delay: 0s; transition-duration: .25s; transform: translateY(var(--drift, 0px)) rotateX(var(--rx, 0)) rotateY(var(--ry, 0)) scale(1.02); border-color: rgba(226, 185, 82, .5); z-index: 2; }
+.gal-media { position: absolute; inset: 0; }
+.gal-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s var(--ease), filter .6s var(--ease); filter: brightness(.95); }
+.gal-tile:hover .gal-media img, .gal-tile:focus-visible .gal-media img { transform: scale(1.06); filter: brightness(1); }
+.gal-tile::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(248, 221, 152, .18), transparent 55%); opacity: 0; transition: opacity .35s var(--ease); z-index: 1; }
+.gal-tile.tilt::after { opacity: 1; }
+.gal-tile figcaption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 44px 16px 14px; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .78)); color: #f7f7f4; font: 700 11px/1 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; transform: translateY(8px); opacity: .85; transition: transform .45s var(--ease), opacity .45s var(--ease); }
+.gal-tile:hover figcaption, .gal-tile:focus-visible figcaption { transform: none; opacity: 1; }
+.gal-tile figcaption i { font-style: normal; color: var(--gold-hi); opacity: 0; transform: translateX(-6px); transition: opacity .35s var(--ease), transform .35s var(--ease); }
+.gal-tile:hover figcaption i, .gal-tile:focus-visible figcaption i { opacity: 1; transform: none; }
+.gal-box img { animation: none; }
+.gal-box img.swap { animation: galSwap .4s var(--ease); }
+@keyframes galSwap { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.gal-prev, .gal-next { position: absolute; top: 50%; transform: translateY(-50%); font-size: 28px; line-height: 1; z-index: 2; }
+.gal-prev { left: 16px; } .gal-next { right: 16px; }
+.lightbox-foot { display: flex; align-items: center; gap: 16px; }
+.gal-count { color: var(--muted); font-size: 12px; letter-spacing: .1em; }
+@media (max-width: 980px) { .gal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 200px; } }
+@media (max-width: 720px) { .gal-grid { gap: 8px; grid-auto-rows: 150px; } .gal-tile { border-radius: var(--r-md); } .gal-tile figcaption { padding: 28px 10px 10px; font-size: 9.5px; } .gal-prev, .gal-next { top: auto; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); transform: none; } }
+@media (prefers-reduced-motion: reduce) { .gal-tile { opacity: 1; transform: none; transition: none; } .gal-tile.in.tilt { transform: none; } }
+[data-theme="light"] .gal-tile { border-color: rgba(20, 18, 12, .1); }
