@@ -26,3 +26,7 @@ Also: "Hit up the best possible designs and animations you can do right now, thi
 | Fri | 12:00 PM – 5:00 PM | Jummah prayer |
 
 A start time is offered only when the whole job fits outside the closures. Examples: a 60-minute job on a Monday can start up to 3:00 PM; on a Friday up to 11:00 AM and again from 5:00 PM to 7:00 PM; on a Saturday any time from 10:00 AM to 7:00 PM. Staff cannot book into a closure either. The admin can change the rows in `weekly_closures` (same access as closed days); the admin console shows them under Settings.
+
+## The owner's own designs (Oct 10, 2026)
+
+He sent a design canvas, "Alchemist Web Design Ideas" (https://claude.ai/artifact/66WQwuFdDtctzZ77TqHzba), with six sections and said "use some of these designs": 1 The Alchemist's Table (the menu as a periodic table of elements, with a side panel per element), 2 The Bead Test (bare paint vs WetGloss, two panels with a gold seam, prices by vehicle type), 3 The Transmutation (a before/after slider; no before photos yet, so it stays hidden on the live site until a pair exists), 4 The Ritual (five expanding panels: snow foam, wheels, hand wash, hand dry, seal), 5 The Gold client card (in Account, for a customer with a completed $200+ detail), 6 Gold reviews as assay certificates (the Reviews page). Every price, time and process step in them was checked against the database on Oct 10, 2026 and matches. The three illustration images in the canvas are renders (water film, beads, foam), used as textures only, never captioned as our work. The final design run builds them.
