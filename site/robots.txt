@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /test/
+
+Sitemap: https://alchemist-detailing.vercel.app/sitemap.xml

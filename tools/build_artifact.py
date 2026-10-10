@@ -9,13 +9,15 @@ out = ROOT / 'dist' / 'alchemist-detailing.html'
 html = (site / 'index.html').read_text()
 head = html.split('<!-- HEAD START -->')[1].split('<!-- HEAD END -->')[0]
 body = html.split('<!-- BODY START -->')[1].split('<!-- BODY END -->')[0]
-# keep the title and font links; meta tags belong to the real site's <head>
-head = '\n'.join(l for l in head.strip().splitlines() if not l.lstrip().startswith('<meta'))
+# keep the title and the font links; meta tags, icons, the manifest, the canonical link and head scripts
+# belong to the real site's <head> (they sit after HEAD END in index.html; this filter is the safety net)
+DROP = ('<meta', '<link rel="icon', '<link rel="apple-touch-icon', '<link rel="manifest', '<link rel="canonical', '<script')
+head = '\n'.join(l for l in head.strip().splitlines() if not l.lstrip().startswith(DROP))
 css = (site / 'css/alchemist.css').read_text()
 mono = 'data:image/webp;base64,' + base64.b64encode((site / 'img/mono-metallic.webp').read_bytes()).decode()
 body = body.replace('img/mono-metallic.webp', mono)
 js = ''
-for name in ['hero-gl.js', 'foam.js', 'data.js', 'ui.js', 'booking.js', 'account.js', 'admin.js', 'team.js', 'reviews.js', 'content.js', 'gallery.js', 'app.js']:
+for name in ['hero-gl.js', 'foam.js', 'data.js', 'ui.js', 'booking.js', 'account.js', 'admin.js', 'team.js', 'reviews.js', 'content.js', 'gallery.js', 'services.js', 'app.js']:
     src = (site / 'js' / name).read_text()
     assert '</script' not in src.lower()
     js += f'<script>\n{src}\n</script>\n'

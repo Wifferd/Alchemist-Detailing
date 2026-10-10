@@ -12,6 +12,7 @@
   let root = null, staff = null, settings = null, menu = null, ready = null;
   const st = { jobs: null, open: null, openJobs: null, ask: null, signin: { phone: '', sent: false }, photos: {} };
   const labelOf = (list, code) => ((menu.options[list] || []).find((o) => o.code === code) || {}).label || code;
+  const ROLE = { admin: 'Admin', manager: 'Manager', detailer: 'Detailer' };
 
   const PREVIEW = [];
   function seed() {
@@ -29,7 +30,7 @@
   }
   async function render() {
     if (!root) return;
-    root.replaceChildren(el('div.bk-loading', el('span.bk-spin'), 'Loading…'));
+    root.replaceChildren(U.loading('Loading…'));
     await ready;
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Team sign-in', signIn()));
@@ -50,10 +51,10 @@
     return el('div.bk.admin',
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — example jobs, nothing is saved.') : null,
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Team'), el('h1.display.bk-title', title)),
-        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + staff.role), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.jobs = null; render(); } }, 'Sign out')) : null),
+        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + (ROLE[staff.role] || staff.role)), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.jobs = null; render(); } }, 'Sign out')) : null),
       body);
   }
-  const section = (title, list, empty) => el('section.acct-sec', el('h2.bk-h2', title), list.length ? list.map(card) : el('p.bk-muted', empty));
+  const section = (title, list, empty) => el('section.acct-sec', el('h2.bk-h2', title), list.length ? list.map(card) : el('p.bk-empty', empty));
 
   function signIn() {
     const s = st.signin;
@@ -83,7 +84,7 @@
     if (st.openJobs == null) { loadOpenJobs().then(render); return el('section.acct-sec', el('h2.bk-h2', 'Open jobs'), el('p.bk-muted', 'Checking…')); }
     return el('section.acct-sec', el('h2.bk-h2', 'Open jobs', el('small', 'confirmed, nobody assigned yet')),
       st.openJobs.length ? st.openJobs.map((j) => el('div.veh', el('div.veh-main', el('b', shortDate(j.service_date) + ' · ' + clock(j.start_min) + ' · ' + minutesText(j.duration_min)), el('span.bk-muted', (j.services || []).join(' + ') + ' · ' + j.vehicle + ' · ' + j.area)),
-        el('div.veh-actions', j.requested_by_me ? el('span.bk-muted', 'Asked ✓') : el('button.link', { type: 'button', onclick: () => askForJob(j) }, 'Ask for this job')))) : el('p.bk-muted', 'None right now.'));
+        el('div.veh-actions', j.requested_by_me ? el('span.bk-muted', 'Asked ✓') : el('button.link', { type: 'button', onclick: () => askForJob(j) }, 'Ask for this job')))) : el('p.bk-empty', 'None right now.'));
   }
   async function askForJob(j) {
     try { if (D.isLive) await D.rpc('request_job', { p_appointment: j.id, p_message: null }); else j.requested_by_me = true; toast('Asked. The owner decides.'); st.openJobs = null; render(); }
@@ -95,6 +96,8 @@
   function card(j) {
     const open = st.open === j.id;
     const place = j.location_type === 'mobile' ? (j.address ? j.address + ', ' + (j.address_zip || '') : 'Address comes with the confirmation') : 'Come to us';
+    // Navigate: the first action on a mobile job (the address stays in the list above it)
+    const navigate = j.location_type === 'mobile' && j.address ? el('a.btn.btn-glass', { href: 'https://maps.apple.com/?q=' + encodeURIComponent(j.address + ' ' + (j.address_zip || '')), target: '_blank', rel: 'noopener' }, 'Navigate') : null;
     return el('article.appt.adm', { class: 'st-' + j.status + (open ? ' open' : '') },
       el('button.appt-head', { type: 'button', 'aria-expanded': open ? 'true' : 'false', onclick: () => { st.open = open ? null : j.id; st.ask = null; render(); } },
         el('span.appt-when', el('b', shortDate(j.service_date) + ' · ' + clock(j.start_min)), el('span', minutesText(j.duration_min) + ' · ' + (j.location_type === 'mobile' ? 'Mobile' : 'Driveway'))),
@@ -103,7 +106,7 @@
         el('span.appt-ref.tnum', j.ref)),
       open ? el('div.appt-body',
         el('dl.sum-body',
-          el('dt', 'Where'), el('dd', place, j.location_type === 'mobile' && j.address ? [' · ', el('a', { href: 'https://maps.apple.com/?q=' + encodeURIComponent(j.address + ' ' + (j.address_zip || '')), target: '_blank', rel: 'noopener' }, 'Navigate')] : null),
+          el('dt', 'Where'), el('dd', place),
           el('dt', 'Vehicle'), el('dd', vehicle(j) + (j.vehicle_size === 'xl' ? ' · XL' : '')),
           el('dt', 'Do'), el('dd', services(j)),
           el('dt', 'Inside'), el('dd', (j.conditions || []).map((c) => labelOf('condition', c)).join(', ') || '—'),
@@ -112,7 +115,7 @@
           j.special_request ? [el('dt', 'Notes'), el('dd.adm-quote', j.special_request)] : null),
         (j.photo_paths || []).length ? photos(j) : null,
         el('p.bk-muted', 'Before and after photos are free; ask the customer first. Payment is handled by the owner.'),
-        el('div.adm-actions',
+        el('div.adm-actions', navigate,
           el('button.btn.btn-glass', { type: 'button', onclick: () => { st.ask = { id: j.id, text: '' }; render(); } }, 'Ask the owner'),
           el('button.btn.btn-glass', { type: 'button', disabled: true, title: 'Needs the texting service (not set up yet)' }, 'Running late (soon)')),
         st.ask && st.ask.id === j.id ? el('div.adm-panel', el('h3.bk-h2', 'Message to the owner'),

@@ -7,6 +7,18 @@ prefix, w, h = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 url = (pathlib.Path(__file__).resolve().parent.parent / 'site' / 'index.html').as_uri() + '?noadapt#book'
 phone = w < 700
 
+async def full(pg, path):
+    # a visitor scrolls through the page; sections rise as they enter (app.js). Step through it the same way,
+    # wait until nothing on the open page is left un-revealed, then the full-page shot shows it all
+    h, vh = await pg.evaluate('[document.documentElement.scrollHeight, innerHeight]')
+    for y in range(0, h, max(200, int(vh * 0.8))):
+        await pg.evaluate(f'window.scrollTo(0, {y})'); await pg.wait_for_timeout(120)
+    await pg.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)')
+    try: await pg.wait_for_function("!document.querySelector('.view:not([hidden]) :is([data-rise], [data-reveal]):not(.in)')", timeout=5000)
+    except Exception: print('note: something below the fold never revealed')
+    await pg.evaluate('window.scrollTo(0, 0)'); await pg.wait_for_timeout(800)
+    await pg.screenshot(path=path, full_page=True)
+
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path=os.environ.get('SHOOT_CHROME') or None, args=['--allow-file-access-from-files'])
@@ -28,16 +40,16 @@ async def main():
         # the guest is signed out after sending; sign in again on the account page
         await pg.evaluate('location.hash = "account"'); await pg.wait_for_selector('#phone', timeout=8000)
         await pg.wait_for_timeout(400); await pg.screenshot(path=f'{prefix}-account-signin.png')
-        await pg.fill('#phone', '9725552011'); await pg.click('.mini-btn'); await pg.wait_for_selector('#phone_code'); await pg.fill('#phone_code', '123456')
+        await pg.fill('#si_first', 'Carla'); await pg.fill('#phone', '9725552011'); await pg.click('.mini-btn'); await pg.wait_for_selector('#phone_code'); await pg.fill('#phone_code', '123456')
         await pg.wait_for_selector('#first_name', timeout=8000); await pg.wait_for_timeout(400)
-        await pg.screenshot(path=f'{prefix}-account.png', full_page=True)
+        await full(pg, f'{prefix}-account.png')
         await pg.click('text=+ Add vehicle'); await pg.wait_for_selector('#vehicle_make')
         await pg.fill('#vehicle_year', '2021'); await pg.fill('#vehicle_make', 'Toyota'); await pg.fill('#vehicle_model', '4Runner'); await pg.fill('#vehicle_color', 'Black')
         await pg.click('[data-field="vehicle_type"] [data-code="suv"]'); await pg.click('text=Save vehicle'); await pg.wait_for_selector('.veh', timeout=8000)
-        await pg.wait_for_timeout(400); await pg.screenshot(path=f'{prefix}-account-vehicle.png', full_page=True)
-        await pg.evaluate('location.hash = "appointments"'); await pg.wait_for_selector('.appt', timeout=8000)
-        await pg.click('.appt-head'); await pg.wait_for_selector('.appt-body'); await pg.wait_for_timeout(400)
-        await pg.screenshot(path=f'{prefix}-appointments.png', full_page=True)
+        await pg.wait_for_timeout(400); await full(pg, f'{prefix}-account-vehicle.png')
+        await pg.evaluate('location.hash = "appointments"'); await pg.wait_for_selector('#appointmentsApp .appt', timeout=8000)
+        await pg.click('#appointmentsApp .appt-head'); await pg.wait_for_selector('#appointmentsApp .appt-body'); await pg.wait_for_timeout(400)
+        await full(pg, f'{prefix}-appointments.png')
         print('ok'); [print(m) for m in msgs]
         await b.close()
 asyncio.run(main())

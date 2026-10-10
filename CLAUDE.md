@@ -35,13 +35,21 @@ The website and booking/account platform for **Alchemist Detailing**, a car deta
 - Migration 002 (five files, `20261005090001…090005`) is applied to **both** projects (live on Oct 5, 2026 with the owner's OK, doc 32); 37 passing checks in `db-tests/m002_tests_conditions.sql`.
 - Migration 003 (`20261005210001_m003_weekly_hours.sql`, doc 32): `weekly_closures` (ISO weekday, minutes) and `open_starts` skips them; Mon–Thu closed 4–8 PM, Fri closed 12–5 PM; hours stay 10 AM–7 PM, jobs end by 8 PM. Applied to both projects; 25 checks in `db-tests/m003_tests_hours.sql` (one DO block: top-level `set role` hangs the Supabase MCP, so tests run as DO blocks with `execute 'set local role …'`). `get_public_settings()` now returns `weekly_closures`.
 
+## Final design run (Oct 10, docs 32)
+
+- Twelve packages: motion system, landing page, water/foam/light realism (hero-gl.js, foam.js), the owner's six canvas designs (Alchemist's Table, Ritual, Bead Test on #services; the Transmutation before/after slider on #gallery, hidden in live mode until a before photo exists; the Gold client card in #account for a completed $200+ booking; Gold reviews as certificates on #reviews), phone, booking and account, light mode, secondary pages, staff consoles, accessibility/performance and launch files. Concept chosen: "Showroom light" (the car under studio light).
+- Supabase is loaded with a pinned SRI hash (`sha384-rwykjm…`), checked against the real jsDelivr file on Oct 10. If the supabase-js version changes, recompute the hash or the browser refuses the script and live booking stops.
+- Price breakdowns never show the bundle saving as a minus line: the bundle line already carries the bundle price, so the saving is a note (`.pr-note`) and the column adds up to the total (fixed in `ui.js` and `admin.js`).
+- Hours appear in the footer, Contact, the FAQ and the LD+JSON `openingHoursSpecification`: Mon–Thu 10–4, Fri 10–12 and 5–8, Sat–Sun 10–8. Change them in all four if Migration 003's rows change.
+- Open owner decisions: the domain (doc 32 lists the free names), calendar week starting Sunday or Monday, the length of the pinned wash on the home page.
+
 ## Phase 2 answers (doc 26, Oct 5)
 
 - Customer account: profile, vehicles and bookings only. **No online cancel or reschedule**: customers contact the owner; the account shows the phone number for that.
 - The booking app (`site/js/data.js`, `ui.js`, `booking.js`) is built and runs in preview mode in the claude.ai artifact and in live mode against Supabase; `tools/shoot_booking.py` walks it for screenshots.
 - Phase 3 (`site/js/admin.js`, route `#admin`, sub-screens `#admin-requests` etc.): manager/admin gate with phone code + authenticator (TOTP enrolment and challenge through supabase-js), Morning view, Requests lanes with Confirm / Decline / Ask for info / Change time / Set price (admin) / Assign / Move lane / Cancel, Calendar (week/day, closed days, the owner's note = `business_settings.customer_notice`, Migration 002 part 4), Customers, Team (roles, active, create account through the Edge Function), Settings (read-only), Log. Preview mode shows clearly labelled example data. Not yet tested in live mode.
 - Design upgrade with the owner's photos (doc 31): `site/img/work/` (web versions only; originals in his Google Drive), photo hero, photos on three service cards, the "Our work" strip and lightbox. Videos still owed (under 10 MB each). No interior photo yet.
-- Phase 7 content (`site/js/content.js`): Tips, FAQ and About are DRAFTS (doc 30) shown with a Draft banner; the FAQ repeats only database facts. The owner edits the words. Design pass (doc 29): modern black and gold, Jost headlines, motion (letter rise, section reveals, pointer glint, hero parallax), light "showroom" mode via `data-theme="light"` (menu toggle, remembered in localStorage).
+- Phase 7 content (`site/js/content.js`): Tips, FAQ and About (doc 30) were approved as written by the owner on Oct 5 (doc 32), so the Draft banner is off (`SHOW_DRAFT_BANNER = false`); the FAQ repeats only database facts, and its hours answer follows Migration 003. Design pass (doc 29): modern black and gold, Jost headlines, motion (letter rise, section reveals, pointer glint, hero parallax), light "showroom" mode via `data-theme="light"` (menu toggle, remembered in localStorage).
 - Phase 5 (`site/js/reviews.js`, Migration 002 part 5): `reviews` table and `submit_review`, `public_reviews`, `review_set_status`, `review_reply`; a customer reviews a completed booking from Appointments; the owner approves, hides and replies from the console's Reviews tab; first name + last initial; $200+ is gold; `business_settings.google_reviews_url` for the Google link. No invented reviews, ever. 18 checks in `db-tests/m002_tests_reviews.sql`.
 - Phase 4 (`site/js/team.js`, route `#team`): a detailer's assigned jobs (no prices, no customer contact details, doc 28), open jobs to ask for (`open_jobs`, `request_job`), "Ask the owner" (`request_review`), customer photos through signed URLs. Start/complete stay with the owner (Migration 001).
 - Phase 2 (`site/js/account.js`): `#account` (phone-code sign-in, name, saved vehicles, sign out) and `#appointments` (upcoming and past from `my_bookings`, with the phone number for cancellations). `tools/shoot_account.py` walks it. Not yet tested in live mode (texting isn't set up).
@@ -71,13 +79,13 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 
 | Path | What |
 | --- | --- |
-| `site/` | The website: `index.html`, `css/alchemist.css`, `js/hero-gl.js` (hero and still pictures), `js/foam.js` (the wash: plays once, left to right, on its own clock), `js/app.js` (menu, routing, page logic), `js/config.js` (Supabase URL and publishable key), `img/` |
+| `site/` | The website: `index.html`, `css/alchemist.css`, `js/hero-gl.js` (hero water, beads and the gold studio light; also the still "art" scenes), `js/foam.js` (the wash: scroll-driven, left to right, finishes once and never rewinds), `js/services.js` (the owner's Alchemist's Table, Ritual and Bead Test on #services), `js/app.js` (menu, routing, page logic, motion), `js/config.js` (Supabase URL and publishable key), `img/` (work photos, `cannon.webp`, `art/` textures, `og.jpg`), launch files (`404.html`, icons, `site.webmanifest`, `robots.txt`, `sitemap.xml`, `vercel.json` with security headers) |
 | `brand/` | The owner's logo (`logo-source.png`), the redrawn AD monogram (`ad-mark.svg`, path data), metallic cut-outs, and the scripts that made them |
 | `supabase/migrations/` | Migration 001 (six files), Migration 002 (five files dated 20261005) and Migration 003 (weekly hours), all on both projects |
 | `supabase/functions/` | Edge Functions: `admin-create-team-account`, `cleanup-unattached-photos` |
 | `db-tests/` | Migration 001 suites (472 checks, 6,480 price combinations), Migration 002 suites (`m002_tests_conditions.sql`, `m002_tests_pricing.sql`, `m002_tests_reviews.sql`) and `m003_tests_hours.sql` |
 | `docs/` | Every decision, audit and report, numbered in order (01 to 24), plus the owner's design and animation direction |
-| `tools/` | `build_artifact.py` (single-file preview), `shoot.py` (screenshots with Playwright) |
+| `tools/` | `build_artifact.py` (single-file preview), `shoot.py` and `shoot_booking.py` / `shoot_account.py` / `shoot_admin.py` / `shoot_team.py` (screenshots with Playwright; `SHOOT_THEME=light` for the booking walk), `make_icons.py` and `make_og.py` (regenerate the icons and the social image) |
 
 ## Previewing the site
 

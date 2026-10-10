@@ -12,6 +12,13 @@
   const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
   const LANES = [['requests', 'Requests'], ['review', 'Review'], ['spam', 'Spam']];
   const STATUS = { requested: 'Requested', needs_information: 'Needs info', confirmed: 'Confirmed', in_progress: 'In progress', completed: 'Completed', declined: 'Declined', cancelled: 'Cancelled' };
+  // the database's codes, in words: roles, what holds a price (quote_booking's pending_reasons) and the log's actions
+  const ROLE = { admin: 'Admin', manager: 'Manager', detailer: 'Detailer' };
+  const PENDING = { xl: 'XL vehicle', vehicle_price: 'WetGloss on this vehicle type', stains: 'Stains' };
+  const ACTION = { confirm_booking: 'Confirmed', decline_booking: 'Declined', ask_for_information: 'Asked for info', cancel_booking: 'Cancelled', start_booking: 'Started', complete_booking: 'Completed', set_booking_lane: 'Moved lane', set_booking_time: 'Changed time', set_extra_cost: 'Set price', assign_employee: 'Assigned', unassign_employee: 'Unassigned' };
+  const roleOf = (r) => ROLE[r] || r;
+  const pendingWords = (b) => (b.pending_reasons || []).map((c) => PENDING[c] || c).join(', ');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let root = null, staff = null, settings = null, menu = null, screen = 'morning', ready = null;
   const st = { lane: 'requests', bookings: null, open: null, panel: null, calDay: null, calMode: 'week', staffList: null, customers: null, search: '', log: null, blocked: null, mfa: null, signin: { phone: '', sent: false } };
@@ -36,10 +43,16 @@
       mk(3, { status: 'confirmed', assignments: [{ employee_id: 'staff-1', name: 'Owner' }] }),
       mk(4, { status: 'confirmed' }),
       mk(5, { status: 'requested', queue: 'review', review_reasons: ['damage'], damage: ['unknown'], damage_note: 'Scratch on the door, not sure how deep.', hold_expires_at: new Date(Date.now() + 10 * 3600e3).toISOString() }),
-      mk(6, { status: 'completed', service_date: iso(-3) }));
+      mk(6, { status: 'completed', service_date: iso(-3) }),
+      // a Full Detail Bundle, mobile ($209.99 + 7%): over $200, so the console shows it gold (doc 22)
+      mk(7, { status: 'confirmed', service_date: iso(1), start_min: 600, duration_min: 210, assignments: [{ employee_id: 'staff-2', name: 'Example' }],
+        items: [{ code: 'full_detail', name: 'Full Detail Bundle', kind: 'bundle', price_cents: 20999, mobile_cents: 1470, duration_min: 210, included: false }, { code: 'steam_cleaning', name: 'Steam Cleaning', kind: 'addon', price_cents: 4999, mobile_cents: 0, duration_min: 0, included: true }],
+        value_cents: 22998, bundle_savings_cents: 1999, mobile_cents: 1470, total_cents: 22469 }));
     PREVIEW.staff.push({ id: 'staff-1', first_name: 'Owner', last_name: null, role: 'admin', phone: '19453617551', is_active: true }, { id: 'staff-2', first_name: 'Example', last_name: 'Detailer', role: 'detailer', phone: '19725550199', is_active: true });
     PREVIEW.blocked.push({ day: iso(12), reason: 'Example: closed' });
-    PREVIEW.log.push({ id: 1, action: 'confirm_booking', target_type: 'appointment', target_id: 'ex-3', created_at: new Date().toISOString(), actor_id: 'staff-1' });
+    PREVIEW.log.push({ id: 3, action: 'assign_employee', target_type: 'appointment', target_id: 'ex-7', created_at: new Date().toISOString(), actor_id: 'staff-1' },
+      { id: 2, action: 'confirm_booking', target_type: 'appointment', target_id: 'ex-3', created_at: new Date(Date.now() - 2 * 3600e3).toISOString(), actor_id: 'staff-1' },
+      { id: 1, action: 'set_extra_cost', target_type: 'appointment', target_id: 'ex-6', created_at: new Date(Date.now() - 26 * 3600e3).toISOString(), actor_id: 'staff-1' });
   }
 
   // ---------------------------------------------------------------- data (live reads through RLS; actions through functions)
@@ -104,7 +117,7 @@
   }
   async function render() {
     if (!root) return;
-    root.replaceChildren(el('div.bk-loading', el('span.bk-spin'), 'Loading…'));
+    root.replaceChildren(U.loading('Loading…'));
     await ready;
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Sign in', signIn()));
@@ -117,9 +130,9 @@
   function shell(title, body, nav) {
     return el('div.bk.admin',
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — example data, nothing is saved. Names and bookings here are made up for the preview.') : null,
-      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', onclick: (e) => { e.preventDefault(); screen = k; history.replaceState(null, '', '#admin-' + k); render(); } }, label))) : null,
+      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; history.replaceState(null, '', '#admin-' + k); render(); } }, label))) : null,
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Admin'), el('h1.display.bk-title', title)),
-        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + (staff.role || '')), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.bookings = null; render(); } }, 'Sign out')) : null),
+        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.bookings = null; render(); } }, 'Sign out')) : null),
       body);
   }
   function signIn() {
@@ -136,7 +149,7 @@
   function mfaStep() {
     const box = el('div.bk-grid');
     if (!staff.hasAuthenticator) {
-      if (!st.mfa) { D.mfaEnroll().then((m) => { st.mfa = m; render(); }).catch((e) => toast(e.message)); return el('div.bk-loading', el('span.bk-spin'), 'Preparing your authenticator…'); }
+      if (!st.mfa) { D.mfaEnroll().then((m) => { st.mfa = m; render(); }).catch((e) => toast(e.message)); return U.loading('Preparing your authenticator…'); }
       box.append(el('p.bk-note', 'One-time setup. Open an authenticator app (Google Authenticator, Authy, 1Password…), scan this code, then enter the 6-digit number it shows.'),
         el('img.adm-qr', { src: st.mfa.qr, alt: 'Authenticator QR code' }), el('p.bk-muted', 'Or type the key: ', el('code', st.mfa.secret)));
     } else box.append(el('p.bk-note', 'Enter the 6-digit code from your authenticator app.'));
@@ -158,21 +171,35 @@
   const labelOf = (list, code) => ((menu.options[list] || []).find((o) => o.code === code) || {}).label || code;
   const isGold = (b) => b.total_cents != null && b.total_cents >= 20000;   // the 200+ gold rule (doc 22): shown gold in admin
 
-  function card(b) {
-    const open = st.open === b.id;
-    const c = el('article.appt.adm', { class: 'st-' + b.status + (open ? ' open' : '') + (isGold(b) ? ' gold' : '') },
-      el('button.appt-head', { type: 'button', 'aria-expanded': open ? 'true' : 'false', onclick: () => { st.open = open ? null : b.id; st.panel = null; render(); } },
-        el('span.appt-when', el('b', shortDate(b.service_date) + ' · ' + clock(b.start_min)), el('span', minutesText(b.duration_min) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway'))),
-        el('span.appt-what', el('b', name(b)), el('br'), services(b) + ' · ' + vehicle(b)),
-        el('span.appt-status', STATUS[b.status] || b.status, b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? el('small', ' · ' + hoursLeft(b.hold_expires_at)) : null),
-        el('span.appt-ref.tnum', b.total_cents == null ? 'Price pending' : money(b.total_cents))),
+  // One booking as a card: the head opens the details. A compact card (opts.compact) is a copy shown in a second
+  // list (a request under Today or Tomorrow): a plain head, no body, so every booking opens in one place only.
+  function card(b, opts) {
+    const compact = !!(opts && opts.compact);
+    const open = !compact && st.open === b.id;
+    const hold = b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? b.hold_expires_at : null;
+    const head = [
+      el('span.appt-when', el('b', shortDate(b.service_date) + ' · ' + clock(b.start_min)), el('span', minutesText(b.duration_min) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')),
+        hold ? el('span.appt-hold.tnum', { class: new Date(hold) <= Date.now() ? 'late' : '' }, hoursLeft(hold)) : null),
+      el('span.appt-what', el('b', name(b)), el('br'), services(b) + ' · ' + vehicle(b)),
+      el('span.appt-tags', el('span.appt-status', STATUS[b.status] || b.status), isGold(b) ? el('span.rv-gold', 'Gold detail') : null),
+      el('span.appt-ref.tnum', { class: b.total_cents == null ? 'pending' : '' }, b.total_cents == null ? 'Price pending' : money(b.total_cents))];
+    return el('article.appt.adm', { class: 'st-' + b.status + (open ? ' open' : '') + (isGold(b) ? ' gold' : '') + (compact ? ' compact' : '') },
+      compact ? el('div.appt-head', head)
+        : el('button.appt-head', { type: 'button', 'aria-expanded': open ? 'true' : 'false', onclick: () => { st.open = open ? null : b.id; st.panel = null; render(); } }, head),
       open ? detail(b) : null);
-    return c;
   }
   function detail(b) {
     const canDecide = ['requested', 'needs_information'].includes(b.status);
     const admin = staff.role === 'admin';
     const notes = [b.special_request && ['Notes', b.special_request], b.damage_note && ['Damage note', b.damage_note]].filter(Boolean);
+    // a button that opens a panel: marked (.on, aria-expanded) while its panel is open, a second press closes it;
+    // o.state builds the panel's starting values, o.before loads what it needs
+    function trig(kind, label, o) {
+      o = o || {};
+      const on = !!(st.panel && st.panel.id === b.id && st.panel.kind === kind);
+      return el('button.btn.btn-glass', { type: 'button', class: (o.cls || '') + (on ? ' on' : ''), 'aria-expanded': on ? 'true' : 'false',
+        onclick: async () => { st.panel = on ? null : Object.assign({ kind, id: b.id }, o.state ? o.state() : null); if (!on && o.before) await o.before(); render(); } }, label);
+    }
     const body = el('div.appt-body',
       el('div.adm-cols',
         el('dl.sum-body',
@@ -188,25 +215,26 @@
         el('div.bk-summary-card', priceLines(b))),
       el('div.adm-actions',
         canDecide ? el('button.btn.btn-gold', { type: 'button', disabled: b.price_pending, title: b.price_pending ? 'Set the price first' : '', onclick: () => act('confirm_booking', { p_id: b.id }, 'Confirmed') }, 'Confirm') : null,
-        canDecide ? el('button.btn.btn-glass', { type: 'button', onclick: () => { st.panel = { kind: 'decline', id: b.id }; render(); } }, 'Decline') : null,
-        b.status === 'requested' ? el('button.btn.btn-glass', { type: 'button', onclick: () => { st.panel = { kind: 'info', id: b.id }; render(); } }, 'Ask for info') : null,
+        canDecide ? trig('decline', 'Decline') : null,
+        b.status === 'requested' ? trig('info', 'Ask for info') : null,
         ['confirmed'].includes(b.status) ? el('button.btn.btn-glass', { type: 'button', onclick: () => act('start_booking', { p_id: b.id }, 'Started') }, 'Start') : null,
         ['in_progress'].includes(b.status) ? el('button.btn.btn-gold', { type: 'button', onclick: () => act('complete_booking', { p_id: b.id }, 'Completed') }, 'Complete') : null,
-        !['completed', 'declined', 'cancelled'].includes(b.status) ? el('button.btn.btn-glass', { type: 'button', onclick: () => { st.panel = { kind: 'time', id: b.id, date: b.service_date, start: b.start_min, times: null }; render(); } }, 'Change time') : null,
-        admin && !['completed', 'declined', 'cancelled'].includes(b.status) ? el('button.btn.btn-glass', { type: 'button', class: b.price_pending ? 'attention' : '', onclick: () => { st.panel = { kind: 'price', id: b.id, cents: b.extra_cost_cents != null ? (b.extra_cost_cents / 100).toFixed(2) : '', note: b.extra_cost_note || '' }; render(); } }, b.price_pending ? 'Set price' : 'Extra cost') : null,
-        !['completed', 'declined', 'cancelled'].includes(b.status) ? el('button.btn.btn-glass', { type: 'button', onclick: async () => { st.panel = { kind: 'assign', id: b.id }; if (!st.staffList) await loadStaff(); render(); } }, 'Assign') : null,
-        el('button.btn.btn-glass', { type: 'button', onclick: () => { st.panel = { kind: 'lane', id: b.id }; render(); } }, 'Move lane'),
-        admin && ['confirmed', 'in_progress', 'needs_information', 'requested'].includes(b.status) ? el('button.btn.btn-glass.danger', { type: 'button', onclick: () => { st.panel = { kind: 'cancel', id: b.id }; render(); } }, 'Cancel booking') : null),
+        !['completed', 'declined', 'cancelled'].includes(b.status) ? trig('time', 'Change time', { state: () => ({ date: b.service_date, start: b.start_min, times: null }) }) : null,
+        admin && !['completed', 'declined', 'cancelled'].includes(b.status) ? trig('price', b.price_pending ? 'Set price' : 'Extra cost', { cls: b.price_pending ? 'attention' : '', state: () => ({ cents: b.extra_cost_cents != null ? (b.extra_cost_cents / 100).toFixed(2) : '', note: b.extra_cost_note || '' }) }) : null,
+        !['completed', 'declined', 'cancelled'].includes(b.status) ? trig('assign', 'Assign', { before: () => (st.staffList ? null : loadStaff()) }) : null,
+        trig('lane', 'Move lane'),
+        admin && ['confirmed', 'in_progress', 'needs_information', 'requested'].includes(b.status) ? trig('cancel', 'Cancel booking', { cls: 'danger' }) : null),
+      canDecide && b.price_pending ? el('p.bk-muted', 'Set the price first') : null,
       st.panel && st.panel.id === b.id ? panel(b) : null,
       b.events && b.events.length ? el('details.adm-history', el('summary', 'History'), el('ul', b.events.map((e) => el('li', el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), ' · ', (e.from_status && e.to_status && e.from_status !== e.to_status) ? (STATUS[e.from_status] || e.from_status) + ' → ' + (STATUS[e.to_status] || e.to_status) : (e.to_queue ? 'Lane: ' + e.to_queue : 'Updated'), e.note ? el('i', ' — ' + e.note) : null)))) : null);
     return body;
   }
   function priceLines(b) {
     const out = el('div.pr', (b.items || []).map((l) => el('div.pr-line', { class: l.included ? 'inc' : '' }, el('span', l.name, l.included ? el('small', ' · Included') : null), el('span.tnum', l.included ? '$0.00' : l.price_cents == null ? 'Pending' : money(l.price_cents)))));
-    if (b.bundle_savings_cents) out.appendChild(el('div.pr-line.save', el('span', 'Bundle savings'), el('span.tnum', '−' + money(b.bundle_savings_cents))));
+    if (b.bundle_savings_cents) out.appendChild(el('p.pr-note', 'Bundle price: saves ' + money(b.bundle_savings_cents) + ' against the services booked separately (already in the line above).'));
     if (b.location_type === 'mobile') out.appendChild(el('div.pr-line', el('span', 'Mobile'), el('span.tnum', money(b.mobile_cents))));
     if (b.extra_cost_cents != null) out.appendChild(el('div.pr-line', el('span', 'Extra' + (b.extra_cost_note ? ' · ' + b.extra_cost_note : '')), el('span.tnum', money(b.extra_cost_cents))));
-    out.appendChild(el('div.pr-total', el('span', 'Total'), el('span.tnum', b.total_cents == null ? 'Pending: ' + (b.pending_reasons || []).join(', ') : money(b.total_cents))));
+    out.appendChild(el('div.pr-total', el('span', 'Total'), el('span.tnum', b.total_cents == null ? 'Pending: ' + pendingWords(b) : money(b.total_cents))));
     return out;
   }
   function panel(b) {
@@ -218,12 +246,12 @@
     if (p.kind === 'cancel') box.append(el('h3.bk-h2', 'Cancel this booking'), noteField('Reason'), actions(() => act('cancel_booking', { p_id: b.id, p_note: p.note || null }, 'Cancelled'), 'Cancel booking'));
     if (p.kind === 'info') box.append(el('h3.bk-h2', 'Ask the customer for more information'), noteField('What do you need to know?'), actions(() => { if (!(p.note || '').trim()) return toast('Write what you need to know.'); act('ask_for_information', { p_id: b.id, p_note: p.note }, 'Sent back for information'); }, 'Send'));
     if (p.kind === 'price') box.append(el('h3.bk-h2', b.price_pending ? 'Set the extra cost' : 'Extra cost'),
-      el('p.bk-muted', b.price_pending ? 'Pending for: ' + (b.pending_reasons || []).join(', ') + '. Enter the extra amount on top of the menu price (0 if none).' : 'Added on top of the menu price.'),
+      el('p.bk-muted', b.price_pending ? 'Pending for: ' + pendingWords(b) + '. Enter the extra amount on top of the menu price (0 if none).' : 'Added on top of the menu price.'),
       el('div.bk-row.two', field({ id: 'p_cents', label: 'Extra amount ($)', inputmode: 'decimal', value: p.cents, oninput: (e) => { p.cents = e.target.value; } }), field({ id: 'p_note2', label: 'What for', optional: true, value: p.note, maxlength: 200, oninput: (e) => { p.note = e.target.value; } })),
       actions(() => { const cents = Math.round(parseFloat(p.cents || '0') * 100); if (!(cents >= 0)) return toast('Enter an amount.'); act('set_extra_cost', { p_id: b.id, p_cents: cents, p_note: p.note || null }, 'Price set'); }, 'Save price'));
     if (p.kind === 'lane') box.append(el('h3.bk-h2', 'Move to a lane'), choices({ id: 'p_lane', value: b.queue, size: 'chip', items: LANES.map(([c, l]) => ({ code: c, label: l })), onchange: (c) => { p.lane = c; } }), noteField('Note (optional)'), actions(() => act('set_booking_lane', { p_id: b.id, p_lane: p.lane || b.queue, p_note: p.note || null }, 'Moved'), 'Move'));
     if (p.kind === 'assign') box.append(el('h3.bk-h2', 'Who does this job?'),
-      el('div.chips', (st.staffList || []).filter((s) => s.is_active).map((s) => { const on = b.assignments.some((a) => a.employee_id === s.id); return el('button.choice-item', { type: 'button', class: on ? 'on' : '', onclick: () => act(on ? 'unassign_employee' : 'assign_employee', { p_appointment: b.id, p_employee: s.id }, on ? 'Unassigned' : 'Assigned') }, el('span.choice-name', [s.first_name, s.last_name].filter(Boolean).join(' ') + ' · ' + s.role)); })),
+      el('div.chips', (st.staffList || []).filter((s) => s.is_active).map((s) => { const on = b.assignments.some((a) => a.employee_id === s.id); return el('button.choice-item', { type: 'button', class: on ? 'on' : '', onclick: () => act(on ? 'unassign_employee' : 'assign_employee', { p_appointment: b.id, p_employee: s.id }, on ? 'Unassigned' : 'Assigned') }, el('span.choice-name', [s.first_name, s.last_name].filter(Boolean).join(' ') + ' · ' + roleOf(s.role))); })),
       actions(null, null));
     if (p.kind === 'time') {
       if (p.times == null) { D.times(p.date, b.duration_min, b.location_type).then((t) => { p.times = t; render(); }).catch(() => { p.times = []; render(); }); }
@@ -246,46 +274,65 @@
     const needs = all.filter((b) => (b.status === 'requested' && b.queue !== 'spam') || b.price_pending && live(b)).sort((a, b) => (a.hold_expires_at || '') < (b.hold_expires_at || '') ? -1 : 1);
     const tmr = all.filter((b) => b.service_date === tomorrow && live(b));
     const minutes = todays.reduce((a, b) => a + b.duration_min + (b.location_type === 'mobile' ? 10 : 0), 0);   // the 10-minute travel gap counts (doc 27, V-4)
+    // a booking that needs a decision opens under Needs you only; its copy under Today or Tomorrow is compact
+    const inNeeds = new Set(needs.map((b) => b.id));
     const tiles = el('div.adm-tiles',
-      tile(todays.length, 'jobs today', minutesText(minutes) + ' booked'),
-      tile(needs.length, 'need you', needs.length ? 'oldest hold: ' + (needs[0].hold_expires_at ? hoursLeft(needs[0].hold_expires_at) : '—') : 'all clear'),
-      tile(tmr.length, 'tomorrow', ''),
-      tile(all.filter((b) => b.queue === 'review' && live(b)).length, 'in review', ''));
+      tile('today', todays.length, 'jobs today', minutesText(minutes) + ' booked', () => jump('today')),
+      tile('needs', needs.length, 'need you', needs.length ? 'oldest hold: ' + (needs[0].hold_expires_at ? hoursLeft(needs[0].hold_expires_at) : '—') : 'all clear', () => jump('needs')),
+      tile('tomorrow', tmr.length, 'tomorrow', '', () => jump('tomorrow')),
+      tile('admin-requests', all.filter((b) => b.queue === 'review' && live(b)).length, 'in review', '', () => { st.lane = 'review'; screen = 'requests'; history.replaceState(null, '', '#admin-requests'); render(); }));
     return el('div.bk-grid', tiles,
-      section('Today', todays, 'Nothing on today.'),
-      section('Needs you', needs, 'No requests waiting.'),
-      section('Tomorrow', tmr, 'Nothing booked for tomorrow yet.'));
+      section('Today', todays, 'Nothing on today.', { id: 'today', compact: inNeeds }),
+      section('Needs you', needs, 'No requests waiting.', { id: 'needs' }),
+      section('Tomorrow', tmr, 'Nothing booked for tomorrow yet.', { id: 'tomorrow', compact: inNeeds }));
   }
-  const tile = (n, label, sub) => el('div.adm-tile', el('b.tnum', String(n)), el('span', label), sub ? el('small', sub) : null);
-  const section = (title, list, empty) => el('section.acct-sec', el('h2.bk-h2', title), list.length ? list.map(card) : el('p.bk-muted', empty));
+  // a count is a link to its list: the three sections of this screen, or the Review lane
+  const tile = (href, n, label, sub, go) => el('a.adm-tile', { href: '#' + href, onclick: (e) => { e.preventDefault(); go(); } }, el('b.tnum', String(n)), el('span', label), sub ? el('small', sub) : null);
+  const jump = (id) => { const s = root.querySelector('#' + id); if (s) s.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); };
+  const section = (title, list, empty, o) => el('section.acct-sec', { id: o && o.id }, el('h2.bk-h2', title), list.length ? list.map((b) => card(b, { compact: !!(o && o.compact && o.compact.has(b.id)) })) : el('p.bk-empty', empty));
 
   async function requests() {
     const all = (st.bookings || []).filter((b) => ['requested', 'needs_information'].includes(b.status));
     const counts = Object.fromEntries(LANES.map(([k]) => [k, all.filter((b) => b.queue === k).length]));
     const list = all.filter((b) => b.queue === st.lane);
     return el('div.bk-grid',
-      el('div.chips', LANES.map(([k, l]) => el('button.choice-item', { type: 'button', class: st.lane === k ? 'on' : '', onclick: () => { st.lane = k; render(); } }, el('span.choice-name', l + ' · ' + counts[k])))),
-      list.length ? list.map(card) : el('p.bk-muted', 'Nothing in this lane.'));
+      el('div.chips', LANES.map(([k, l]) => el('button.choice-item', { type: 'button', class: st.lane === k ? 'on' : '', 'aria-pressed': st.lane === k ? 'true' : 'false', onclick: () => { st.lane = k; render(); } }, el('span.choice-name', l + ' · ' + counts[k])))),
+      list.length ? list.map((b) => card(b)) : el('p.bk-empty', 'Nothing in this lane.'));
   }
 
+  // The calendar: a week (Sunday first) or one day. Today's column is lit, the days gone are dimmed and keep
+  // no Close day link; the head shows the range on screen. A booking opens where it is decided: a request
+  // under Requests (its lane), anything else under Morning.
   async function calendar() {
     if (st.blocked == null) { try { await loadBlocked(); } catch (e) { st.blocked = []; } }
+    const todayIso = H().isoDate(H().todayLocal());
     const base = st.calDay ? new Date(st.calDay + 'T00:00:00') : H().todayLocal();
     const days = st.calMode === 'day' ? 1 : 7;
     const start = st.calMode === 'day' ? base : H().addDays(base, -base.getDay());
+    const first = H().isoDate(start), last = H().isoDate(H().addDays(start, days - 1));
+    const open = (b) => {
+      st.open = b.id; st.panel = null;
+      if (['requested', 'needs_information'].includes(b.status)) { screen = 'requests'; st.lane = b.queue; } else screen = 'morning';
+      history.replaceState(null, '', '#admin-' + screen); render();
+    };
+    const item = (b) => el('button.cal-item', { type: 'button', class: 'st-' + b.status + (isGold(b) ? ' gold' : ''), title: name(b) + ' · ' + services(b) + ' · ' + vehicle(b), onclick: () => open(b) },
+      el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')), isGold(b) ? el('span.rv-gold', 'Gold detail') : null);
     const cols = [];
     for (let i = 0; i < days; i++) {
-      const d = H().addDays(start, i), iso = H().isoDate(d);
+      const iso = H().isoDate(H().addDays(start, i)), past = iso < todayIso, today = iso === todayIso;
       const items = (st.bookings || []).filter((b) => b.service_date === iso && !['declined', 'cancelled'].includes(b.status)).sort((a, b) => a.start_min - b.start_min);
       const blocked = (st.blocked || []).find((x) => x.day === iso);
-      cols.push(el('div.cal-col', { class: blocked ? 'blocked' : '' }, el('h3.bk-h2', shortDate(iso), blocked ? el('small', ' closed') : null),
-        items.length ? items.map((b) => el('button.cal-item', { type: 'button', class: 'st-' + b.status + (isGold(b) ? ' gold' : ''), onclick: () => { st.open = b.id; screen = 'requests'; st.lane = b.queue; if (!['requested', 'needs_information'].includes(b.status)) { screen = 'morning'; } render(); } }, el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')))) : el('p.bk-muted', '—'),
-        staff.role === 'admin' ? el('button.link', { type: 'button', onclick: () => toggleBlocked(iso, blocked) }, blocked ? 'Reopen day' : 'Close day') : null));
+      cols.push(el('div.cal-col', { class: (blocked ? 'blocked' : '') + (past ? ' past' : today ? ' today' : ''), 'aria-current': today ? 'date' : null },
+        el('h3.bk-h2', shortDate(iso), blocked ? el('small', ' closed') : null),
+        items.length ? items.map(item) : el('p.bk-empty', '—'),
+        staff.role === 'admin' && !past ? el('button.link', { type: 'button', onclick: () => toggleBlocked(iso, blocked) }, blocked ? 'Reopen day' : 'Close day') : null));
     }
+    const mode = (k, label) => el('button.choice-item', { type: 'button', class: st.calMode === k ? 'on' : '', 'aria-pressed': st.calMode === k ? 'true' : 'false', onclick: () => { st.calMode = k; render(); } }, el('span.choice-name', label));
     const nav = el('div.cal-head',
       el('button.icon-btn.small', { type: 'button', 'aria-label': 'Earlier', onclick: () => { st.calDay = H().isoDate(H().addDays(start, -days)); render(); } }, '‹'),
-      el('div.chips', el('button.choice-item', { type: 'button', class: st.calMode === 'week' ? 'on' : '', onclick: () => { st.calMode = 'week'; render(); } }, el('span.choice-name', 'Week')), el('button.choice-item', { type: 'button', class: st.calMode === 'day' ? 'on' : '', onclick: () => { st.calMode = 'day'; render(); } }, el('span.choice-name', 'Day')), el('button.choice-item', { type: 'button', onclick: () => { st.calDay = null; render(); } }, el('span.choice-name', 'Today'))),
-      el('button.icon-btn.small', { type: 'button', 'aria-label': 'Later', onclick: () => { st.calDay = H().isoDate(H().addDays(start, days)); render(); } }, '›'));
+      el('h2.bk-h2', days === 1 ? longDate(first) : shortDate(first) + ' – ' + shortDate(last)),
+      el('button.icon-btn.small', { type: 'button', 'aria-label': 'Later', onclick: () => { st.calDay = H().isoDate(H().addDays(start, days)); render(); } }, '›'),
+      el('div.chips', mode('week', 'Week'), mode('day', 'Day'), el('button.link', { type: 'button', onclick: () => { st.calDay = null; render(); } }, 'Today')));
     const notice = el('section.acct-sec', el('h2.bk-h2', 'Note to customers', el('small', 'shown on the booking calendar')),
       field({ id: 'customer_notice', label: 'Your note', optional: true, multiline: true, rows: 2, maxlength: 300, value: settings.customer_notice || '', hint: 'Display only. Empty hides it. Closed days are set above.', oninput: (e) => { st.noticeDraft = e.target.value; } }),
       staff.role === 'admin' ? el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveNotice }, 'Save note')) : el('p.bk-muted', 'Only the admin can change it.'));
@@ -325,7 +372,7 @@
     const link = el('section.acct-sec', el('h2.bk-h2', 'Google reviews link', el('small', 'shown on the Reviews page when set')),
       field({ id: 'google_url', label: 'Link', optional: true, type: 'url', value: settings.google_reviews_url || '', hint: 'Starts with https://', oninput: (e) => { st.googleDraft = e.target.value; } }),
       staff.role === 'admin' ? el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveGoogle }, 'Save link')) : null);
-    return el('div.bk-grid', groups.map(([k, title]) => { const list = st.reviews.filter((r) => r.status === k); return el('section.acct-sec', el('h2.bk-h2', title + ' \u00b7 ' + list.length), list.length ? list.map(card) : el('p.bk-muted', k === 'pending' ? 'No reviews waiting.' : '\u2014')); }), link);
+    return el('div.bk-grid', groups.map(([k, title]) => { const list = st.reviews.filter((r) => r.status === k); return el('section.acct-sec', el('h2.bk-h2', title + ' \u00b7 ' + list.length), list.length ? list.map(card) : el('p.bk-empty', k === 'pending' ? 'No reviews waiting.' : '\u2014')); }), link);
   }
   async function saveGoogle() {
     const text = (st.googleDraft != null ? st.googleDraft : settings.google_reviews_url || '').trim() || null;
@@ -346,7 +393,7 @@
       field({ id: 'search', label: 'Search by name or phone', value: st.search, oninput: U.debounce((e) => { st.search = e.target.value; render(); }, 250) }),
       el('p.bk-muted', 'Customers with a booking in the last 30 days or ahead. Gold clients (a paid detail of $200 or more) are marked once payments are recorded (Migration 002, later).'),
       rows.length ? rows.map(([k, c]) => el('div.veh', el('div.veh-main', el('b', c.name), el('span.bk-muted', phonePretty(c.phone || '') + (c.email ? ' · ' + c.email : '') + ' · ' + c.bookings.length + ' booking' + (c.bookings.length === 1 ? '' : 's'))),
-        el('div.veh-actions', el('button.link', { type: 'button', onclick: () => { st.open = c.bookings[0].id; screen = 'morning'; render(); } }, 'Latest')))) : el('p.bk-muted', 'No one matches.'));
+        el('div.veh-actions', el('button.link', { type: 'button', onclick: () => { st.open = c.bookings[0].id; screen = 'morning'; render(); } }, 'Latest')))) : el('p.bk-empty', 'No one matches.'));
   }
 
   async function team() {
@@ -354,7 +401,7 @@
     const admin = staff.role === 'admin';
     return el('div.bk-grid',
       el('p.bk-muted', 'The team: detailers, managers and the admin. Managers and the admin sign in with an authenticator code.'),
-      (st.staffList || []).map((s) => el('div.veh', el('div.veh-main', el('b', [s.first_name, s.last_name].filter(Boolean).join(' ') || phonePretty(s.phone || '')), el('span.bk-muted', s.role + ' · ' + phonePretty(s.phone || '') + (s.is_active ? '' : ' · inactive'))),
+      (st.staffList || []).map((s) => el('div.veh', el('div.veh-main', el('b', [s.first_name, s.last_name].filter(Boolean).join(' ') || phonePretty(s.phone || '')), el('span.bk-muted', roleOf(s.role) + ' · ' + phonePretty(s.phone || '') + (s.is_active ? '' : ' · inactive'))),
         admin && s.id !== staff.userId ? el('div.veh-actions',
           el('button.link', { type: 'button', onclick: () => setRole(s) }, 'Change role'),
           el('button.link', { type: 'button', onclick: () => setActive(s) }, s.is_active ? 'Deactivate' : 'Activate')) : null)),
@@ -365,7 +412,7 @@
   }
   async function setRole(s) {
     const next = { detailer: 'manager', manager: 'detailer', admin: 'admin' }[s.role];
-    try { if (D.isLive) await D.rpc('set_user_role', { p_user: s.id, p_role: next }); else s.role = next; st.staffList = null; toast('Role: ' + next); render(); } catch (e) { toast(e.message); }
+    try { if (D.isLive) await D.rpc('set_user_role', { p_user: s.id, p_role: next }); else s.role = next; st.staffList = null; toast('Role: ' + roleOf(next)); render(); } catch (e) { toast(e.message); }
   }
   async function setActive(s) {
     try { if (D.isLive) await D.rpc('set_user_active', { p_user: s.id, p_active: !s.is_active }); else s.is_active = !s.is_active; st.staffList = null; toast(s.is_active ? 'Deactivated' : 'Activated'); render(); } catch (e) { toast(e.message); }
@@ -381,10 +428,22 @@
     } catch (e) { toast(e.message); }
   }
 
+  // Hours closed every week (Migration 003), e.g. "Mon–Thu 4:00 PM – 8:00 PM · Fri 12:00 PM – 5:00 PM".
+  function closuresText(list) {
+    if (!list || !list.length) return 'None';
+    const DAY = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const groups = [];
+    list.slice().sort((a, b) => a.weekday - b.weekday || a.start_min - b.start_min).forEach((w) => {
+      const span = clock(w.start_min) + ' – ' + clock(w.end_min);
+      const g = groups[groups.length - 1];
+      if (g && g.span === span && g.last === w.weekday - 1) { g.last = w.weekday; } else groups.push({ first: w.weekday, last: w.weekday, span });
+    });
+    return groups.map((g) => (g.first === g.last ? DAY[g.first] : DAY[g.first] + '–' + DAY[g.last]) + ' ' + g.span).join(' · ');
+  }
   async function settingsScreen() {
     let s = settings;
     if (D.isLive && staff.role === 'admin') { const { data } = await sb().from('business_settings').select('*').eq('id', 1).maybeSingle(); if (data) s = data; }
-    const rows = [['Start times', clock(s.first_start_min) + ' – ' + clock(s.last_start_min) + ', every ' + s.slot_step_min + ' min'], ['Jobs end by', clock(s.latest_end_min)], ['Book ahead', s.min_days_ahead + ' to ' + s.max_days_ahead + ' days'], ['Hold', s.hold_hours + ' hours'],
+    const rows = [['Start times', clock(s.first_start_min) + ' – ' + clock(s.last_start_min) + ', every ' + s.slot_step_min + ' min'], ['Jobs end by', clock(s.latest_end_min)], ['Closed every week', closuresText((settings && settings.weekly_closures) || s.weekly_closures)], ['Book ahead', s.min_days_ahead + ' to ' + s.max_days_ahead + ' days'], ['Hold', s.hold_hours + ' hours'],
       ['At once', (s.max_shop_jobs != null ? s.max_shop_jobs + ' driveway or ' + s.max_mobile_jobs + ' mobile' : '—')], ['Gaps', (s.shop_buffer_min != null ? s.shop_buffer_min + ' min driveway, ' + s.mobile_buffer_min + ' min mobile travel' : '—')],
       ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], ['Your address', s.shop_address ? 'On file (sent only with confirmed "Come to us" bookings)' : 'Not set']];
     return el('div.bk-grid', el('p.bk-muted', 'Read-only for now. Ask Claude Code to change a value; the calendar note and closed days are under Calendar.'), el('dl.sum-body', rows.map(([k, v]) => [el('dt', k), el('dd', v)])));
@@ -395,7 +454,8 @@
       if (!D.isLive) { seedPreview(); st.log = PREVIEW.log; }
       else { const { data } = await sb().from('audit_log').select('id,action,target_type,target_id,created_at,actor_id').order('created_at', { ascending: false }).limit(100); st.log = data || []; }
     }
-    return el('div.bk-grid', el('p.bk-muted', 'The last 100 actions.'), st.log.length ? el('ul.adm-log', st.log.map((e) => el('li', el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), ' · ', e.action, e.target_type ? ' · ' + e.target_type : ''))) : el('p.bk-muted', 'Nothing yet.'));
+    // two columns (the time, what happened); the items are display: contents, so the roles say what they are
+    return el('div.bk-grid', el('p.bk-muted', 'The last 100 actions.'), st.log.length ? el('ul.adm-log', { role: 'list' }, st.log.map((e) => el('li', { role: 'listitem' }, el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), el('span', ACTION[e.action] || e.action, e.target_type ? ' · ' + e.target_type : '')))) : el('p.bk-empty', 'Nothing yet.'));
   }
 
   window.AlchemistAdmin = { mount, refresh: () => { st.bookings = null; } };

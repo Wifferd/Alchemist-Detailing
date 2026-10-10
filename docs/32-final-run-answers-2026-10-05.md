@@ -30,3 +30,14 @@ A start time is offered only when the whole job fits outside the closures. Examp
 ## The owner's own designs (Oct 10, 2026)
 
 He sent a design canvas, "Alchemist Web Design Ideas" (https://claude.ai/artifact/66WQwuFdDtctzZ77TqHzba), with six sections and said "use some of these designs": 1 The Alchemist's Table (the menu as a periodic table of elements, with a side panel per element), 2 The Bead Test (bare paint vs WetGloss, two panels with a gold seam, prices by vehicle type), 3 The Transmutation (a before/after slider; no before photos yet, so it stays hidden on the live site until a pair exists), 4 The Ritual (five expanding panels: snow foam, wheels, hand wash, hand dry, seal), 5 The Gold client card (in Account, for a customer with a completed $200+ detail), 6 Gold reviews as assay certificates (the Reviews page). Every price, time and process step in them was checked against the database on Oct 10, 2026 and matches. The three illustration images in the canvas are renders (water film, beads, foam), used as textures only, never captioned as our work. The final design run builds them.
+
+## The final design run (Oct 10, 2026)
+
+What was built is listed in CLAUDE.md ("Final design run"). After the run, Claude Code checked it by hand, since the second automatic check round never ran (a usage limit): every route on phone and desktop in both themes (no script errors, no sideways scrolling), the booking walk to the thank-you screen in both themes, account, admin and team, reduced motion, the skip link, and the pinned Supabase hash against the real CDN file. Fixed during that check:
+
+- The foam read as grey tiles; it is now a creamy mass of fine bubbles with soft folds and pin-point sparkle, with larger bubbles only where it thins.
+- The price breakdown showed "Bundle savings −$9.99" under a bundle line that already carried the bundle price, so the lines added up to $9.99 less than the total. The saving is now a note, and the column adds up (booking, account and the admin console).
+- The draft banners on Tips, FAQ and About are off (approved as written). The FAQ, the footer, the Contact page and the search-engine data carry the weekly hours; the preview calendar and the admin Settings follow the closures too.
+- In light mode the four jump chips on the Services header were grey on white; they are dark glass now.
+
+Still the owner's call: the domain; whether the admin calendar's week starts on Sunday (as now) or Monday; whether the pinned wash on the home page should be shorter (it is 430% of the screen height on desktop, 380% on phones).

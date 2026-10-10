@@ -20,6 +20,8 @@ async def main():
         b = await p.chromium.launch(executable_path=os.environ.get('SHOOT_CHROME') or None,
                                     args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'])
         ctx = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1, is_mobile=phone, has_touch=phone)
+        if os.environ.get('SHOOT_THEME') == 'light':   # SHOOT_THEME=light walks the booking in the light theme
+            await ctx.add_init_script("try{localStorage.setItem('ad.theme','light')}catch(e){}")
         pg = await ctx.new_page()
         msgs = []
         pg.on('pageerror', lambda e: msgs.append('pageerror: ' + str(e)))

@@ -14,6 +14,8 @@
       timezone: 'America/Chicago', first_start_min: 600, last_start_min: 1140, latest_end_min: 1200, slot_step_min: 30,
       min_days_ahead: 1, max_days_ahead: 60, hold_hours: 24, public_phone: '(945) 361-7551', public_area: 'Parker, Texas',
       mobile_radius_miles: 10, mobile_note: 'For mobile service, we use your outdoor water faucet and a power outlet.',
+      // Migration 003: hours closed every week (ISO weekday, 1 = Monday), as get_public_settings returns them
+      weekly_closures: [1, 2, 3, 4].map((w) => ({ weekday: w, start_min: 960, end_min: 1200 })).concat([{ weekday: 5, start_min: 720, end_min: 1020 }]),
     },
     services: [
       { code: 'ext_basic', kind: 'exterior', name: 'Exterior Basic', description: 'Snow-foam pre-wash, Brake Buster wheel and tire cleaning, tire cleaning, exterior glass, and a thorough hand wash and hand dry with professional-grade chemicals.', base_price_cents: 4999, priced_by_vehicle_type: false, duration_min: 60, mobile_pct: 2.5, sort: 10 },
@@ -224,10 +226,13 @@
     if (h % 9 === 0) return [];                       // a full day now and then
     const busyStart = st.first_start_min + ((h >> 3) % 12) * st.slot_step_min;   // one pretend job
     const busyEnd = busyStart + 90 + ((h >> 7) % 3) * 30;
+    const iso = d.getDay() || 7;                      // ISO weekday, as the database counts it
+    const shut = (st.weekly_closures || []).filter((w) => w.weekday === iso);
     const out = [];
     for (let s = st.first_start_min; s <= st.last_start_min; s += st.slot_step_min) {
       if (s + duration > st.latest_end_min) break;
       if (s < busyEnd && s + duration > busyStart) continue;
+      if (shut.some((w) => s < w.end_min && s + duration > w.start_min)) continue;   // same rule as open_starts
       out.push(s);
     }
     return out;
