@@ -41,3 +41,10 @@ What was built is listed in CLAUDE.md ("Final design run"). After the run, Claud
 - In light mode the four jump chips on the Services header were grey on white; they are dark glass now.
 
 Still the owner's call: the domain; whether the admin calendar's week starts on Sunday (as now) or Monday; whether the pinned wash on the home page should be shorter (it is 430% of the screen height on desktop, 380% on phones).
+
+## After the deploy (Oct 11, 2026)
+
+A headless browser check of both deployed sites against their databases (the live one and the test one) confirmed the hours (a 60-minute job: Monday up to 3:00 PM, Friday 10:00 to 11:00 AM and 5:00 to 7:00 PM, Saturday 10:00 AM to 7:00 PM), the prices, a quote that adds up ($188.98 for the example), the before/after slider hidden on the live site, the test site kept out of search, and no draft banners. It also found two problems, both fixed in commit d0397df:
+
+- **The photos of his work never reached the deployed sites.** A rule meant to keep the raw photo folder out of GitHub also caught the web copies in `site/img/work/`, so from Oct 5 the gallery, the service cards and the About page showed broken images on the real site (the claude.ai preview had its own copies, so it looked fine). The 20 web photos are now in GitHub (plain WebP, no location data); the raw folder stays out.
+- **The test site once opened in preview mode** although its database answered within a second: the page was busy and its 6-second timer ran first. The site now waits 8 seconds plus a moment's grace, then tries once more, before it falls back to the preview.
