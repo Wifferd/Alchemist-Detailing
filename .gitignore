@@ -7,4 +7,5 @@ node_modules/
 .env.*
 # Never commit secret keys (the publishable key in site/js/config.js is public by design)
 *.secret
-work/
+# The raw photos (the folder at the top of the repo only; site/img/work/ holds the web copies the site needs)
+/work/

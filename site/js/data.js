@@ -249,14 +249,17 @@
   const previewBookings = [];   // receipts made in this preview, newest first
   const previewVehicles = [];
 
+  // A busy page (shaders compiling on a slow phone) can run the timer before an answer that has already
+  // arrived, so the timer gives up only after a further moment with the call still open.
   function withTimeout(promise, ms) {
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('timeout')), ms);
+      let t = setTimeout(() => { t = setTimeout(() => reject(new Error('timeout')), 1500); }, ms);
       promise.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
     });
   }
 
-  // Live when the config and supabase-js are present and the project answers; preview otherwise.
+  // Live when the config and supabase-js are present and the project answers (a second try after a slow
+  // or failed first one, so a bad moment on the network doesn't drop a customer into the preview); preview otherwise.
   function init() {
     if (ready) return ready;
     ready = (async () => {
@@ -264,13 +267,16 @@
       if (cfg && cfg.supabaseUrl && cfg.supabaseKey && window.supabase && window.supabase.createClient) {
         try {
           sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
-          const { data, error } = await withTimeout(sb.rpc('get_public_settings'), 6000);
-          if (error) throw error;
-          settingsCache = data;
-          mode = 'live';
-        } catch (e) {
-          sb = null; mode = 'preview';
+        } catch (e) { sb = null; }
+        for (let i = 0; sb && i < 2 && mode !== 'live'; i++) {
+          try {
+            const { data, error } = await withTimeout(sb.rpc('get_public_settings'), i ? 10000 : 8000);
+            if (error) throw error;
+            settingsCache = data;
+            mode = 'live';
+          } catch (e) { /* one more try, then the preview */ }
         }
+        if (mode !== 'live') { sb = null; mode = 'preview'; }
       }
       if (mode === 'preview') settingsCache = Object.assign({}, SEED.settings);
       return mode;
