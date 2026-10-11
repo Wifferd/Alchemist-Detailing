@@ -721,8 +721,8 @@
       d.style.setProperty('--px', Math.round((e.clientX - r.left) / r.width * 100) + '%');
       d.style.setProperty('--py', Math.round((e.clientY - r.top) / r.height * 100) + '%');
     }, { passive: true });
-    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach((d) => grid.appendChild(el('span.cal-dow', { 'aria-hidden': 'true' }, d)));
-    const firstDow = w.month.getDay();
+    ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach((d) => grid.appendChild(el('span.cal-dow', { 'aria-hidden': 'true' }, d)));   // weeks start on Monday (the owner, Oct 11)
+    const firstDow = (w.month.getDay() + 6) % 7;   // empty cells before the 1st: Monday 0 ... Sunday 6
     for (let i = 0; i < firstDow; i++) grid.appendChild(el('span'));
     const daysIn = new Date(w.month.getFullYear(), w.month.getMonth() + 1, 0).getDate();
     for (let d = 1; d <= daysIn; d++) {

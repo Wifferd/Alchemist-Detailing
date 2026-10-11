@@ -300,7 +300,7 @@
       list.length ? list.map((b) => card(b)) : el('p.bk-empty', 'Nothing in this lane.'));
   }
 
-  // The calendar: a week (Sunday first) or one day. Today's column is lit, the days gone are dimmed and keep
+  // The calendar: a week (Monday first, the owner's choice of Oct 11) or one day. Today's column is lit, the days gone are dimmed and keep
   // no Close day link; the head shows the range on screen. A booking opens where it is decided: a request
   // under Requests (its lane), anything else under Morning.
   async function calendar() {
@@ -308,7 +308,7 @@
     const todayIso = H().isoDate(H().todayLocal());
     const base = st.calDay ? new Date(st.calDay + 'T00:00:00') : H().todayLocal();
     const days = st.calMode === 'day' ? 1 : 7;
-    const start = st.calMode === 'day' ? base : H().addDays(base, -base.getDay());
+    const start = st.calMode === 'day' ? base : H().addDays(base, -((base.getDay() + 6) % 7));   // back to Monday
     const first = H().isoDate(start), last = H().isoDate(H().addDays(start, days - 1));
     const open = (b) => {
       st.open = b.id; st.panel = null;
