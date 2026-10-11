@@ -2,14 +2,15 @@
 -- Customers: A d1, B d2, guest d3, C d4, D d5, E d6.
 
 -- ---------------------------------------------------------------- who may book
+-- (Migration 004: the refusal code is email_not_verified, since a confirmed email now also lets a login book.)
 reset role;
 select tst.login('00000000-0000-4000-8000-0000000000e1');
 set role authenticated;
-select tst.err($q$select public.submit_booking(tst.booking('shop', tst.d(3), 600))$q$, 'phone_not_verified', 'booking: unconfirmed phone refused');
+select tst.err($q$select public.submit_booking(tst.booking('shop', tst.d(3), 600))$q$, 'email_not_verified', 'booking: unconfirmed phone refused');
 reset role;
 select tst.login('00000000-0000-4000-8000-0000000000e2');
 set role authenticated;
-select tst.err($q$select public.submit_booking(tst.booking('shop', tst.d(3), 600))$q$, 'phone_not_verified', 'booking: anonymous login refused');
+select tst.err($q$select public.submit_booking(tst.booking('shop', tst.d(3), 600))$q$, 'email_not_verified', 'booking: anonymous login refused');
 reset role;
 select tst.login('00000000-0000-4000-8000-0000000000e3');
 set role authenticated;
@@ -17,7 +18,7 @@ select tst.err($q$select public.submit_booking(tst.booking('shop', tst.d(3), 600
 reset role;
 select tst.login(gen_random_uuid());
 set role authenticated;
-select tst.err($q$select public.submit_booking(tst.booking('shop', tst.d(3), 600))$q$, 'phone_not_verified', 'booking: unknown login refused');
+select tst.err($q$select public.submit_booking(tst.booking('shop', tst.d(3), 600))$q$, 'email_not_verified', 'booking: unknown login refused');
 
 -- ---------------------------------------------------------------- customer A: a normal request, repeats
 reset role;
