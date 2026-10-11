@@ -1460,6 +1460,9 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .cal-day.unknown { border-color: rgba(255, 255, 255, .06); }
 .cal-day.full { color: var(--muted); background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(226, 185, 82, .14) 6px 8px); cursor: not-allowed; }
 .cal-day.out { opacity: .25; cursor: default; }
+/* a day of the month before or after that shares a week with this one: grey, its month in small capitals under the number */
+.cal-other { aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); opacity: .6; font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; user-select: none; }
+.cal-other small { font: 600 8px/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; }
 /* a chosen day settles in softly, and the gold spreads out from where the finger landed (--px/--py from booking.js; the centre for a key press) */
 .cal-day.on { border-color: var(--gold); background: var(--gold-grad); color: var(--on-gold); font-weight: 700; box-shadow: 0 0 22px -4px rgba(226, 185, 82, .75); animation: dayPop .45s var(--ease); }
 .cal-day.on::after { content: ""; position: absolute; inset: -2px; z-index: -1; border-radius: 50%; background: radial-gradient(circle at var(--px, 50%) var(--py, 50%), var(--gold-hi), transparent 70%); animation: ring .6s var(--ease) forwards; pointer-events: none; }
@@ -1518,7 +1521,7 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
   .sum-body { grid-template-columns: 1fr; gap: 2px 0; }
   .sum-body dt { margin-top: 8px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
   .cal-grid { gap: 4px; }   /* seven 44px days fit a 390px phone */
-  .cal-day { max-height: none; font-size: 13px; }
+  .cal-day, .cal-other { max-height: none; font-size: 13px; }
 }
 @media (max-width: 480px) {
   /* a service option on a phone: the name runs the full width, the price under it with the "Selected" mark beside it */

@@ -722,17 +722,23 @@
       d.style.setProperty('--py', Math.round((e.clientY - r.top) / r.height * 100) + '%');
     }, { passive: true });
     ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach((d) => grid.appendChild(el('span.cal-dow', { 'aria-hidden': 'true' }, d)));   // weeks start on Monday (the owner, Oct 11)
-    const firstDow = (w.month.getDay() + 6) % 7;   // empty cells before the 1st: Monday 0 ... Sunday 6
-    for (let i = 0; i < firstDow; i++) grid.appendChild(el('span'));
-    const daysIn = new Date(w.month.getFullYear(), w.month.getMonth() + 1, 0).getDate();
+    // the days of the months either side that share a week with this one: grey, with their month under the
+    // number, and not for picking (the arrows go to that month); the owner asked for this on Oct 11
+    const yr = w.month.getFullYear(), mo = w.month.getMonth();
+    const other = (date) => el('span.cal-other', { 'aria-hidden': 'true' }, el('span', date.getDate()), el('small', date.toLocaleDateString('en-US', { month: 'short' })));
+    const firstDow = (w.month.getDay() + 6) % 7;   // days of the week before the 1st: Monday 0 ... Sunday 6
+    for (let i = firstDow; i > 0; i--) grid.appendChild(other(new Date(yr, mo, 1 - i)));
+    const daysIn = new Date(yr, mo + 1, 0).getDate();
     for (let d = 1; d <= daysIn; d++) {
-      const date = new Date(w.month.getFullYear(), w.month.getMonth(), d);
+      const date = new Date(yr, mo, d);
       const iso = D.helpers.isoDate(date);
       const inWindow = date >= first && date <= last;
       const avail = w.calendar[iso];
       const cls = !inWindow ? 'out' : avail === false ? 'full' : avail === true ? 'open' : 'unknown';
       grid.appendChild(el('button.cal-day', { type: 'button', class: cls + (w.date === iso ? ' on' : ''), disabled: !inWindow || avail === false, dataset: { iso }, 'aria-pressed': w.date === iso ? 'true' : 'false', 'aria-label': longDate(iso) + (avail === false ? ', full' : ''), onclick: () => pickDay(iso) }, el('span', d)));
     }
+    const tail = 6 - (new Date(yr, mo, daysIn).getDay() + 6) % 7;   // the rest of the last week, from the next month
+    for (let i = 1; i <= tail; i++) grid.appendChild(other(new Date(yr, mo + 1, i)));
     cal.appendChild(grid);
     cal.appendChild(el('div.cal-keys', el('span.cal-key.open', 'Available'), el('span.cal-key.full', 'Full')));
     cal.appendChild(el('p.choice-msg', { role: 'status' }));
