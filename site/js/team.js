@@ -10,7 +10,7 @@
   const H = () => D.helpers;
 
   let root = null, staff = null, settings = null, menu = null, ready = null;
-  const st = { jobs: null, open: null, openJobs: null, ask: null, signin: { phone: '', sent: false }, photos: {} };
+  const st = { jobs: null, open: null, openJobs: null, ask: null, signin: { email: '', sent: false }, photos: {} };
   const labelOf = (list, code) => ((menu.options[list] || []).find((o) => o.code === code) || {}).label || code;
   const ROLE = { admin: 'Admin', manager: 'Manager', detailer: 'Detailer' };
 
@@ -59,11 +59,12 @@
   function signIn() {
     const s = st.signin;
     if (!D.isLive) return el('div.bk-grid', el('p.bk-note', 'Preview: look around as a detailer.'), el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => { D.previewStaffSignIn('detailer'); render(); } }, 'Look around')));
-    const box = el('div.bk-grid', el('p.bk-note', 'Sign in with the phone number on your team account.'),
-      field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', value: s.phone, oninput: (e) => { s.phone = e.target.value; },
-        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendPhoneCode(s.phone); s.sent = true; render(); } catch (e) { showError(box, 'phone', e.message); } }) }),
-      s.sent ? field({ id: 'phone_code', label: 'Code from the text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); }, trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
-    async function confirm(code) { try { await D.verifyPhoneCode(s.phone, code); s.sent = false; render(); } catch (e) { showError(box, 'phone_code', e.message); } }
+    // Team sign-in by email code (Migration 004; no new login is made here)
+    const box = el('div.bk-grid', el('p.bk-note', 'Sign in with the email on your team account. We email you a 6-digit code.'),
+      field({ id: 'tm_email', label: 'Email', required: true, type: 'email', inputmode: 'email', autocomplete: 'email', value: s.email, maxlength: 120, oninput: (e) => { s.email = e.target.value; },
+        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendCode(s.email, { createUser: false }); s.sent = true; render(); setTimeout(() => { const i = document.getElementById('tm_code'); if (i) i.focus(); }, 60); } catch (e) { showError(box, 'tm_email', e.message); } }) }),
+      s.sent ? field({ id: 'tm_code', label: 'Code from the email', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); }, trailing: miniBtn('Confirm', () => confirm(box.querySelector('#tm_code').value)) }) : null);
+    async function confirm(code) { try { await D.verifyCode(s.email, code); s.sent = false; render(); } catch (e) { showError(box, 'tm_code', e.message); } }
     return box;
   }
 
@@ -117,7 +118,7 @@
         el('p.bk-muted', 'Before and after photos are free; ask the customer first. Payment is handled by the owner.'),
         el('div.adm-actions', navigate,
           el('button.btn.btn-glass', { type: 'button', onclick: () => { st.ask = { id: j.id, text: '' }; render(); } }, 'Ask the owner'),
-          el('button.btn.btn-glass', { type: 'button', disabled: true, title: 'Needs the texting service (not set up yet)' }, 'Running late (soon)')),
+          el('button.btn.btn-glass', { type: 'button', disabled: true, title: 'Coming soon' }, 'Running late (soon)')),
         st.ask && st.ask.id === j.id ? el('div.adm-panel', el('h3.bk-h2', 'Message to the owner'),
           field({ id: 'ask_text', label: 'What\'s up?', multiline: true, rows: 2, maxlength: 1000, value: st.ask.text, hint: 'Extra work, a problem with the car, anything. The owner sets any extra cost.', oninput: (e) => { st.ask.text = e.target.value; } }),
           el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => sendAsk(j) }, 'Send'), el('button.btn.btn-glass', { type: 'button', onclick: () => { st.ask = null; render(); } }, 'Back'))) : null) : null);

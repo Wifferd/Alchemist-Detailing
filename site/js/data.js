@@ -246,6 +246,7 @@
   let settingsCache = null;
   const previewPhotos = {};
   let previewSession = null;
+  let previewContactPhone = null;   // the phone typed on the last preview booking, as profiles.contact_phone keeps it
   const previewBookings = [];   // receipts made in this preview, newest first
   const previewVehicles = [];
 
@@ -341,12 +342,16 @@
       const u = data && data.session && data.session.user;
       if (!u) return null;
       const meta = u.user_metadata || {};
-      let first = meta.first_name || null, last = meta.last_name || null;
+      let first = meta.first_name || null, last = meta.last_name || null, contactPhone = null;
       try {
-        const { data: prof } = await sb.from('profiles').select('first_name,last_name').eq('id', u.id).maybeSingle();
-        if (prof) { first = prof.first_name || first; last = prof.last_name || last; }
+        const { data: prof } = await sb.from('profiles').select('first_name,last_name,contact_phone').eq('id', u.id).maybeSingle();
+        if (prof) { first = prof.first_name || first; last = prof.last_name || last; contactPhone = prof.contact_phone || null; }
       } catch (e) { /* the profile row is optional here */ }
-      return { userId: u.id, phone: u.phone || null, email: u.email || null, firstName: first, lastName: last, phoneConfirmed: !!u.phone_confirmed_at };
+      // verified: signed in with a confirmed email (the 6-digit email code, Migration 004), which is what the
+      // site's booking needs (the database would also take a confirmed phone, should texts come back; the site
+      // signs people in by email only). contactPhone is the number typed on the latest booking.
+      const phoneConfirmed = !!u.phone_confirmed_at, emailConfirmed = !!(u.email && u.email_confirmed_at);
+      return { userId: u.id, phone: u.phone || null, email: u.email || null, contactPhone, firstName: first, lastName: last, phoneConfirmed, emailConfirmed, verified: emailConfirmed };
     },
 
     async myVehicles() {
@@ -399,31 +404,6 @@
       return (await rpc('my_bookings')) || [];
     },
 
-    async sendPhoneCode(phone, names) {
-      await init();
-      const n = normalizePhone(phone);
-      if (!n) throw fail('invalid_input', 'Enter a 10-digit US phone number.', 'phone');
-      if (mode === 'preview') { await new Promise((r) => setTimeout(r, 600)); return { sent: true, preview: true }; }
-      const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: { data: { first_name: names && names.first || undefined, last_name: names && names.last || undefined } } });
-      if (error) throw fail('code_not_sent', error.message || "We couldn't send the code. Check the number, or call " + settingsCache.public_phone + '.', 'phone');
-      return { sent: true };
-    },
-
-    async verifyPhoneCode(phone, code, names) {
-      await init();
-      const n = normalizePhone(phone);
-      const c = String(code || '').replace(/\D/g, '');
-      if (c.length !== 6) throw fail('invalid_input', 'Enter the 6-digit code from the text.', 'phone_code');
-      if (mode === 'preview') {
-        await new Promise((r) => setTimeout(r, 500));
-        previewSession = { userId: 'preview', phone: n, firstName: names && names.first || null, lastName: names && names.last || null, phoneConfirmed: true, preview: true };
-        return previewSession;
-      }
-      const { error } = await sb.auth.verifyOtp({ phone: '+' + n, token: c, type: 'sms' });
-      if (error) throw fail('bad_code', "That code didn't match. Check the text and try again.", 'phone_code');
-      return api.session();
-    },
-
     async emailAllowed(email) {
       await init();
       const e = String(email || '').trim().toLowerCase();
@@ -432,22 +412,42 @@
       try { return !!(await rpc('email_allowed', { p: e })); } catch (err) { return false; }
     },
 
-    async sendEmailCode(email) {
+    // Sign-in is a 6-digit code by email (Migration 004; Resend sends it through Supabase Auth, whose
+    // Magic link and Confirm signup templates carry {{ .Token }}). A new address gets an account; the
+    // staff screens pass createUser: false, so a stranger's address makes no login there. opts: first,
+    // last (kept on a new account), createUser.
+    async sendCode(email, opts) {
       await init();
-      if (mode === 'preview') { await new Promise((r) => setTimeout(r, 500)); return { sent: true, preview: true }; }
-      const { error } = await sb.auth.updateUser({ email: String(email).trim() });
-      if (error) throw fail('code_not_sent', "We couldn't send the email code yet. Skip it and we'll contact you by phone.", 'email');
+      const o = opts || {};
+      const e = String(email || '').trim().toLowerCase();
+      if (!isValidEmail(e)) throw fail('invalid_input', 'Enter a valid email address.', 'email');
+      if (o.createUser !== false && !(await api.emailAllowed(e))) throw fail('invalid_input', 'Use a regular email address, not a throwaway one.', 'email');
+      if (mode === 'preview') { await new Promise((r) => setTimeout(r, 600)); return { sent: true, preview: true }; }
+      const { error } = await sb.auth.signInWithOtp({ email: e, options: { shouldCreateUser: o.createUser !== false, data: { first_name: o.first || undefined, last_name: o.last || undefined } } });
+      if (error) {
+        const m = String(error.message || '');
+        if (error.status === 429 || /rate limit|after \d+ seconds/i.test(m)) throw fail('code_not_sent', 'A code was sent a moment ago. Wait a minute, then press Resend.', 'email');
+        if (o.createUser === false && /signups? not allowed|not found/i.test(m)) throw fail('code_not_sent', "There's no team account with that email. Ask the owner to add you.", 'email');
+        throw fail('code_not_sent', "We couldn't send the code. Check the email address, or call " + settingsCache.public_phone + '.', 'email');
+      }
       return { sent: true };
     },
 
-    async verifyEmailCode(email, code) {
+    async verifyCode(email, code, opts) {
       await init();
+      const o = opts || {};
+      const e = String(email || '').trim().toLowerCase();
       const c = String(code || '').replace(/\D/g, '');
       if (c.length !== 6) throw fail('invalid_input', 'Enter the 6-digit code from the email.', 'email_code');
-      if (mode === 'preview') { await new Promise((r) => setTimeout(r, 400)); return { verified: true }; }
-      const { error } = await sb.auth.verifyOtp({ email: String(email).trim(), token: c, type: 'email_change' });
-      if (error) throw fail('bad_code', "That code didn't match. Check the email and try again.", 'email_code');
-      return { verified: true };
+      if (mode === 'preview') {
+        await new Promise((r) => setTimeout(r, 500));
+        previewSession = { userId: 'preview', email: e, phone: null, contactPhone: previewContactPhone, firstName: o.first || null, lastName: o.last || null,
+                           phoneConfirmed: false, emailConfirmed: true, verified: true, preview: true };
+        return previewSession;
+      }
+      const { error } = await sb.auth.verifyOtp({ email: e, token: c, type: 'email' });
+      if (error) throw fail('bad_code', "That code didn't match, or it has expired. Check the email, or press Resend for a new one.", 'email_code');
+      return api.session();
     },
 
     async quote(p) {
@@ -488,7 +488,7 @@
         return { name, url: previewPhotos[name] };
       }
       const s = await api.session();
-      if (!s) throw fail('not_signed_in', 'Confirm your phone first, then add photos.', 'phone');
+      if (!s) throw fail('not_signed_in', 'Confirm your email first, then add photos.', 'email');
       const name = uuid() + '.' + ext;
       const path = s.userId + '/' + name;
       const { error } = await sb.storage.from('vehicle-photos').upload(path, blob, { contentType: blob.type, upsert: false });
@@ -509,6 +509,9 @@
         await new Promise((r) => setTimeout(r, 900));
         const q = previewQuote(p);
         if (!p.first_name || !isValidName(p.first_name)) throw fail('invalid_input', 'Enter your first name.', 'first_name');
+        if (!normalizePhone(p.contact_phone)) throw fail('invalid_input', 'Enter a 10-digit US mobile number, so we can reach you about the booking.', 'phone');
+        previewContactPhone = normalizePhone(p.contact_phone);
+        if (previewSession) previewSession.contactPhone = previewContactPhone;
         if (!p.service_date) throw fail('invalid_input', 'Choose a day.', 'service_date');
         if (p.start_min == null) throw fail('invalid_input', 'Choose one of the start times shown.', 'start_min');
         const hasInterior = q.lines.some((l) => !l.included && (l.kind === 'interior' || l.kind === 'bundle'));
@@ -604,7 +607,7 @@
       return Object.assign({}, s, { role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
         hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
     },
-    previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; return previewStaff; },
+    previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, emailConfirmed: true, verified: true, preview: true }; return previewStaff; },
 
     // Authenticator app (TOTP): enrol, then verify a code; later, challenge and verify.
     async mfaEnroll() {

@@ -2,13 +2,15 @@
 //
 // Only the admin, signed in with the authenticator-app step, can call this.
 // It creates a login for a new manager or detailer, or promotes an existing
-// login with that confirmed phone number, then sets the role through the
-// database, which checks the admin again.
+// login with that confirmed email, then sets the role through the database,
+// which checks the admin again.
 //
-// The phone is never marked as confirmed here: the new team member confirms
-// it with a text code at first sign-in, then sets a password.
+// Sign-in is by email code (Migration 004): the new team member signs in with
+// a 6-digit code sent to this address (managers then add the authenticator
+// app). The address counts as confirmed because the admin vouches for it; only
+// whoever reads that inbox can sign in with it.
 //
-// POST { "phone": "(945) 555-0123", "role": "detailer" | "manager",
+// POST { "email": "dana@example.com", "role": "detailer" | "manager",
 //        "first_name": "Dana", "last_name": "Lee" }
 // 200  { "user_id": "...", "created": true | false, "role": "detailer" }
 // Errors use the database's codes: { "error": code, "detail": text, "hint": field }
@@ -27,18 +29,11 @@ function reply(status: number, body: Record<string, unknown>): Response {
   });
 }
 
-// Same rule as public.normalize_phone: 1 + a real-looking US number.
-function normalizePhone(input: string): string | null {
-  const digits = input.replace(/\D/g, "");
-  const num = digits.length === 10
-    ? "1" + digits
-    : digits.length === 11 && digits.startsWith("1")
-    ? digits
-    : null;
-  if (!num || !/^1[2-9][0-8][0-9][2-9][0-9]{6}$/.test(num)) return null;
-  if (/^[2-9]11$/.test(num.slice(4, 7))) return null;
-  if (num.slice(4, 7) === "555" && num.slice(7, 9) === "01") return null;
-  return num;
+// A plain email address, lowercased (the database keeps profiles.email lowercase).
+function normalizeEmail(input: string): string | null {
+  const email = input.trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return null;
+  return email;
 }
 
 Deno.serve(async (req: Request) => {
@@ -73,19 +68,19 @@ Deno.serve(async (req: Request) => {
   if (role !== "detailer" && role !== "manager") {
     return reply(400, { error: "invalid_input", detail: "Choose detailer or manager.", hint: "role" });
   }
-  const phone = normalizePhone(String(body.phone ?? ""));
-  if (!phone) return reply(400, { error: "invalid_input", detail: "Enter a US phone number.", hint: "phone" });
+  const email = normalizeEmail(String(body.email ?? ""));
+  if (!email) return reply(400, { error: "invalid_input", detail: "Enter their email address.", hint: "email" });
   const firstName = typeof body.first_name === "string" ? body.first_name.trim() : "";
   const lastName = typeof body.last_name === "string" ? body.last_name.trim() : "";
 
-  // 3. An existing login with this confirmed phone is promoted, never duplicated.
-  const existing = await asCaller.from("profiles").select("id, is_active").eq("phone", phone).maybeSingle();
+  // 3. An existing login with this confirmed email is promoted, never duplicated.
+  const existing = await asCaller.from("profiles").select("id, is_active").eq("email", email).maybeSingle();
   if (existing.error) return reply(500, { error: "server_error", detail: existing.error.message });
   if (existing.data && !existing.data.is_active) {
     return reply(409, {
       error: "wrong_state",
       detail: "This person's account is turned off. Turn it on first if they should have access.",
-      hint: "phone",
+      hint: "email",
     });
   }
 
@@ -94,8 +89,8 @@ Deno.serve(async (req: Request) => {
   if (!userId) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const res = await admin.auth.admin.createUser({
-      phone: "+" + phone,
-      phone_confirm: false,
+      email,
+      email_confirm: true,
       user_metadata: { first_name: firstName, last_name: lastName },
     });
     if (res.error || !res.data.user) {
@@ -103,8 +98,8 @@ Deno.serve(async (req: Request) => {
       return exists
         ? reply(409, {
           error: "wrong_state",
-          detail: "A login with this phone number exists but isn't confirmed yet. Ask them to sign in with a text code first, then try again.",
-          hint: "phone",
+          detail: "A login with this email exists but isn't confirmed yet. Ask them to sign in on the site with the email code first, then try again.",
+          hint: "email",
         })
         : reply(500, { error: "server_error", detail: res.error?.message ?? "The account couldn't be created." });
     }

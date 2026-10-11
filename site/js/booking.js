@@ -18,7 +18,7 @@
   ];
   // Which step owns a database error, by its hint (doc 18).
   const HINT_STEP = {
-    first_name: 1, last_name: 1, phone: 1, phone_code: 1, email: 1, email_code: 1,
+    first_name: 1, last_name: 1, email: 1, email_code: 1, phone: 1,
     vehicle_id: 2, vehicle_make: 2, vehicle_model: 2, vehicle_year: 2, vehicle_color: 2, vehicle_type: 2, vehicle_size: 2, vehicle_description: 2,
     modifications: 2, conditions: 2, stains: 2, damage: 2, damage_note: 2, photos: 2,
     location_type: 3, address: 3, address_zip: 3,
@@ -36,7 +36,7 @@
   let root = null, settings = null, menu = null, session = null, phone = null;
   let step = 1, farthest = 1, renderedStep = 0, busy = false, mounted = false;
   const blank = {
-    contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none' }),
+    contact: () => ({ first: '', last: '', email: '', phone: '', codeSent: false, verified: false }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
     service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '' }),
@@ -45,14 +45,13 @@
   const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
 
-  // A fresh request: everything but who is booking (names, phone and email stay typed in; the phone is confirmed
+  // A fresh request: everything but who is booking (names, email and phone stay typed in; the email is confirmed
   // again unless the session still holds it) and the saved vehicles.
   function reset(keepContact) {
     const c = st.contact;
     Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: D.helpers.uuid(), direction: 1, prices: {} });
     if (keepContact) {
-      c.phoneSent = false; c.phoneConfirmed = !!(session && session.phoneConfirmed);
-      if (c.emailState !== 'skipped' && !(session && session.email)) c.emailState = 'none';
+      c.codeSent = false; c.verified = !!(session && session.verified);
     } else st.contact = blank.contact();
     quoteCache.clear();
     step = farthest = 1; renderedStep = 0; busy = false;
@@ -109,7 +108,7 @@
   function payload() {
     const v = st.vehicle, c = st.contact, l = st.location, s = st.service, w = st.when;
     const p = {
-      request_id: st.requestId, first_name: c.first.trim(), last_name: c.last.trim() || null,
+      request_id: st.requestId, first_name: c.first.trim(), last_name: c.last.trim() || null, contact_phone: c.phone.trim(),
       location_type: l.type, address: l.type === 'mobile' ? l.address.trim() : null, address_zip: l.type === 'mobile' ? l.zip.trim() : null,
       conditions: condsForQuote(), stains: [], damage: v.damage, damage_note: v.damageNote.trim() || null,
       special_request: s.notes.trim() || null, photos: payloadPhotos(),
@@ -151,20 +150,20 @@
     })();
   }
   // The data layer's session, taken into the request: a signed-in customer's names (unless typed already), the
-  // confirmed phone, the email and the saved vehicles; signed out, the phone is confirmed again.
+  // confirmed email, the phone from their last booking (unless typed already) and the saved vehicles; signed
+  // out, the email is confirmed again.
   async function adopt(s) {
     session = s;
     const c = st.contact, v = st.vehicle;
     if (s) {
       if (!c.first) c.first = s.firstName || '';
       if (!c.last) c.last = s.lastName || '';
-      if (s.phone) c.phone = phonePretty(s.phone);
-      c.phoneConfirmed = !!s.phoneConfirmed; c.phoneSent = false;
-      if (s.email) { c.email = s.email; c.emailState = 'confirmed'; }
+      if (s.email) c.email = s.email;
+      if (!c.phone.trim() && (s.contactPhone || s.phone)) c.phone = phonePretty(s.contactPhone || s.phone);
+      c.verified = !!s.verified; c.codeSent = false;
       try { v.saved = await D.myVehicles(); } catch (e) { v.saved = []; }
     } else {
-      c.phoneConfirmed = false; c.phoneSent = false; v.saved = [];
-      if (c.emailState === 'confirmed') c.emailState = 'none';
+      c.verified = false; c.codeSent = false; v.saved = [];
     }
     if (v.vehicleId && !v.saved.some((x) => x.id === v.vehicleId)) v.vehicleId = null;
   }
@@ -252,10 +251,9 @@
     if (n === 1) {
       if (!H.isValidName(c.first)) bad('first_name', 'Enter your first name using letters only.');
       if (c.last.trim() && !H.isValidName(c.last)) bad('last_name', 'Enter your last name using letters only, or leave it empty.');
-      if (!H.normalizePhone(c.phone)) bad('phone', 'Enter a 10-digit US phone number.');
-      else if (!c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press "Send code" and confirm your phone to continue.');
-      if (c.email.trim() && !H.isValidEmail(c.email)) bad('email', 'Enter a valid email, or leave it empty.');
-      else if (c.email.trim() && c.emailState === 'sent') bad('email', 'Enter the email code, or press Skip.');
+      if (!H.isValidEmail(c.email)) bad('email', 'Enter a valid email address.');
+      else if (!c.verified) bad('email', c.codeSent ? 'Enter the code we emailed you, then press Confirm.' : 'Press "Send code" and enter the code from the email to continue.');
+      if (!H.normalizePhone(c.phone)) bad('phone', 'Enter a 10-digit US mobile number, so we can reach you about the booking.');
     }
     if (n === 2) {
       if (!v.vehicleId) {
@@ -338,103 +336,86 @@
   }
 
   // ---------------------------------------------------------------- 01 Contact
-  const emailHint = () => (st.contact.emailState === 'confirmed' ? 'Confirmed ✓' : st.contact.emailState === 'skipped' ? 'We\'ll contact you by phone.' : 'For your confirmation. Phone is enough if you prefer.');
+  // Who is booking: the names, the email (confirmed with a 6-digit code, which also signs the customer in:
+  // Migration 004, codes by email through Resend) and a mobile number for the owner to call or text about the
+  // booking (not confirmed by a code).
   function stepContact() {
     const c = st.contact;
     const box = el('div.bk-grid');
-    const signed = session && session.phoneConfirmed && c.phoneConfirmed;
-    if (signed) box.appendChild(el('p.bk-note.ok', 'Signed in as ', el('b', [c.first, c.last].filter(Boolean).join(' ') || phonePretty(c.phone)), '. ', el('button.link', { type: 'button', onclick: async () => { await D.signOut(); session = null; if (window.AlchemistAccount) window.AlchemistAccount.refresh(); Object.assign(c, blank.contact()); st.vehicle.saved = []; render(); } }, 'Not you?')));
+    const signed = session && session.verified && c.verified;
+    if (signed) box.appendChild(el('p.bk-note.ok', 'Signed in as ', el('b', [c.first, c.last].filter(Boolean).join(' ') || c.email), '. ', el('button.link', { type: 'button', onclick: notYou }, 'Not you?')));
 
     box.appendChild(el('div.bk-row.two',
       field({ id: 'first_name', label: 'First name', required: true, value: c.first, autocomplete: 'given-name', maxlength: 40, oninput: (e) => { c.first = e.target.value; clearError(root, 'first_name'); } }),
       field({ id: 'last_name', label: 'Last name', optional: true, value: c.last, autocomplete: 'family-name', maxlength: 40, oninput: (e) => { c.last = e.target.value; clearError(root, 'last_name'); } })));
 
-    // Phone and its code
-    const phoneField = field({
-      id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: c.phone,
-      hint: c.phoneConfirmed ? 'Confirmed ✓' : 'We text a 6-digit code to confirm it.',
+    // Email and its code
+    const emailField = field({
+      id: 'email', label: 'Email', required: true, type: 'email', inputmode: 'email', autocomplete: 'email', value: c.email, maxlength: 120,
+      hint: c.verified ? 'Confirmed ✓' : 'We email you a 6-digit code to confirm it. No password.',
       oninput: (e) => {
-        c.phone = e.target.value; clearError(root, 'phone');
-        // a number edited after a code went out: that code no longer applies, in place
-        if (c.phoneSent) { c.phoneSent = false; const code = root.querySelector('[data-field="phone_code"]'); if (code) code.remove(); const b = root.querySelector('#bk-send-code'); if (b) b.textContent = 'Send code'; }
+        c.email = e.target.value; clearError(root, 'email');
+        // an address edited after a code went out: that code no longer applies, in place
+        if (c.codeSent) { c.codeSent = false; const code = root.querySelector('[data-field="email_code"]'); if (code) code.remove(); const b = root.querySelector('#bk-send-code'); if (b) b.textContent = 'Send code'; }
       },
-      trailing: c.phoneConfirmed ? el('span.fld-ok', '✓') : miniBtn(c.phoneSent ? 'Resend' : 'Send code', sendPhone, { id: 'bk-send-code' }),
+      trailing: c.verified ? el('span.fld-ok', '✓') : miniBtn(c.codeSent ? 'Resend' : 'Send code', sendCode, { id: 'bk-send-code' }),
     });
-    if (c.phoneConfirmed) phoneField.input.readOnly = true;
-    box.appendChild(phoneField);
-    if (c.phoneSent && !c.phoneConfirmed) {
+    if (c.verified) emailField.input.readOnly = true;
+    box.appendChild(emailField);
+    if (c.codeSent && !c.verified) {
       box.appendChild(field({
-        id: 'phone_code', label: 'Code from the text', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, hint: D.isLive ? 'Didn\'t get it? Check the number and press Resend.' : 'Preview: any 6 digits work.',
-        oninput: (e) => { clearError(root, 'phone_code'); if (e.target.value.replace(/\D/g, '').length === 6) confirmPhone(e.target.value); },
-        onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmPhone(e.target.value); } },
-        trailing: miniBtn('Confirm', () => confirmPhone(root.querySelector('#phone_code').value)),
+        id: 'email_code', label: 'Code from the email', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
+        hint: D.isLive ? 'Didn\'t get it? Check your spam folder, or press Resend.' : 'Preview: any 6 digits work.',
+        oninput: (e) => { clearError(root, 'email_code'); if (e.target.value.replace(/\D/g, '').length === 6) confirmCode(e.target.value); },
+        onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmCode(e.target.value); } },
+        trailing: miniBtn('Confirm', () => confirmCode(root.querySelector('#email_code').value)),
       }));
     }
 
-    // Email (optional): the Send code button follows the address as it is typed, in place
-    const emailField = field({
-      id: 'email', label: 'Email', optional: true, type: 'email', inputmode: 'email', autocomplete: 'email', value: c.email,
-      hint: emailHint(),
-      oninput: (e) => { c.email = e.target.value; clearError(root, 'email'); emailChanged(emailField); },
-      trailing: c.emailState === 'confirmed' ? el('span.fld-ok', '✓') : (c.email.trim() && c.emailState === 'none' ? miniBtn('Send code', sendEmail) : null),
-    });
-    box.appendChild(emailField);
-    if (c.emailState === 'sent') {
-      box.appendChild(el('div.bk-row.two.bk-email-code',
-        field({ id: 'email_code', label: 'Code from the email', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, trailing: miniBtn('Confirm', () => confirmEmail(root.querySelector('#email_code').value)) }),
-        el('div.bk-skip', miniBtn('Skip, contact me by phone', () => { c.emailState = 'skipped'; render(); }))));
-    }
+    // The phone: for the owner to call or text about the booking
+    box.appendChild(field({
+      id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: c.phone,
+      hint: 'So we can call or text you about this booking.',
+      oninput: (e) => { c.phone = e.target.value; clearError(root, 'phone'); },
+    }));
     // Spam field: off-screen, bots fill it
     box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off' })));
     return box;
   }
-  // Typing in the email: an earlier confirmation or code no longer applies, and the trailing control follows
-  // the address (a Send code button while there is one to send to, nothing once it is empty).
-  function emailChanged(f) {
-    const c = st.contact, box = f.querySelector('.fld-box'), msg = f.querySelector('.fld-msg');
-    if (c.emailState !== 'none') {
-      c.emailState = 'none';
-      const code = root.querySelector('.bk-email-code'); if (code) code.remove();
-      box.querySelectorAll('.fld-ok').forEach((x) => x.remove());
-      msg.dataset.hint = emailHint(); msg.textContent = msg.dataset.hint;
-    }
-    const btn = box.querySelector('.mini-btn');
-    if (c.email.trim() && !btn) box.appendChild(miniBtn('Send code', sendEmail));
-    else if (!c.email.trim() && btn) btn.remove();
+  // "Not you?": signed out, and the contact starts over. The saved vehicle and the photos chosen under that
+  // account go too (they belong to it); a vehicle typed in stays.
+  async function notYou() {
+    try { await D.signOut(); } catch (e) { /* signed out anyway */ }
+    session = null;
+    if (window.AlchemistAccount) window.AlchemistAccount.refresh();
+    st.contact = blank.contact();
+    Object.assign(st.vehicle, { saved: [], vehicleId: null, photos: [] });
+    invalidateQuotes();
+    render();
   }
 
-  async function sendPhone() {
+  async function sendCode() {
     const c = st.contact;
-    if (!D.helpers.normalizePhone(c.phone)) return showError(root, 'phone', 'Enter a 10-digit US phone number.');
-    if (!D.helpers.isValidName(c.first)) return showError(root, 'first_name', 'Enter your first name first, so we know who to text.');
+    if (!D.helpers.isValidName(c.first)) return showError(root, 'first_name', 'Enter your first name first, so we know who is booking.');
+    if (!D.helpers.isValidEmail(c.email)) return showError(root, 'email', 'Enter a valid email address.');
     const b = root.querySelector('#bk-send-code'); if (b) { b.disabled = true; b.textContent = 'Sending…'; }
     try {
-      await D.sendPhoneCode(c.phone, { first: c.first.trim(), last: c.last.trim() });
-      c.phoneSent = true; render();
-      setTimeout(() => { const i = root.querySelector('#phone_code'); if (i) i.focus(); }, 60);
-    } catch (e) { render(); showError(root, e.hint || 'phone', e.message); }
+      await D.sendCode(c.email, { first: c.first.trim(), last: c.last.trim() });
+      c.codeSent = true; render();
+      setTimeout(() => { const i = root.querySelector('#email_code'); if (i) i.focus(); }, 60);
+    } catch (e) { render(); showError(root, e.hint || 'email', e.message); }
   }
-  async function confirmPhone(code) {
+  async function confirmCode(code) {
     const c = st.contact;
     try {
-      session = await D.verifyPhoneCode(c.phone, code, { first: c.first.trim(), last: c.last.trim() });
-      c.phoneConfirmed = true;
+      session = await D.verifyCode(c.email, code, { first: c.first.trim(), last: c.last.trim() });
+      c.verified = true;
       if (session && session.firstName && !c.first) c.first = session.firstName;
+      if (session && !c.phone.trim() && (session.contactPhone || session.phone)) c.phone = phonePretty(session.contactPhone || session.phone);
       try { st.vehicle.saved = await D.myVehicles(); } catch (e) { /* none */ }
-      render(); toast('Phone confirmed');
-    } catch (e) { showError(root, e.hint || 'phone_code', e.message); }
-  }
-  async function sendEmail() {
-    const c = st.contact;
-    if (!D.helpers.isValidEmail(c.email)) return showError(root, 'email', 'Enter a valid email, or leave it empty.');
-    if (!(await D.emailAllowed(c.email))) return showError(root, 'email', 'Use a regular email address, not a throwaway one, or leave it empty.');
-    if (!c.phoneConfirmed) return showError(root, 'phone', 'Confirm your phone first.');
-    try { await D.sendEmailCode(c.email); c.emailState = 'sent'; render(); }
-    catch (e) { c.emailState = 'skipped'; render(); toast(e.message); }
-  }
-  async function confirmEmail(code) {
-    try { await D.verifyEmailCode(st.contact.email, code); st.contact.emailState = 'confirmed'; render(); toast('Email confirmed'); }
-    catch (e) { showError(root, e.hint || 'email_code', e.message); }
+      if (window.AlchemistAccount) window.AlchemistAccount.refresh();
+      render(); toast('Email confirmed');
+    } catch (e) { showError(root, e.hint || 'email_code', e.message); }
   }
 
   // ---------------------------------------------------------------- 02 Vehicle
@@ -526,7 +507,7 @@
   }
   async function addPhotos(e) {
     const files = Array.from(e.target.files || []).slice(0, 6 - st.vehicle.photos.length);
-    if (!st.contact.phoneConfirmed && D.isLive) return showError(root, 'photos', 'Confirm your phone in step 01 first, then add photos.');
+    if (!st.contact.verified && D.isLive) return showError(root, 'photos', 'Confirm your email in step 01 first, then add photos.');
     for (const f of files) {
       try { st.vehicle.photos.push(await D.uploadPhoto(f)); }
       catch (err) { showError(root, 'photos', err.message); break; }
@@ -803,7 +784,7 @@
     const vt = (menu.vehicleTypes.find((t) => t.code === vf.type) || {}).name;
     const savedV = savedVehicle();
     const condLabels = hasInterior() ? v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ') : 'Not needed for an exterior-only service';
-    box.appendChild(sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + ' ✓'], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]));
+    box.appendChild(sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Email', c.email.trim() + ' ✓'], ['Phone', phonePretty(c.phone)]]));
     box.appendChild(sec('Vehicle', 2, [
       ['Vehicle', savedV ? [savedV.year, savedV.make, savedV.model, savedV.color && '· ' + savedV.color].filter(Boolean).join(' ') : v.notSure ? v.description : [v.year, v.make, v.model, v.color && '· ' + v.color].filter(Boolean).join(' ')],
       !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : 'Standard'].filter(Boolean).join(' · ')] : null,
