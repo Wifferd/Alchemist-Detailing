@@ -4,7 +4,8 @@ shoot_account.py <prefix> <width> <height>"""
 import asyncio, os, pathlib, sys
 from playwright.async_api import async_playwright
 prefix, w, h = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-url = (pathlib.Path(__file__).resolve().parent.parent / 'site' / 'index.html').as_uri() + '?noadapt#book'
+# the account pages need a sign-in, so this walk previews the text-code flow (?guest=0; guest booking has no accounts)
+url = (pathlib.Path(__file__).resolve().parent.parent / 'site' / 'index.html').as_uri() + '?noadapt&guest=0#book'
 phone = w < 700
 
 async def full(pg, path):

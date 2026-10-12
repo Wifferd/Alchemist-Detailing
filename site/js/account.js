@@ -42,7 +42,7 @@
 
   function shell(title, eyebrow, body) {
     return el('div.bk.acct',
-      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is saved anywhere. Any 6-digit code works.') : null,
+      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is saved anywhere.' + (D.guestBooking ? '' : ' Any 6-digit code works.')) : null,
       el('header.bk-head', el('p.eyebrow', eyebrow), el('h1.display.bk-title', title)),
       body);
   }
@@ -56,6 +56,13 @@
 
   // ---------------------------------------------------------------- sign in (shared)
   function signInBox(after) {
+    // No text codes yet (Migration 005): bookings are made as a guest, and there is nothing to sign in to
+    if (D.guestBooking) {
+      return el('div.bk-grid',
+        el('p.bk-note', 'Online accounts are coming soon. Until then you can book without one: we call or text you to confirm.'),
+        el('p.bk-note', 'To check, change or cancel a booking, call ', el('b', tel(phone)), '.'),
+        el('div.bk-actions', el('a.btn.btn-gold.shine', { href: '#book' }, 'Book a detail')));
+    }
     const box = el('div.bk-grid',
       el('p.bk-note', 'Sign in with your mobile number. We text you a 6-digit code; no password.'),
       field({ id: 'si_first', label: 'First name', optional: true, value: signin.first, autocomplete: 'given-name', maxlength: 40, hint: 'Only needed the first time.', oninput: (e) => { signin.first = e.target.value; } }),
@@ -215,7 +222,7 @@
     if (appts.list == null) root.replaceChildren(loading('Loading…'));
     await load();
     await refreshSession();
-    if (!session) { root.replaceChildren(shell('Appointments', 'Your details', el('div.bk-grid', el('p.bk-muted', 'Sign in to see your upcoming and past details.'), signInBox(renderAppointments)))); return; }
+    if (!session) { root.replaceChildren(shell('Appointments', 'Your details', el('div.bk-grid', D.guestBooking ? null : el('p.bk-muted', 'Sign in to see your upcoming and past details.'), signInBox(renderAppointments)))); return; }
     if (appts.list == null) {
       try { [appts.list, appts.reviews] = await Promise.all([D.myBookings(), D.myReviews().catch(() => [])]); } catch (e) { appts.list = []; appts.reviews = []; toast(e.message); }
       if (!session) return renderAppointments();   // signed out while loading

@@ -9,6 +9,9 @@
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // the optional email and its code show only once the site can email codes (config.js)
   const emailCodes = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.emailCodes);
+  // A guest booking (no text codes yet, Migration 005): the name and phone as typed, no code, no photos. Someone
+  // already signed in with a confirmed phone books as before.
+  const guest = () => D.guestBooking && !(session && session.phoneConfirmed);
 
   const STEPS = [
     { n: '01', name: 'Contact', title: 'How do we reach you?' },
@@ -38,7 +41,7 @@
   let root = null, settings = null, menu = null, session = null, phone = null;
   let step = 1, farthest = 1, renderedStep = 0, busy = false, mounted = false;
   const blank = {
-    contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none' }),
+    contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '' }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
     service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '' }),
@@ -116,8 +119,9 @@
       conditions: condsForQuote(), stains: [], damage: v.damage, damage_note: v.damageNote.trim() || null,
       special_request: s.notes.trim() || null, photos: payloadPhotos(),
       bundle: s.bundle, exterior: s.exterior, interior: s.interior, addons: s.addons.filter(canHaveAddon),
-      service_date: w.date, start_min: w.start, website: root.querySelector('#bk-website') ? root.querySelector('#bk-website').value : '',
+      service_date: w.date, start_min: w.start, website: c.website || '',
     };
+    if (guest()) p.phone = c.phone.trim();
     if (v.vehicleId) p.vehicle_id = v.vehicleId;
     else Object.assign(p, {
       vehicle_make: v.make.trim(), vehicle_model: v.model.trim(), vehicle_year: v.year.trim() || null, vehicle_color: v.color.trim() || null,
@@ -131,6 +135,8 @@
   function mount(container) {
     root = container;
     if (mounted) {
+      // the first visit's load is still on its way: it draws the booking when it lands
+      if (!menu) { root.replaceChildren(loading('Loading the booking…')); return; }
       if (st.receipt) reset(true);   // a receipt from an earlier visit: the next visit starts a fresh request
       render();
       // signed in (the account page) or out since the last visit: the contact and the saved vehicles follow
@@ -148,6 +154,7 @@
         st.requestId = st.requestId || D.helpers.uuid();
         render();
       } catch (e) {
+        mounted = false;   // the next visit tries again
         root.replaceChildren(el('div.bk-loading', "The booking couldn't load. Call ", tel(phone || '(945) 361-7551'), ' to book.'));
       }
     })();
@@ -168,6 +175,8 @@
       c.phoneConfirmed = false; c.phoneSent = false; v.saved = [];
       if (c.emailState === 'confirmed') c.emailState = 'none';
     }
+    // A guest has no saved vehicles and can't send photos (both belong to an account): none are kept hidden
+    if (guest()) { v.saved = []; v.photos = []; }
     if (v.vehicleId && !v.saved.some((x) => x.id === v.vehicleId)) v.vehicleId = null;
   }
 
@@ -178,7 +187,7 @@
     if (st.receipt) { root.appendChild(renderSent()); renderedStep = 0; focusTitle(); return; }
     const moved = step !== renderedStep;
     const shell = el('div.bk',
-      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is sent. Any 6-digit code works.')
+      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is sent.' + (guest() ? '' : ' Any 6-digit code works.'))
         : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — this is a practice booking on the test database.') : null),
       renderProgress(moved),
       el('div.bk-body', { id: 'bk-body' }, el('div.bk-step', { class: moved ? (st.direction > 0 ? 'in-right' : 'in-left') : null }, renderStep())),
@@ -254,8 +263,8 @@
     if (n === 1) {
       if (!H.isValidName(c.first)) bad('first_name', 'Enter your first name using letters only.');
       if (c.last.trim() && !H.isValidName(c.last)) bad('last_name', 'Enter your last name using letters only, or leave it empty.');
-      if (!H.normalizePhone(c.phone)) bad('phone', 'Enter a 10-digit US phone number.');
-      else if (!c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press "Send code" and confirm your phone to continue.');
+      if (!H.normalizePhone(c.phone)) bad('phone', guest() ? 'Enter a 10-digit US mobile number, so we can reach you about the booking.' : 'Enter a 10-digit US phone number.');
+      else if (!guest() && !c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press "Send code" and confirm your phone to continue.');
       if (emailCodes() && c.email.trim() && !H.isValidEmail(c.email)) bad('email', 'Enter a valid email, or leave it empty.');
       else if (emailCodes() && c.email.trim() && c.emailState === 'sent') bad('email', 'Enter the email code, or press Skip.');
     }
@@ -335,7 +344,8 @@
       setTimeout(() => { if (!showError(root, hint, text)) toast(text); }, 50);
       return false;
     }
-    if (!showError(root, hint, text)) toast(text);
+    // a refusal that belongs to no field (a limit, with the number to call) stays on the summary; elsewhere, a toast
+    if (!showError(root, hint || 'submit', text)) toast(text);
     return false;
   }
 
@@ -350,6 +360,17 @@
     box.appendChild(el('div.bk-row.two',
       field({ id: 'first_name', label: 'First name', required: true, value: c.first, autocomplete: 'given-name', maxlength: 40, oninput: (e) => { c.first = e.target.value; clearError(root, 'first_name'); } }),
       field({ id: 'last_name', label: 'Last name', optional: true, value: c.last, autocomplete: 'family-name', maxlength: 40, oninput: (e) => { c.last = e.target.value; clearError(root, 'last_name'); } })));
+
+    // A guest: the phone as typed, for the owner to call or text to confirm (no code until text codes work)
+    if (guest()) {
+      box.appendChild(field({
+        id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: c.phone,
+        hint: 'We\'ll call or text this number to confirm your booking.',
+        oninput: (e) => { c.phone = e.target.value; clearError(root, 'phone'); },
+      }));
+      box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off', value: c.website, oninput: (e) => { c.website = e.target.value; } })));
+      return box;
+    }
 
     // Phone and its code
     const phoneField = field({
@@ -390,7 +411,7 @@
       }
     }
     // Spam field: off-screen, bots fill it
-    box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off' })));
+    box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off', value: c.website, oninput: (e) => { c.website = e.target.value; } })));
     return box;
   }
   // Typing in the email: an earlier confirmation or code no longer applies, and the trailing control follows
@@ -523,14 +544,14 @@
     // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
     const more = el('div.bk-more-body',
       v.vehicleId ? null : choices({ id: 'modifications', label: 'Modifications', hint: 'For preparation only. Never a fee.', size: 'chip', multi: true, value: v.modifications, items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (vals) => { v.modifications = vals; } }),
-      el('div.bk-photos', { dataset: { field: 'photos' } },
+      guest() ? el('p.bk-note', 'Photos: you can text them to us after you book.') : el('div.bk-photos', { dataset: { field: 'photos' } },
         el('p.choice-label', 'Photos', el('small', ' optional · up to 6')),
         el('div.bk-photo-grid', { id: 'bk-photo-grid' },
           v.photos.map((p) => el('figure.bk-photo', el('img', { src: p.url, alt: '', width: 96, height: 96 }), el('button.bk-photo-x', { type: 'button', 'aria-label': 'Remove photo', onclick: async () => { await D.removePhoto(p.name).catch(() => {}); v.photos = v.photos.filter((x) => x !== p); render(); } }, '×'))),
           v.photos.length < 6 ? el('label.bk-photo-add', el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', multiple: true, onchange: addPhotos }), el('span', '+'), el('span.small', 'Add')) : null),
         el('p.choice-msg', { role: 'status', dataset: { hint: 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.' } }, 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.')));
     box.appendChild(el('details.bk-more', { open: v.moreOpen || v.photos.length > 0 || v.modifications.length > 0, ontoggle: (e) => { v.moreOpen = e.target.open; } },
-      el('summary', el('span', v.vehicleId ? 'Photos' : 'Modifications and photos', el('small', ' optional'))), more));
+      el('summary', el('span', v.vehicleId ? 'Photos' : guest() ? 'Modifications' : 'Modifications and photos', el('small', ' optional'))), more));
     return box;
   }
   // "Other" makes the notes required: the label's "optional" becomes the star, in place
@@ -820,7 +841,7 @@
     const vt = (menu.vehicleTypes.find((t) => t.code === vf.type) || {}).name;
     const savedV = savedVehicle();
     const condLabels = hasInterior() ? v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ') : 'Not needed for an exterior-only service';
-    box.appendChild(sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + ' ✓'], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]));
+    box.appendChild(sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]));
     box.appendChild(sec('Vehicle', 2, [
       ['Vehicle', savedV ? [savedV.year, savedV.make, savedV.model, savedV.color && '· ' + savedV.color].filter(Boolean).join(' ') : v.notSure ? v.description : [v.year, v.make, v.model, v.color && '· ' + v.color].filter(Boolean).join(' ')],
       !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : 'Standard'].filter(Boolean).join(' · ')] : null,
@@ -834,7 +855,7 @@
     box.appendChild(el('div.bk-summary-card', q ? priceLines(q) : null));
     box.appendChild(el('p.bk-note', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.'));
     box.appendChild(el('p.bk-note', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request. We\'ll contact you to confirm.'));
-    box.appendChild(el('p.choice-msg', { dataset: { field: 'submit' } }));
+    box.appendChild(el('div', { dataset: { field: 'submit' } }, el('p.choice-msg', { role: 'alert' })));
     return box;
   }
 
@@ -846,7 +867,7 @@
     const veil = document.getElementById('veil');
     if (veil && !reduce) { veil.classList.remove('run'); void veil.offsetWidth; veil.classList.add('run'); }
     try {
-      const r = await D.submit(payload());
+      const r = await D.submit(payload(), { guest: guest() });
       st.receipt = r;
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();

@@ -16,6 +16,8 @@
       mobile_radius_miles: 10, mobile_note: 'For mobile service, we use your outdoor water faucet and a power outlet.',
       // Migration 003: hours closed every week (ISO weekday, 1 = Monday), as get_public_settings returns them
       weekly_closures: [1, 2, 3, 4].map((w) => ({ weekday: w, start_min: 960, end_min: 1200 })).concat([{ weekday: 5, start_min: 720, end_min: 1020 }]),
+      // Migration 005: bookings without an account until text codes work (?guest=0 previews the text-code flow)
+      guest_booking: true,
     },
     services: [
       { code: 'ext_basic', kind: 'exterior', name: 'Exterior Basic', description: 'Snow-foam pre-wash, Brake Buster wheel and tire cleaning, tire cleaning, exterior glass, and a thorough hand wash and hand dry with professional-grade chemicals.', base_price_cents: 4999, priced_by_vehicle_type: false, duration_min: 60, mobile_pct: 2.5, sort: 10 },
@@ -82,11 +84,11 @@
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
   }));
+  // The database's rule (public.normalize_phone): a US number that can exist, not an N11 exchange or a 555-01xx one
   function normalizePhone(raw) {
     const d = String(raw || '').replace(/\D/g, '');
-    if (d.length === 10) return '1' + d;
-    if (d.length === 11 && d[0] === '1') return d;
-    return null;
+    const n = d.length === 10 ? '1' + d : d.length === 11 && d[0] === '1' ? d : null;
+    return n && /^1[2-9][0-8]\d[2-9]\d{6}$/.test(n) && !/^[2-9]11$/.test(n.slice(4, 7)) && !(n.slice(4, 7) === '555' && n.slice(7, 9) === '01') ? n : null;
   }
   const isValidName = (s) => /^[A-Za-zÀ-ÖØ-öø-ÿ' .-]{1,40}$/.test(String(s || '').trim()) && /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(s);
   const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(s || '').trim());
@@ -278,7 +280,7 @@
         }
         if (mode !== 'live') { sb = null; mode = 'preview'; }
       }
-      if (mode === 'preview') settingsCache = Object.assign({}, SEED.settings);
+      if (mode === 'preview') settingsCache = Object.assign({}, SEED.settings, /[?&]guest=0\b/.test(location.search) ? { guest_booking: false } : {});
       return mode;
     })();
     return ready;
@@ -295,6 +297,8 @@
     init,
     get mode() { return mode; },
     get isLive() { return mode === 'live'; },
+    // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
+    get guestBooking() { return !!(settingsCache && settingsCache.guest_booking); },
     helpers: { normalizePhone, isValidName, isValidEmail, isoDate, addDays, todayLocal, uuid },
 
     async settings() { await init(); return settingsCache; },
@@ -503,7 +507,8 @@
       await sb.storage.from('vehicle-photos').remove([name]);
     },
 
-    async submit(p) {
+    // opts.guest: a booking without an account (submit_guest_booking: the name and phone as typed)
+    async submit(p, opts) {
       await init();
       if (mode === 'preview') {
         await new Promise((r) => setTimeout(r, 900));
@@ -530,7 +535,12 @@
         previewBookings.unshift(r);
         return r;
       }
-      return rpc('submit_booking', { p });
+      if (!(opts && opts.guest)) return rpc('submit_booking', { p });
+      try { return await rpc('submit_guest_booking', { p }); } catch (e) {
+        // the owner turned guest booking off since this page loaded: from now on the site asks for the text code
+        if (e.code === 'sign_in_required' && settingsCache) settingsCache.guest_booking = false;
+        throw e;
+      }
     },
 
     async signOut() {

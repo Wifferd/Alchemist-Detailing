@@ -6,7 +6,7 @@ import asyncio, os, pathlib, sys
 from playwright.async_api import async_playwright
 
 prefix, w, h = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-url = os.environ.get('SHOOT_URL') or ((pathlib.Path(__file__).resolve().parent.parent / 'site' / 'index.html').as_uri() + '?noadapt#book')
+url = os.environ.get('SHOOT_URL') or ((pathlib.Path(__file__).resolve().parent.parent / 'site' / 'index.html').as_uri() + '?noadapt' + os.environ.get('SHOOT_QUERY', '') + '#book')
 phone = w < 700
 
 
@@ -32,10 +32,11 @@ async def main():
         await pg.fill('#first_name', 'Carla')
         await pg.fill('#last_name', 'Diaz')
         await pg.fill('#phone', '972 555 2011')
-        await pg.click('#bk-send-code')
-        await pg.wait_for_selector('#phone_code')
-        await pg.fill('#phone_code', '123456')
-        await pg.wait_for_selector('.fld-ok')
+        if await pg.query_selector('#bk-send-code'):   # with text codes; a guest booking (Migration 005) has none
+            await pg.click('#bk-send-code')
+            await pg.wait_for_selector('#phone_code')
+            await pg.fill('#phone_code', '123456')
+            await pg.wait_for_selector('.fld-ok')
         if await pg.query_selector('#email'):   # the optional email shows only where codes can be emailed (config.js emailCodes)
             await pg.fill('#email', 'carla.diaz@gmail.com')
         await shot(pg, '01-contact-confirmed')
