@@ -81,3 +81,7 @@ The facts the fix rests on, from WebKit's source for each Safari release and the
 - Do it again slowly with the finger down the whole time.
 - Stop right after the cards appear, wait a moment, then scroll back up: the page goes straight back up to "The Alchemist Standard".
 - Flick past the cards and straight back up without stopping: the cards stay on screen for a while, then the page carries on (expected on iPhone).
+
+## Owner's check (Oct 12)
+
+The owner tried it on his iPhone and confirmed: "Issue is fixed."
