@@ -22,6 +22,18 @@ The owner chose Resend for codes and booking messages (doc 33). Resend sends **e
 
 Until the email setup below is done, nobody can get a code on either site (before the switch, nobody could get a text code either: no texting service was ever connected).
 
+## Checked on the deployed sites (Oct 12)
+
+Run from a Vercel sandbox with a real browser (the container can't reach the sites):
+
+- Both sites load in live mode (the test site on the test project, the main site on the live project) with the new step 01: name, email with "Send code", phone. No errors on either.
+- Test site, booking and Account page: after "Send code" the "Code from the email" field opens with the cursor in it and the button turns to "Resend"; a wrong code shows "That code didn't match, or it has expired. Check the email, or press Resend for a new one." The send and the check were answered inside the test browser, so no email went out and no login was made.
+- Test site, Admin and Team sign-in, sent to Supabase for real with an address that has no account: Supabase refuses (`otp_disabled`, "Signups not allowed for otp"), sends nothing, and the page says "There's no team account with that email. Ask the owner to add you."
+- Supabase rejects made-up addresses itself (`email_address_invalid` for an example.com address); the page then says "We couldn't send the code. Check the email address, or call (945) 361-7551."
+- Not checkable yet: a real code arriving in an inbox. Supabase's built-in sender only delivers to the addresses of the people on the Supabase team (anyone else gets "Email address not authorized"), a few an hour, and its default emails carry a link, not a code.
+
+**Optional, before the domain is bought (5 minutes):** do step 6 below (the code in the email) on the test project only, then start a booking on the test site (alchemist-detailing-test.vercel.app) with the email you log in to Supabase with. The code arrives from Supabase's own sender, so you can try the whole sign-in now; nobody else can get a code until Resend is connected.
+
 ## What the owner does (about 20 minutes, once the domain is bought)
 
 1. **The domain.** Resend only emails customers from a domain you own. Say "buy it" and Claude Code gets a fresh Vercel quote for alchemydetails.com to approve (doc 33).
