@@ -1348,8 +1348,8 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .fld-input::placeholder { color: transparent; }
 .fld-input[readonly] { color: var(--ink-2); }
 /* a 6-digit code (the text, the authenticator): a short field with big, evenly spaced digits */
-.fld:is([data-field="mfa_code"], [data-field="email_code"], [data-field="si_code"], [data-field="st_code"], [data-field="tm_code"]) { max-width: 360px; }
-.fld:is([data-field="mfa_code"], [data-field="email_code"], [data-field="si_code"], [data-field="st_code"], [data-field="tm_code"]) .fld-input { font-size: 18px; font-variant-numeric: tabular-nums lining-nums; letter-spacing: .12em; }
+.fld[data-field="mfa_code"], .fld[data-field="phone_code"] { max-width: 360px; }
+.fld[data-field="mfa_code"] .fld-input, .fld[data-field="phone_code"] .fld-input { font-size: 18px; font-variant-numeric: tabular-nums lining-nums; letter-spacing: .12em; }
 .bk-grid code { user-select: all; letter-spacing: .08em; color: var(--ink); }   /* the authenticator key: one tap selects it all */
 .fld-msg, .choice-msg { margin: 0; min-height: 1.2em; font-size: 13px; color: var(--muted); }
 .has-error .fld-box { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(212, 106, 90, .14); }
@@ -1359,6 +1359,8 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .mini-btn { margin: 3px; min-height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--line); background: rgba(226, 185, 82, .08); color: var(--gold-hi); font: 700 11px/1 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; cursor: pointer; white-space: nowrap; touch-action: manipulation; transition: background-color .3s var(--ease), border-color .3s var(--ease), transform .35s var(--ease); }
 .mini-btn:hover { background: rgba(226, 185, 82, .16); border-color: var(--gold); }
 .mini-btn:disabled { opacity: .45; cursor: not-allowed; }
+.bk-skip { display: flex; align-items: end; }
+.bk-skip .mini-btn { margin: 0 0 24px; height: 50px; }
 .bk-toggle { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: var(--ink-2); font-size: 14.5px; cursor: pointer; touch-action: manipulation; }
 /* the checkbox is drawn: a 20px rounded square that fills with gold and draws its tick */
 .bk-toggle input { appearance: none; -webkit-appearance: none; flex-shrink: 0; width: 20px; height: 20px; margin: 0; display: grid; place-items: center; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .3); background: rgba(0, 0, 0, .35); cursor: pointer; transition: background-color .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease); }

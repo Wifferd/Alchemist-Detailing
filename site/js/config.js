@@ -14,4 +14,7 @@
   var useTest = /[?&]project=test\b/.test(location.search) || /(^|\.)alchemist-detailing-test\./.test(location.hostname);
   window.ALCHEMIST_CONFIG = useTest ? TEST : LIVE;
   window.ALCHEMIST_CONFIG.project = useTest ? 'test' : 'live';
+  // Sign-in is by text code (Twilio Verify, set in Supabase). The optional email and its code show only once the
+  // site can email codes (an email sender in Supabase): set this to true then.
+  window.ALCHEMIST_CONFIG.emailCodes = false;
 })();

@@ -1,5 +1,7 @@
 # 34. Sign-in by email code (Oct 11, 2026)
 
+> **Superseded on Oct 12 by doc 36.** The owner chose text codes through Twilio Verify; the site signs people in with a text code again, and the email field is hidden (`config.js` `emailCodes: false`). The steps below apply only if email codes are wanted again later.
+
 The owner chose Resend for codes and booking messages (doc 33). Resend sends **email only** (it has no texting product), so customers and staff now confirm an email address with a 6-digit code instead of a phone number with a text. This doc says what changed, where it stands, and what the owner does to switch it on.
 
 ## What changed

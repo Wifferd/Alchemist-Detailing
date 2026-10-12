@@ -27,9 +27,8 @@ async def main():
         msgs = []
         pg.on('pageerror', lambda e: msgs.append('pageerror: ' + str(e)))
         await pg.goto(url); await pg.wait_for_selector('#first_name')
-        await pg.fill('#first_name', 'Carla'); await pg.fill('#email', 'carla.diaz@gmail.com'); await pg.click('#bk-send-code')
-        await pg.wait_for_selector('#email_code'); await pg.fill('#email_code', '123456'); await pg.wait_for_selector('[data-field="email"] .fld-ok')
-        await pg.fill('#phone', '9725552011')
+        await pg.fill('#first_name', 'Carla'); await pg.fill('#phone', '9725552011'); await pg.click('#bk-send-code')
+        await pg.wait_for_selector('#phone_code'); await pg.fill('#phone_code', '123456'); await pg.wait_for_selector('.fld-ok')
         await pg.click('#bk-next'); await pg.wait_for_selector('#vehicle_make')
         await pg.fill('#vehicle_make', 'Toyota'); await pg.fill('#vehicle_model', '4Runner'); await pg.click('[data-field="vehicle_type"] [data-code="suv"]'); await pg.click('[data-field="conditions"] [data-code="pet_hair"]')
         await pg.click('#bk-next'); await pg.wait_for_selector('[data-field="location_type"]'); await pg.click('[data-field="location_type"] [data-code="shop"]')
@@ -39,9 +38,9 @@ async def main():
         await pg.wait_for_selector('.choice-item.time'); await (await pg.query_selector_all('.choice-item.time'))[0].click()
         await pg.click('#bk-next'); await pg.wait_for_selector('.sum'); await pg.click('#bk-next'); await pg.wait_for_selector('.bk-sent')
         # the guest is signed out after sending; sign in again on the account page
-        await pg.evaluate('location.hash = "account"'); await pg.wait_for_selector('#si_email', timeout=8000)
+        await pg.evaluate('location.hash = "account"'); await pg.wait_for_selector('#phone', timeout=8000)
         await pg.wait_for_timeout(400); await pg.screenshot(path=f'{prefix}-account-signin.png')
-        await pg.fill('#si_first', 'Carla'); await pg.fill('#si_email', 'carla.diaz@gmail.com'); await pg.click('[data-field="si_email"] .mini-btn'); await pg.wait_for_selector('#si_code'); await pg.fill('#si_code', '123456')
+        await pg.fill('#si_first', 'Carla'); await pg.fill('#phone', '9725552011'); await pg.click('.mini-btn'); await pg.wait_for_selector('#phone_code'); await pg.fill('#phone_code', '123456')
         await pg.wait_for_selector('#first_name', timeout=8000); await pg.wait_for_timeout(400)
         await full(pg, f'{prefix}-account.png')
         await pg.click('text=+ Add vehicle'); await pg.wait_for_selector('#vehicle_make')

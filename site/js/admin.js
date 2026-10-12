@@ -21,7 +21,7 @@
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let root = null, staff = null, settings = null, menu = null, screen = 'morning', ready = null;
-  const st = { lane: 'requests', bookings: null, open: null, panel: null, calDay: null, calMode: 'week', staffList: null, customers: null, search: '', log: null, blocked: null, mfa: null, signin: { email: '', sent: false } };
+  const st = { lane: 'requests', bookings: null, open: null, panel: null, calDay: null, calMode: 'week', staffList: null, customers: null, search: '', log: null, blocked: null, mfa: null, signin: { phone: '', sent: false } };
 
   // ---------------------------------------------------------------- preview data (clearly marked examples)
   const PREVIEW = { bookings: [], staff: [], blocked: [], log: [], customers: [] };
@@ -48,7 +48,7 @@
       mk(7, { status: 'confirmed', service_date: iso(1), start_min: 600, duration_min: 210, assignments: [{ employee_id: 'staff-2', name: 'Example' }],
         items: [{ code: 'full_detail', name: 'Full Detail Bundle', kind: 'bundle', price_cents: 20999, mobile_cents: 1470, duration_min: 210, included: false }, { code: 'steam_cleaning', name: 'Steam Cleaning', kind: 'addon', price_cents: 4999, mobile_cents: 0, duration_min: 0, included: true }],
         value_cents: 22998, bundle_savings_cents: 1999, mobile_cents: 1470, total_cents: 22469 }));
-    PREVIEW.staff.push({ id: 'staff-1', first_name: 'Owner', last_name: null, role: 'admin', email: null, is_active: true }, { id: 'staff-2', first_name: 'Example', last_name: 'Detailer', role: 'detailer', email: 'detailer@example.com', is_active: true });
+    PREVIEW.staff.push({ id: 'staff-1', first_name: 'Owner', last_name: null, role: 'admin', phone: '19453617551', is_active: true }, { id: 'staff-2', first_name: 'Example', last_name: 'Detailer', role: 'detailer', phone: '19725550199', is_active: true });
     PREVIEW.blocked.push({ day: iso(12), reason: 'Example: closed' });
     PREVIEW.log.push({ id: 3, action: 'assign_employee', target_type: 'appointment', target_id: 'ex-7', created_at: new Date().toISOString(), actor_id: 'staff-1' },
       { id: 2, action: 'confirm_booking', target_type: 'appointment', target_id: 'ex-3', created_at: new Date(Date.now() - 2 * 3600e3).toISOString(), actor_id: 'staff-1' },
@@ -73,7 +73,7 @@
   }
   async function loadStaff() {
     if (!D.isLive) { seedPreview(); st.staffList = PREVIEW.staff.slice(); return st.staffList; }
-    const { data, error } = await sb().from('profiles').select('id,first_name,last_name,role,email,phone,is_active').in('role', ['detailer', 'manager', 'admin']).is('deleted_at', null).order('first_name');
+    const { data, error } = await sb().from('profiles').select('id,first_name,last_name,role,phone,is_active').in('role', ['detailer', 'manager', 'admin']).is('deleted_at', null).order('first_name');
     if (error) throw D.fail('load_failed', error.message);
     st.staffList = data || []; return st.staffList;
   }
@@ -121,7 +121,7 @@
     await ready;
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Sign in', signIn()));
-    if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || staff.email || 'someone else') + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
+    if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || phonePretty(staff.phone || '')) + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
     if (staff.mfaRequired && staff.aal !== 'aal2') return root.replaceChildren(shell('Authenticator', mfaStep()));
     if (st.bookings == null) { try { await loadBookings(); } catch (e) { st.bookings = []; toast(e.message); } }
     const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, team: team, settings: settingsScreen, log: logScreen }[screen];
@@ -138,13 +138,12 @@
   function signIn() {
     const s = st.signin;
     if (!D.isLive) return el('div.bk-grid', el('p.bk-note', 'Preview: pick a role to look around.'), el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => { D.previewStaffSignIn('admin'); render(); } }, 'Look around as the admin'), el('button.btn.btn-glass', { type: 'button', onclick: () => { D.previewStaffSignIn('manager'); render(); } }, 'As a manager')));
-    // Team sign-in: the email code (Migration 004; no new login is made here), then the authenticator app.
-    const box = el('div.bk-grid', el('p.bk-note', 'Team sign-in: a code by email, then your authenticator app.'),
-      field({ id: 'st_email', label: 'Email', required: true, type: 'email', inputmode: 'email', autocomplete: 'email', value: s.email, maxlength: 120, oninput: (e) => { s.email = e.target.value; },
-        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendCode(s.email, { createUser: false }); s.sent = true; render(); setTimeout(() => { const i = document.getElementById('st_code'); if (i) i.focus(); }, 60); } catch (e) { showError(box, 'st_email', e.message); } }) }),
-      s.sent ? field({ id: 'st_code', label: 'Code from the email', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
-        oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); }, trailing: miniBtn('Confirm', () => confirm(box.querySelector('#st_code').value)) }) : null);
-    async function confirm(code) { try { await D.verifyCode(s.email, code); s.sent = false; render(); } catch (e) { showError(box, 'st_code', e.message); } }
+    const box = el('div.bk-grid', el('p.bk-note', 'Team sign-in: your phone code, then your authenticator app.'),
+      field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', value: s.phone, oninput: (e) => { s.phone = e.target.value; },
+        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendPhoneCode(s.phone); s.sent = true; render(); } catch (e) { showError(box, 'phone', e.message); } }) }),
+      s.sent ? field({ id: 'phone_code', label: 'Code from the text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
+        oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); }, trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
+    async function confirm(code) { try { await D.verifyPhoneCode(s.phone, code); s.sent = false; render(); } catch (e) { showError(box, 'phone_code', e.message); } }
     return box;
   }
   function mfaStep() {
@@ -402,12 +401,12 @@
     const admin = staff.role === 'admin';
     return el('div.bk-grid',
       el('p.bk-muted', 'The team: detailers, managers and the admin. Managers and the admin sign in with an authenticator code.'),
-      (st.staffList || []).map((s) => el('div.veh', el('div.veh-main', el('b', [s.first_name, s.last_name].filter(Boolean).join(' ') || s.email || 'Team member'), el('span.bk-muted', [roleOf(s.role), s.email, s.phone ? phonePretty(s.phone) : null, s.is_active ? null : 'inactive'].filter(Boolean).join(' · '))),
+      (st.staffList || []).map((s) => el('div.veh', el('div.veh-main', el('b', [s.first_name, s.last_name].filter(Boolean).join(' ') || phonePretty(s.phone || '')), el('span.bk-muted', roleOf(s.role) + ' · ' + phonePretty(s.phone || '') + (s.is_active ? '' : ' · inactive'))),
         admin && s.id !== staff.userId ? el('div.veh-actions',
           el('button.link', { type: 'button', onclick: () => setRole(s) }, 'Change role'),
           el('button.link', { type: 'button', onclick: () => setActive(s) }, s.is_active ? 'Deactivate' : 'Activate')) : null)),
-      admin ? el('section.acct-sec', el('h2.bk-h2', 'Add a team member'), el('p.bk-note', 'Enter their email and first name. They sign in with an email code like everyone else; managers add an authenticator the first time.'),
-        el('div.bk-row.two', field({ id: 't_email', label: 'Email', type: 'email', inputmode: 'email', autocomplete: 'off', maxlength: 120, value: st.tEmail || '', oninput: (e) => { st.tEmail = e.target.value; } }), field({ id: 't_first', label: 'First name', value: st.tFirst || '', oninput: (e) => { st.tFirst = e.target.value; } })),
+      admin ? el('section.acct-sec', el('h2.bk-h2', 'Add a team member'), el('p.bk-note', 'Enter their mobile number and first name. They sign in with a text code like everyone else; managers add an authenticator the first time.'),
+        el('div.bk-row.two', field({ id: 't_phone', label: 'Mobile phone', type: 'tel', value: st.tPhone || '', oninput: (e) => { st.tPhone = e.target.value; } }), field({ id: 't_first', label: 'First name', value: st.tFirst || '', oninput: (e) => { st.tFirst = e.target.value; } })),
         choices({ id: 't_role', label: 'Role', size: 'chip', value: st.tRole || 'detailer', items: [{ code: 'detailer', label: 'Detailer' }, { code: 'manager', label: 'Manager' }], onchange: (c) => { st.tRole = c; } }),
         el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: addMember }, 'Create account'))) : null);
   }
@@ -419,14 +418,13 @@
     try { if (D.isLive) await D.rpc('set_user_active', { p_user: s.id, p_active: !s.is_active }); else s.is_active = !s.is_active; st.staffList = null; toast(s.is_active ? 'Deactivated' : 'Activated'); render(); } catch (e) { toast(e.message); }
   }
   async function addMember() {
-    if (!H().isValidEmail(st.tEmail || '')) return toast('Enter their email address.');
-    if (!D.isLive) { PREVIEW.staff.push({ id: 'staff-' + Date.now(), first_name: st.tFirst || 'New', role: st.tRole || 'detailer', email: st.tEmail.trim().toLowerCase(), is_active: true }); st.staffList = null; st.tEmail = ''; st.tFirst = ''; toast('Account created (preview)'); render(); return; }
+    if (!D.isLive) { PREVIEW.staff.push({ id: 'staff-' + Date.now(), first_name: st.tFirst || 'New', role: st.tRole || 'detailer', phone: H().normalizePhone(st.tPhone || '') || '', is_active: true }); st.staffList = null; toast('Account created (preview)'); render(); return; }
     try {
       const { data: sess } = await sb().auth.getSession();
-      const r = await fetch(window.ALCHEMIST_CONFIG.supabaseUrl + '/functions/v1/admin-create-team-account', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: window.ALCHEMIST_CONFIG.supabaseKey, Authorization: 'Bearer ' + sess.session.access_token }, body: JSON.stringify({ email: st.tEmail.trim(), first_name: st.tFirst, role: st.tRole || 'detailer' }) });
+      const r = await fetch(window.ALCHEMIST_CONFIG.supabaseUrl + '/functions/v1/admin-create-team-account', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: window.ALCHEMIST_CONFIG.supabaseKey, Authorization: 'Bearer ' + sess.session.access_token }, body: JSON.stringify({ phone: st.tPhone, first_name: st.tFirst, role: st.tRole || 'detailer' }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail || j.error || 'Could not create the account.');
-      st.staffList = null; st.tEmail = ''; st.tFirst = ''; toast('Account created. They can sign in with an email code now.'); render();
+      st.staffList = null; st.tPhone = ''; st.tFirst = ''; toast('Account created'); render();
     } catch (e) { toast(e.message); }
   }
 

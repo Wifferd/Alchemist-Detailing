@@ -16,7 +16,7 @@ async def main():
         await pg.click('text=Decline'); await pg.wait_for_selector('.adm-panel'); await pg.fill('#p_note', 'We are fully booked that day.'); await pg.wait_for_timeout(200); await pg.screenshot(path=f'{prefix}-decline.png', full_page=True)
         await pg.click('.adm-panel .btn-glass')
         await pg.click('.adm-nav a[href="#admin-calendar"]'); await pg.wait_for_selector('.cal-cols'); await pg.wait_for_timeout(300); await pg.screenshot(path=f'{prefix}-calendar.png', full_page=True)
-        await pg.click('.adm-nav a[href="#admin-team"]'); await pg.wait_for_selector('#t_email'); await pg.wait_for_timeout(300); await pg.screenshot(path=f'{prefix}-team.png', full_page=True)
+        await pg.click('.adm-nav a[href="#admin-team"]'); await pg.wait_for_selector('#t_phone'); await pg.wait_for_timeout(300); await pg.screenshot(path=f'{prefix}-team.png', full_page=True)
         print('ok'); [print(m) for m in msgs]
         await b.close()
 asyncio.run(main())

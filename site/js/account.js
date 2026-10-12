@@ -1,8 +1,7 @@
 /* Alchemist Detailing — the customer's account (#account) and appointments
-   (#appointments), phase 2 (docs 19 and 26). Sign in with a 6-digit email code
-   (Migration 004), edit the name, keep saved vehicles, see your own bookings.
-   Cancellations and changes go through the owner: there is no cancel button,
-   only the phone. */
+   (#appointments), phase 2 (docs 19 and 26). Sign in with a phone code, edit
+   the name, keep saved vehicles, see your own bookings. Cancellations and
+   changes go through the owner: there is no cancel button, only the phone. */
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
@@ -11,7 +10,7 @@
   let session = null, settings = null, menu = null, phone = '(945) 361-7551';
   let ready = null, confirmT = 0;
   const roots = { account: null, appointments: null };
-  const signin = { email: '', first: '', sent: false };
+  const signin = { phone: '', first: '', sent: false, busy: false };
   const acct = { first: '', last: '', vehicles: [], bookings: [], editing: null, form: null, loading: true, confirm: null };
   const appts = { list: null, open: null, reviews: null, form: null };
   // the 200+ gold rule (doc 22): a completed detail of $200 or more makes the booking, and the customer, Gold
@@ -49,7 +48,7 @@
   }
   const STATUS = {
     requested: ['Requested', 'We\'re reviewing it and will contact you to confirm.'],
-    needs_information: ['Needs information', 'We have a question for you. Please call us, or we\'ll be in touch soon.'],
+    needs_information: ['Needs information', 'We have a question for you. Please call or wait for our text.'],
     confirmed: ['Confirmed', 'See you then.'], in_progress: ['In progress', 'Your detail is under way.'],
     completed: ['Completed', 'Thank you.'], declined: ['Declined', 'We couldn\'t take this one. Call us if you\'d like to try another time.'],
     cancelled: ['Cancelled', ''],
@@ -58,25 +57,25 @@
   // ---------------------------------------------------------------- sign in (shared)
   function signInBox(after) {
     const box = el('div.bk-grid',
-      el('p.bk-note', 'Sign in with your email. We email you a 6-digit code; no password.'),
+      el('p.bk-note', 'Sign in with your mobile number. We text you a 6-digit code; no password.'),
       field({ id: 'si_first', label: 'First name', optional: true, value: signin.first, autocomplete: 'given-name', maxlength: 40, hint: 'Only needed the first time.', oninput: (e) => { signin.first = e.target.value; } }),
-      field({ id: 'si_email', label: 'Email', required: true, type: 'email', inputmode: 'email', autocomplete: 'email', value: signin.email, maxlength: 120,
-        oninput: (e) => { signin.email = e.target.value; clearError(box, 'si_email'); },
+      field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: signin.phone,
+        oninput: (e) => { signin.phone = e.target.value; clearError(box, 'phone'); },
         trailing: miniBtn(signin.sent ? 'Resend' : 'Send code', async () => {
-          if (!D.helpers.isValidEmail(signin.email)) return showError(box, 'si_email', 'Enter a valid email address.');
+          if (!D.helpers.normalizePhone(signin.phone)) return showError(box, 'phone', 'Enter a 10-digit US phone number.');
           try {
-            await D.sendCode(signin.email, { first: signin.first.trim() }); signin.sent = true; await after();
-            setTimeout(() => { const i = document.getElementById('si_code'); if (i) i.focus(); }, 60);
-          } catch (e) { showError(box, 'si_email', e.message); }
+            await D.sendPhoneCode(signin.phone, { first: signin.first.trim() }); signin.sent = true; await after();
+            setTimeout(() => { const i = document.getElementById('phone_code'); if (i) i.focus(); }, 60);
+          } catch (e) { showError(box, e.hint || 'phone', e.message); }
         }) }),
-      signin.sent ? field({ id: 'si_code', label: 'Code from the email', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
-        hint: D.isLive ? 'Didn\'t get it? Check your spam folder, or press Resend.' : 'Preview: any 6 digits work.',
+      signin.sent ? field({ id: 'phone_code', label: 'Code from the text', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
+        hint: D.isLive ? '' : 'Preview: any 6 digits work.',
         oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); },
         onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(e.target.value); } },
-        trailing: miniBtn('Confirm', () => confirm(box.querySelector('#si_code').value)) }) : null);
+        trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
     async function confirm(code) {
-      try { session = await D.verifyCode(signin.email, code, { first: signin.first.trim() }); signin.sent = false; await refreshSession(true); toast('Signed in'); after(); }
-      catch (e) { showError(box, 'si_code', e.message); }
+      try { session = await D.verifyPhoneCode(signin.phone, code, { first: signin.first.trim() }); signin.sent = false; await refreshSession(true); toast('Signed in'); after(); }
+      catch (e) { showError(box, e.hint || 'phone_code', e.message); }
     }
     return box;
   }
@@ -111,8 +110,8 @@
         field({ id: 'first_name', label: 'First name', required: true, value: acct.first, autocomplete: 'given-name', maxlength: 40, oninput: (e) => { acct.first = e.target.value; clearError(root, 'first_name'); } }),
         field({ id: 'last_name', label: 'Last name', optional: true, value: acct.last, autocomplete: 'family-name', maxlength: 40, oninput: (e) => { acct.last = e.target.value; clearError(root, 'last_name'); } })),
       el('div.bk-row.two',
-        el('div.fld', el('span.fld-label', 'Email'), el('p.acct-static', session.email || '—', session.verified ? el('small', ' confirmed ✓') : null)),
-        el('div.fld', el('span.fld-label', 'Mobile phone'), el('p.acct-static', (session.contactPhone || session.phone) ? el('span.tnum', phonePretty(session.contactPhone || session.phone)) : el('span.bk-muted', 'Added with your first booking')))),
+        el('div.fld', el('span.fld-label', 'Mobile phone'), el('p.acct-static', el('span.tnum', phonePretty(session.phone || '') || '—'), el('small', ' confirmed ✓'))),
+        el('div.fld', el('span.fld-label', 'Email'), el('p.acct-static', session.email || el('span.bk-muted', 'None on file')))),
       el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveProfile }, 'Save name'), el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))));
 
     // Vehicles: Remove asks first, inline, and thinks better of it on its own after five seconds
