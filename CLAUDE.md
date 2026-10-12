@@ -62,6 +62,7 @@ The website and booking/account platform for **Alchemist Detailing**, a car deta
 - Two Vercel projects on the Wiffy_Washes team, both linked to the GitHub repo, root directory `site/`, no build step, redeployed on every push to `main`:
   - **https://alchemist-detailing.vercel.app** → the live Supabase project (real bookings). The owner's domain comes later.
   - **https://alchemist-detailing-test.vercel.app** → the test Supabase project (practice bookings; `config.js` picks the project from the hostname). `?project=test` on any address does the same.
+- After a push, check that both projects deployed the new commit (Vercel MCP `list_deployments`, `githubCommitSha`). The GitHub hook has missed pushes (Oct 11, and two in a row on Oct 12); then deploy each project with `create_deployment`, target production, gitSource `{type: github, org: Wifferd, repo: Alchemist-Detailing, ref: main, sha}`. The second build can sit in INITIALIZING for a minute while the first one runs.
 
 ## How to work with the owner now (doc 22)
 
