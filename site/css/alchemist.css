@@ -508,8 +508,15 @@ section { position: relative; }
 .facts span::before { content: ""; width: 5px; height: 5px; transform: rotate(45deg); background: var(--gold); }
 
 /* ---------------------------------------------------------------- the wash (scroll-driven, plays once) */
-.wash { height: var(--wash-h, 430vh); }
-.wash.washed { height: auto; }
+/* --wash-h is the section's height: the stage's screen plus the pinned length (the owner's "4 scrolls"). The pin lets
+   go at its end, which is --wash-release of the wash's timeline: the rinse has cleared the screen there (foam.js reads
+   it), and the film and the drops left then dry while the stage scrolls away, so no scrolling goes by with nothing
+   moving. Once the wash has given its pinned length back (foam.js, .wash-folded), the section is one stage tall */
+.wash {
+  --wash-release: .85;
+  height: var(--wash-h, 430vh);
+}
+.wash.wash-folded, .wash.washed { height: auto; }
 .wash-stage {
   position: sticky;
   top: 0;
@@ -679,11 +686,16 @@ section { position: relative; }
 .svc-card[data-enter="fade"] { opacity: var(--r); transform: scale(calc(.96 + var(--r) * .04)); }
 .svc-note { margin-top: 14px; color: var(--ink-2); font-size: 13px; text-align: center; text-shadow: 0 1px 14px rgba(0, 0, 0, .9); }
 .svc-note[data-enter] { opacity: var(--r, 1); }
-/* until the wash has run, the services stay hidden under the title (foam.js writes --r per frame once it draws;
-   settle() sets 1 and adds .washed; the reduced-motion, no-WebGL, no-JS and print rules force 1 !important) */
+/* until the wash has run, the services stay hidden under the title (foam.js writes --r per frame once it draws and 1 when
+   the pin lets go; .washed comes once the section has given its pinned length back and the stage is off the screen; the
+   reduced-motion, no-WebGL, no-JS, print and .static rules force 1 !important) */
 .wash:not(.washed) :is(.svc-card, .svc-head, .svc-note) { --r: 0; }
 /* the scrubbed elements are promoted only while the wash runs */
 .wash:not(.washed) :is(.wash-title, .svc-card, .svc-head, .svc-note) { will-change: transform, opacity; }
+/* the wash could not start once the visitor was in it: the services show in the stage until the section lets go */
+.wash.static :is(.wash-title, .wash-hint, .foam-gl, .cannon) { display: none; }
+.wash.static .wash-services { pointer-events: auto; }
+.wash.static :is(.svc-card, .svc-head, .svc-note) { --r: 1 !important; }
 
 /* ---------------------------------------------------------------- why Alchemist */
 /* Why and How share one quiet backdrop: a faint gold glow at the top, a centred hairline at the foot */

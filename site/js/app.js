@@ -171,7 +171,7 @@
   }
 
   // ---------------------------------------------------------------- the wash
-  let wash = null;
+  let wash = null, washPin = null;   // washPin: the pinned section's fold when the wash itself could not start
   function startWash() {
     if (!glOk || reduce || !window.AlchemistWash) return;
     try {
@@ -180,18 +180,32 @@
         tip: $('#nozTip'), back: $('#nozBack'), adaptive: !/[?&]noadapt/.test(location.search), reveal: [$('.svc-head'), ...$$('.svc-card'), $('.svc-note')],
       });
     } catch (e) { wash = null; }
-    if (!wash) root.classList.add('no-webgl'); else { fitServices(); overWashNow(); }
+    if (!wash) noWash(); else { fitServices(); overWashNow(); }
+  }
+  // The wash could not start (a shader that won't build): before the visitor reaches it, the plain no-WebGL section;
+  // once they are in it or past it (the wash starts after the first touch), html.no-webgl would collapse the section
+  // under them, so the services show in the stage instead and the pinned length goes like a finished wash's.
+  function noWash() {
+    const s = $('#wash'), st = $('#washStage'), A = window.AlchemistWash;
+    if (s.getBoundingClientRect().top >= 0 || !A || !A.pinFold) { root.classList.add('no-webgl'); return; }
+    s.classList.add('static');
+    st.classList.add('revealed');
+    washPin = A.pinFold(s, st);
+    washPin.arm();
+    washPin.ready();
+    fitServices();
   }
   // While the live wash is under the bar, the bar drops its backdrop blur (CSS .over-wash: nearly solid instead).
-  // The observer follows the section; the wash's own start and finish are checked by hand, since neither moves it.
+  // The observer follows the section; the wash's start is checked by hand (it does not move the section), and its end
+  // comes as the washend event.
   const washSection = $('#wash'), stageEl = $('#washStage');
-  const overWash = (on) => topbar.classList.toggle('over-wash', !!(on && wash && !wash.done()));
+  const overWash = (on) => topbar.classList.toggle('over-wash', !!(on && wash && wash.live()));
   function overWashNow() {
     const r = washSection.getBoundingClientRect(), m = window.innerHeight * 0.1;
     overWash(r.bottom > m && r.top < window.innerHeight - m);
   }
   new IntersectionObserver((es) => overWash(es[es.length - 1].isIntersecting), { rootMargin: '-10% 0px -10% 0px' }).observe(washSection);
-  window.addEventListener('scroll', () => { if (wash && wash.done() && topbar.classList.contains('over-wash')) topbar.classList.remove('over-wash'); }, { passive: true });
+  washSection.addEventListener('washend', () => topbar.classList.remove('over-wash'));   // the canvas has stopped for good
   // Under a finger there is no hover: once the cards are revealed, the row scrolled to the middle of the screen is lit.
   let litArmed = false;
   function armLit() {
@@ -212,7 +226,7 @@
     const wrap = $('#svcWrap'), box = $('#washServices'), stage = $('#washStage');
     if (!wrap || !box || !stage) return;
     wrap.style.transform = '';
-    if (!wash) return;
+    if (!wash && !washPin) return;
     const cs = getComputedStyle(box);
     const avail = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     const need = wrap.offsetHeight;
@@ -530,8 +544,11 @@
   }
   function render(first) {
     const { r, sub } = parse();
+    // Leaving home with the wash finished: its pinned length goes now, while home is still laid out (every rect is
+    // zero once it is hidden), with no scroll; home's position is stored in the shorter layout.
+    const shift = cur === 'home' && r !== 'home' ? (wash ? wash.foldNow({ scroll: false }) : washPin ? washPin.now({ scroll: false }) : 0) : 0;
     const view = ['home', 'services', 'book', 'account', 'appointments', 'admin', 'team', 'reviews', 'gallery'].includes(r) ? r : ['tips', 'faq', 'about'].includes(r) ? 'content' : 'page';
-    if (cur) memo[cur] = window.scrollY;
+    if (cur) memo[cur] = window.scrollY + shift;
     const changed = r !== cur;
     if (changed) {
       closeMenu(false);
@@ -599,7 +616,11 @@
       e.preventDefault();
       const go = () => {
         let y = 0;
-        if (a.dataset.scroll === 'services') y = wash ? wash.progressTo(1) : $('#wash').getBoundingClientRect().top + window.scrollY;
+        if (a.dataset.scroll === 'services') {
+          if (!heavy) startHeavy();                  // tapped in the first seconds: the wash plays on the way down
+          if (washPin) washPin.now();
+          y = wash ? wash.progressTo(1) : $('#wash').getBoundingClientRect().top + window.scrollY;
+        }
         else y = $('#' + a.dataset.scroll).getBoundingClientRect().top + window.scrollY - 40;
         window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
       };
@@ -614,8 +635,10 @@
     closeMenu(false);
     const navigate = () => {
       if (location.hash.slice(1) === token) {   // same page: back to its top
-        if (!token.includes('-')) window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
-        else render(false);
+        if (!token.includes('-')) {
+          if (cur === 'home') { if (wash) wash.foldNow(); else if (washPin) washPin.now(); }   // a click: the pinned length goes first
+          window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+        } else render(false);
       } else location.hash = token;
     };
     // Book Now: the button lifts, gold light crosses the screen, booking fades in under the light
@@ -686,5 +709,5 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(settle); else setTimeout(settle, 300);
 
   // used by the screenshot checks
-  window.__alchemist = { get wash() { return wash; }, goTo: (p) => { startHeavy(); if (wash) window.scrollTo(0, wash.progressTo(p)); } };
+  window.__alchemist = { get wash() { return wash; }, goTo: (p) => { startHeavy(); if (!wash) return; if (p >= wash.state().rel) wash.finish(); else window.scrollTo(0, wash.progressTo(p)); } };
 })();
