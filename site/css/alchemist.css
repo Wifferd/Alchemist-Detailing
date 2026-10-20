@@ -294,16 +294,20 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .nojs-note a { color: var(--ink); white-space: nowrap; }
 
 /* ---------------------------------------------------------------- side menu (smoked glass) */
+/* the scrim only dims the page, so the hero's studio light still glows through the panel's glass */
 .scrim {
   position: fixed;
   inset: 0;
   z-index: 70;
-  background: rgba(0, 0, 0, .55);
+  background: rgba(0, 0, 0, .4);
   opacity: 0;
   pointer-events: none;
   transition: opacity .45s var(--ease);
 }
 .scrim.on { opacity: 1; pointer-events: auto; }
+/* dark tinted glass in the bar's language: a hairline all round, a lit top edge, the page blurred behind it.
+   Flush to the screen's top and bottom on phones and short screens; floating on tall ones (below). It slides
+   in over .6s and leaves over .4s. Flush, the 20px top puts the head row on the bar's centre line (1 + 20 + 22 = 43). */
 .menu {
   position: fixed;
   z-index: 80;
@@ -313,29 +317,48 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   width: min(92vw, max(34vw, 420px));
   display: flex;
   flex-direction: column;
-  padding: calc(22px + env(safe-area-inset-top, 0px)) clamp(22px, 3vw, 40px) calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: calc(20px + env(safe-area-inset-top, 0px)) clamp(22px, 3vw, 40px) calc(24px + env(safe-area-inset-bottom, 0px));
   background:
-    radial-gradient(120% 60% at 0% 0%, rgba(226, 185, 82, .10), transparent 60%),
-    linear-gradient(180deg, rgba(14, 14, 14, .92), rgba(4, 4, 4, .95));
-  border-right: 1px solid var(--line-soft);
+    radial-gradient(120% 60% at 0% 0%, rgba(226, 185, 82, .08), transparent 60%),
+    linear-gradient(180deg, rgba(20, 20, 20, .64), rgba(6, 6, 6, .74));
+  border: 1px solid var(--hair);
+  border-left: 0;
   border-radius: 0 var(--r-lg) var(--r-lg) 0;
-  box-shadow: 30px 0 80px -30px rgba(0, 0, 0, .9);
+  box-shadow: inset 0 1px 0 rgba(255, 243, 207, .07), 30px 0 80px -30px rgba(0, 0, 0, .9);
   backdrop-filter: blur(26px) saturate(130%);
   -webkit-backdrop-filter: blur(26px) saturate(130%);
-  transform: translateX(-104%);
-  transition: transform .6s var(--ease), visibility 0s linear .6s;
+  transform: translateX(calc(-100% - 24px));
+  transition: transform .4s var(--ease-in-out), visibility 0s linear .4s;
   overflow-y: auto;
   visibility: hidden;
 }
 .menu.on { transform: none; visibility: visible; transition: transform .6s var(--ease), visibility 0s; }
+/* a computer or tablet with the height for the whole menu: the panel floats 12px off the edges, level with the
+   bar, rounded all round (below 780px tall the 24px it costs would push the foot into a scroll). The 8px top
+   puts the head row on the bar's centre line (12 + 1 + 8 + 22 = 43), so the close X lines up with the account button */
+@media (min-width: 721px) and (min-height: 780px) {
+  .menu { top: 12px; bottom: 12px; left: 12px; border-left: 1px solid var(--hair); border-radius: var(--r-lg); padding-top: 8px; padding-bottom: 22px; }
+}
+/* no glass in this browser: the panel goes nearly solid, so the page never shows sharp through the text */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(226, 185, 82, .08), transparent 60%), linear-gradient(180deg, rgba(14, 14, 14, .95), rgba(4, 4, 4, .96)); }
+}
 .menu-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: clamp(18px, 4vh, 40px); }
 .menu-brand { display: flex; align-items: center; gap: 14px; min-height: 44px; text-decoration: none; }
 .menu-brand svg { width: 42px; height: 42px; }
 .menu-brand b { display: block; font: 600 17px/1.05 var(--font-display); letter-spacing: .16em; text-transform: uppercase; }
 .menu-brand small { display: block; font: 600 10px/1 var(--font-ui); letter-spacing: .5em; text-transform: uppercase; color: var(--gold-ink); margin-top: 6px; }
 .menu nav { display: flex; flex-direction: column; }
-.menu nav a {
+/* the items (and then the foot) arrive one after another, 28ms apart; the stagger delays only the entrance,
+   so a pointer or the keyboard lights an item at once (the 4px nudge is translate, apart from the entrance's transform) */
+.menu nav a, .menu-foot {
   --i: 0;
+  opacity: 0;
+  transform: translateX(-14px);
+  transition: color .3s var(--ease), text-shadow .3s var(--ease), translate .3s var(--ease), opacity .45s var(--ease), transform .45s var(--ease);
+}
+.menu.on :is(nav a, .menu-foot) { opacity: 1; transform: none; transition-delay: 0s, 0s, 0s, calc(var(--i) * 28ms + 140ms), calc(var(--i) * 28ms + 140ms); }
+.menu nav a {
   position: relative;
   display: flex;
   align-items: center;
@@ -347,11 +370,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   color: var(--ink-2);
   border-bottom: 1px solid rgba(255, 255, 255, .04);
   touch-action: manipulation;
-  opacity: 0;
-  transform: translateX(-14px);
-  transition: color .3s var(--ease), opacity .45s var(--ease), transform .45s var(--ease);
 }
-.menu.on nav a { opacity: 1; transform: none; transition-delay: calc(var(--i) * 28ms + 140ms), calc(var(--i) * 28ms + 140ms), calc(var(--i) * 28ms + 140ms); }
 /* the gold line: scaled in from the left (never a width animation); the current page's is longer and lit */
 .menu nav a::before {
   content: "";
@@ -364,16 +383,21 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   opacity: .7;
   transform: scaleX(0);
   transform-origin: 0 50%;
-  transition: transform .4s var(--ease), opacity .3s var(--ease);
+  transition: transform .4s var(--ease), opacity .3s var(--ease), box-shadow .4s var(--ease);
 }
-.menu nav a:hover, .menu nav a[aria-current="page"] { color: var(--gold-hi); }
-.menu nav a:hover::before { transform: scaleX(1); }
+/* pointed at or reached by Tab: gold, the line drawn and lit, a soft glow on the word, a 4px step */
+.menu nav a:is(:hover, :focus-visible, [aria-current="page"]) { color: var(--gold-hi); }
+.menu nav a:is(:hover, :focus-visible) { text-shadow: 0 0 22px rgba(226, 185, 82, .4); translate: 4px 0; }
+.menu nav a:is(:hover, :focus-visible)::before { opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .5); }
 .menu nav a[aria-current="page"]::before { width: 34px; opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .6); }
-.menu nav a.sep { margin-top: 18px; border-top: 1px solid rgba(255, 255, 255, .06); }
-.menu-foot { margin-top: auto; padding-top: 26px; display: grid; gap: 14px; }
+.menu nav a.sep { margin-top: 18px; }   /* the owner's blank line before Account: a gap, not a second hairline */
+/* the foot: one gold Book Now, then a quiet row with the light/dark switch and the phone number */
+.menu-foot { margin-top: auto; padding-top: 26px; display: grid; gap: 6px; }
 .menu-foot .btn { width: 100%; }
-.menu-foot .call { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-2); text-decoration: none; font: 600 14px/1 var(--font-ui); letter-spacing: .06em; }
-.menu-foot .call:hover { color: var(--gold-hi); }
+.menu-sub { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.menu-sub .call { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; margin-right: -8px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font: 600 13px/1 var(--font-ui); letter-spacing: .06em; white-space: nowrap; transition: color .3s var(--ease); }
+.menu-sub .call:hover { color: var(--gold-hi); }
+.menu-sub :focus-visible { outline-offset: -2px; }   /* the ring sits just inside the 44px box, 6px clear of the gold button above */
 
 /* ---------------------------------------------------------------- hero */
 .hero {
@@ -1245,6 +1269,7 @@ section { position: relative; }
 }
 @media (max-width: 640px) {
   .bar { height: 58px; }
+  .menu { padding-top: calc(18px + env(safe-area-inset-top, 0px)); }   /* the menu's head row on the 58px bar's centre line */
   .page-name { font-size: 12.5px; letter-spacing: .26em; }
   .hero .actions { flex-direction: column; align-items: stretch; width: min(100%, 320px); }
   .hero .sub { font-size: 14px; letter-spacing: .12em; }
@@ -1253,9 +1278,8 @@ section { position: relative; }
   .cannon { width: clamp(220px, 64vw, 300px); bottom: 2vh; }   /* the body of the cannon stays in the frame mid-sweep */
   .page { align-content: start; padding-top: calc(104px + env(safe-area-inset-top, 0px)); }
   .contact-lines b { text-align: right; text-wrap: balance; }
-  /* 44px targets: the footer's links and the menu's phone line (the reading floors are at the end of the file) */
+  /* 44px targets: the footer's links (the menu's phone line is 44px everywhere; the reading floors are at the end of the file) */
   .footer a { display: flex; align-items: center; min-height: 44px; margin: 0; }
-  .menu-foot .call { min-height: 44px; }
   .svc-card .go-k { display: none; }
   .hero .actions .btn { width: 100%; }
   .steps { grid-template-columns: 1fr 1fr; row-gap: 34px; }
@@ -2110,16 +2134,16 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .btn-glass::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(118deg, transparent 40%, rgba(255, 255, 255, .08) 50%, transparent 60%); transform: translateX(-120%); transition: transform .7s var(--ease); pointer-events: none; }
 .btn-glass { position: relative; overflow: hidden; }
 .btn-glass:hover::after { transform: translateX(120%); }
-.menu nav a:hover { transform: translateX(4px); }
 /* taglines in the brand's italic serif */
 .hero .sub { font-family: var(--font-ui-caps); }
 .wash-title p.big { font-weight: 300; }
-.theme-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: var(--ink-2); font: 700 11px/1 var(--font-ui); letter-spacing: .18em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .3s var(--ease), color .3s var(--ease); }
-.theme-btn:hover { border-color: var(--gold); color: var(--gold-hi); }
+/* the light/dark switch in the menu's foot row: icon and label, no box (a 44px target; the padding keeps the focus ring off the letters) */
+.theme-btn { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 8px; margin-left: -8px; border: 0; border-radius: 10px; background: none; color: var(--ink-2); font: 700 11px/1 var(--font-ui-caps); letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: color .3s var(--ease); }
+.theme-btn:hover { color: var(--gold-hi); }
 @media (prefers-reduced-motion: reduce) {
   [data-rise]:not(.in) { opacity: 1; transform: none; }
   .rule { transform: scaleX(1); }
-  .menu nav a { transition: none !important; }   /* the items are there the frame the menu opens */
+  .menu nav a, .menu-foot { transition: none !important; }   /* the items are there the frame the menu opens */
   .hero h1 .l1 { animation: none; --hx: 46%; }
   .hero h1 .l1.split .ch { opacity: 1; transform: none; filter: none; animation: none; }
   .svc-opt.just, .choice-item.just, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .chips.enter .choice-item { animation: none; }   /* chosen things are simply chosen */
@@ -2370,11 +2394,21 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .btn-gold:hover:not(:disabled) { box-shadow: 0 18px 36px -14px rgba(122, 93, 20, .6), 0 0 0 1px rgba(184, 144, 44, .4), inset 0 1px 0 rgba(255, 248, 225, .8); }
 :where([data-theme="light"]) .btn-glass { background: #fff; border-color: rgba(20, 18, 12, .22); color: var(--ink); }
 :where([data-theme="light"]) .btn-glass::after { background: linear-gradient(118deg, transparent 40%, rgba(184, 144, 44, .1) 50%, transparent 60%); }
-:where([data-theme="light"]) .theme-btn, :where([data-theme="light"]) .mini-btn { background: #fff; border-color: rgba(20, 18, 12, .22); }
 :where([data-theme="light"]) .mini-btn { background: rgba(184, 144, 44, .1); border-color: var(--gold); }
-:where([data-theme="light"]) .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(184, 144, 44, .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(241, 237, 229, .97)); box-shadow: 30px 0 80px -30px rgba(40, 30, 10, .3); }
+/* the menu: frosted ivory glass with a white lit edge, dense enough that the gold current page keeps 4.5:1 over a black photo; nearly solid where the browser has no blur */
+:where([data-theme="light"]) .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(184, 144, 44, .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .86), rgba(241, 237, 229, .9)); border-color: rgba(20, 18, 12, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 30px 0 80px -30px rgba(40, 30, 10, .3); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :where([data-theme="light"]) .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(184, 144, 44, .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(241, 237, 229, .97)); }
+}
 :where([data-theme="light"]) .menu nav a { border-bottom-color: rgba(20, 18, 12, .06); }
 :where([data-theme="light"]) .menu nav a::before { background: var(--gold); box-shadow: none; }
+[data-theme="light"] .menu nav a:is(:hover, :focus-visible) { text-shadow: 0 0 18px rgba(184, 144, 44, .3); }
+/* the small AD mark: a deeper gold on ivory, so no stroke or sparkle fades into the page; no glow under it */
+[data-theme="light"] #adGold stop:nth-child(1) { stop-color: #c99a35; }
+[data-theme="light"] #adGold stop:nth-child(2) { stop-color: #a98128; }
+[data-theme="light"] #adGold stop:nth-child(3) { stop-color: #7a5d14; }
+[data-theme="light"] #adGold stop:nth-child(4) { stop-color: #a37c22; }
+[data-theme="light"] .brand-link svg { filter: none; }
 :where([data-theme="light"]) .scrim { background: rgba(60, 50, 30, .35); }
 :where([data-theme="light"]) .toast { background: rgba(255, 253, 248, .97); color: var(--ink); box-shadow: 0 20px 50px -20px rgba(40, 30, 10, .4); }
 :where([data-theme="light"]) .lightbox { background: rgba(250, 248, 244, .94); }
