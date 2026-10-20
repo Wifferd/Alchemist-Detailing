@@ -41,6 +41,7 @@
   --r-lg: 24px;
   --r-md: 18px;
   --r-sm: 12px;
+  --r-field: 24px;   /* text fields: the roundest of the shapes (the owner's "inputs even rounder", §33) */
   --ease: cubic-bezier(.2, .8, .2, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
   --col: 1180px;
@@ -193,7 +194,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   border-color: var(--line);
   color: var(--ink);
 }
-.btn-glass:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-hi); transform: translateY(-2px); }
+@media (hover: hover) and (pointer: fine) { .btn-glass:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-hi); transform: translateY(-2px); } }   /* a mouse only: a tap leaves no gold ring behind */
 .btn .arrow { transition: transform .35s var(--ease); }
 .btn:hover .arrow { transform: translateX(4px); }
 /* disabled: dimmed, flat, no light. A disabled gold button drops to the panel grey, so it never reads as the
@@ -814,7 +815,7 @@ section { position: relative; }
 /* ---------------------------------------------------------------- views (one page at a time) */
 .view.enter { animation: viewIn .45s var(--ease) backwards; }   /* app.js drops .enter when it ends */
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.btn.launch { transform: scale(1.06); filter: brightness(1.15); box-shadow: 0 0 0 1px rgba(248, 221, 152, .5), 0 0 60px -6px rgba(226, 185, 82, .8); }
+.btn.launch, .btn.launch:hover { transform: scale(1.05); filter: brightness(1.15); box-shadow: 0 0 0 1px rgba(248, 221, 152, .5), 0 0 60px -6px rgba(226, 185, 82, .8); }   /* Book Now swells a little as the light crosses (over its own hover lift) */
 .menu-close svg { width: 18px; height: 18px; }
 .no-webgl .hero, .no-hero-gl .hero { background: radial-gradient(70% 55% at 50% 42%, #1a1a1a 0%, #070707 60%, #000 100%); }
 .no-webgl .hero::after, .no-hero-gl .hero::after {
@@ -1296,7 +1297,7 @@ section { position: relative; }
 .bk-progress li.done .lbl { color: var(--ink-2); }
 .bk-progress li.current .num { border-color: var(--gold); color: var(--on-gold); background: var(--gold-grad); box-shadow: 0 0 18px -2px rgba(226, 185, 82, .7); }
 .bk-progress li.current .lbl { color: var(--gold-hi); }
-.bk-progress button:hover:not(:disabled) .num { border-color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .bk-progress button:hover:not(:disabled) .num { border-color: var(--gold-hi); } }
 
 .bk-body { min-height: 300px; padding-bottom: 8px; }
 .bk-step { display: grid; gap: 26px; }
@@ -1341,10 +1342,12 @@ section { position: relative; }
 .fld-label { font: 700 11px/1 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--ink-2); }
 .fld-label i { font-style: normal; color: var(--gold-ink); }
 .fld-label small { font-weight: 500; letter-spacing: .08em; text-transform: none; color: var(--muted); }
-.fld-box { position: relative; display: flex; align-items: stretch; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .35); transition: border-color .3s var(--ease), box-shadow .3s var(--ease); }
+.fld-box { position: relative; display: flex; align-items: stretch; border-radius: var(--r-field); border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .35); transition: border-color .3s var(--ease), box-shadow .3s var(--ease); }
 .fld-box:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(226, 185, 82, .14); }
-.fld-input { flex: 1; min-width: 0; width: 100%; height: 50px; padding: 0 16px; border: 0; background: transparent; color: var(--ink); font: 500 16px/1.3 var(--font-ui); outline: none; border-radius: 14px; }
-textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-height: 1.5; }
+.fld-input { flex: 1; min-width: 0; width: 100%; height: 50px; padding: 0 18px; border: 0; background: transparent; color: var(--ink); font: 500 16px/1.3 var(--font-ui); outline: none; border-radius: calc(var(--r-field) - 1px); }
+textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-height: 1.5; }
+.fld-box.multi { border-radius: 20px; }   /* a text area: a little less round, so the corners never crowd its lines */
+.fld-box.multi .fld-input { border-radius: 19px; }
 .fld-input::placeholder { color: transparent; }
 .fld-input[readonly] { color: var(--ink-2); }
 /* a 6-digit code (the text, the authenticator): a short field with big, evenly spaced digits */
@@ -1357,7 +1360,8 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .is-ok .fld-msg, .fld-msg.is-ok { color: var(--gold-hi); }
 .fld-ok { display: grid; place-items: center; padding: 0 16px; color: var(--gold-hi); font-weight: 700; }
 .mini-btn { margin: 3px; min-height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--line); background: rgba(226, 185, 82, .08); color: var(--gold-hi); font: 700 11px/1 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; cursor: pointer; white-space: nowrap; touch-action: manipulation; transition: background-color .3s var(--ease), border-color .3s var(--ease), transform .35s var(--ease); }
-.mini-btn:hover { background: rgba(226, 185, 82, .16); border-color: var(--gold); }
+@media (hover: hover) and (pointer: fine) { .mini-btn:hover { background: rgba(226, 185, 82, .16); border-color: var(--gold); } }
+.fld-box .mini-btn { border-radius: calc(var(--r-field) - 4px); }   /* nested in the field: its radius less the field's 1px border and the 3px margin */
 .mini-btn:disabled { opacity: .45; cursor: not-allowed; }
 .bk-skip { display: flex; align-items: end; }
 .bk-skip .mini-btn { margin: 0 0 24px; height: 50px; }
@@ -1374,10 +1378,12 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .choice-label { margin: 0; font: 700 11px/1 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--ink-2); }
 .choice-label i { font-style: normal; color: var(--gold-ink); }
 .choice-label small { font-weight: 500; letter-spacing: .08em; text-transform: none; color: var(--muted); }
-.choice-list.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; align-items: start; }
+.choice-list.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; align-items: stretch; }
 .choice-list.chips, .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+/* the owner's option tiles (vehicle type, known damage, modifications, §20): compact, slightly squared cards in a grid */
+.choice-list.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
 .choice-item { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; text-align: left; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .025); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: border-color .3s var(--ease), background-color .3s var(--ease), box-shadow .3s var(--ease), transform .3s var(--ease); }
-.choice-item:hover:not(:disabled) { border-color: rgba(226, 185, 82, .5); }
+@media (hover: hover) and (pointer: fine) { .choice-item:hover:not(:disabled) { border-color: rgba(226, 185, 82, .5); } }   /* a finger leaves no hover behind: only what is chosen looks gold */
 .choice-item.on { border-color: var(--gold); background: rgba(226, 185, 82, .08); box-shadow: 0 0 26px -10px rgba(226, 185, 82, .6); }   /* the 1px rim is drawn by ::after (the motion system) */
 .choice-item.on .choice-name { color: var(--gold-hi); }
 .choice-item:disabled, .choice-item.disabled { opacity: .45; cursor: not-allowed; }
@@ -1388,17 +1394,25 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .choice-price { font: 600 14px/1.25 var(--font-ui); color: var(--gold-ink); white-space: normal; max-width: 44%; text-align: right; align-self: flex-start; margin-top: 2px; }
 .choice-price.long { flex-basis: 100%; max-width: none; text-align: left; order: 3; margin-top: -4px; }
 .choice-check { display: none; }
+/* cards side by side are one height, each name and its note at the top (the price at the top right) */
+.choice-list.cards .choice-item { align-items: flex-start; align-content: flex-start; }
+.bk .choice-list.cards .choice-item { border-radius: var(--r-sm); }   /* the booking's option cards: slightly squared (§20) */
 /* "+ Add vehicle": a dashed, gold, centred card */
 .choice-item.add { justify-content: center; border-style: dashed; color: var(--gold-ink); background: transparent; }
+.choice-list.cards .choice-item.add { align-items: center; align-content: center; }
 .choice-item.add .choice-main { flex: 0 1 auto; }
 .chips .choice-item { min-height: 44px; padding: 12px 16px; border-radius: 999px; gap: 8px; }
 .chips .choice-name { font-size: 13.5px; }
 .chips .choice-item.on { background: rgba(226, 185, 82, .12); }
+.tiles .choice-item { min-height: 48px; padding: 10px 14px; border-radius: 10px; gap: 8px; }
+.tiles .choice-name { font-size: 14px; line-height: 1.25; }
+.tiles .choice-item.on { background: rgba(226, 185, 82, .12); }
 .choice-item.time { min-width: 92px; justify-content: center; font-variant-numeric: tabular-nums; }
 .choice-item.time.on { border-color: var(--gold); background: var(--gold-grad); color: var(--on-gold); font-weight: 700; box-shadow: 0 0 22px -4px rgba(226, 185, 82, .75); }   /* the chosen time is filled, like the chosen day */
 /* focus on a selectable thing is the ink ring (the selection is the gold one), each keeping its own corners */
 .bk :is(.choice-item, .svc-opt, .cal-day, .star-pick button):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.bk .choice-item:focus-visible { border-radius: 14px; }
+.bk .choice-item:focus-visible { border-radius: var(--r-sm); }
+.bk .tiles .choice-item:focus-visible { border-radius: 10px; }
 .bk .chips .choice-item:focus-visible { border-radius: 999px; }
 .bk .svc-opt:focus-visible { border-radius: var(--r-md); }
 .bk .cal-day:focus-visible { border-radius: 50%; }
@@ -1429,7 +1443,7 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .svc-group-pick { display: grid; gap: 12px; }
 .svc-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .svc-opt { position: relative; display: grid; grid-template-columns: 34px 1fr auto; grid-template-areas: "icon name price" "icon desc desc" "icon meta meta"; column-gap: 14px; row-gap: 6px; align-items: start; text-align: left; padding: 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .09); background: var(--sheen, none), linear-gradient(180deg, #111111, #080808); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: transform .4s var(--ease), border-color .4s var(--ease), box-shadow .4s var(--ease); }
-.svc-opt:hover { border-color: rgba(226, 185, 82, .45); }
+@media (hover: hover) and (pointer: fine) { .svc-opt:hover { border-color: rgba(226, 185, 82, .45); } }
 .svc-opt.on { border-color: var(--gold); transform: translateY(-3px); box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .9), 0 0 36px -12px rgba(226, 185, 82, .45); }   /* the 1px rim, and the light that runs it once, are ::after (the motion system) */
 .svc-opt-icon { grid-area: icon; width: 30px; height: 30px; color: var(--gold); }
 .svc-opt-icon svg { width: 100%; height: 100%; }
@@ -1468,7 +1482,7 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .cal-dow { text-align: center; font: 700 10px/1 var(--font-ui); letter-spacing: .2em; color: var(--muted); padding: 6px 0 4px; }
 .cal-day { position: relative; isolation: isolate; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--ink-2); font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; touch-action: manipulation; transition: border-color .3s var(--ease), color .3s var(--ease), background-color .3s var(--ease), box-shadow .3s var(--ease), transform .3s var(--ease); }
 .cal-day.open { border-color: rgba(255, 255, 255, .1); color: var(--ink); }
-.cal-day.open:hover { border-color: var(--gold); color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .cal-day.open:hover { border-color: var(--gold); color: var(--gold-hi); } }
 .cal-day.unknown { border-color: rgba(255, 255, 255, .06); }
 .cal-day.full { color: var(--muted); background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(226, 185, 82, .14) 6px 8px); cursor: not-allowed; }
 .cal-day.out { opacity: .25; cursor: default; }
@@ -1484,9 +1498,13 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .cal-key::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .2); }
 .cal-key.full::before { background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(226, 185, 82, .4) 3px 4px); }
 .cal .choice-msg:empty { display: none; }
-/* the start times fade in once, each a little after the last; "Checking times…" stands still */
+/* the start times fade in once, each a little after the last, as they arrive (.enter from booking.js, gone once the
+   last has landed, so a chosen time's pop never restarts the fade); "Checking times…" stands still */
 .times { display: grid; gap: 12px; }
-.times .choice-item { animation: viewIn .4s var(--ease) both; animation-delay: calc(var(--t, 0) * 25ms); }
+.times .chips.enter .choice-item { animation: viewIn .4s var(--ease) both; animation-delay: calc(var(--t, 0) * 25ms); }
+/* a chosen day or time let go because it no longer fits the booking (a service, an add-on or the place changed): one quiet line */
+.bk-lost { margin: 0; display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.bk-lost::before { content: ""; flex-shrink: 0; width: 6px; height: 6px; margin-top: .5em; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px rgba(226, 185, 82, .55); }
 
 /* step 06: summary */
 .sum { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
@@ -1530,6 +1548,7 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
   .bk-row.addr { grid-template-columns: 1fr 110px; }
   .svc-pick { grid-template-columns: 1fr; }
   .choice-list.cards { grid-template-columns: 1fr; }
+  .choice-list.tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sum-body { grid-template-columns: 1fr; gap: 2px 0; }
   .sum-body dt { margin-top: 8px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
   .cal-grid { gap: 4px; }   /* seven 44px days fit a 390px phone */
@@ -1547,7 +1566,7 @@ textarea.fld-input { height: auto; padding: 14px 16px; resize: vertical; line-he
 .acct { padding-bottom: clamp(22px, 4vw, 44px); }
 .acct-sec { display: grid; gap: 14px; padding-bottom: 22px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
 .acct-sec:last-child { border-bottom: 0; }
-.acct-static { margin: 0; min-height: 50px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 0 16px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .06); background: rgba(0, 0, 0, .2); color: var(--ink-2); }
+.acct-static { margin: 0; min-height: 50px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 0 18px; border-radius: var(--r-field); border: 1px solid rgba(255, 255, 255, .06); background: rgba(0, 0, 0, .2); color: var(--ink-2); }
 .acct-static .tnum { white-space: nowrap; }   /* the number stays on one line; "confirmed" may wrap under it */
 .acct-static small { color: var(--gold-ink); font-size: 12px; }
 .acct-actions { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -2001,9 +2020,10 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 }
 .btn-gold.glint { background-position: calc(var(--mx) * 0.6 + 20%) 0; }
 
-/* press: one feel for every pressable (.pressed from a delegated pointerdown in app.js, 80ms release) */
-.btn.launch, .btn:disabled { transform: none !important; }
-.pressed:not(.icon-btn) { transform: translateY(1px) scale(.97) !important; transition-duration: .09s; }
+/* press: one feel for every pressable (.pressed from a delegated pointerdown in app.js, 80ms release); a Book Now
+   that launches swells instead */
+.btn:disabled { transform: none !important; }
+.pressed:not(.icon-btn):not(.launch) { transform: translateY(1px) scale(.97) !important; transition-duration: .09s; }
 
 /* chips and cards pop once, the moment they are chosen (.just, dropped by ui.js when the pop ends: a rebuilt
    step shows a chosen thing still, never popping again) */
@@ -2068,7 +2088,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .menu nav a { transition: none !important; }   /* the items are there the frame the menu opens */
   .hero h1 .l1 { animation: none; --hx: 46%; }
   .hero h1 .l1.split .ch { opacity: 1; transform: none; filter: none; animation: none; }
-  .svc-opt.just, .choice-item.just, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .choice-item { animation: none; }   /* chosen things are simply chosen */
+  .svc-opt.just, .choice-item.just, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .chips.enter .choice-item { animation: none; }   /* chosen things are simply chosen */
   .svc-opt.on .svc-opt-check { transition-delay: 0s; }
   .cal-day.on::after { content: none; }
 }
@@ -2408,11 +2428,12 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .veh.asking { border-color: rgba(179, 65, 47, .45); }
 :where([data-theme="light"]) .bk-hp { color: transparent; }
 /* ---- states whose colours differ in the studio (written after the surfaces, so they win) */
-[data-theme="light"] :is(.svc-card, .why-item, .price-card, .work-item, .svc-opt, .gal-tile, .tip):hover { border-color: rgba(184, 144, 44, .55); }
+[data-theme="light"] :is(.svc-card, .why-item, .price-card, .work-item, .gal-tile, .tip):hover { border-color: rgba(184, 144, 44, .55); }
+@media (hover: hover) and (pointer: fine) { [data-theme="light"] .svc-opt:hover { border-color: rgba(184, 144, 44, .55); } }   /* the booking's cards: a mouse only, as in the dark */
 [data-theme="light"] .svc-opt.on, [data-theme="light"] .price-card:hover { box-shadow: 0 18px 40px -26px rgba(40, 30, 10, .35), 0 0 0 1px rgba(184, 144, 44, .35), 0 0 30px -12px rgba(184, 144, 44, .35); }
 [data-theme="light"] .svc-opt.on { background: var(--sheen, none), rgba(184, 144, 44, .08); border-color: var(--gold); }
 [data-theme="light"] .choice-item.on { background: rgba(184, 144, 44, .1); border-color: var(--gold); box-shadow: 0 0 22px -12px rgba(122, 93, 20, .5); }
-[data-theme="light"] .chips .choice-item.on { background: rgba(184, 144, 44, .14); }
+[data-theme="light"] :is(.chips, .tiles) .choice-item.on { background: rgba(184, 144, 44, .14); }
 [data-theme="light"] .choice-item.time.on { background: var(--gold-grad); color: var(--on-gold); box-shadow: 0 10px 22px -8px rgba(122, 93, 20, .45); }
 [data-theme="light"] .cal-day.on { background: var(--gold-grad); color: var(--on-gold); border-color: var(--gold); box-shadow: 0 0 0 3px var(--panel), 0 10px 22px -8px rgba(122, 93, 20, .45); }
 [data-theme="light"] .adm-nav a.on { background: var(--gold-grad); color: var(--on-gold); border-color: var(--gold); }
@@ -2423,7 +2444,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .cal-item.gold { border-color: rgba(184, 144, 44, .6); }
 [data-theme="light"] .star-pick button.on { text-shadow: none; box-shadow: 0 0 0 3px rgba(184, 144, 44, .14); }
 [data-theme="light"] .has-error .fld-box { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(179, 65, 47, .16); }
-[data-theme="light"] .btn-glass:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { [data-theme="light"] .btn-glass:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-hi); } }
 /* the consoles in the studio: the empty slot, the open trigger, the danger button, today's column */
 :where([data-theme="light"]) .bk-empty { border-color: rgba(20, 18, 12, .14); }
 :where([data-theme="light"]) .adm-actions .btn.on { background: rgba(184, 144, 44, .1); }

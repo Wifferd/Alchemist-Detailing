@@ -183,9 +183,9 @@
         field({ id: 'vehicle_make', label: 'Make', required: true, value: f.make, maxlength: 40, oninput: (e) => { f.make = e.target.value; } }),
         field({ id: 'vehicle_model', label: 'Model', required: true, value: f.model, maxlength: 40, oninput: (e) => { f.model = e.target.value; } }),
         field({ id: 'vehicle_color', label: 'Color', optional: true, value: f.color || '', maxlength: 30, oninput: (e) => { f.color = e.target.value; } })),
-      choices({ id: 'vehicle_type', label: 'Type', required: true, size: 'chip', value: f.vehicle_type, items: menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name })), onchange: (c) => { f.vehicle_type = c; } }),
+      choices({ id: 'vehicle_type', label: 'Type', required: true, size: 'tile', value: f.vehicle_type, items: menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name })), onchange: (c) => { f.vehicle_type = c; } }),
       choices({ id: 'vehicle_size', label: 'Size', value: f.size, items: [{ code: 'standard', label: 'Standard' }, { code: 'xl', label: 'XL', sub: 'Minivans and some modified trucks. We confirm the price before the appointment.' }], onchange: (c) => { f.size = c; } }),
-      choices({ id: 'modifications', label: 'Modifications', size: 'chip', multi: true, value: f.modifications || [], items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (v) => { f.modifications = v; } }),
+      choices({ id: 'modifications', label: 'Modifications', size: 'tile', multi: true, value: f.modifications || [], items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (v) => { f.modifications = v; } }),
       el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveVehicle }, 'Save vehicle'), el('button.btn.btn-glass', { type: 'button', onclick: () => { acct.editing = null; acct.form = null; renderAccount(); } }, 'Cancel')));
     return box;
   }

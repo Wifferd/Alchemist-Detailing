@@ -12,7 +12,13 @@ phone = w < 700
 
 async def shot(pg, name, full=False):
     await pg.wait_for_timeout(450)
+    # a full-page capture drops a phone's touch emulation (the page reads hover and a fine pointer while it lasts, and after):
+    # no pointer rests on the page during it, as on a phone, and the emulation is put back afterwards
+    if full and phone:
+        await pg.mouse.move(0, 0)
     await pg.screenshot(path=f'{prefix}-{name}.png', full_page=full)
+    if full and phone:
+        await (await pg.context.new_cdp_session(pg)).send('Emulation.setTouchEmulationEnabled', {'enabled': True, 'maxTouchPoints': 1})
 
 
 async def main():

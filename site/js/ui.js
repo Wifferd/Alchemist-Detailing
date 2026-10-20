@@ -70,7 +70,7 @@
     if (opts.multiline && opts.value) input.value = opts.value;
     const wrap = el('div.fld', { dataset: { field: opts.id } },
       el('label.fld-label', { for: opts.id }, opts.label, opts.required ? star() : (opts.optional ? el('small', ' optional') : null)),
-      el('div.fld-box', input, opts.trailing || null),
+      el('div.fld-box', { class: opts.multiline ? 'multi' : null }, input, opts.trailing || null),
       el('p.fld-msg', { id: opts.id + '-msg', role: 'status', dataset: { hint: opts.hint || '' } }, opts.hint || ''));
     wrap.input = input;
     return wrap;
@@ -140,11 +140,11 @@
     return mark;
   }
 
-  // Choice cards or chips. opts: { id, label, hint, required, items: [{code, label, sub, price, priceText, note, icon, disabled, exclusive, featured, cls}], value: [] or string, multi, onchange, size }
+  // Choice cards, tiles (compact cards in a grid) or chips. opts: { id, label, hint, required, items: [{code, label, sub, price, priceText, note, icon, disabled, exclusive, featured, cls}], value: [] or string, multi, onchange, size: 'tile' | 'chip' }
   function choices(opts) {
     const multi = !!opts.multi;
     const selected = new Set(multi ? (opts.value || []) : (opts.value ? [opts.value] : []));
-    const list = el('div.choice-list', { role: multi ? 'group' : 'radiogroup', 'aria-labelledby': opts.id + '-label', class: opts.size === 'chip' ? 'chips' : 'cards' });
+    const list = el('div.choice-list', { role: multi ? 'group' : 'radiogroup', 'aria-labelledby': opts.id + '-label', class: opts.size === 'chip' ? 'chips' : opts.size === 'tile' ? 'tiles' : 'cards' });
     const wrap = el('div.choice', { dataset: { field: opts.id } },
       opts.label ? el('p.choice-label', { id: opts.id + '-label' }, opts.label, opts.required ? star() : null) : null,
       list,

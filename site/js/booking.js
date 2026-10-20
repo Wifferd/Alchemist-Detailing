@@ -45,7 +45,8 @@
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
     service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '' }),
-    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null }),
+    // fit: the job's length and place the days and times were loaded for; lost: the quiet line once a chosen day or time no longer fits
+    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, fit: null, lost: null }),
   };
   const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
@@ -110,6 +111,8 @@
     return q;
   }
   function invalidateQuotes() { quoteCache.clear(); st.quote = null; st.prices = {}; }
+  // What the open days and start times depend on: the job's length (the services and add-ons) and where it happens
+  const fitKey = () => (st.quote ? st.quote.duration_min : 0) + ':' + (st.location.type || 'shop');
   const payloadPhotos = () => st.vehicle.photos.map((p) => p.name);
   function payload() {
     const v = st.vehicle, c = st.contact, l = st.location, s = st.service, w = st.when;
@@ -244,7 +247,14 @@
     render();
     focusTitle();
   }
-  function go(n) { if (!busy) show(n); }
+  async function go(n) {
+    if (busy) return;
+    // the date step and the summary need this booking's quote (a change to the vehicle or the place drops it)
+    if (n >= 5 && !st.quote && mainsChosen()) await refreshQuote();
+    // a different length or place since the day and time were chosen: the date step checks them again first
+    if (n === 6 && st.when.date && st.when.fit !== fitKey()) n = 5;
+    show(n);
+  }
 
   async function next() {
     const ok = await validate(step);
@@ -497,7 +507,7 @@
         field({ id: 'vehicle_model', label: 'Model', required: !v.notSure, value: v.model, maxlength: 40, oninput: (e) => { v.model = e.target.value; clearError(root, 'vehicle_model'); } }),
         field({ id: 'vehicle_color', label: 'Color', optional: true, value: v.color, maxlength: 30, oninput: (e) => { v.color = e.target.value; clearError(root, 'vehicle_color'); } })));
       const typeItems = menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name }));
-      box.appendChild(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, size: 'chip', value: v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
+      box.appendChild(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, size: 'tile', value: v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
       box.appendChild(el('div.bk-inline',
         el('label.bk-toggle', el('input', { type: 'checkbox', checked: v.notSure, onchange: (e) => { v.notSure = e.target.checked; render(); } }), el('span', 'Not sure? Type here')),
         v.notSure ? field({ id: 'vehicle_description', label: 'Describe the vehicle', required: true, value: v.description, maxlength: 1000, oninput: (e) => { v.description = e.target.value; clearError(root, 'vehicle_description'); } }) : null));
@@ -532,7 +542,7 @@
 
     // Damage
     box.appendChild(choices({
-      id: 'damage', label: 'Known damage', required: true, size: 'chip', multi: true, value: v.damage,
+      id: 'damage', label: 'Known damage', required: true, size: 'tile', multi: true, value: v.damage,
       hint: 'So we know what was there before we start.',
       items: menu.options.damage.map((o) => ({ code: o.code, label: o.label, exclusive: !!o.is_none })),
       onchange: (vals) => { v.damage = vals; render(); },
@@ -543,7 +553,7 @@
 
     // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
     const more = el('div.bk-more-body',
-      v.vehicleId ? null : choices({ id: 'modifications', label: 'Modifications', hint: 'For preparation only. Never a fee.', size: 'chip', multi: true, value: v.modifications, items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (vals) => { v.modifications = vals; } }),
+      v.vehicleId ? null : choices({ id: 'modifications', label: 'Modifications', hint: 'For preparation only. Never a fee.', size: 'tile', multi: true, value: v.modifications, items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (vals) => { v.modifications = vals; } }),
       guest() ? el('p.bk-note', 'Photos: you can text them to us after you book.') : el('div.bk-photos', { dataset: { field: 'photos' } },
         el('p.choice-label', 'Photos', el('small', ' optional · up to 6')),
         el('div.bk-photo-grid', { id: 'bk-photo-grid' },
@@ -742,16 +752,37 @@
     const today = D.helpers.todayLocal();
     const first = D.helpers.addDays(today, settings.min_days_ahead), last = D.helpers.addDays(today, settings.max_days_ahead);
     if (!w.month) w.month = new Date(first.getFullYear(), first.getMonth(), 1);
+    // The job's length or its place changed since the days and times were loaded (a service, an add-on or the
+    // location): both load again for this booking. The chosen start is held aside until its day's times are back
+    // (refit), so it is never shown, or sent on, before it is known to fit.
+    let held = null;
+    if (w.fit !== fitKey()) {
+      if (w.fit && w.date) { held = w.start; w.start = null; w.times = null; }
+      w.fit = fitKey(); w.calendar = {}; w.loaded = null;
+    }
     if (settings.customer_notice) box.appendChild(el('div.bk-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', settings.customer_notice)));
     const cal = el('div.cal', { dataset: { field: 'service_date' } });
-    const monthName = w.month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const prevOk = new Date(w.month.getFullYear(), w.month.getMonth(), 0) >= new Date(first.getFullYear(), first.getMonth(), 1);
-    const nextOk = new Date(w.month.getFullYear(), w.month.getMonth() + 1, 1) <= last;
-    cal.appendChild(el('div.cal-head',
-      el('button.icon-btn.small', { type: 'button', 'aria-label': 'Previous month', disabled: !prevOk, onclick: () => { w.month = new Date(w.month.getFullYear(), w.month.getMonth() - 1, 1); render(); } }, '‹'),
-      el('h2.bk-h2', monthName),
-      el('button.icon-btn.small', { type: 'button', 'aria-label': 'Next month', disabled: !nextOk, onclick: () => { w.month = new Date(w.month.getFullYear(), w.month.getMonth() + 1, 1); render(); } }, '›')));
-    const grid = el('div.cal-grid', { role: 'group', 'aria-label': 'Choose a day in ' + monthName });
+    // The month changes under the arrows (only the title and the days are rebuilt), so the arrow pressed keeps
+    // the focus; at the edge of the booking window it can't go further and hands the focus to the other one.
+    // The title is a live region: a screen reader hears the new month.
+    const title = el('h2.bk-h2', { 'aria-live': 'polite' });
+    const grid = el('div.cal-grid', { role: 'group' });
+    const arrow = (d, label, sign) => el('button.icon-btn.small', { type: 'button', 'aria-label': label, onclick: (e) => {
+      const btn = e.currentTarget, had = document.activeElement === btn;
+      w.month = new Date(w.month.getFullYear(), w.month.getMonth() + d, 1);
+      paintMonth();
+      if (had && btn.disabled) (d < 0 ? nextBtn : prevBtn).focus({ preventScroll: true });
+    } }, sign);
+    const prevBtn = arrow(-1, 'Previous month', '‹'), nextBtn = arrow(1, 'Next month', '›');
+    function paintMonth() {
+      const monthName = w.month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      title.textContent = monthName;
+      grid.setAttribute('aria-label', 'Choose a day in ' + monthName);
+      prevBtn.disabled = new Date(w.month.getFullYear(), w.month.getMonth(), 0) < new Date(first.getFullYear(), first.getMonth(), 1);
+      nextBtn.disabled = new Date(w.month.getFullYear(), w.month.getMonth() + 1, 1) > last;
+      grid.replaceChildren(...monthDays(first, last));
+      loadCalendar();
+    }
     // the gold fills a chosen day outward from where the finger (or pointer) landed
     grid.addEventListener('pointerdown', (e) => {
       const d = e.target.closest('.cal-day'); if (!d) return;
@@ -759,13 +790,26 @@
       d.style.setProperty('--px', Math.round((e.clientX - r.left) / r.width * 100) + '%');
       d.style.setProperty('--py', Math.round((e.clientY - r.top) / r.height * 100) + '%');
     }, { passive: true });
-    ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach((d) => grid.appendChild(el('span.cal-dow', { 'aria-hidden': 'true' }, d)));   // weeks start on Monday (the owner, Oct 11)
-    // the days of the months either side that share a week with this one: grey, with their month under the
-    // number, and not for picking (the arrows go to that month); the owner asked for this on Oct 11
+    cal.appendChild(el('div.cal-head', prevBtn, title, nextBtn));
+    cal.appendChild(grid);
+    cal.appendChild(el('div.cal-keys', el('span.cal-key.open', 'Available'), el('span.cal-key.full', 'Full')));
+    cal.appendChild(el('p.choice-msg', { role: 'status' }));
+    box.appendChild(cal);
+    box.appendChild(el('div.times', { id: 'bk-times', dataset: { field: 'start_min' } }, timesBlock(false)));
+    paintMonth();
+    if (w.date && w.times == null) refit(w.date, held);
+    return box;
+  }
+  // The month's days, weeks starting on Monday (the owner, Oct 11). The days of the months either side that share
+  // a week with this one are grey, with their month under the number, and not for picking (the arrows go to that
+  // month); the owner asked for this on Oct 11.
+  function monthDays(first, last) {
+    const w = st.when, out = [];
+    ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach((d) => out.push(el('span.cal-dow', { 'aria-hidden': 'true' }, d)));
     const yr = w.month.getFullYear(), mo = w.month.getMonth();
     const other = (date) => el('span.cal-other', { 'aria-hidden': 'true' }, el('span', date.getDate()), el('small', date.toLocaleDateString('en-US', { month: 'short' })));
     const firstDow = (w.month.getDay() + 6) % 7;   // days of the week before the 1st: Monday 0 ... Sunday 6
-    for (let i = firstDow; i > 0; i--) grid.appendChild(other(new Date(yr, mo, 1 - i)));
+    for (let i = firstDow; i > 0; i--) out.push(other(new Date(yr, mo, 1 - i)));
     const daysIn = new Date(yr, mo + 1, 0).getDate();
     for (let d = 1; d <= daysIn; d++) {
       const date = new Date(yr, mo, d);
@@ -773,27 +817,24 @@
       const inWindow = date >= first && date <= last;
       const avail = w.calendar[iso];
       const cls = !inWindow ? 'out' : avail === false ? 'full' : avail === true ? 'open' : 'unknown';
-      grid.appendChild(el('button.cal-day', { type: 'button', class: cls + (w.date === iso ? ' on' : ''), disabled: !inWindow || avail === false, dataset: { iso }, 'aria-pressed': w.date === iso ? 'true' : 'false', 'aria-label': longDate(iso) + (avail === false ? ', full' : ''), onclick: () => pickDay(iso) }, el('span', d)));
+      out.push(el('button.cal-day', { type: 'button', class: cls + (w.date === iso ? ' on' : ''), disabled: !inWindow || avail === false, dataset: { iso }, 'aria-pressed': w.date === iso ? 'true' : 'false', 'aria-label': longDate(iso) + (avail === false ? ', full' : ''), onclick: () => pickDay(iso) }, el('span', d)));
     }
     const tail = 6 - (new Date(yr, mo, daysIn).getDay() + 6) % 7;   // the rest of the last week, from the next month
-    for (let i = 1; i <= tail; i++) grid.appendChild(other(new Date(yr, mo + 1, i)));
-    cal.appendChild(grid);
-    cal.appendChild(el('div.cal-keys', el('span.cal-key.open', 'Available'), el('span.cal-key.full', 'Full')));
-    cal.appendChild(el('p.choice-msg', { role: 'status' }));
-    box.appendChild(cal);
-    box.appendChild(el('div.times', { id: 'bk-times', dataset: { field: 'start_min' } }, w.date ? timesBlock() : el('p.bk-muted', 'Pick a day to see start times.')));
-    loadCalendar();
-    return box;
+    for (let i = 1; i <= tail; i++) out.push(other(new Date(yr, mo + 1, i)));
+    return out;
   }
+  // The open and full days for the month on screen, for this booking's length and place (w.fit is part of the key,
+  // and stepWhen empties the days when it changes). Days that arrive for an older booking are dropped.
   async function loadCalendar() {
     const w = st.when, q = st.quote;
     if (!q) return;
     const from = D.helpers.isoDate(w.month > D.helpers.addDays(D.helpers.todayLocal(), settings.min_days_ahead) ? w.month : D.helpers.addDays(D.helpers.todayLocal(), settings.min_days_ahead));
     const days = Math.min(62, new Date(w.month.getFullYear(), w.month.getMonth() + 1, 0).getDate() + 7);
-    const key = from + ':' + days;
+    const fit = w.fit, key = from + ':' + days + ':' + fit;
     if (w.loaded === key) return;
     try {
       const rows = await D.calendar(from, days, q.duration_min, st.location.type);
+      if (w.fit !== fit) return;
       rows.forEach((r) => { w.calendar[r.day] = r.available; });
       w.loaded = key;
       root.querySelectorAll('.cal-day').forEach((b) => {
@@ -801,35 +842,78 @@
         if (!(iso in w.calendar) || b.classList.contains('out')) return;
         b.classList.remove('unknown'); b.classList.toggle('full', w.calendar[iso] === false); b.classList.toggle('open', w.calendar[iso] === true);
         b.disabled = w.calendar[iso] === false;
-        if (w.calendar[iso] === false) b.setAttribute('aria-label', longDate(iso) + ', full');
+        b.setAttribute('aria-label', longDate(iso) + (w.calendar[iso] === false ? ', full' : ''));
       });
+      if (w.date && w.calendar[w.date] === false) dropDay('That day no longer fits this booking. Pick another.');
     } catch (e) { toast(e.message); }
   }
-  async function pickDay(iso) {
-    const w = st.when;
-    w.date = iso; w.start = null; w.times = null;
+  // The chosen day is marked (the gold circle), or none is
+  function markDay(iso) {
     root.querySelectorAll('.cal-day').forEach((b) => { const on = b.dataset.iso === iso; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    clearError(root, 'service_date');
-    const t = root.querySelector('#bk-times'); if (t) t.replaceChildren(...timesBlock());
-    try { w.times = await D.times(iso, st.quote.duration_min, st.location.type); }
-    catch (e) { w.times = []; toast(e.message); }
-    if (st.when.date !== iso) return;   // another day was picked meanwhile
-    const t2 = root.querySelector('#bk-times'); if (t2) t2.replaceChildren(...timesBlock());
   }
-  function timesBlock() {
+  function paintTimes(fresh) { const t = root.querySelector('#bk-times'); if (t) t.replaceChildren(...timesBlock(fresh).filter(Boolean)); }
+  // A chosen day that no longer fits the booking is let go, with one quiet line in the times' place saying so
+  function dropDay(text) {
+    Object.assign(st.when, { date: null, start: null, times: [], lost: text });
+    markDay(null);
+    paintTimes(false);
+  }
+  async function pickDay(iso) {
+    const w = st.when, fit = w.fit;
+    if (!st.quote) return;
+    w.date = iso; w.start = null; w.times = null; w.lost = null;
+    markDay(iso);
+    clearError(root, 'service_date');
+    paintTimes(false);
+    let times;
+    try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
+    catch (e) { times = []; toast(e.message); }
+    if (w.date !== iso || w.fit !== fit) return;   // another day was picked meanwhile, or the booking changed
+    w.times = times;
+    paintTimes(true);
+  }
+  // The chosen day's start times again, for this booking's length and place: a day with none left is let go, and
+  // so is a start (held aside by stepWhen) that is no longer among them, each with one quiet line saying so.
+  async function refit(iso, held) {
+    const w = st.when, fit = w.fit;
+    if (!st.quote) return;
+    let times = null;
+    try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
+    catch (e) { toast(e.message); }
+    if (w.date !== iso || w.fit !== fit) return;
+    if (times && !times.length) return dropDay('That day no longer fits this booking. Pick another.');
+    w.times = times || [];
+    if (held != null) {
+      if (w.times.includes(held)) w.start = held;
+      else if (times) w.lost = 'That time no longer fits this booking. Pick another.';
+    }
+    paintTimes(true);
+  }
+  // The times' place: the chosen day's start times, or what to do first. The quiet line (w.lost) sits under the
+  // times when a chosen time was let go, and in their place when the day was. The times fade in once, as they
+  // arrive (fresh): .enter goes when the last one has landed, so a chosen time's pop never restarts the fade.
+  function timesBlock(fresh) {
     const w = st.when;
+    const lost = w.lost ? el('p.bk-lost', { role: 'status' }, w.lost) : null;
+    if (!w.date) return [lost || el('p.bk-muted', 'Pick a day to see start times.')];
     const head = el('h2.bk-h2', longDate(w.date));
     if (w.times == null) return [head, el('p.bk-muted', 'Checking times…')];
     if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.')];
-    return [head, el('div.chips', w.times.map((m, i) => el('button.choice-item.time', {
+    const row = el('div.chips', { class: fresh ? 'enter' : null }, w.times.map((m, i) => el('button.choice-item.time', {
       type: 'button', class: w.start === m ? 'on' : '', 'aria-pressed': w.start === m ? 'true' : 'false', dataset: { m }, style: { '--t': i },
       onclick: (e) => {
         w.start = m; clearError(root, 'start_min');
+        if (w.lost) { w.lost = null; root.querySelectorAll('.bk-lost').forEach((x) => x.remove()); }
         root.querySelectorAll('.time').forEach((b) => { const on = +b.dataset.m === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
         flash(e.currentTarget, 'just', 600);
       },
-    }, clock(m)))),
-      el('p.choice-msg', { role: 'status' }, "Can't find a time? Call ", tel(phone), '.')];
+    }, clock(m))));
+    if (fresh) {
+      const off = () => row.classList.remove('enter');
+      row.lastChild.addEventListener('animationend', off, { once: true });
+      setTimeout(off, 450 + w.times.length * 25);
+    }
+    return [head, row, lost, el('p.choice-msg', { role: 'status' }, "Can't find a time? Call ", tel(phone), '.')];
   }
 
   // ---------------------------------------------------------------- 06 Summary
@@ -851,7 +935,7 @@
       v.photos.length ? ['Photos', v.photos.length + ' added'] : null]));
     box.appendChild(sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]));
     box.appendChild(sec('Service', 4, [['Service', q ? q.lines.filter((x) => !x.included && !x.condition).map((x) => x.name).join(' + ') : ''], s.notes.trim() ? ['Notes', s.notes.trim()] : null]));
-    box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + ' at ' + clock(w.start) + ' · about ' + minutesText(q ? q.duration_min : 0) : '']]));
+    box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + (w.start != null ? ' at ' + clock(w.start) : '') + ' · about ' + minutesText(q ? q.duration_min : 0) : '']]));
     box.appendChild(el('div.bk-summary-card', q ? priceLines(q) : null));
     box.appendChild(el('p.bk-note', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.'));
     box.appendChild(el('p.bk-note', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request. We\'ll contact you to confirm.'));
@@ -878,7 +962,9 @@
       session = null;
     } catch (e) {
       busy = false;
-      if (e.code === 'slot_unavailable') { st.when.start = null; st.when.times = null; st.when.loaded = null; st.when.calendar = {}; }
+      // the time went while the request was on its way: the date step loads the days and times again, and the
+      // database's reason is the quiet line where the time was
+      if (e.code === 'slot_unavailable') { Object.assign(st.when, { start: null, times: null, loaded: null, calendar: {}, lost: e.message || null }); show(5); return; }
       render();
       showDbError(e);
     }
