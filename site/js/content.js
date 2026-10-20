@@ -104,7 +104,6 @@
       el('h1.display.gold-text', d.title),
       el('span.rule', { 'data-reveal': '' }),
       el('p.bk-lead', withPhone(d.intro)),
-      page === 'about' ? el('p.script', 'Our chemicals make your car shine like gold ✦') : null,
       SHOW_DRAFT_BANNER ? el('div.bk-preview.draft', el('b', 'Draft'), ' — these words are a first draft for the owner to edit. Nothing here is final.') : null);
     let body;
     if (page === 'tips') body = el('div.tip-grid', d.items.map(tip));

@@ -202,8 +202,9 @@
       el('span.tnum', l.included ? '$0.00' : l.price_cents == null ? 'Confirmed by us' : money(l.price_cents))));
     const out = el('div.pr', rows);
     // the bundle line already carries the bundle price, so the saving is said once, as a note with no amount in
-    // the price column (shown as a minus line, the column would add up to less than the total)
-    if (q.bundle_savings_cents) out.appendChild(el('p.pr-note', 'The bundle price saves you ' + money(q.bundle_savings_cents) + ' against booking its services separately.'));
+    // the price column (shown as a minus line, the column would add up to less than the total). The saving is on
+    // the base prices: bundles and basics carry different mobile rates, so a mobile booking says so.
+    if (q.bundle_savings_cents) out.appendChild(el('p.pr-note', 'The bundle price saves you ' + money(q.bundle_savings_cents) + ' against booking its services separately' + (q.location_type === 'mobile' ? ', before the mobile charge.' : '.')));
     if (q.location_type === 'mobile') out.appendChild(el('div.pr-line', el('span', 'Mobile service'), el('span.tnum', money(q.mobile_cents))));
     if (q.extra_cost_cents) out.appendChild(el('div.pr-line', el('span', 'Extra' + (q.extra_cost_note ? ' · ' + q.extra_cost_note : '')), el('span.tnum', money(q.extra_cost_cents))));
     const pending = q.total_cents == null;

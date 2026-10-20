@@ -11,8 +11,8 @@
   let ready = null, confirmT = 0;
   const roots = { account: null, appointments: null };
   const signin = { phone: '', first: '', sent: false, busy: false };
-  const acct = { first: '', last: '', vehicles: [], bookings: [], editing: null, form: null, loading: true, confirm: null };
-  const appts = { list: null, open: null, reviews: null, form: null };
+  const acct = { first: '', last: '', vehicles: [], bookings: [], reviews: [], editing: null, form: null, loading: true, confirm: null };
+  const appts = { list: null, open: null, reviews: null, form: null, focus: null };
   // the 200+ gold rule (doc 22): a completed detail of $200 or more makes the booking, and the customer, Gold
   const isGold = (b) => b.status === 'completed' && b.total_cents != null && b.total_cents >= 20000;
   const isLive = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= D.helpers.isoDate(D.helpers.todayLocal());
@@ -95,7 +95,7 @@
     await refreshSession();
     if (!session) { root.replaceChildren(shell('Your account', 'Account', signInBox(renderAccount))); return; }
     if (acct.loading) {
-      [acct.vehicles, acct.bookings] = await Promise.all([D.myVehicles().catch(() => []), D.myBookings().catch(() => [])]);
+      [acct.vehicles, acct.bookings, acct.reviews] = await Promise.all([D.myVehicles().catch(() => []), D.myBookings().catch(() => []), D.myReviews().catch(() => [])]);
       acct.loading = false;
       if (!session) return renderAccount();   // signed out while loading
     }
@@ -104,7 +104,7 @@
     // The Gold client card (the owner's design): live, only for a customer with a completed detail of $200 or more,
     // dated from the first of them; the preview shows it to its example customer (the banner says nothing here is real)
     const gold = acct.bookings.filter(isGold).sort(byWhen);
-    if (gold.length || !D.isLive) body.appendChild(goldSection(monthOf(gold.length ? gold[0].service_date : D.helpers.isoDate(D.helpers.todayLocal()))));
+    if (gold.length || !D.isLive) body.appendChild(goldSection(monthOf(gold.length ? gold[0].service_date : D.helpers.isoDate(D.helpers.todayLocal())), gold));
 
     // Upcoming: the next booking, as on Appointments (owner direction 25)
     const next = acct.bookings.filter(isLive).sort(byWhen)[0];
@@ -142,7 +142,23 @@
   // The Gold client card: the beads texture under a dark gradient, a gold rim, an inner hairline frame, the
   // monogram, the first name in gold, "Gold since" and the Au badge; beside it the owner's two sentences and
   // the two buttons. The card tilts under a mouse (tilt), never under a finger or with reduced motion.
-  function goldSection(since) {
+  // Its action follows the reviews: the latest gold detail without one opens on Appointments with the review form;
+  // a published one links to Reviews; one waiting says so; with nothing to review (the preview) there is no action.
+  function goldAction(gold) {
+    const mine = (id) => acct.reviews.find((r) => r.appointment_id === id);
+    const todo = gold.slice().reverse().find((b) => !mine(b.id));
+    if (todo) {
+      return el('a.btn.btn-gold.shine', { href: '#appointments', onclick: () => { appts.open = todo.id; appts.form = { id: todo.id, rating: 5, body: '' }; appts.focus = todo.id; } },
+        'Leave a review ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
+    }
+    const done = gold.map((b) => mine(b.id));
+    if (done.some((r) => r.status === 'approved')) return el('a.btn.btn-gold.shine', { href: '#reviews' }, 'See it on Reviews ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
+    if (done.some((r) => r.status === 'pending')) return el('p.gold-wait', 'Your review is waiting for approval');
+    return null;
+  }
+  function goldSection(since, gold) {
+    const action = goldAction(gold);
+    const toWrite = action && action.getAttribute('href') === '#appointments';
     const card = el('div.gold-card',
       el('img.tex', { src: 'img/art/water-beads.webp', alt: '', width: 1400, height: 900, loading: 'lazy', decoding: 'async' }),
       el('span.shade'), el('span.sheen'), el('span.frame'),
@@ -154,10 +170,8 @@
     tilt(stage, card);
     return el('section.acct-sec.gold-sec', stage,
       el('div.gold-copy', el('h2.display', 'You’re a Gold client'),   // no eyebrow: the page title above already says Your account
-        el('p', 'A detail of $200 or more made you Gold. Leave a review and it will shine gold on our Reviews page.'),
-        el('div.acct-actions',
-          el('a.btn.btn-gold.shine', { href: '#appointments' }, 'Leave a review ', el('span.arrow', { 'aria-hidden': 'true' }, '→')),
-          el('a.btn.btn-glass', { href: '#book' }, 'Book your next detail'))));
+        el('p', 'A detail of $200 or more made you Gold.' + (toWrite ? ' Leave a review and it will shine gold on our Reviews page.' : '')),
+        el('div.acct-actions', action, el('a.btn.btn-glass', { href: '#book' }, 'Book your next detail'))));
   }
   // --rx / --ry tilt the card toward the pointer and --sheen slides the light across it; the stylesheet holds the
   // resting values (7deg, -14deg, -12%), so the card simply rests on touch screens and under reduced motion
@@ -212,7 +226,7 @@
     catch (e) { toast(e.message); renderAccount(); }
   }
   async function signOut() {
-    await D.signOut(); session = null; acct.loading = true; acct.vehicles = []; acct.bookings = []; acct.confirm = null; appts.list = null; signin.sent = false;
+    await D.signOut(); session = null; acct.loading = true; acct.vehicles = []; acct.bookings = []; acct.reviews = []; acct.confirm = null; appts.list = null; signin.sent = false;
     toast('Signed out'); renderAccount(); if (roots.appointments) renderAppointments();
   }
 
@@ -234,6 +248,16 @@
       el('p.bk-note', 'To cancel or change a booking, call ', el('b', tel(phone)), '. We don\'t take cancellations online.'),
       el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: () => { appts.list = null; renderAppointments(); } }, 'Refresh')));
     root.replaceChildren(shell('Appointments', 'Your details', body));
+    // arrived from the account page for one booking: it is open; bring it into view and put focus on its head
+    // (focus moved here first, so the page's heading focus in app.js leaves it where it is)
+    const want = appts.focus;
+    appts.focus = null;
+    const head = want && appts.open === want ? root.querySelector('.appt.open .appt-head') : null;
+    if (head) {
+      head.focus({ preventScroll: true });
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      requestAnimationFrame(() => head.closest('.appt').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' }));
+    }
   }
   // One booking as a card. On Appointments the head is a button that opens the details (a chevron says so);
   // on the account page (opts.link) it is plain, with a link to Appointments under it. A completed detail is
@@ -253,7 +277,7 @@
       el('span.appt-glow', { 'aria-hidden': 'true' }),
       linked ? el('div.appt-head.static', head)
         : el('button.appt-head', { type: 'button', 'aria-expanded': open ? 'true' : 'false', onclick: () => { appts.open = open ? null : b.id; renderAppointments(); } }, head, el('span.appt-chev', { innerHTML: CHEV, 'aria-hidden': 'true' })),
-      linked ? el('div.appt-body.appt-go', el('a.btn.btn-glass', { href: '#appointments' }, 'View appointment')) : null,
+      linked ? el('div.appt-body.appt-go', el('a.btn.btn-glass', { href: '#appointments', onclick: () => { appts.open = b.id; appts.focus = b.id; } }, 'View appointment')) : null,
       open ? el('div.appt-body',
         note ? el('p.bk-muted', note) : null,
         el('dl.sum-body',
@@ -284,7 +308,7 @@
     const box = el('div.adm-panel', { dataset: { field: 'review' } }, el('h3.bk-h2', 'How was your detail?'), stars,
       field({ id: 'review_body', label: 'A few words', required: true, multiline: true, rows: 3, maxlength: 1000, value: f.body, hint: 'Shown with your first name and last initial once the owner approves it. No links.', oninput: (e) => { f.body = e.target.value; } }),
       el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: async () => {
-        try { await D.submitReview(b.id, f.rating, f.body); appts.form = null; appts.list = null; toast('Thank you! Your review is waiting for approval.'); renderAppointments(); }
+        try { await D.submitReview(b.id, f.rating, f.body); appts.form = null; appts.list = null; acct.loading = true; toast('Thank you! Your review is waiting for approval.'); renderAppointments(); }
         catch (e) { if (!showError(roots.appointments, e.hint === 'body' ? 'review_body' : e.hint, e.message)) toast(e.message); }
       } }, 'Send review'), el('button.btn.btn-glass', { type: 'button', onclick: () => { appts.form = null; renderAppointments(); } }, 'Cancel')));
     return box;

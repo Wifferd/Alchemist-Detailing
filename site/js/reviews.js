@@ -71,7 +71,8 @@
     const [settings, list] = await Promise.all([D.settings(), D.publicReviews().catch(() => [])]);
     const bookNow = () => el('a.btn.btn-gold.shine', { href: '#book' }, 'Book Now ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
     const google = () => settings.google_reviews_url ? el('a.btn.btn-glass', { href: settings.google_reviews_url, target: '_blank', rel: 'noopener', 'aria-label': 'Read our Google reviews (opens in a new tab)' }, 'Read our Google reviews ', extMark()) : null;
-    const signIn = () => el('p.bk-muted', 'Had a detail with us? ', el('a', { href: '#account' }, 'Sign in to your account'), ' and leave a review under ', el('a', { href: '#appointments' }, 'Appointments'), '.');
+    // reviews are left from an account; while bookings are guest-only (doc 37) there is no account to sign in to
+    const signIn = () => D.guestBooking ? null : el('p.bk-muted', 'Had a detail with us? ', el('a', { href: '#account' }, 'Sign in to your account'), ' and leave a review under ', el('a', { href: '#appointments' }, 'Appointments'), '.');
     const page = el('div.wrap.rv-page',
       el('header.page-head', el('p.eyebrow', 'Customers'), el('h1.display.gold-text', 'Reviews'), el('span.rule', { 'data-reveal': '' }),
         el('p', 'Every review is from a real customer, after their detail.')),

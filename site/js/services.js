@@ -9,6 +9,7 @@
   const { el } = window.AlchemistUI;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const hoverable = window.matchMedia('(hover: hover)').matches;
+  const stacked = window.matchMedia('(max-width: 980px)');   // the Table's panel sits under the grid
   const SVG = 'http://www.w3.org/2000/svg';
 
   // ---------------------------------------------------------------- the elements (the menu, Oct 10, 2026)
@@ -18,15 +19,15 @@
     { key: 'ib', sym: 'Ib', num: '3', name: 'Interior Basic', short: 'Interior Basic', price: '$59.99', time: '60 min', mobile: '+2.5%', eq: '',
       desc: 'Full vacuum, dash and plastics with Top Star, Gummifix on rubber and mats, interior glass and a general wipe-down.' },
     { key: 'sc', sym: 'Sc', num: '5', name: 'Signature Combo', short: 'Signature Combo', price: '$99.99', time: '2 h', mobile: '+7%', eq: 'Eb + Ib → Sc',
-      desc: 'Exterior Basic and Interior Basic together: $109.98 booked separately, so you save $9.99.' },
+      desc: 'Exterior Basic and Interior Basic together: $109.98 booked separately, so you save $9.99 before any mobile charge.' },
     { key: 'wg', sym: 'Wg', num: '7', name: 'WetGloss', short: 'WetGloss', price: 'from $44.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
-      desc: 'Spray-on sealant for gloss and water beading, added after a wash with an exterior service. Lasts several weeks. $44.99 car, coupe or sedan; $54.99 crossover, SUV or minivan; $64.99 truck or large SUV.' },
+      desc: 'Spray-on sealant for gloss and water beading, added after a wash with an exterior service. Lasts several weeks. $44.99 car, coupe or sedan; $54.99 crossover, SUV or minivan; $64.99 truck or large SUV. Van, convertible or other: priced by us before your appointment.' },
     { key: 'ed', sym: 'Ed', num: '2', name: 'Exterior Deluxe', short: 'Exterior Deluxe', price: '$94.99', time: '90 min', mobile: '+7%', eq: '',
       desc: 'Everything in Exterior Basic, plus Green Star pre-treatment where appropriate and Koch-Chemie Hydro Foam Sealant for gloss and water beading.' },
     { key: 'id', sym: 'Id', num: '4', name: 'Interior Deluxe', short: 'Interior Deluxe', price: '$134.99', time: '2 h', mobile: '+7%', eq: '',
       desc: 'Everything in Interior Basic, plus deep steam or shampoo, drill-brush agitation, deeper stain removal and Leather Star conditioning. Steam cleaning included.' },
     { key: 'au', sym: 'Au', num: '79', name: 'Full Detail Bundle', short: 'Full Detail', price: '$209.99', time: '3½ h', mobile: '+7%', eq: 'Ed + Id → Au',
-      desc: 'Exterior Deluxe and Interior Deluxe together, steam cleaning included: $229.98 booked separately, so you save $19.99.' },
+      desc: 'Exterior Deluxe and Interior Deluxe together, steam cleaning included: $229.98 booked separately, so you save $19.99 before any mobile charge.' },
     { key: 'st', sym: 'St', num: '8', name: 'Steam Cleaning', short: 'Steam Cleaning', price: '$49.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
       desc: 'Deep steam for carpets, upholstery and interior surfaces. Already included in Interior Deluxe and the Full Detail Bundle.' },
   ];
@@ -85,7 +86,7 @@
       const au = e.key === 'au';
       const t = el('button.el-tile', {
         type: 'button', class: (e.addon ? 'addon' : '') + (au ? ' au' : ''), 'aria-pressed': 'false', tabindex: -1,
-        dataset: { key: e.key }, style: { gridArea: e.key }, onclick: () => pick(e.key, false),
+        dataset: { key: e.key }, style: { gridArea: e.key }, onclick: (ev) => pick(e.key, false, ev.detail > 0),
       },
         el('span.meta.tnum', el('span', e.num), el('span', e.time)),
         el('span.sym', { class: au ? null : 'gold-text' }, e.sym),
@@ -113,11 +114,17 @@
     const pNo = el('span.no.tnum'), pSym = el('div.sym.gold-text', { 'aria-hidden': 'true' }), pName = el('h3', { 'aria-live': 'polite' });
     const pEq = el('div.el-eq'), pDesc = el('p'), pPrice = el('b.price.tnum'), pTime = el('b.tnum'), pMobile = el('b.tnum');
     const pLabel = document.createTextNode('');
+    // under the grid (phones, tablets), a text action takes the visitor back up to the tile they tapped
+    const back = el('button.el-back', { type: 'button', onclick: () => {
+      const t = tiles.get(picked);
+      t.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      t.focus({ preventScroll: true });
+    } }, 'Back to the table ', el('span.arrow', { 'aria-hidden': 'true' }, '↑'));
     const panel = el('aside.el-panel', { 'aria-label': 'The picked element' },
       el('div.top', el('span.eyebrow', 'Element'), pNo), pSym, pName, pEq, pDesc,
       el('div.el-facts', el('div', el('span', 'Price'), pPrice), el('div', el('span', 'Time'), pTime), el('div', el('span', 'Mobile'), pMobile)),
-      el('a.btn.btn-gold.shine', { href: '#book' }, pLabel, arrow()));
-    function pick(key, focus) {
+      el('div.el-actions', el('a.btn.btn-gold.shine', { href: '#book' }, pLabel, arrow()), back));
+    function pick(key, focus, tapped) {
       const e = BY[key];
       if (!e) return;
       const changed = key !== picked;
@@ -129,6 +136,9 @@
       pLabel.data = 'Book ' + e.short + ' ';
       if (changed && !reduce) { panel.classList.remove('swap'); void panel.offsetWidth; panel.classList.add('swap'); }
       if (focus) tiles.get(key).focus({ preventScroll: true });
+      // a tap with the panel under the grid: the panel comes up from below, so the change is seen (keyboard picks
+      // keep their place; their focus is on the tile)
+      if (tapped && stacked.matches && panel.getBoundingClientRect().bottom > window.innerHeight) panel.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
     }
     pick(picked, false);
 
@@ -140,7 +150,7 @@
         el('span', el('b', 'Top left'), ' · its place on the menu'), el('span', el('b', 'Top right'), ' · time on the job'),
         el('span', el('b', 'Centre'), ' · the element'), el('span', el('b', 'Bottom'), ' · price, standard-size vehicle')));
     container.replaceChildren(
-      el('div.section-head', el('p.eyebrow', 'The menu'), el('h2.display', { id: 'tableTitle' }, 'The Alchemist’s Table'),
+      el('div.section-head', el('p.eyebrow', 'At a glance'), el('h2.display', { id: 'tableTitle' }, 'The Alchemist’s Table'),
         el('p', 'Every service is an element. Pick one to see what goes into it.'), el('span.rule', { 'data-reveal': '' })),
       el('div.el-table', el('div.el-main', el('div.el-scroll', grid), legend), panel),
       el('p.el-note', 'Prices are for standard-size vehicles. Mobile service adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.'));
@@ -150,7 +160,7 @@
   const STEPS = [
     { n: '01', title: 'Snow foam', text: 'A snow-foam pre-wash covers the car first. Deluxe adds Green Star pre-treatment where appropriate.', chips: ['Snow foam', 'Green Star · Deluxe'], media: () => texture('foam', 1200, 900), pos: '30% 50%' },
     { n: '02', title: 'Wheels', text: 'Brake Buster on the wheels and tires, then the tires are cleaned.', chips: ['Brake Buster'], media: () => photo('brake', 'Cleaned black wheel with a red brake caliper'), pos: '50% 45%' },
-    { n: '03', title: 'Hand wash', text: 'A thorough hand wash with professional-grade chemicals.', chips: ['By hand'], media: () => photo('side', 'Side skirt and carbon trim after a wash'), pos: '50% 40%' },
+    { n: '03', title: 'Hand wash', text: 'A thorough hand wash with professional-grade chemicals.', chips: ['By hand'], media: () => photo('badge', 'M2 badge on wet white paint'), pos: '50% 50%' },
     { n: '04', title: 'Hand dry', text: 'Dried by hand, panel by panel, exterior glass included.', chips: ['Exterior glass'], media: () => photo('front', 'Front of a white BMW M2 after an exterior detail'), pos: '40% 40%' },
     { n: '05', title: 'Seal', text: 'Koch-Chemie Hydro Foam Sealant for gloss and water beading. Or add WetGloss to any exterior.', chips: ['Hydro Foam Sealant · Deluxe', 'WetGloss · add-on'], media: () => photo('vent', 'Water beading on a carbon-fibre hood vent after a wash'), pos: '50% 40%' },
   ];
@@ -205,8 +215,10 @@
         el('p', (spray ? 'Press and drag across the panel. ' : '') + 'On bare paint the water lies flat. WetGloss pulls it into beads that roll off.')),
       el('div.bead-cmp', bare, gloss, el('span.bead-seam', { 'aria-hidden': 'true' }), el('span.bead-badge', { 'aria-hidden': 'true' }, '✦')),
       el('div.bead-foot',
-        el('div.wg', el('b', 'WetGloss'), el('p', 'Spray-on sealant, added after a wash with any exterior service. Lasts several weeks.')),
-        el('div.bead-prices', WG_PRICES.map(([v, p]) => el('span.bead-price', v + ' ', el('b.tnum', p)))),
+        el('div.wg', el('b', 'WetGloss'), el('p', 'Spray-on sealant, added after a wash with any exterior service. Lasts several weeks, depending on weather and washing.')),
+        // the database has no WetGloss price for these types: the quote holds the price (the FAQ's words)
+        el('div.bead-prices', el('div.bead-chips', WG_PRICES.map(([v, p]) => el('span.bead-price', v + ' ', el('b.tnum', p)))),
+          el('p.bead-ask', 'Van, convertible or other: priced by us before your appointment')),
         el('a.btn.btn-gold.shine', { href: '#book' }, 'Add WetGloss ', arrow())));
   }
   // Press and drag to spray (desktop only): a film of water comes back under the pointer and the
@@ -248,5 +260,17 @@
     pane.addEventListener('pointercancel', up);
   }
 
-  window.AlchemistServices = { mountTable, mountRitual, mountBead };
+  // The fee line on Interior Deluxe and the Full Detail Bundle names fees the database includes (service_includes):
+  // it shows only while the menu still includes every one of them (data-includes), so it can't drift from booking.
+  function syncIncludes(scope) {
+    const D = window.AlchemistData;
+    const lines = scope.querySelectorAll('[data-includes]');
+    if (!D || !lines.length) return;
+    D.init().then(() => D.menu()).then((m) => lines.forEach((li) => {
+      const has = (m.includes || {})[li.dataset.service] || [];
+      li.hidden = !li.dataset.includes.split(' ').every((c) => has.includes(c));
+    })).catch(() => { /* the menu couldn't load: the line stays as the page has it */ });
+  }
+
+  window.AlchemistServices = { mountTable, mountRitual, mountBead, syncIncludes };
 })();

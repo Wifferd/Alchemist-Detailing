@@ -249,7 +249,7 @@
     el.classList.add('in');
     if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); }, 1000);
   }
-  const RISE = ['.why-item', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-photo', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot'];
+  const RISE = ['.why-item', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-photo', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons'];
   function armReveals(scope) {
     $$('[data-reveal]', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     desyncShine(scope);
@@ -484,6 +484,7 @@
       S.mountTable($('#svc-table'));
       S.mountRitual($('#svc-ritual'));
       S.mountBead($('#svc-bead'));
+      S.syncIncludes($('[data-view="services"]'));
     } catch (e) { /* the price cards below still carry the menu */ }
   }
 
