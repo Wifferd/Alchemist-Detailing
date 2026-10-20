@@ -64,6 +64,47 @@
       reply);
   }
 
+  // The home page's featured review (the owner's §13): the best approved review (the highest rating, a gold detail
+  // first among equals, then the newest) and a link to the rest. Until the owner approves a real review the slot
+  // stays empty and hidden: no heading, no placeholder. The database is asked once, when the visitor is a screen
+  // away from Why Alchemist, so the hero and the wash have the first seconds to themselves. The slot opens only
+  // while home is shown and the slot is below the screen, so nothing the visitor is reading moves (Safari has no
+  // scroll anchoring) and home's remembered position stays true.
+  function mountFeatured(slot, near) {
+    if (!slot || !near || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver((es) => {
+      if (!es.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      load();
+    }, { rootMargin: '0px 0px 100% 0px' });
+    io.observe(near);
+    async function load() {
+      let list = [];
+      try { list = await D.publicReviews(); } catch (e) { return; }
+      if (!Array.isArray(list) || !list.length) return;
+      const top = list.slice().sort((a, b) => (b.rating - a.rating) || (+!!b.is_gold - +!!a.is_gold))[0];   // a stable sort: the newest among equals
+      const body = el('div.wrap',
+        el('div.section-head', el('p.eyebrow', 'Reviews'), el('h2.display#featuredTitle', 'In their words'), el('div.rule', { 'data-reveal': '' })),
+        el('div.feat-card', review(top)),
+        el('div.feat-foot', el('a.note-link', { href: '#reviews' }, 'All reviews', el('span.arrow', { 'aria-hidden': 'true' }, '→'))));
+      const next = slot.nextElementSibling;
+      const clear = () => !!next && next.getClientRects().length > 0 && next.getBoundingClientRect().top >= window.innerHeight;
+      let tick = false;
+      const open = () => {
+        tick = false;
+        if (!clear()) return;
+        window.removeEventListener('scroll', onScroll);
+        window.removeEventListener('hashchange', onScroll);
+        slot.replaceChildren(body);
+        slot.hidden = false;
+      };
+      function onScroll() { if (!tick) { tick = true; requestAnimationFrame(open); } }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('hashchange', onScroll);
+      open();
+    }
+  }
+
   function mount(container) { root = container; render(); }
   async function render() {
     root.replaceChildren(U.loading('Loading…'));
@@ -81,5 +122,5 @@
         : el('div.rv-empty', stars(0, false), el('p', 'Reviews from Alchemist customers will appear here as they come in.'), el('div.bk-actions', bookNow(), google()), signIn()));
     root.replaceChildren(page);
   }
-  window.AlchemistReviews = { mount };
+  window.AlchemistReviews = { mount, mountFeatured };
 })();

@@ -112,15 +112,18 @@ vec3 envFast(vec2 q, float t, float sharp){ return envAt(dot(q, LD) - lightPos(t
 // The nearest bead to g in a jittered grid: its offset o from the centre (in radii), its
 // radius rr (grid cells) and distance tt (radii). Radii follow a power law (most beads tiny,
 // few large); beads sag downward; a few of the large ones trail a run where two merged.
-float beads(vec2 g, float density, float rmin, float rmax, float sag, float runs, out vec2 o, out float rr, out float tt){
+// clr is a clearing (its centre in grid cells, and the scale to its ellipse), hole how much it
+// clears: a bead is kept or dropped by its centre, so none is ever cut through.
+float beads(vec2 g, float density, float rmin, float rmax, float sag, float runs, vec4 clr, float hole, out vec2 o, out float rr, out float tt){
   vec2 id = floor(g);
   float best = 9.0;
   o = vec2(0.0); rr = 0.0;
   for (int j = -1; j <= 1; j++){
     for (int i = -1; i <= 1; i++){
       vec2 cid = id + vec2(float(i), float(j));
-      if (hash21(cid*0.731 + 4.1) > density) continue;
       vec2 c = cid + 0.2 + hash22(cid*1.37 + 3.1)*0.6;
+      float kept = hole > 0.0 ? mix(1.0, smoothstep(0.28, 0.58, length((c - clr.xy)*clr.zw)), hole) : 1.0;
+      if (hash21(cid*0.731 + 4.1) > density*kept) continue;
       float r = mix(rmin, rmax, pow(hash21(cid + 7.7), 2.2));
       vec2 dv = g - c;
       dv.x *= 1.0 + (hash21(cid + 5.5) - 0.5)*0.24;
@@ -147,8 +150,11 @@ float beads(vec2 g, float density, float rmin, float rmax, float sag, float runs
 #define K0 0
 #define RUNS 1.0
 #endif
-vec3 paint(vec2 uv, float asp, float t, float density, float zoom){
+// hole: 0..1, a clearing behind the hero's text (the studio on a wide screen): the drops thin out
+// over an ellipse round the wordmark, tagline and buttons and keep their crisp edges everywhere else
+vec3 paint(vec2 uv, float asp, float t, float density, float zoom, float hole){
   vec2 q = (uv - 0.5)*vec2(asp, 1.0)*1.35*zoom + vec2(t*0.006, t*0.0025);
+  vec2 qc = vec2(t*0.006, t*0.0025);    // the text block's centre: the middle of the screen
   // shallow depth of field: sharp across the middle band, soft above and below
   float blur = smoothstep(0.10, 0.48, abs(uv.y - 0.46 - 0.04*sin(t*0.05)));
   float d0 = lightD(q, t);
@@ -170,8 +176,9 @@ vec3 paint(vec2 uv, float asp, float t, float density, float zoom){
     float keep = k <= 1 ? 1.0 - smoothstep(0.45, 0.65, blur) : 1.0;
     if (keep <= 0.0) continue;
     vec2 o; float rr; float tn;
+    vec4 clr = vec4(qc*sc + float(k)*17.3, vec2(0.7, 1.2)/(1.35*zoom*sc));   // on screen: length((uv - .5)*vec2(asp*.7, 1.2))
     // on cream paint every drop shows, so the studio carries fewer of them and the wordmark keeps its room
-    float b = beads(q*sc + float(k)*17.3, dens*density*(1.0 - 0.4*uStudio), rmin, rmax, k == 0 ? 0.0 : sag, k >= 3 ? RUNS : 0.0, o, rr, tn);
+    float b = beads(q*sc + float(k)*17.3, dens*density*(1.0 - 0.4*uStudio), rmin, rmax, k == 0 ? 0.0 : sag, k >= 3 ? RUNS : 0.0, clr, hole, o, rr, tn);
     if (b < 0.5) continue;
     float soft = 0.025 + blur*0.30*(k == 4 ? 1.0 : 0.7);
     float a = (1.0 - smoothstep(1.0 - soft, 1.0 + soft, tn))*keep;
@@ -341,7 +348,9 @@ vec3 leather(vec2 uv, float asp, float t){
   const HERO_MAIN = `
 void main(){
   vec2 uv = gl_FragCoord.xy/uRes;
-  vec3 c = paint(uv, uRes.x/uRes.y, uTime, uDensity, uZoom);
+  float asp = uRes.x/uRes.y;
+  // the studio's clearing behind the text, on wide screens only (a phone's drops already leave the text its room)
+  vec3 c = paint(uv, asp, uTime, uDensity, uZoom, uStudio*smoothstep(0.9, 1.2, asp));
   gl_FragColor = vec4(finish(c, uv), 1.0);
 }`;
 
@@ -350,14 +359,14 @@ void main(){
   vec2 uv = gl_FragCoord.xy/uRes;
   float asp = uRes.x/uRes.y;
   vec3 c;
-  if (uScene < 0.5) c = paint(uv, asp, uTime, 0.32, 1.12);
-  else if (uScene < 1.5) c = paint(uv, asp, uTime, 1.0, 1.0);
+  if (uScene < 0.5) c = paint(uv, asp, uTime, 0.32, 1.12, 0.0);
+  else if (uScene < 1.5) c = paint(uv, asp, uTime, 1.0, 1.0, 0.0);
   else if (uScene < 2.5) c = leather(uv, asp, uTime);
   else if (uScene < 3.5) {
     // paint above a diagonal, leather below, a thin gold trim between
     vec2 q = (uv - 0.5)*vec2(asp, 1.0);
     float m = q.y + q.x*0.42 - 0.04;
-    vec3 a = paint(uv, asp, uTime, 0.55, 1.05);
+    vec3 a = paint(uv, asp, uTime, 0.55, 1.05, 0.0);
     vec3 b = leather(uv, asp, uTime + 3.0);
     c = mix(b, a, smoothstep(-0.004, 0.004, m));
     float trim = exp(-m*m*26000.0);

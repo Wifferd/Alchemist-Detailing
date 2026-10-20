@@ -249,7 +249,7 @@
     el.classList.add('in');
     if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); }, 1000);
   }
-  const RISE = ['.why-item', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-photo', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons'];
+  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-photo', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons'];
   function armReveals(scope) {
     $$('[data-reveal]', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     desyncShine(scope);
@@ -288,7 +288,7 @@
   const ioAway = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle('offscreen', !e.isIntersecting)), { rootMargin: '10% 0px' });
 
   // Press: one feel for every pressable, from a delegated pointerdown (released 80ms after the pointer lets go).
-  const PRESS = '.btn, .icon-btn, .choice-item, .svc-opt, .cal-day, .mini-btn, .link, .gal-tile, .work-item, .el-tile, .rit, .tm-thumb, .adm-tile, .adm-nav a, .appt-head:not(.static), .svc-jump a, .faq-item summary, .menu nav a, .theme-btn, .cal-item';
+  const PRESS = '.btn, .icon-btn, .choice-item, .svc-opt, .cal-day, .mini-btn, .link, .gal-tile, .work-item, .door, .el-tile, .rit, .tm-thumb, .adm-tile, .adm-nav a, .appt-head:not(.static), .svc-jump a, .faq-item summary, .menu nav a, .theme-btn, .cal-item';
   let pressedEl = null;
   function release() {
     const el = pressedEl;
@@ -315,7 +315,7 @@
     let px = 0, py = 0, hxTick = false;
     document.addEventListener('pointermove', (e) => {
       px = e.clientX; py = e.clientY;
-      const t = e.target.closest('.price-card, .svc-opt, .why-item, .btn-gold, .appt, .rv, .work-item, .el-tile, .tip');
+      const t = e.target.closest('.price-card, .svc-opt, .why-item, .btn-gold, .appt, .rv, .work-item, .el-tile, .tip, .door');
       if (t) {
         const r = t.getBoundingClientRect();
         t.style.setProperty('--mx', ((px - r.left) / r.width * 100).toFixed(1) + '%');
@@ -454,6 +454,11 @@
       }, { passive: true });
     }
   })();
+  // ---------------------------------------------------------------- home, after Our work: the featured review and two doorways
+  // The doorways quote the approved Tips and About words (content.js); the review slot stays empty until the owner
+  // has approved a real review (reviews.js asks once, as the visitor nears Why Alchemist).
+  if (window.AlchemistContent && window.AlchemistContent.mountDoors) window.AlchemistContent.mountDoors($('#doors'));
+  if (window.AlchemistReviews && window.AlchemistReviews.mountFeatured) window.AlchemistReviews.mountFeatured($('#featured'), $('#why'));
   // The services page's photo plates drift the same way (-14..14px) while they are on screen.
   (function plates() {
     const plates = $$('.group-plate');

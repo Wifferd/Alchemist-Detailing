@@ -94,6 +94,25 @@
     return e;
   }
 
+  // The home page's two doorways (after Our work): the first tip and the About page's opening line, quoted from
+  // DRAFT so the home page and the pages always say the same. Each card is one link, named by its line and action.
+  function mountDoors(section) {
+    const grid = section && section.querySelector('.door-grid');
+    if (!grid) return;
+    const [tipTitle, tipText] = DRAFT.tips.items[0];
+    const whole = (t) => t.split(/(\S+-\S+)/).map((w, i) => (i % 2 ? el('span.door-nobr', w) : w));   // "owner-run" never breaks at its hyphen
+    const door = (key, href, eyebrow, line, text, go) => el('a.door', { href, 'aria-labelledby': 'door-' + key + '-l door-' + key + '-g', 'aria-describedby': text ? 'door-' + key + '-t' : null },
+      el('span.eyebrow', eyebrow),
+      el('span.line', { 'aria-hidden': 'true' }),
+      el('span.door-line', { id: 'door-' + key + '-l' }, whole(line)),
+      text ? el('span.door-text', { id: 'door-' + key + '-t' }, text) : null,
+      el('span.door-go', { id: 'door-' + key + '-g' }, go, el('span.arrow', { 'aria-hidden': 'true' }, '→')));
+    grid.replaceChildren(
+      door('tips', '#tips', DRAFT.tips.eyebrow, tipTitle, tipText, 'Read the tips'),
+      door('about', '#about', DRAFT.about.eyebrow, DRAFT.about.intro, null, 'About us'));
+    section.hidden = false;
+  }
+
   let root = null;
   function mount(container, page) { root = container; render(page); }
   function render(page) {
@@ -116,5 +135,5 @@
       el('a.btn.btn-glass', { href: '#services' }, 'Services and prices'));
     root.replaceChildren(el('div.wrap.content-page', head, body, actions));
   }
-  window.AlchemistContent = { mount, DRAFT };
+  window.AlchemistContent = { mount, mountDoors, DRAFT };
 })();

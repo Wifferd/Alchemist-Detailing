@@ -741,6 +741,45 @@ section { position: relative; }
 .why-item h3::before { content: ""; display: block; width: 24px; height: 1px; background: var(--gold); margin: 0 0 14px; }
 .why-item p { margin: 0; color: var(--ink-2); font-size: var(--fs-md); }
 
+/* ---------------------------------------------------------------- after Our work: the featured review and the doorways
+   The review slot holds one approved review (reviews.js), centred under its head with a quiet link to the rest; it
+   is not on the page at all until a real one exists. The doorways are two dark glass cards, each one link: the
+   eyebrow, a short gold line, the approved words, a quiet action pinned to the foot. */
+.featured { padding-block: clamp(56px, 9vh, 104px) clamp(24px, 4vh, 48px); }
+.feat-card { display: flex; justify-content: center; }
+.feat-card .rv { flex: 0 1 760px; }
+.feat-card .rv.cert { flex: 0 1 880px; }   /* the certificate's own rule would let it grow */
+.feat-card .rv:not(.cert) .rv-body { font-size: clamp(18px, 1.6vw, 20px); }
+.feat-foot { display: flex; justify-content: center; margin-top: var(--s-3); }
+.doors { padding-block: clamp(40px, 7vh, 88px) clamp(24px, 4vh, 48px); }
+.door-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.door {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: clamp(28px, 3.2vw, 44px);
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+  color: var(--ink);
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: transform .35s var(--ease), border-color .4s var(--ease);
+}
+.door .line { width: 44px; height: 1px; margin: 18px 0 22px; background: linear-gradient(90deg, var(--gold), transparent); }
+.door-line { max-width: 30ch; font: 400 clamp(21px, 2vw, 26px)/1.35 var(--font-ui); letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }
+.door-nobr { white-space: nowrap; }
+.door-text { margin-top: 12px; max-width: 52ch; font-size: var(--fs-md); line-height: 1.6; color: var(--ink-2); text-wrap: pretty; }
+/* the quiet action (the .note-link look), at the card's foot so the two cards' actions share a line */
+.door-go { margin-top: auto; padding-top: 28px; display: inline-flex; align-items: center; gap: 10px; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--ink); transition: color .3s var(--ease); }
+.door-go .arrow { color: var(--gold); transition: transform .35s var(--ease); }
+@media (hover: hover) and (pointer: fine) {   /* a mouse only: a tap leaves no gold ring behind */
+  .door:hover { border-color: var(--line); transform: translateY(-2px); }
+  .door:hover .door-go { color: var(--gold-hi); }
+  .door:hover .door-go .arrow { transform: translateX(4px); }
+}
+
 /* ---------------------------------------------------------------- how booking works */
 .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; position: relative; }
 /* the connector draws itself left to right once the list is in view, and the numbers light up one after another */
@@ -1256,6 +1295,20 @@ section { position: relative; }
 /* ---------------------------------------------------------------- phones and tablets */
 @media (max-width: 720px) {
   .menu { backdrop-filter: blur(16px) saturate(120%); -webkit-backdrop-filter: blur(16px) saturate(120%); }   /* a cheaper blur layer on a phone */
+  /* the hero's lower half: when the light bar passes behind the buttons and the place line, a soft shade under them
+     keeps them readable while the bar still reads above; the place line is lifted to full ink on a dark halo and the
+     glass button gets a dark fill, so its shape holds against the gold. The studio (light mode) keeps its own. */
+  .hero::before {
+    background:
+      radial-gradient(90% 34% at 50% 66%, rgba(3, 3, 3, .55), transparent 70%),
+      radial-gradient(60% 46% at 50% 50%, rgba(3, 3, 3, .72), rgba(3, 3, 3, .2) 70%, transparent),
+      linear-gradient(180deg, rgba(5, 5, 5, .55) 0%, transparent 22%, transparent 70%, var(--bg) 100%);
+  }
+  :root:not([data-theme="light"]) .hero .place { color: var(--ink); text-shadow: 0 1px 12px rgba(0, 0, 0, .85), 0 0 2px rgba(0, 0, 0, .6); }
+  :root:not([data-theme="light"]) .hero .btn-glass { background: rgba(0, 0, 0, .42); }
+  .door-grid { grid-template-columns: 1fr; gap: 12px; }
+  .door { padding: 26px 22px; }
+  .door-line { max-width: none; }
 }
 @media (max-width: 980px) {
   .svc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2042,7 +2095,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* hover = a rim of gold light on the edge that follows the pointer (--mx/--my from app.js) */
 .glint { --mx: 50%; --my: 50%; }
 .price-card, .why-item, .appt, .rv { position: relative; }
-.price-card.glint::after, .why-item.glint::after, .svc-opt.glint::after, .appt.glint::after, .rv.glint:not(.gold)::after, .work-item.glint::after, .el-tile.glint::after, .tip.glint::after {
+.price-card.glint::after, .why-item.glint::after, .svc-opt.glint::after, .appt.glint::after, .rv.glint:not(.gold)::after, .work-item.glint::after, .el-tile.glint::after, .tip.glint::after, .door.glint::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -2469,7 +2522,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .svc-top .svc-jump a:hover { border-color: var(--gold); color: #f8dd98; }
 :where([data-theme="light"]) .svc-card { border-color: rgba(20, 18, 12, .08); box-shadow: 0 44px 54px -42px rgba(20, 18, 12, .6), 0 2px 0 rgba(255, 255, 255, .5) inset, 0 0 0 1px rgba(20, 18, 12, .06); }
 /* ---- surfaces: white cards with a contact shadow and a hairline ring; nested things one step warmer */
-:where([data-theme="light"]) :is(.price-card, .addon-list, .why-item, .appt, .tip, .page .card, .svc-notes div, .adm-tile, .cal-col, .bk-more) { background: #fff; border-color: rgba(20, 18, 12, .08); box-shadow: 0 24px 40px -34px rgba(20, 18, 12, .35), 0 0 0 1px rgba(20, 18, 12, .06); }
+:where([data-theme="light"]) :is(.price-card, .addon-list, .why-item, .appt, .tip, .door, .page .card, .svc-notes div, .adm-tile, .cal-col, .bk-more) { background: #fff; border-color: rgba(20, 18, 12, .08); box-shadow: 0 24px 40px -34px rgba(20, 18, 12, .35), 0 0 0 1px rgba(20, 18, 12, .06); }
 :where([data-theme="light"]) .bk { background: var(--panel); border-color: rgba(20, 18, 12, .08); box-shadow: 0 40px 90px -50px rgba(40, 30, 10, .35), 0 0 0 1px rgba(20, 18, 12, .04); }
 :where([data-theme="light"]) :is(.bk-note, .bk-chosen, .acct-static, .bk-summary-card, .adm-panel, .cal-item, .veh, .veh-form, .rv-reply, .faq-item, .bk-suggest) { background: var(--panel-2); border-color: rgba(20, 18, 12, .1); box-shadow: none; }
 :where([data-theme="light"]) .price-card.featured, :where([data-theme="light"]) .appt.adm.gold { background: radial-gradient(120% 70% at 100% 0%, rgba(184, 144, 44, .12), transparent 60%), #fff; border-color: var(--line); }
