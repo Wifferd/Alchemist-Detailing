@@ -185,7 +185,7 @@
               <span class="au-band" aria-hidden="true"></span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.1 5.5 7.3 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.8 8.8 7.6 12 3.5z"/><path d="M9.4 14.2a2.7 2.7 0 0 0 2.6 2.6"/></g></svg>
               <span class="kind">Exterior</span>
-              <span class="from">From <span class="price tnum">$49.99</span></span>
+              <span class="from">From <span class="price tnum" data-price="ext_basic ext_deluxe">$49.99</span></span>
               <p class="desc">Snow-foam pre-wash, wheels, tires and glass, then a hand wash and hand dry.</p>
               <span class="go"><span>Explore<span class="go-k"> Exterior</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
@@ -194,7 +194,7 @@
               <span class="au-band" aria-hidden="true"></span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h5.5a1.5 1.5 0 0 1 1.5 1.6l-.6 7.4H9.3L7.4 5.3A1.5 1.5 0 0 1 8 3.5z"/><path d="M8.6 12.5h8.1a1.6 1.6 0 0 1 1.5 2.1l-.9 2.9H8.2l-1.1-3.1a1.4 1.4 0 0 1 1.5-1.9z"/><path d="M9 17.5l-1 3M16.3 17.5l1 3"/></g></svg>
               <span class="kind">Interior</span>
-              <span class="from">From <span class="price tnum">$59.99</span></span>
+              <span class="from">From <span class="price tnum" data-price="int_basic int_deluxe">$59.99</span></span>
               <p class="desc">Vacuum, plastics, rubber and glass. Deluxe adds deep steam or shampoo and leather care.</p>
               <span class="go"><span>Explore<span class="go-k"> Interior</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
@@ -203,7 +203,7 @@
               <span class="au-band" aria-hidden="true"></span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8l8.2 4.4L12 12.6 3.8 8.2z"/><path d="M3.8 12.1L12 16.5l8.2-4.4"/><path d="M3.8 16L12 20.4l8.2-4.4"/></g></svg>
               <span class="kind">Bundles</span>
-              <span class="from">From <span class="price tnum">$99.99</span></span>
+              <span class="from">From <span class="price tnum" data-price="signature_combo full_detail">$99.99</span></span>
               <p class="desc">Exterior and interior together, for less than booking them separately.</p>
               <span class="go"><span>Explore<span class="go-k"> Bundles</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
@@ -212,7 +212,7 @@
               <span class="au-band" aria-hidden="true"></span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3l7 2.6v5.4c0 4.6-3 8.1-7 9.5-4-1.4-7-4.9-7-9.5V5.9z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></g></svg>
               <span class="kind">Protection</span>
-              <span class="from">From <span class="price tnum">$44.99</span></span>
+              <span class="from">From <span class="price tnum" data-price="perfect_finish_sealant">$44.99</span></span>
               <p class="desc">WetGloss spray sealant for gloss and water beading, added after a wash. Lasts several weeks.</p>
               <span class="go"><span>Explore<span class="go-k"> Protection</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
@@ -337,40 +337,50 @@
       <h1 class="display gold-text">The Menu</h1>
       <p>Professional-grade products, finished by hand. Prices are for standard-size vehicles, and you pay in person.</p>
       <span class="rule" data-reveal></span>
-      <nav class="svc-jump" aria-label="Service groups">
-        <a href="#services-exterior">Exterior</a><a href="#services-interior">Interior</a><a href="#services-bundles">Bundles</a><a href="#services-protection">Protection</a>
-      </nav>
     </div>
   </section>
+  <!-- the chapter bar: the four groups, docked at the header's foot, then held under the top bar (app.js marks the group
+       on the screen with one gold line, and slides the bar away on the way down and back on the way up) -->
+  <nav class="svc-jump" id="svcJump" aria-label="Service groups">
+    <div class="svc-jump-row">
+      <a href="#services-exterior" data-group="svc-exterior"><span class="no tnum" aria-hidden="true">01</span>Exterior</a><a href="#services-interior" data-group="svc-interior"><span class="no tnum" aria-hidden="true">02</span>Interior</a><a href="#services-bundles" data-group="svc-bundles"><span class="no tnum" aria-hidden="true">03</span>Bundles</a><a href="#services-protection" data-group="svc-protection"><span class="no tnum" aria-hidden="true">04</span>Protection</a>
+      <span class="svc-jump-ink" aria-hidden="true"></span>
+    </div>
+  </nav>
   <div class="wrap">
     <!-- the Alchemist's Table (the owner's design): filled by services.js when the page first opens -->
     <section class="table-sec" id="svc-table" aria-labelledby="tableTitle"></section>
 
+    <!-- Each group opens like a model page: a tall photo plate with its place in the menu (01 / 04), then the tiers.
+         Prices, times and mobile charges on the cards are the menu's (services.js fills them from the database through
+         data-price, data-time and data-mobile; what is written here is the menu as seeded, shown until it answers). -->
     <section class="svc-group" id="svc-exterior" aria-labelledby="gExterior">
       <div class="group-head">
         <figure class="group-plate polish">
           <img src="img/work/brake-1200.webp" srcset="img/work/brake-600.webp 600w, img/work/brake-1200.webp 1200w, img/work/brake-1800.webp 1800w, img/work/brake-2400.webp 2400w" sizes="(max-width: 720px) 140vw, 1650px" alt="Red brake caliper and tire behind a wet black wheel" width="1200" height="1600" loading="lazy" decoding="async">
+          <p class="plate-no" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.1 5.5 7.3 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.8 8.8 7.6 12 3.5z"/><path d="M9.4 14.2a2.7 2.7 0 0 0 2.6 2.6"/></g></svg><b class="tnum">01</b><i>/</i><span class="tnum">04</span></p>
           <figcaption>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.1 5.5 7.3 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.8 8.8 7.6 12 3.5z"/><path d="M9.4 14.2a2.7 2.7 0 0 0 2.6 2.6"/></g></svg>
             <h2 class="display" id="gExterior">Exterior</h2>
             <p>Wash, wheels, tires and glass, finished by hand.</p>
           </figcaption>
         </figure>
       </div>
       <div class="price-grid">
-        <article class="price-card">
+        <article class="price-card" data-code="ext_basic">
           <h3>Exterior Basic</h3>
-          <p class="amount tnum">$49.99</p>
+          <p class="amount tnum" data-price="ext_basic">$49.99</p>
+          <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="ext_basic">60 min</dd></div><div><dt>Mobile</dt><dd class="tnum" data-mobile="ext_basic">+2.5%</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
           <ul class="checks"><li>Snow-foam pre-wash</li><li>Brake Buster wheel and tire cleaning</li><li>Tire cleaning</li><li>Exterior glass</li><li>Thorough hand wash and hand dry with professional-grade chemicals</li></ul>
           <a class="btn btn-glass" href="#book-eb">Book this service <span class="arrow" aria-hidden="true">→</span></a>
         </article>
-        <article class="price-card featured">
+        <article class="price-card featured" data-code="ext_deluxe">
           <span class="tag">Deluxe</span>
           <h3>Exterior Deluxe</h3>
-          <p class="amount tnum">$94.99</p>
+          <p class="amount tnum" data-price="ext_deluxe">$94.99</p>
+          <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="ext_deluxe">90 min</dd></div><div><dt>Mobile</dt><dd class="tnum" data-mobile="ext_deluxe">+7%</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
-          <ul class="checks"><li>Everything in Exterior Basic</li><li>Green Star pre-treatment where appropriate</li><li>Koch-Chemie Hydro Foam Sealant S0.03</li><li>Enhanced gloss and water-beading protection</li></ul>
+          <ul class="checks"><li data-base="ext_basic">Everything in Exterior Basic</li><li>Green Star pre-treatment where appropriate</li><li>Koch-Chemie Hydro Foam Sealant S0.03</li><li>Enhanced gloss and water-beading protection</li></ul>
           <a class="btn btn-gold shine" href="#book-ed">Book this service <span class="arrow" aria-hidden="true">→</span></a>
         </article>
       </div>
@@ -382,8 +392,8 @@
       <div class="group-head">
         <figure class="group-plate">
           <canvas data-art="leather" data-t="10.6" data-k=".6" data-studio="0" width="1180" height="450" aria-hidden="true"></canvas>
+          <p class="plate-no" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h5.5a1.5 1.5 0 0 1 1.5 1.6l-.6 7.4H9.3L7.4 5.3A1.5 1.5 0 0 1 8 3.5z"/><path d="M8.6 12.5h8.1a1.6 1.6 0 0 1 1.5 2.1l-.9 2.9H8.2l-1.1-3.1a1.4 1.4 0 0 1 1.5-1.9z"/><path d="M9 17.5l-1 3M16.3 17.5l1 3"/></g></svg><b class="tnum">02</b><i>/</i><span class="tnum">04</span></p>
           <figcaption>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h5.5a1.5 1.5 0 0 1 1.5 1.6l-.6 7.4H9.3L7.4 5.3A1.5 1.5 0 0 1 8 3.5z"/><path d="M8.6 12.5h8.1a1.6 1.6 0 0 1 1.5 2.1l-.9 2.9H8.2l-1.1-3.1a1.4 1.4 0 0 1 1.5-1.9z"/><path d="M9 17.5l-1 3M16.3 17.5l1 3"/></g></svg>
             <h2 class="display" id="gInterior">Interior</h2>
             <p class="motto">Restore<i>.</i> Refresh<i>.</i> Reset<i>.</i></p>
             <p>From a full vacuum and wipe-down to deep steam and leather care.</p>
@@ -391,19 +401,21 @@
         </figure>
       </div>
       <div class="price-grid">
-        <article class="price-card">
+        <article class="price-card" data-code="int_basic">
           <h3>Interior Basic</h3>
-          <p class="amount tnum">$59.99</p>
+          <p class="amount tnum" data-price="int_basic">$59.99</p>
+          <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="int_basic">60 min</dd></div><div><dt>Mobile</dt><dd class="tnum" data-mobile="int_basic">+2.5%</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
           <ul class="checks"><li>Full interior vacuum</li><li>Dash and plastics cleaned</li><li>Top Star on plastics</li><li>Gummifix on rubber and mats</li><li>Interior glass</li><li>General wipe-down</li></ul>
           <a class="btn btn-glass" href="#book-ib">Book this service <span class="arrow" aria-hidden="true">→</span></a>
         </article>
-        <article class="price-card featured">
+        <article class="price-card featured" data-code="int_deluxe">
           <span class="tag">Deluxe</span>
           <h3>Interior Deluxe</h3>
-          <p class="amount tnum">$134.99</p>
+          <p class="amount tnum" data-price="int_deluxe">$134.99</p>
+          <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="int_deluxe">2 h</dd></div><div><dt>Mobile</dt><dd class="tnum" data-mobile="int_deluxe">+7%</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
-          <ul class="checks"><li>Everything in Interior Basic</li><li>Deep steam or shampoo</li><li>Carpet and upholstery cleaning</li><li>Drill-brush agitation</li><li>Pol Star and Green Star</li><li>Deeper stain and dirt removal</li><li>Leather Star conditioning</li><li>Steam cleaning included</li><li data-service="int_deluxe" data-includes="cond_pet_hair cond_dirt_sand cond_spills">Pet hair, dirt and light-stain fees included</li></ul>
+          <ul class="checks"><li data-base="int_basic">Everything in Interior Basic</li><li>Deep steam or shampoo</li><li>Carpet and upholstery cleaning</li><li>Drill-brush agitation</li><li>Pol Star and Green Star</li><li>Deeper stain and dirt removal</li><li>Leather Star conditioning</li><li data-service="int_deluxe" data-includes="steam_cleaning">Steam cleaning included</li><li data-service="int_deluxe" data-includes="cond_pet_hair cond_dirt_sand cond_spills">Pet hair, dirt and light-stain fees included</li></ul>
           <a class="btn btn-gold shine" href="#book-id">Book this service <span class="arrow" aria-hidden="true">→</span></a>
         </article>
       </div>
@@ -413,29 +425,37 @@
       <div class="group-head">
         <figure class="group-plate polish">
           <img src="img/work/front-1200.webp" srcset="img/work/front-600.webp 600w, img/work/front-1200.webp 1200w, img/work/front-1800.webp 1800w, img/work/front-2400.webp 2400w" sizes="(max-width: 720px) 100vw, 1180px" alt="Front of a white BMW M2 after a detail" width="1200" height="1600" loading="lazy" decoding="async">
+          <p class="plate-no" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8l8.2 4.4L12 12.6 3.8 8.2z"/><path d="M3.8 12.1L12 16.5l8.2-4.4"/><path d="M3.8 16L12 20.4l8.2-4.4"/></g></svg><b class="tnum">03</b><i>/</i><span class="tnum">04</span></p>
           <figcaption>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8l8.2 4.4L12 12.6 3.8 8.2z"/><path d="M3.8 12.1L12 16.5l8.2-4.4"/><path d="M3.8 16L12 20.4l8.2-4.4"/></g></svg>
             <h2 class="display" id="gBundles">Bundles</h2>
             <p>Exterior and interior together, for less.</p>
           </figcaption>
         </figure>
       </div>
-      <div class="price-grid">
-        <article class="price-card">
+      <!-- the two bundles as a lineup: Signature Combo, what stepping up adds (services.js builds it from the cards'
+           own lines and the database's bundle parts), then the Full Detail Bundle. Each bundle names its parts as
+           links to their groups above. -->
+      <div class="lineup">
+        <article class="price-card bundle" data-code="signature_combo">
+          <span class="sig lg" aria-hidden="true"><small class="tnum">5</small>Sc</span>
           <h3>Signature Combo</h3>
-          <p class="amount tnum">$99.99</p>
-          <p class="saving">$109.98 booked separately. You save <b class="tnum">$9.99</b>, before any mobile charge.</p>
+          <p class="amount tnum" data-price="signature_combo">$99.99</p>
+          <p class="saving" data-saving="signature_combo">$109.98 booked separately. You save <b class="tnum">$9.99</b>, before any mobile charge.</p>
+          <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="signature_combo">2 h</dd></div><div><dt>Mobile</dt><dd class="tnum" data-mobile="signature_combo">+7%</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
-          <ul class="checks"><li>Exterior Basic</li><li>Interior Basic</li></ul>
+          <ul class="checks parts"><li><a href="#services-exterior" data-part="ext_basic">Exterior Basic</a></li><li><a href="#services-interior" data-part="int_basic">Interior Basic</a></li></ul>
           <a class="btn btn-glass" href="#book-sc">Book this service <span class="arrow" aria-hidden="true">→</span></a>
         </article>
-        <article class="price-card featured">
+        <div class="step-up" id="svc-stepup" role="region" hidden></div>
+        <article class="price-card bundle featured" data-code="full_detail">
           <span class="tag">Complete</span>
+          <span class="sig lg au" aria-hidden="true"><small class="tnum">79</small>Au</span>
           <h3>Full Detail Bundle</h3>
-          <p class="amount tnum">$209.99</p>
-          <p class="saving">$229.98 booked separately. You save <b class="tnum">$19.99</b>, before any mobile charge.</p>
+          <p class="amount tnum" data-price="full_detail">$209.99</p>
+          <p class="saving" data-saving="full_detail">$229.98 booked separately. You save <b class="tnum">$19.99</b>, before any mobile charge.</p>
+          <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="full_detail">3½ h</dd></div><div><dt>Mobile</dt><dd class="tnum" data-mobile="full_detail">+7%</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
-          <ul class="checks"><li>Exterior Deluxe</li><li>Interior Deluxe</li><li>Steam cleaning included</li><li data-service="full_detail" data-includes="cond_pet_hair cond_dirt_sand cond_spills">Pet hair, dirt and light-stain fees included</li></ul>
+          <ul class="checks parts"><li><a href="#services-exterior" data-part="ext_deluxe">Exterior Deluxe</a></li><li><a href="#services-interior" data-part="int_deluxe">Interior Deluxe</a></li><li data-service="full_detail" data-includes="steam_cleaning">Steam cleaning included</li><li data-service="full_detail" data-includes="cond_pet_hair cond_dirt_sand cond_spills">Pet hair, dirt and light-stain fees included</li></ul>
           <a class="btn btn-gold shine" href="#book-au">Book this service <span class="arrow" aria-hidden="true">→</span></a>
         </article>
       </div>
@@ -445,8 +465,8 @@
       <div class="group-head">
         <figure class="group-plate">
           <img src="img/work/mirror-1200.webp" srcset="img/work/mirror-600.webp 600w, img/work/mirror-1200.webp 1200w, img/work/mirror-1800.webp 1800w, img/work/mirror-2400.webp 2400w" sizes="(max-width: 720px) 100vw, 1180px" alt="Water beading on a side mirror" width="1200" height="1600" loading="lazy" decoding="async">
+          <p class="plate-no" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3l7 2.6v5.4c0 4.6-3 8.1-7 9.5-4-1.4-7-4.9-7-9.5V5.9z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></g></svg><b class="tnum">04</b><i>/</i><span class="tnum">04</span></p>
           <figcaption>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3l7 2.6v5.4c0 4.6-3 8.1-7 9.5-4-1.4-7-4.9-7-9.5V5.9z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></g></svg>
             <h2 class="display" id="gAddons">Protection and add-ons</h2>
             <p>Added to a detail, never booked on their own.</p>
           </figcaption>
@@ -460,14 +480,14 @@
         <ul class="addon-list">
           <li class="addon-row">
             <div class="addon-main"><b>WetGloss</b></div>
-            <p class="addon-price tnum"><small>From</small>$44.99</p>
-            <p class="addon-meta"><span class="tnum">+30 min</span><span>With an exterior service</span></p>
+            <p class="addon-price tnum"><small>From</small><span data-price="perfect_finish_sealant">$44.99</span></p>
+            <p class="addon-meta"><span class="tnum" data-time="perfect_finish_sealant">+30 min</span><span>With an exterior service</span></p>
             <a class="addon-go" href="#book-wg">Add to a detail <span class="arrow" aria-hidden="true">→</span></a>
           </li>
           <li class="addon-row">
             <div class="addon-main"><b>Steam Cleaning</b><span>Deep steam treatment for carpets, upholstery and interior surfaces. Already included in Interior Deluxe and the Full Detail Bundle.</span></div>
-            <p class="addon-price tnum">$49.99</p>
-            <p class="addon-meta"><span class="tnum">+30 min</span><span>With an interior service that doesn’t include it</span></p>
+            <p class="addon-price tnum" data-price="steam_cleaning">$49.99</p>
+            <p class="addon-meta"><span class="tnum" data-time="steam_cleaning">+30 min</span><span>With an interior service that doesn’t include it</span></p>
             <a class="addon-go" href="#book-st">Add to a detail <span class="arrow" aria-hidden="true">→</span></a>
           </li>
         </ul>

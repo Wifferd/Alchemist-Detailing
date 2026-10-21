@@ -1045,7 +1045,7 @@ section { position: relative; }
   min-height: clamp(420px, 62svh, 640px);
   display: grid;
   align-content: end;
-  padding: calc(150px + env(safe-area-inset-top, 0px)) 0 clamp(54px, 8vh, 84px);
+  padding: calc(150px + env(safe-area-inset-top, 0px)) 0 calc(clamp(54px, 8vh, 84px) + 40px);   /* room at the foot for the chapter bar docked across it */
   text-align: center;
   background: var(--panel);
 }
@@ -1058,30 +1058,78 @@ section { position: relative; }
 .svc-top.au-run::before { animation: sweep var(--au-dur-wide) var(--au-ease) 1 both; }   /* its turn in the gold light's queue (app.js) */
 .svc-top::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0, 0, 0, .45) 0%, rgba(0, 0, 0, .12) 38%, rgba(0, 0, 0, .6) 72%, var(--bg) 100%); pointer-events: none; }
 .svc-top .page-head p { text-shadow: 0 1px 18px rgba(0, 0, 0, .6); }
-.svc-jump { margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+/* the chapter bar (app.js): the four groups in a strip of smoked glass, docked across the header's foot; once the header
+   has gone it is held under the top bar. One gold line marks the group in the middle of the screen and slides from link
+   to link; scrolling down slides the bar away under the top bar, the first move up brings it back. Where the browser
+   has no blur it is nearly solid. On a phone the row is one line that scrolls sideways. */
+html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(146px + env(safe-area-inset-top, 0px)); }   /* a group scrolled to, or a focused card, lands clear of both bars */
+.svc-jump {
+  position: sticky;
+  top: calc(82px + env(safe-area-inset-top, 0px));
+  z-index: 50;
+  width: min(100% - 24px, var(--col));
+  height: 52px;
+  margin: -26px auto 0;
+  border-radius: 16px;
+  border: 1px solid var(--hair);
+  background: linear-gradient(180deg, rgba(22, 22, 22, .72), rgba(6, 6, 6, .68));
+  box-shadow: 0 18px 50px -24px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 243, 207, .06);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  transition: transform .5s var(--ease-unveil), opacity .35s var(--ease), background .5s var(--ease);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .svc-jump { background: rgba(8, 8, 8, .96); } }
+.svc-jump:is(.away, .menu-away) { transform: translateY(calc(-100% - 20px)); opacity: 0; pointer-events: none; }
+/* the row: centred while it fits (the auto margins), scrolling sideways once it doesn't, its edges fading where more is hidden */
+.svc-jump-row {
+  --fl: 0px;
+  --fr: 0px;
+  position: relative;
+  display: flex;
+  height: 100%;
+  padding: 0 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
+}
+.svc-jump-row::-webkit-scrollbar { display: none; }
 .svc-jump a {
-  min-height: 44px;
+  flex: none;
   display: inline-flex;
   align-items: center;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, .03);
+  gap: 10px;
+  padding: 0 clamp(12px, 1.9vw, 24px);
+  border-radius: 12px;
   color: var(--ink-2);
-  font: 700 11px/1 var(--font-ui);
+  font: 700 var(--fs-2xs)/1 var(--font-ui-caps);
   letter-spacing: var(--tr-label);
   text-transform: uppercase;
   text-decoration: none;
+  white-space: nowrap;
+  scroll-snap-align: center;
   touch-action: manipulation;
-  transition: border-color .3s var(--ease), color .3s var(--ease);
+  transition: color .3s var(--ease);
 }
-.svc-jump a:hover { border-color: var(--gold); color: var(--gold-hi); }
+.svc-jump a:first-child { margin-left: auto; }
+.svc-jump a:last-of-type { margin-right: auto; }
+.svc-jump .no { font-weight: 600; letter-spacing: .08em; color: var(--muted); transition: color .3s var(--ease); }
+.svc-jump a:hover, .svc-jump a[aria-current] { color: var(--ink); }
+.svc-jump a[aria-current] .no { color: var(--gold-ink); }
+.svc-jump a:focus-visible { outline-offset: -7px; }   /* inside the strip, where an outer ring would be clipped */
+.svc-jump-ink { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; background: var(--gold); transform-origin: 0 50%; transform: translateX(var(--x, 0px)) scaleX(var(--w, 0)); opacity: 0; pointer-events: none; transition: transform .55s var(--ease-unveil), opacity .35s var(--ease); }
+.svc-jump.marked .svc-jump-ink { opacity: 1; }
 .svc-group { padding-block: clamp(40px, 7vh, 72px); scroll-margin-top: 4px; }   /* html's scroll-padding already clears the bar */
 .svc-group + .svc-group { border-top: 1px solid rgba(255, 255, 255, .05); }
 /* each group opens on a photo plate with its title inside (bottom left, over the card scrim); the picture
    drifts a little with the page (--py from app.js) and keeps dark tokens in both themes */
 .group-head { display: grid; }
-.group-plate { grid-column: 1 / -1; position: relative; margin: 0 0 26px; aspect-ratio: 21 / 8; border-radius: var(--r-lg); overflow: hidden; isolation: isolate; background: var(--panel); border: 1px solid var(--hair); }
+/* each group opens like a car maker's model page: a tall photo plate (62% of the screen; 48% on a phone), its place in
+   the menu at the top left (01 / 04), the title at headline size at the foot */
+.group-plate { grid-column: 1 / -1; position: relative; margin: 0 0 32px; height: clamp(380px, 62vh, 640px); height: clamp(380px, 62svh, 640px); border-radius: var(--r-lg); overflow: hidden; isolation: isolate; background: var(--panel); border: 1px solid var(--hair); }
 .group-plate > img, .group-plate > canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; z-index: -2; filter: brightness(.7); transform: translateY(var(--py, 0px)) scale(1.08); will-change: transform; }
 .group-plate > canvas { background: radial-gradient(90% 70% at 30% 20%, #1e1e1e, #080808); }
 /* the caliper, the disc and the tire: closer in and to the right, so it isn't the Ritual's wheel-hub frame again
@@ -1093,16 +1141,22 @@ section { position: relative; }
    motion and without JavaScript). The scrim's middle is a shade deeper, so the caption holds on the white car */
 .group-plate.polish > img { filter: brightness(.45) saturate(.7); transition: filter 1.4s var(--ease) .3s; }
 .group-plate.polish.au-lit > img, .no-js .group-plate.polish > img { filter: brightness(.92) saturate(1); }
-.group-plate.polish::before { background: linear-gradient(180deg, rgba(5, 5, 5, .05) 0%, rgba(5, 5, 5, .3) 40%, rgba(5, 5, 5, .9) 78%, #050808 100%); }
+.group-plate.polish::before { background: linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .3) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
 .no-webgl .group-plate > canvas, .no-js .group-plate > canvas { background: repeating-linear-gradient(45deg, transparent 0 26px, rgba(226, 185, 82, .14) 26px 27px), repeating-linear-gradient(-45deg, transparent 0 26px, rgba(226, 185, 82, .14) 26px 27px), radial-gradient(90% 70% at 30% 20%, #1e1e1e, #080808); }
-.group-plate::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(5, 5, 5, .05) 0%, rgba(5, 5, 5, .25) 40%, rgba(5, 5, 5, .9) 78%, #050808 100%); }
-.group-plate figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 18px; padding: clamp(18px, 3vw, 32px); color: #f7f7f4; }
-.group-plate svg { grid-row: span 2; width: 40px; height: 40px; color: #e2b952; }
-.group-plate h2 { font-size: clamp(26px, 3.4vw, 40px); color: #f7f7f4; }
+.group-plate::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .25) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
+.group-plate figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: grid; justify-items: start; gap: 14px; padding: clamp(22px, 4vw, 48px); color: #f7f7f4; }
+.group-plate h2 { font-size: var(--fs-h1); font-weight: 300; line-height: .98; color: #f7f7f4; text-indent: -.04em; }
 .group-plate p { margin: 0; color: #d6d6d1; max-width: 58ch; }
+/* the index: the group's mark, its number of the four, and a short gold line */
+.plate-no { position: absolute; z-index: 1; top: clamp(20px, 3.4vw, 40px); left: clamp(22px, 4vw, 48px); margin: 0; display: flex; align-items: center; gap: 9px; font: 600 var(--fs-xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); color: rgba(247, 247, 244, .84); text-shadow: 0 1px 12px rgba(0, 0, 0, .55); }
+/* a soft shade under the index, so it holds over the white car's bonnet and the light leather */
+.plate-no::before { content: ""; position: absolute; z-index: -1; inset: -38px -64px -38px -52px; background: radial-gradient(closest-side, rgba(5, 5, 5, .66), rgba(5, 5, 5, .38) 58%, rgba(5, 5, 5, 0)); pointer-events: none; }
+.plate-no svg { width: 22px; height: 22px; margin-right: 7px; color: #e2b952; filter: drop-shadow(0 1px 8px rgba(0, 0, 0, .5)); }
+.plate-no b { font-weight: 700; color: #f7f7f4; }
+.plate-no i { font-style: normal; }
+.plate-no::after { content: ""; width: 44px; height: 1px; margin-left: 9px; background: linear-gradient(90deg, #f0c966, rgba(226, 185, 82, 0)); }
 /* Interior carries the owner's line under its title (his animation direction, §12), in the hero's tracked capitals */
-#svc-interior .group-plate svg { grid-row: span 3; }
-.group-plate .motto { margin: 1px 0 4px; font: 600 var(--fs-xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-eyebrow); text-transform: uppercase; color: #ece6da; }
+.group-plate .motto { margin: -4px 0 0; font: 600 var(--fs-xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-eyebrow); text-transform: uppercase; color: #ece6da; }
 .group-plate .motto i { font-style: normal; color: #e2b952; }
 /* Protection: the beading moment (the owner's §11; app.js). While .beading the photo and the title wait under black
    paint and a live canvas of the paint lies over the plate (.live): the drops form, a few roll, the gold light passes
@@ -1130,10 +1184,10 @@ section { position: relative; }
 @keyframes cabinPool { to { transform: translate(6%, 8%); } }
 @keyframes cabinUp { to { opacity: 0; } }
 /* the titles of both moments: down until their moment reaches them */
-:is(.beading, .cabin) figcaption > * { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
-:is(.beading.risen, .cabin.on) figcaption > * { opacity: 1; transform: none; }
+:is(.beading, .cabin) :is(figcaption > *, .plate-no) { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
+:is(.beading.risen, .cabin.on) :is(figcaption > *, .plate-no) { opacity: 1; transform: none; }
 .beading.risen figcaption > p { transition-delay: .12s; }
-.cabin.on figcaption > * { transition-delay: 1.5s; }
+.cabin.on :is(figcaption > *, .plate-no) { transition-delay: 1.5s; }
 .cabin.on figcaption > .motto { transition-delay: 1.7s; }
 .cabin.on figcaption > p:last-child { transition-delay: 1.82s; }
 .price-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -1170,6 +1224,89 @@ section { position: relative; }
 .checks li::before { content: ""; width: 12px; height: 7px; margin-top: 7px; border-left: 1.6px solid var(--gold); border-bottom: 1.6px solid var(--gold); transform: rotate(-45deg); }
 .price-card .btn { margin-top: auto; align-self: flex-start; }
 .price-card .checks { margin-bottom: 26px; }   /* the buttons of a pair share one baseline */
+/* the spec line under the price (services.js writes it from the menu): the time on the job, the mobile charge and
+   where it can be done, in hairline cells. A narrow card (the bundle lineup between widths, a small phone) puts
+   Where on its own line under the two figures. */
+.price-card { container: pc / inline-size; }
+.figs { display: grid; grid-template-columns: auto auto minmax(0, 1fr); margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--hair); }
+.figs > div { display: grid; align-content: start; gap: 9px; min-width: 0; padding: 0 clamp(14px, 1.8vw, 22px); border-left: 1px solid var(--hair); }
+.figs > div:first-child { padding-left: 0; border-left: 0; }
+.figs dt { font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.figs dd { margin: 0; font: 600 16px/1.25 var(--font-ui); color: var(--ink); white-space: nowrap; }
+.figs .where dd { display: grid; gap: 3px; font: 500 14px/1.3 var(--font-ui); color: var(--ink-2); }
+@container pc (max-width: 299px) {
+  .figs { grid-template-columns: auto minmax(0, 1fr); }
+  .figs .where { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 14px; margin-top: 14px; padding: 14px 0 0; border-left: 0; border-top: 1px solid var(--hair); }
+  .figs .where dd { display: flex; flex-wrap: wrap; column-gap: 6px; }
+  .figs .where dd > span + span::before { content: "·"; margin-right: 6px; color: var(--muted); }
+}
+/* the bundles as a trim lineup: Signature Combo, what stepping up adds, then the Full Detail Bundle. Each carries its
+   element from the Table (an off-white frame for Sc, the solid gold tile with a gold rim for Au) and names its parts
+   as links to their groups above. Without JavaScript the step-up stays hidden and the two cards sit side by side. */
+.lineup { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.price-card.bundle .tag ~ h3 { padding-right: 0; }   /* the tag sits beside the element, above the title */
+.sig.lg { align-self: flex-start; width: 60px; height: 60px; margin-bottom: 22px; padding: 13px 0 0 4px; border-radius: 6px; border-color: rgba(247, 247, 244, .5); font: 300 28px/1 var(--font-display); }
+.sig.lg small { top: 7px; left: 8px; font-size: 10px; }
+.sig.lg.au { background: var(--gold-grad); border-color: rgba(255, 243, 207, .6); color: var(--on-gold); font-weight: 400; box-shadow: 0 0 0 3px #0c0c0c, 0 0 0 4px rgba(226, 185, 82, .55), 0 14px 30px -14px rgba(226, 185, 82, .6); }
+.sig.lg.au small { color: #3a2a06; font-weight: 700; }
+/* a part's name is a link of at least 44px (the padding, taken back by the negative margin above it); its line sits
+   just under the name (drawn on the content box) and two links never share a pixel */
+.checks.parts a { justify-self: start; margin: -8px -6px 0; padding: 8px 6px 11px; border-radius: 6px; color: var(--ink); text-decoration: none; background: linear-gradient(var(--line), var(--line)) 0 calc(100% + 3px) / 100% 1px no-repeat; background-origin: content-box; transition: color .3s var(--ease), background-image .3s var(--ease); }
+.checks.parts a:hover { color: var(--gold-hi); background-image: linear-gradient(var(--gold), var(--gold)); }
+.checks.parts a:focus-visible { outline-offset: 0; }
+/* what stepping up adds: the difference between the two bundles, worked out by services.js from the cards' own
+   lines (a Deluxe part's lines after "Everything in ...", the fees and steam the bigger bundle includes) and the
+   database's bundle parts; never typed twice. A gold line runs from the one card to the other (down, on a phone) */
+.step-up { position: relative; min-width: 0; display: grid; align-content: start; gap: 20px; padding: calc(clamp(22px, 3vw, 32px) + 54px) clamp(22px, 2.6vw, 34px) 32px; }
+.step-up::before { content: ""; position: absolute; top: calc(clamp(22px, 3vw, 32px) + 30px); left: 0; right: 6px; height: 1px; background: linear-gradient(90deg, rgba(226, 185, 82, .12), var(--gold)); transform: scaleX(0); transform-origin: 0 50%; }
+.step-up::after { content: ""; position: absolute; top: calc(clamp(22px, 3vw, 32px) + 26.5px); right: 1px; width: 8px; height: 8px; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); transform: rotate(45deg); opacity: 0; }
+.step-up.in::before { transform: none; transition: transform 1.2s var(--ease-unveil) .35s; }
+.step-up.in::after { opacity: 1; transition: opacity .4s var(--ease) 1.3s; }
+.step-up > h3 { margin: 0; line-height: 1.6; text-wrap: balance; }
+.su-part { display: grid; align-content: start; gap: 10px; }
+.su-part h4 { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font: 700 var(--fs-xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink); }
+.su-part h4 small { font: 500 13px/1.3 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--muted); }
+.su-list { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; gap: 6px; }
+.su-list li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.su-list li::before { content: "+"; font: 500 15px/1.35 var(--font-ui); color: var(--gold); }
+.su-time { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 4px 0 0; padding-top: 16px; border-top: 1px solid var(--hair); }
+.su-time span { font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.su-time b { font: 600 18px/1 var(--font-ui); color: var(--ink); }
+.su-time small { font-size: 13px; color: var(--muted); }
+/* three across from 1101px: the step-up between the cards */
+@media (min-width: 1101px) {
+  .lineup.has-step { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+}
+/* tablets: the cards side by side, the step-up under them, its parts in three columns (no line between the cards) */
+@media (min-width: 721px) and (max-width: 1100px) {
+  .lineup.has-step .step-up { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 28px; padding: 30px clamp(22px, 3vw, 32px); border-radius: var(--r-lg); border: 1px solid var(--hair); }
+  .lineup.has-step .step-up > :is(h3, .su-time) { grid-column: 1 / -1; }
+  .lineup.has-step .step-up > h3 { margin: 0; }
+  .lineup.has-step .step-up::before, .lineup.has-step .step-up::after { display: none; }
+}
+/* phones: one column, the line running down the left of the step-up from the one card to the other */
+@media (max-width: 720px) {
+  .lineup { grid-template-columns: 1fr; }
+  .lineup.has-step { gap: 0; }
+  .step-up { padding: 34px 4px 38px 42px; }
+  .step-up > h3 { margin: 0; }
+  .step-up::before { top: 0; bottom: 6px; left: 20px; right: auto; width: 1px; height: auto; background: linear-gradient(180deg, rgba(226, 185, 82, .12), var(--gold)); transform: scaleY(0); transform-origin: 50% 0; }
+  .step-up::after { top: auto; bottom: 1px; right: auto; left: 16.5px; transform: rotate(135deg); }
+  /* each part's lines fold away under its name (services.js), so the lineup stays short: a row with a plus that
+     turns into a cross, like the FAQ's */
+  .step-up { gap: 18px; padding-block: 30px 34px; }
+  .su-part.folds { gap: 0; }
+  .su-part.folds + .su-part.folds { margin-top: -18px; }   /* the parts' rows stack, one hairline between them */
+  .su-fold { width: 100%; min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0; padding: 9px 0; border: 0; border-bottom: 1px solid var(--hair); background: none; letter-spacing: inherit; text-transform: inherit; text-align: left; cursor: pointer; touch-action: manipulation; }
+  .step-up > h3 + .su-part.folds .su-fold { border-top: 1px solid var(--hair); }
+  .su-fold > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+  .su-fold::after { content: "+"; flex: none; color: var(--gold); font: 400 20px/1 var(--font-ui); transition: transform .3s var(--ease), color .3s var(--ease); }
+  .su-fold:hover::after { color: var(--gold-hi); }
+  .su-part.open .su-fold::after { transform: rotate(45deg); }
+  .su-part.folds .su-list { padding: 12px 0 16px; border-bottom: 1px solid var(--hair); }
+  .su-part.open .su-list { animation: suOpen .45s var(--ease-unveil) both; }
+}
+@keyframes suOpen { from { opacity: 0; transform: translateY(-6px); } }
 /* the add-ons: one list, a row each (the name and its line, the price, the time and the rule, a text action) */
 .addons { display: grid; gap: 18px; }
 .addons > .eyebrow { margin: 0; }
@@ -1408,7 +1545,7 @@ section { position: relative; }
    tokens, the photo stays dark under the title and only the foot fades into the ivory page */
 :where([data-theme="light"]) .svc-top { background: #0a0a0a; }
 [data-theme="light"] .svc-top { --ink: #f7f7f4; --ink-2: #bdbdb8; --gold-text: linear-gradient(180deg, #fff6d8 0%, #f6dc96 30%, #e2b952 56%, #b88a27 80%, #f0c966 100%); }
-:where([data-theme="light"]) .svc-top::after { background: linear-gradient(180deg, rgba(0, 0, 0, .45) 0%, rgba(0, 0, 0, .4) 62%, rgba(250, 248, 244, .92) 92%, var(--bg) 100%); }
+:where([data-theme="light"]) .svc-top::after { background: linear-gradient(180deg, rgba(0, 0, 0, .45) 0%, rgba(0, 0, 0, .42) 72%, rgba(250, 248, 244, .92) 96%, var(--bg) 100%); }
 
 @media (max-width: 980px) {
   .el-main, .el-panel { flex-basis: 100%; }
@@ -1455,12 +1592,19 @@ section { position: relative; }
   .bead-foot { flex-direction: column; align-items: stretch; }
   .bead-foot .wg { max-width: none; }
   .bead-foot .btn { width: 100%; }
-  .group-plate { aspect-ratio: 4 / 3; border-radius: var(--r-md); }
-  .group-plate figcaption { padding: 16px; gap: 4px 14px; }
-  .group-plate svg { width: 30px; height: 30px; }
+  .group-plate { height: clamp(320px, 48vh, 440px); height: clamp(320px, 48svh, 440px); margin-bottom: 24px; border-radius: var(--r-md); }
+  .group-plate figcaption { padding: 20px; gap: 10px; }
+  .group-plate h2 { font-size: clamp(32px, 9.4vw, 44px); line-height: 1.02; }
+  .plate-no { top: 18px; left: 20px; }
+  .plate-no svg { width: 20px; height: 20px; margin-right: 5px; }
   .svc-top { min-height: 56svh; padding-top: calc(112px + env(safe-area-inset-top, 0px)); }
-  .svc-jump { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(100%, 340px); margin-inline: auto; gap: 8px; }   /* the four groups as an even 2 x 2, not 3 + 1 */
-  .svc-jump a { justify-content: center; padding: 0 12px; }
+}
+/* a phone: the chapter bar under the 58px top bar, the four names alone in one sideways row */
+@media (max-width: 640px) {
+  .svc-jump { top: calc(78px + env(safe-area-inset-top, 0px)); height: 48px; margin-top: -24px; border-radius: 14px; }
+  .svc-jump-row { padding: 0; }
+  .svc-jump a { flex: 1 0 auto; justify-content: center; padding: 0 7px; letter-spacing: .14em; }   /* all four fit from 360px; narrower, the row scrolls */
+  .svc-jump .no { display: none; }
 }
 @media (max-width: 640px) {
   .el-key, .el-note, .el-mini .pr { font-size: 14px; }
@@ -1470,6 +1614,9 @@ section { position: relative; }
   .svc-top.in::before { animation: none; transform: translateX(0); }   /* the pass of light shows as a still */
   .group-plate > img, .group-plate > canvas { --py: 0px; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }
+  .step-up::before { transform: none; }
+  .step-up::after { opacity: 1; }
+  .su-part.open .su-list { animation: none; }
   .rit, .rit img, .rit .tag, .rit .body { transition: none; }
   .bead-film, .bead-hint { display: none; }
 }
@@ -1576,7 +1723,7 @@ section { position: relative; }
 .no-js .rule, .no-js .steps::before { transform: none; }
 .no-js .emblem svg.circle circle { stroke-dashoffset: 0; }
 .no-js .view[data-view="services"] { display: block !important; }   /* the menu, readable without the router */
-.no-js :is(#svc-table, #svc-ritual, #svc-bead) { display: none; }   /* the showroom pieces are built by services.js */
+.no-js :is(#svc-table, #svc-ritual, #svc-bead, #svcJump) { display: none; }   /* the showroom pieces are built by services.js; the chapter bar's links need the router */
 
 /* =====================================================================
    The booking app (#book): one large centred container on the dark
@@ -3327,8 +3474,10 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* ---- the dark photo cards keep the dark tokens: a black car in a white studio */
 [data-theme="light"] :is(.svc-card, .gold-card) { --ink: #f7f7f4; --ink-2: #bdbdb8; --muted: #85857f; --gold: #e2b952; --gold-hi: #f8dd98; --gold-ink: #e2b952; }
 [data-theme="light"] .svc-top .eyebrow { color: #e2b952; }   /* on the header's dark photo */
-[data-theme="light"] .svc-top .svc-jump a { background: rgba(10, 10, 10, .55); border-color: rgba(255, 255, 255, .18); color: #f7f7f4; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }   /* the header keeps dark glass chips on its photo; the light rule for chips elsewhere would make them white with grey text */
-[data-theme="light"] .svc-top .svc-jump a:hover { border-color: var(--gold); color: #f8dd98; }
+/* the chapter bar: ivory glass, dense enough that it never reads as a grey band over the dark plates (nearly solid where
+   there is no blur) */
+:where([data-theme="light"]) .svc-jump { background: rgba(255, 253, 248, .93); border-color: rgba(20, 18, 12, .08); box-shadow: 0 18px 40px -28px rgba(40, 30, 10, .32); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :where([data-theme="light"]) .svc-jump { background: rgba(255, 253, 248, .97); } }
 :where([data-theme="light"]) .svc-card { border-color: rgba(20, 18, 12, .08); box-shadow: 0 44px 54px -42px rgba(20, 18, 12, .6), 0 2px 0 rgba(255, 255, 255, .5) inset, 0 0 0 1px rgba(20, 18, 12, .06); }
 /* ---- surfaces: white cards with a contact shadow and a hairline ring; nested things one step warmer */
 :where([data-theme="light"]) :is(.price-card, .addon-list, .why-item, .appt, .door, .page .card, .svc-notes div, .adm-tile, .cal-col, .bk-more) { background: #fff; border-color: rgba(20, 18, 12, .08); box-shadow: 0 24px 40px -34px rgba(20, 18, 12, .35), 0 0 0 1px rgba(20, 18, 12, .06); }
@@ -3354,7 +3503,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .bk-toggle input { background: #fff; border-color: var(--border-strong); }
 :where([data-theme="light"]) .star-pick button { background: #fff; border-color: var(--border-strong); }
 :where([data-theme="light"]) :is(.choice-item, .cal-day.open) { background: #fff; border-color: var(--border-strong); }
-:where([data-theme="light"]) :is(.adm-nav a, .svc-jump a, .appt-status) { background: #fff; border-color: rgba(20, 18, 12, .22); }
+:where([data-theme="light"]) :is(.adm-nav a, .appt-status) { background: #fff; border-color: rgba(20, 18, 12, .22); }
 :where([data-theme="light"]) .choice-item { box-shadow: 0 1px 2px rgba(20, 18, 12, .05); }
 :where([data-theme="light"]) .svc-opt { background: var(--sheen, none), #fff; border-color: rgba(20, 18, 12, .22); box-shadow: 0 1px 2px rgba(20, 18, 12, .05); }
 :where([data-theme="light"]) .bk-progress .num { background: var(--panel); border-color: rgba(20, 18, 12, .22); }
@@ -3362,6 +3511,9 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .cal-key::before { border-color: rgba(20, 18, 12, .25); }
 :where([data-theme="light"]) .cal-day::before { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(184, 144, 44, .25) 6px 8px); }
 :where([data-theme="light"]) .sig { border-color: rgba(20, 18, 12, .32); }
+:where([data-theme="light"]) .sig.lg { border-color: rgba(20, 18, 12, .4); }
+:where([data-theme="light"]) .sig.lg.au { border-color: rgba(122, 93, 20, .35); box-shadow: 0 0 0 3px #fff, 0 0 0 4px rgba(184, 144, 44, .55), 0 14px 26px -14px rgba(122, 93, 20, .5); }
+:where([data-theme="light"]) .lineup.has-step .step-up { border-color: rgba(20, 18, 12, .1); }
 :where([data-theme="light"]) .sw-tile { background: #fff; border-color: var(--border-strong); box-shadow: 0 1px 2px rgba(20, 18, 12, .05); }
 [data-theme="light"] :is(.svc-opt-price:empty, .sw-price:empty, .time-ph) { --au-slot: rgba(20, 18, 12, .06); --au-wait: rgba(212, 173, 74, .3); }
 :where([data-theme="light"]) :is(.bk-carry, .bk-before) { background: var(--stone); border-color: rgba(20, 18, 12, .1); }
@@ -3424,7 +3576,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (max-width: 640px) {
   .why-item p, .step p, .footer p, .footer a, .bk-note, .checks, .ct-week :is(th, td), .use-on, .lightbox-desc, .pr-line, .sum-body, .svc-notes p, .saving, .addon-main span, .rv-who, .appt-what, .faq-item summary, .tip-body p,
   .sum-list dd, .bk-terms li, .sheet-time, .sheet-notes, .bk-carry-main, .sent-steps b,
-  .section-head p:not(.eyebrow), .page-head p:not(.eyebrow), .show-head p, .el-panel p, .bead-foot .wg p, .rv-reply p { font-size: 16px; }
+  .section-head p:not(.eyebrow), .page-head p:not(.eyebrow), .show-head p, .el-panel p, .bead-foot .wg p, .rv-reply p, .su-list li { font-size: 16px; }
   .bk-muted, .fld-msg, .choice-msg, .choice-sub, .svc-opt-desc, .bk-preview, .sent-steps span, .bk-carry-aside, .bk-carry-wait, .bk-quiet, .svc-note, .cal-item, .fine, .adm-tile small, .bk-h2 small, .appt-when span, .appt-when .appt-hold, .appt-ref, .adm-history summary, .adm-history ul, .bead-price, .bead-ask, .addon-meta { font-size: 14px; }
   .menu-brand small, .foot-brand small { font-size: var(--fs-2xs); }   /* the logo lockup's 10px, lifted on a phone */
 }
@@ -3437,6 +3589,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
   .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after { display: none; }
+  .svc-jump a[aria-current] { text-decoration: underline; text-underline-offset: 6px; }   /* the gold line is painted over: the group on the screen keeps a mark */
 }
 
 /* =====================================================================
@@ -3484,6 +3637,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .group-plate .motto i, .group-plate svg { color: #8f6a1c; }
   .cabin-dark, .cabin-glow { display: none !important; }
   .group-plate figcaption > * { opacity: 1 !important; transform: none !important; }
+  .plate-no, .step-up::before, .step-up::after { display: none !important; }
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: #ddd; }
   :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid #d8d8d8 !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; }

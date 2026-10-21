@@ -342,7 +342,7 @@
     el.classList.add('in');
     if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); }, 1000);
   }
-  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons'];
+  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
   function armReveals(scope) {
     $$('[data-reveal]', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     desyncShine(scope);
@@ -707,9 +707,91 @@
       S.mountTable($('#svc-table'));
       S.mountRitual($('#svc-ritual'));
       S.mountBead($('#svc-bead'));
-      S.syncIncludes($('[data-view="services"]'));
+      S.mountLineup($('#svc-bundles .lineup'));
+      S.syncMenu();   // every price, time and mobile charge on the page (and on the home cards) from the database
     } catch (e) { /* the price cards below still carry the menu */ }
   }
+  // Home's service cards take their "From" prices from the database too, when the visitor nears Why Alchemist (when
+  // the featured review asks it, after the wash: never while its shaders are being built)
+  if (window.AlchemistServices && window.AlchemistServices.syncMenu && $('#why')) onceSeen($('#why'), { rootMargin: '0px 0px 100% 0px' }, () => window.AlchemistServices.syncMenu());
+
+  // ---------------------------------------------------------------- the services chapter bar
+  // The four groups' links, docked across the header's foot; once the header has gone the bar is held under the top
+  // bar (CSS sticky). One gold line marks the group crossing the middle of the screen (aria-current) and slides from
+  // link to link; on a phone the row scrolls sideways to keep it in view. Scrolling down slides the bar away under the
+  // top bar and the first move up brings it back; it stays while it has the focus and while a jump it started is
+  // under way, and goes while the menu is open. Only the visitor's own scrolling sends it away (a wheel, a finger, a
+  // key or a press in the last moment): the router's jumps, a late layout and scroll anchoring never do. Work is done
+  // only on scroll, and only on the services page.
+  let chapterHold = () => {};   // the router calls it just before it scrolls to a group
+  (function chapters() {
+    const bar = $('#svcJump'), top = $('.svc-top');
+    if (!bar || !top) return;
+    const row = $('.svc-jump-row', bar), ink = $('.svc-jump-ink', bar), links = $$('a[data-group]', bar);
+    const groups = links.map((a) => document.getElementById(a.dataset.group));
+    let at = -1, lastY = window.scrollY, held = performance.now() + 1200, tick = false, stickAt = 0, felt = -1e9;
+    const measure = () => { stickAt = parseFloat(getComputedStyle(bar).top) || 0; };
+    function place(a) {
+      if (!a) { bar.classList.remove('marked'); return; }
+      // under the link's words (on a phone the links share out the row's spare width, their words centred)
+      const words = document.createRange();
+      words.selectNodeContents(a);
+      const t = words.getBoundingClientRect(), box = row.getBoundingClientRect();
+      const first = !bar.classList.contains('marked');
+      if (first) ink.style.transition = 'none';   // the first mark appears in place; later ones slide
+      ink.style.setProperty('--x', (t.left - box.left + row.scrollLeft).toFixed(1) + 'px');
+      ink.style.setProperty('--w', Math.max(1, t.width).toFixed(1));
+      if (first) { void ink.offsetWidth; ink.style.transition = ''; }
+      bar.classList.add('marked');
+    }
+    function edges() {
+      const max = row.scrollWidth - row.clientWidth;
+      row.style.setProperty('--fl', row.scrollLeft > 2 ? '28px' : '0px');
+      row.style.setProperty('--fr', max - row.scrollLeft > 2 ? '28px' : '0px');
+    }
+    function mark() {
+      // the last group whose top has passed 42% of the screen; none above the first (the Table), the last below the end
+      const line = window.innerHeight * 0.42;
+      let i = -1;
+      groups.forEach((g, k) => { if (g && g.getBoundingClientRect().top <= line) i = k; });
+      if (i === at) return;
+      at = i;
+      links.forEach((a, k) => { if (k === i) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+      const a = links[i];
+      place(a);
+      if (row.scrollWidth > row.clientWidth + 1) row.scrollTo({ left: a ? a.offsetLeft - (row.clientWidth - a.offsetWidth) / 2 : 0, behavior: reduce ? 'auto' : 'smooth' });
+    }
+    function frame() {
+      tick = false;
+      if (cur !== 'services') return;
+      const y = window.scrollY, dy = y - lastY;
+      lastY = y;
+      const stuck = top.getBoundingClientRect().bottom - bar.offsetHeight / 2 < stickAt + 1;
+      let away = bar.classList.contains('away');
+      if (!stuck || performance.now() < held || bar.contains(document.activeElement)) away = false;
+      else if (dy > 4 && performance.now() - felt < 700) away = true;
+      else if (dy < -4) away = false;
+      bar.classList.toggle('away', away);
+      mark();
+    }
+    const soon = () => { if (!tick) { tick = true; requestAnimationFrame(frame); } };
+    window.addEventListener('scroll', soon, { passive: true });
+    const touched = () => { felt = performance.now(); };
+    ['wheel', 'touchmove', 'keydown', 'pointerdown'].forEach((t) => window.addEventListener(t, touched, { passive: true, capture: true }));
+    // a page or a group opened (a link here, a card on home): the bar stays while the page gets there
+    const hold = () => { held = performance.now() + 1200; };
+    chapterHold = hold;
+    window.addEventListener('hashchange', () => { hold(); requestAnimationFrame(() => { lastY = window.scrollY; edges(); soon(); }); });
+    bar.addEventListener('click', hold);   // the same group again: no hashchange, the page still scrolls there
+    bar.addEventListener('focusin', () => bar.classList.remove('away'));
+    row.addEventListener('scroll', edges, { passive: true });
+    new MutationObserver(() => bar.classList.toggle('menu-away', menu.classList.contains('on'))).observe(menu, { attributes: true, attributeFilter: ['class'] });
+    const again = () => { measure(); edges(); if (at >= 0) place(links[at]); soon(); };
+    window.addEventListener('resize', again);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(again);
+    measure();
+    requestAnimationFrame(again);
+  })();
 
   // ---------------------------------------------------------------- focus on the page
   // A new page puts keyboard and screen-reader users on its heading: the page's h1, or main while an app page
@@ -785,7 +867,7 @@
     if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub);   // already booking: offered, never forced
     if (r === 'services' && sub) {
       const el = document.getElementById('svc-' + sub);
-      if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }));
+      if (el) requestAnimationFrame(() => { chapterHold(); el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }); });
     } else if (changed && !first) {
       window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0);
     }
