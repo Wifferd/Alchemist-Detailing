@@ -91,7 +91,7 @@
     const tall = fit(list, narrow.matches ? 2 : 3);
     body.replaceChildren(el('div.gal-grid', { id: 'galGrid' }, list.map((p, i) => el('figure.gal-tile', { class: tall[i] ? 'tall' : '', style: { '--i': i }, dataset: { key: p.key } },
       el('button.gal-btn', { type: 'button', 'aria-label': 'Open photo: ' + p.cap, onclick: () => open(i) },
-        el('div.gal-media', el('img', { src: src(p.key, 600), srcset: srcset(p.key), sizes: '(max-width: 720px) 50vw, 33vw', alt: p.alt, loading: 'lazy', decoding: 'async', width: 600, height: 800 }))),
+        el('div.gal-media', el('img', { sizes: '(max-width: 720px) 50vw, 33vw', loading: 'lazy', decoding: 'async', srcset: srcset(p.key), src: src(p.key, 600), alt: p.alt, width: 600, height: 800 }))),
       el('figcaption', el('span', p.cap), el('i', 'View'))))));
     arm();
   }
@@ -168,9 +168,9 @@
       NEXT.map((t) => el('div.tm-pair.next', el('div.tm-next', 'Next pair'), el('span', t))));
     const pick = (i) => {
       const p = pairs[i];
-      after.src = src(p.after, 1200); after.srcset = srcset(p.after); after.alt = byKey(p.after).alt || '';
+      after.srcset = srcset(p.after); after.src = src(p.after, 1200); after.alt = byKey(p.after).alt || '';   // the sources after sizes (set when it was made)
       before.replaceChildren(p.before
-        ? el('img', { src: src(p.before, 1200), srcset: srcset(p.before), sizes: after.sizes, alt: byKey(p.before).alt || '', width: 1200, height: 1600, decoding: 'async' })
+        ? el('img', { sizes: after.sizes, decoding: 'async', srcset: srcset(p.before), src: src(p.before, 1200), alt: byKey(p.before).alt || '', width: 1200, height: 1600 })
         : el('div.tm-ph', el('div', el('b', 'Before photo'), el('span', 'Same angle, same light, shot before the wash'))));
       thumbs.querySelectorAll('.tm-thumb').forEach((t, j) => t.setAttribute('aria-pressed', j === i ? 'true' : 'false'));
     };

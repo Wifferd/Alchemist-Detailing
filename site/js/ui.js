@@ -7,12 +7,17 @@
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // el('div.card#id', { attrs }, ...children)
+  const IMG_ORDER = { sizes: 0.5, loading: 0.5, decoding: 0.5, srcset: 2, src: 3 };
   function el(spec, attrs, ...children) {
     if (attrs != null && (typeof attrs !== 'object' || attrs instanceof Node || Array.isArray(attrs))) { children.unshift(attrs); attrs = null; }
     const m = /^([a-z0-9-]+)?((?:[.#][\w-]+)*)$/i.exec(spec) || [];
     const node = document.createElement(m[1] || 'div');
     (m[2] || '').match(/[.#][\w-]+/g)?.forEach((t) => (t[0] === '.' ? node.classList.add(t.slice(1)) : (node.id = t.slice(1))));
-    if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    // an image takes its sizes and loading before its sources, so the browser picks one file, for the right width
+    // (src first made a phone fetch the 1200w file and then the 600w one)
+    const pairs = attrs ? Object.entries(attrs) : [];
+    if (node.tagName === 'IMG') pairs.sort(([a], [b]) => (IMG_ORDER[a] || 1) - (IMG_ORDER[b] || 1));
+    for (const [k, v] of pairs) {
       if (v == null || v === false) continue;
       if (k === 'class') node.className += (node.className ? ' ' : '') + v;
       else if (k === 'style' && typeof v === 'object') for (const [p, val] of Object.entries(v)) { if (p.startsWith('--')) node.style.setProperty(p, val); else node.style[p] = val; }

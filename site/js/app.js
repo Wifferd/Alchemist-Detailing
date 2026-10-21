@@ -355,6 +355,7 @@
     $$('.shine, .scroll-cue', scope).forEach((el) => ioAway.observe(el));
     if (reduce) return;
     $$(ARRIVE, scope).forEach((el) => { if (!el.classList.contains('au-lit')) arriveIo.observe(el); });
+    $$(COUNT, scope).forEach((el) => { if (!el.dataset.counted) countIo.observe(el); });
     const counts = new Map();   // stagger index per parent, so a page is not one long queue
     RISE.forEach((sel) => {
       $$(sel, scope).forEach((el) => {
@@ -367,6 +368,47 @@
         io.observe(el);
       });
     });
+  }
+  // Numbers count upward (animation §19): a time, a mobile charge or the History count runs up from 0 once, over
+  // 600ms, when it is fully on screen. The real figure is in the page from the start (the layout and a screen reader
+  // read it; it is only unseen meanwhile) and an aria-hidden copy counts over it, from the figure as it stands then
+  // (the database's once the menu has answered); should the figure change meanwhile, the copy goes at once. Prices
+  // never count. Not under reduced motion (armReveals stops before this).
+  const COUNT = '.figs dd[data-time], .figs dd[data-mobile], .el-facts b:not(.price), .hist-fig b';
+  const countIo = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { countIo.unobserve(e.target); countUp(e.target); } }), { threshold: 1, rootMargin: '0px 0px -8% 0px' });
+  // the figure at p (0 to 1) of the way up: minutes, hours in halves (½ h, 1 h, 1½ h), a percentage with its own
+  // decimals, a count; anything else (2 h 15 min, a dash) doesn't count
+  function counter(t) {
+    let m;
+    if ((m = /^(\+?)(\d+)(½)? h$/.exec(t))) {
+      const n = +m[2] * 2 + (m[3] ? 1 : 0);
+      return (p) => { const k = Math.round(n * p), h = Math.floor(k / 2); return m[1] + (h || k % 2 ? (h || '') + (k % 2 ? '½' : '') : '0') + ' h'; };
+    }
+    if ((m = /^(\+?)(\d+) min$/.exec(t))) return (p) => m[1] + Math.round(+m[2] * p) + ' min';
+    if ((m = /^(\+?)(\d+)(?:\.(\d+))?%$/.exec(t))) { const v = parseFloat(m[2] + '.' + (m[3] || '0')), d = (m[3] || '').length; return (p) => m[1] + (v * p).toFixed(d) + '%'; }
+    if ((m = /^(\d+)$/.exec(t))) return (p) => String(Math.round(+m[1] * p));
+    return null;
+  }
+  function countUp(n) {
+    if (n.dataset.counted) return;
+    n.dataset.counted = '1';
+    const f = counter(n.textContent.trim());
+    if (!f) return;
+    const copy = document.createElement('span');
+    copy.className = 'count-fig';
+    copy.setAttribute('aria-hidden', 'true');
+    copy.style.color = getComputedStyle(n).color;
+    n.classList.add('counting');
+    n.style.color = 'transparent';
+    n.appendChild(copy);
+    const t0 = performance.now(), ease = (x) => 1 - Math.pow(1 - x, 3);   // a calm ease-out, like --ease
+    const done = () => { copy.remove(); n.classList.remove('counting'); n.style.removeProperty('color'); };
+    (function frame(now) {
+      if (!copy.isConnected) return done();   // the figure was written again (the menu answered): it shows as it is
+      const p = Math.min(1, Math.max(0, (now - t0) / 600));
+      copy.textContent = f(ease(p));
+      if (p < 1) requestAnimationFrame(frame); else done();
+    })(t0);
   }
   // What is already on screen when a page opens shows at once, in its stagger, without waiting for the observer.
   function revealAbove(scope) {
@@ -869,6 +911,7 @@
       if (view === 'home') startHero();
       setName(NAMES[r]);
       if (footer) footer.classList.toggle('lean', r === 'contact');   // Contact carries the place, hours and phone itself: the footer keeps the brand and the pages
+      if (footer) footer.classList.toggle('staff', r === 'admin' || r === 'team');   // the staff consoles are tools: one quiet line, no marketing footer (owner §26, §36)
       $$('nav a', menu).forEach((a) => {
         if (a.getAttribute('href') === '#' + r) a.setAttribute('aria-current', 'page');
         else a.removeAttribute('aria-current');

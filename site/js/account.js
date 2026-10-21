@@ -85,8 +85,17 @@
       el('h1.display.soon-title', 'Online accounts are coming soon'),
       el('p.soon-text', 'Until then you can book without one: we call or text you to confirm. To check, change or cancel a booking, call us.'),
       el('div.soon-actions',
-        el('a.btn.btn-gold.shine', { href: '#book' }, 'Book a detail'),
-        el('a.acct-go', { href: telHref() }, el('span', 'Call ', el('span.tnum', phone)), arrow())));
+        el('a.btn.btn-gold.shine', { href: '#book' }, 'Book a detail', arrow()),
+        el('a.acct-go', { href: telHref() }, telMark(), el('span', 'Call ', el('span.tnum', phone)))));
+  }
+  function telMark() {   // the menu's phone mark: a call carries it, never an arrow (as on the home page and Contact)
+    const NS = 'http://www.w3.org/2000/svg';
+    const s = document.createElementNS(NS, 'svg'), p = document.createElementNS(NS, 'path');
+    s.setAttribute('class', 'tel-mark'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
+    p.setAttribute('d', 'M6.6 3.8l2.3-.4 1.6 3.9-1.8 1.3a11 11 0 0 0 4.7 4.7l1.3-1.8 3.9 1.6-.4 2.3a2 2 0 0 1-2 1.7A15.6 15.6 0 0 1 4.9 5.8a2 2 0 0 1 1.7-2z');
+    p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '1.7'); p.setAttribute('stroke-linejoin', 'round');
+    s.appendChild(p);
+    return s;
   }
 
   // ---------------------------------------------------------------- sign in (shared)

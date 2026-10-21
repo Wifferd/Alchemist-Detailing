@@ -354,6 +354,7 @@
     }
   }
 
+  let daysWait = false;   // step 05 waits for its open days to show the first one (revealDays)
   // A step change: the page is brought to the top of the card first, plainly, so the page never shrinks under a
   // smooth scroll (the footer used to flash on Back); then the new step slides in and its title takes focus.
   function show(n) {
@@ -363,6 +364,8 @@
     window.scrollTo({ top: cardTop(), behavior: 'auto' });
     render();
     focusTitle();
+    daysWait = false;
+    if (n === 5) revealDays(true);
   }
   async function go(n) {
     if (busy) return;
@@ -944,6 +947,7 @@
     const grid = el('div.cal-grid', { role: 'group' });
     const arrow = (d, label, sign) => el('button.icon-btn.small', { type: 'button', 'aria-label': label, onclick: (e) => {
       const btn = e.currentTarget, had = document.activeElement === btn;
+      daysWait = false;   // the visitor is choosing a month: the page stays where it is
       w.month = new Date(w.month.getFullYear(), w.month.getMonth() + d, 1);
       paintMonth(d);
       if (had && btn.disabled) (d < 0 ? nextBtn : prevBtn).focus({ preventScroll: true });
@@ -1035,6 +1039,19 @@
     row.scrollTo({ left: row.scrollLeft + (b.left + b.right) / 2 - (r.left + r.right) / 2, behavior: glide && !reduce ? 'smooth' : 'auto' });
   }
   const showChosenTile = () => showTile(root.querySelector('.sw-grid .sw-tile.on'), false);
+  // Step 05 just opened (a click, so no finger is on the glass): on a short phone the first day that can be booked (or
+  // the chosen one) can sit under the sticky bar, so the page moves just enough to show its week, never so far that
+  // "Your service" goes under the floating top bar; nothing moves when it is already in sight. The open days can land
+  // after the step is drawn (loadCalendar), so it waits for them once (wait, daysWait); a month change never moves the page.
+  function revealDays(wait) {
+    const day = root.querySelector('.cal-day.on') || root.querySelector('.cal-day.open'), chosen = root.querySelector('.bk-chosen');
+    if (!day) { daysWait = !!wait; return; }
+    daysWait = false;
+    if (!chosen) return;
+    const s = sight();
+    const by = Math.min(day.getBoundingClientRect().bottom - s.bottom, chosen.getBoundingClientRect().top - s.top + 4);
+    if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+  }
   // The strip just opened (a click, so no finger is on the glass): the page moves just enough for the whole calendar
   // to sit over the sticky bar, never so far that "Your service" goes under the floating top bar; nothing moves when
   // the calendar is already in sight
@@ -1143,6 +1160,7 @@
         b.setAttribute('aria-label', longDate(iso) + (w.calendar[iso] === false ? ', full' : ''));
       });
       if (w.date && w.calendar[w.date] === false) dropDay('That day no longer fits this booking. Pick another.');
+      if (daysWait && step === 5) revealDays(false);
     } catch (e) { toast(e.message); }
   }
   // The chosen day is marked (the gold circle), or none is

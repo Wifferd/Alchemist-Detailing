@@ -171,19 +171,42 @@
   const labelOf = (list, code) => ((menu.options[list] || []).find((o) => o.code === code) || {}).label || code;
   const isGold = (b) => b.total_cents != null && b.total_cents >= 20000;   // the 200+ gold rule (doc 22): shown gold in admin
 
-  // One booking as a card: the head opens the details. A compact card (opts.compact) is a copy shown in a second
-  // list (a request under Today or Tomorrow): a plain head, no body, so every booking opens in one place only.
+  const car = (b) => b.vehicle_not_sure ? (b.vehicle_description || 'Not sure') : [b.vehicle_year, b.vehicle_make, b.vehicle_model].filter(Boolean).join(' ');   // the row's car: the colour is in the details
+  const holdShort = (iso) => { const m = (new Date(iso) - Date.now()) / 60000; return m <= 0 ? 'expired' : m < 90 ? Math.round(m) + ' min' : Math.round(m / 60) + ' h'; };
+  // the status by its form, not only its shade (owner §28): confirmed is a filled pill with ✓ (in progress filled too),
+  // a request a hollow muted pill with the time its hold has left (late in the danger ink), a request in the Review
+  // lane ⚠ Review in amber
+  function statusPill(b, hold) {
+    const review = b.queue === 'review' && ['requested', 'needs_information'].includes(b.status);
+    const late = !!hold && new Date(hold) <= Date.now();
+    return el('span.appt-status', { class: (review ? 'review' : '') + (late ? ' late' : '') },
+      review ? el('i', { 'aria-hidden': 'true' }, '⚠') : b.status === 'confirmed' ? el('i', { 'aria-hidden': 'true' }, '✓') : null,
+      review ? 'Review' : STATUS[b.status] || b.status,
+      hold ? el('small.tnum', '· ' + holdShort(hold), el('span.sr-only', ' left on the hold')) : null);
+  }
+
+  // One booking as a row (owner §26, §27): the time, length and place with the status, then the customer and the
+  // services with the price, and who is on it. A phone keeps it to two short lines (a third for who, on a job that has
+  // or needs someone; a request shows the time its hold has left where the price goes); a wide screen spreads it over
+  // four columns with the car. In a list of one day (opts.day: Today, Tomorrow) the date is the list's own. The head
+  // opens the details. A compact row (opts.compact) is a copy shown in a second list (a request under Today or
+  // Tomorrow): one line, the time, the name and the status, no body, so every booking opens in one place only.
   function card(b, opts) {
-    const compact = !!(opts && opts.compact);
+    const compact = !!(opts && opts.compact), day = !!(opts && opts.day);
     const open = !compact && st.open === b.id;
     const hold = b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? b.hold_expires_at : null;
+    const who = (b.assignments || []).map((a) => a.name).join(', ');
+    const showWho = !!who || ['confirmed', 'in_progress'].includes(b.status);   // a confirmed job says when nobody is on it yet
+    const date = new Date(b.service_date + 'T12:00:00');
     const head = [
-      el('span.appt-when', el('b', shortDate(b.service_date) + ' · ' + clock(b.start_min)), el('span', minutesText(b.duration_min) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')),
-        hold ? el('span.appt-hold.tnum', { class: new Date(hold) <= Date.now() ? 'late' : '' }, hoursLeft(hold)) : null),
-      el('span.appt-what', el('b', name(b)), el('br'), services(b) + ' · ' + vehicle(b)),
-      el('span.appt-tags', el('span.appt-status', STATUS[b.status] || b.status), isGold(b) ? el('span.rv-gold', 'Gold detail') : null),
-      el('span.appt-ref.tnum', { class: b.total_cents == null ? 'pending' : '' }, b.total_cents == null ? 'Price pending' : money(b.total_cents))];
-    return el('article.appt.adm', { class: 'st-' + b.status + (open ? ' open' : '') + (isGold(b) ? ' gold' : '') + (compact ? ' compact' : '') },
+      el('span.appt-when', el('b', day ? null : el('span.appt-date', el('span.appt-wd', date.toLocaleDateString('en-US', { weekday: 'short' }) + ', '), date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · '), clock(b.start_min)),
+        el('span.appt-meta', minutesText(b.duration_min) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway'))),
+      showWho ? el('span.appt-who', { class: who ? 'on' : '' }, who ? '✓ ' + who : 'Unassigned') : null,
+      el('span.appt-what', el('b', name(b)), el('span.appt-sub', el('span', services(b)), el('span.appt-car', ' · ' + car(b)))),
+      el('span.appt-tags', statusPill(b, hold), isGold(b) ? el('span.rv-gold', 'Gold detail') : null),
+      el('span.appt-ref.tnum', { class: b.total_cents == null ? 'pending' : '' }, b.total_cents == null ? 'Price pending' : money(b.total_cents)),
+      hold && b.total_cents != null ? el('span.appt-left.tnum', { class: new Date(hold) <= Date.now() ? 'late' : '' }, hoursLeft(hold)) : null];
+    return el('article.appt.adm.adm-row', { class: 'st-' + b.status + (open ? ' open' : '') + (isGold(b) ? ' gold' : '') + (compact ? ' compact' : '') },
       compact ? el('div.appt-head', head)
         : el('button.appt-head', { type: 'button', 'aria-expanded': open ? 'true' : 'false', onclick: () => { st.open = open ? null : b.id; st.panel = null; render(); } }, head),
       open ? detail(b) : null);
@@ -282,14 +305,14 @@
       tile('tomorrow', tmr.length, 'tomorrow', '', () => jump('tomorrow')),
       tile('admin-requests', all.filter((b) => b.queue === 'review' && live(b)).length, 'in review', '', () => { st.lane = 'review'; screen = 'requests'; history.replaceState(null, '', '#admin-requests'); render(); }));
     return el('div.bk-grid', tiles,
-      section('Today', todays, 'Nothing on today.', { id: 'today', compact: inNeeds }),
+      section('Today', todays, 'Nothing on today.', { id: 'today', compact: inNeeds, day: true }),
       section('Needs you', needs, 'No requests waiting.', { id: 'needs' }),
-      section('Tomorrow', tmr, 'Nothing booked for tomorrow yet.', { id: 'tomorrow', compact: inNeeds }));
+      section('Tomorrow', tmr, 'Nothing booked for tomorrow yet.', { id: 'tomorrow', compact: inNeeds, day: true }));
   }
   // a count is a link to its list: the three sections of this screen, or the Review lane
   const tile = (href, n, label, sub, go) => el('a.adm-tile', { href: '#' + href, onclick: (e) => { e.preventDefault(); go(); } }, el('b.tnum', String(n)), el('span', label), sub ? el('small', sub) : null);
   const jump = (id) => { const s = root.querySelector('#' + id); if (s) s.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); };
-  const section = (title, list, empty, o) => el('section.acct-sec', { id: o && o.id }, el('h2.bk-h2', title), list.length ? list.map((b) => card(b, { compact: !!(o && o.compact && o.compact.has(b.id)) })) : el('p.bk-empty', empty));
+  const section = (title, list, empty, o) => el('section.acct-sec', { id: o && o.id }, el('h2.bk-h2', title), list.length ? list.map((b) => card(b, { compact: !!(o && o.compact && o.compact.has(b.id)), day: !!(o && o.day) })) : el('p.bk-empty', empty));
 
   async function requests() {
     const all = (st.bookings || []).filter((b) => ['requested', 'needs_information'].includes(b.status));
