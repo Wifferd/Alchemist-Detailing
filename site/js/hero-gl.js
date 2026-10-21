@@ -515,7 +515,7 @@ void main(){
     // drift there too, the sliding drops are left to larger screens
     const flow = opts.still ? [0, 0, 0] : opts.flow || (small ? [0, 0, 0] : [0.4, 0.12, 0.08]);
     const motes = !opts.still && opts.motes !== false;
-    let P = null, raf = 0, last = 0, visible = true, lost = false, running = false, vw = 0, vh = 0;
+    let P = null, raf = 0, last = 0, visible = true, lost = false, running = false, paused = false, stopped = false, vw = 0, vh = 0;
     const t0 = performance.now();
     const timeOffset = opts.time != null ? opts.time : 4 + Math.random() * 30;
 
@@ -563,7 +563,7 @@ void main(){
       draw(now);
     }
     function run() {
-      if (running || lost || opts.still) return;
+      if (running || lost || stopped || opts.still) return;
       running = true;
       raf = requestAnimationFrame(loop);
     }
@@ -571,6 +571,9 @@ void main(){
       running = false;
       cancelAnimationFrame(raf);
     }
+    // the loop runs only while it can be seen: on the screen (the observer below), the tab shown, the menu closed
+    const wanted = () => visible && !paused && !document.hidden;
+    const follow = () => { if (wanted()) run(); else halt(); };
     const drawNow = () => draw(performance.now());
     function setStudio(on) {
       studio = !!on;
@@ -597,7 +600,7 @@ void main(){
       try { setup(); } catch (err) { return; }
       lost = false;
       root.classList.remove('no-hero-gl');
-      if (opts.still) drawNow(); else run();
+      if (opts.still) drawNow(); else follow();
     });
     setup();
 
@@ -612,14 +615,15 @@ void main(){
     let io = null;
     if (opts.still) drawNow();
     else {
-      io = new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { threshold: 0 });
+      io = new IntersectionObserver((es) => { visible = es[es.length - 1].isIntersecting; follow(); }, { threshold: 0 });
       io.observe(canvas);
+      document.addEventListener('visibilitychange', follow);
       run();
     }
     return {
-      stop() { halt(); if (io) io.disconnect(); if (themeWatch) themeWatch.disconnect(); window.removeEventListener('resize', onResize); },
-      pause: halt,
-      resume: run,
+      stop() { stopped = true; halt(); if (io) io.disconnect(); document.removeEventListener('visibilitychange', follow); if (themeWatch) themeWatch.disconnect(); window.removeEventListener('resize', onResize); },
+      pause() { paused = true; halt(); },
+      resume() { paused = false; follow(); },
       setStudio,
       setSweep,
     };

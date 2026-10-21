@@ -17,22 +17,28 @@
   // ---------------------------------------------------------------- hero
   // The headline is split into letters first (so the intro has them from its first frame).
   const unsplit = splitHeadline();
-  let hero = null;
-  if (glOk && window.AlchemistHero) {
-    const scenes = ['beads', 'gloss'];
-    let last = null;
-    try { last = localStorage.getItem('ad.hero'); } catch (e) { /* storage unavailable */ }
-    let scene = scenes[Math.random() < 0.5 ? 0 : 1];
-    if (scene === last) scene = scenes.find((s) => s !== last);
-    try { localStorage.setItem('ad.hero', scene); } catch (e) { /* storage unavailable */ }
-    try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce }); } catch (e) { root.classList.add('no-hero-gl'); }
+  let hero = null, heroStarted = false;
+  // The hero's shader is built the first time home opens (render), not for a visitor who lands on another page.
+  function startHero() {
+    if (heroStarted) return;
+    heroStarted = true;
+    root.classList.remove('ready');   // home opened later: its intro waits for this compile too (the head script's 1.5s let it go)
+    if (glOk && window.AlchemistHero) {
+      const scenes = ['beads', 'gloss'];
+      let last = null;
+      try { last = localStorage.getItem('ad.hero'); } catch (e) { /* storage unavailable */ }
+      let scene = scenes[Math.random() < 0.5 ? 0 : 1];
+      if (scene === last) scene = scenes.find((s) => s !== last);
+      try { localStorage.setItem('ad.hero', scene); } catch (e) { /* storage unavailable */ }
+      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce }); } catch (e) { root.classList.add('no-hero-gl'); }
+    }
+    // The intro waits for the shader: two frames after the hero starts, the compile is behind us,
+    // so the first letters are never swallowed by it. (CSS pauses the hero animations until html.ready.)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      root.classList.add('ready');
+      if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
+    }));
   }
-  // The intro waits for the shader: two frames after the hero starts, the compile is behind us,
-  // so the first letters are never swallowed by it. (CSS pauses the hero animations until html.ready.)
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    root.classList.add('ready');
-    if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
-  }));
   function splitHeadline() {
     const l1 = $('.hero h1 .l1');
     if (!l1 || reduce) return null;
@@ -353,6 +359,7 @@
     RISE.forEach((sel) => {
       $$(sel, scope).forEach((el) => {
         if (el.classList.contains('in') || el.hasAttribute('data-rise')) return;
+        if (el.closest('#adminApp, #teamApp')) return;   // the staff consoles are tools: their rows are simply there (owner §26, §29)
         const k = counts.get(el.parentElement) || 0;
         counts.set(el.parentElement, k + 1);
         el.setAttribute('data-rise', '');
@@ -767,8 +774,13 @@
       const y = window.scrollY, dy = y - lastY;
       lastY = y;
       const stuck = top.getBoundingClientRect().bottom - bar.offsetHeight / 2 < stickAt + 1;
+      // past Protection (the notes and the footer) there is no group to mark, and the page's end would push the bar
+      // half out from under the top bar: it slides away, and comes back on the way up as usual
+      const lastGroup = groups[groups.length - 1];
+      const past = !!lastGroup && lastGroup.getBoundingClientRect().bottom < stickAt + bar.offsetHeight;
       let away = bar.classList.contains('away');
       if (!stuck || performance.now() < held || bar.contains(document.activeElement)) away = false;
+      else if (past) away = true;
       else if (dy > 4 && performance.now() - felt < 700) away = true;
       else if (dy < -4) away = false;
       bar.classList.toggle('away', away);
@@ -854,6 +866,7 @@
       if (view === 'content' && window.AlchemistContent) window.AlchemistContent.mount($('#contentApp'), r);
       if (view === 'gallery' && window.AlchemistGallery) window.AlchemistGallery.mount($('#galleryApp'));
       if (view === 'services') mountServices();
+      if (view === 'home') startHero();
       setName(NAMES[r]);
       if (footer) footer.classList.toggle('lean', r === 'contact');   // Contact carries the place, hours and phone itself: the footer keeps the brand and the pages
       $$('nav a', menu).forEach((a) => {
@@ -947,6 +960,7 @@
   render(true);
   desyncShine(document);   // every shine on the site, the hidden pages' too, so none sweep together
   $$('.shine, .scroll-cue').forEach((el) => ioAway.observe(el));
+  if (heroEl) ioAway.observe(heroEl);   // the wordmark's drift (a finger's screen) rests below the hero (CSS)
   // The app pages build their content later (once the data layer has answered) and rebuild it as the visitor
   // acts. Their gold buttons are desynced as they appear. The first content with something to reveal that lands
   // in a view is armed like a page open (rises, reveals, rims); a rebuild (a card expanded, a list refreshed)
@@ -990,6 +1004,10 @@
   const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1200 }) : (fn) => setTimeout(fn, 600);
   ['wheel', 'touchstart', 'keydown', 'scroll'].forEach((t) => window.addEventListener(t, () => idle(startHeavy), { once: true, passive: true }));
   setTimeout(() => idle(startHeavy), reduce ? 0 : 3200);
+  // The Services header's photo waits (loading="lazy") while its page is hidden, so the first page doesn't pay for it;
+  // once that page has settled it is fetched in the background, and Services opens on it at once.
+  const topPhoto = $('.top-photo');
+  if (topPhoto) setTimeout(() => idle(() => { topPhoto.loading = 'eager'; }), 6000);
   // after fonts load, sizes settle: fit and paint again
   const settle = () => { fitServices(); if (wash) wash.refresh(); paintArt(); };
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(settle); else setTimeout(settle, 300);

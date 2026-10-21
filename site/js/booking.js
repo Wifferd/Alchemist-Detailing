@@ -910,7 +910,13 @@
       if (q.suggestion) {
         const b = svc(q.suggestion.bundle);
         sug.appendChild(el('div.bk-suggest', el('div', el('b', q.suggestion.name), ' saves you ', el('b.tnum', money(q.suggestion.saves_cents)), ' for the same two services.'),
-          el('button.btn.btn-glass', { type: 'button', onclick: () => { s.bundle = b.code; s.exterior = null; s.interior = null; paintMains(); } }, 'Switch to ' + b.name)));
+          el('button.btn.btn-glass', { type: 'button', onclick: (e) => {
+            s.bundle = b.code; s.exterior = null; s.interior = null; paintMains();
+            // this button goes with the suggestion: the focus moves to the bundle's own card, now chosen (brought into
+            // view from the keyboard, whose click has no detail; a tap or a click leaves the page where it is)
+            const card = root.querySelector('.svc-opt[data-code="' + b.code + '"]');
+            if (card) card.focus({ preventScroll: e.detail > 0 });
+          } }, 'Switch to ' + b.name)));
       }
     }
   }

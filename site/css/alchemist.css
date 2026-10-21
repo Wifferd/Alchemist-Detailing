@@ -602,10 +602,15 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .scroll-cue span { width: 1px; height: 46px; background: linear-gradient(180deg, transparent, var(--gold)); position: relative; overflow: hidden; }
 .scroll-cue span::after { content: ""; position: absolute; left: 0; right: 0; height: 40%; background: var(--gold-hi); animation: drip 2.4s var(--ease-in-out) infinite; }
 @keyframes drip { 0% { transform: translateY(-110%); } 70%, 100% { transform: translateY(260%); } }
+.scroll-cue.offscreen span::after { animation-play-state: paused; }   /* the shorthand above would outrank the shared .offscreen pause */
 
 /* ---------------------------------------------------------------- sections */
 section { position: relative; }
 .section { padding-block: var(--s-7); }
+/* home after the wash: every section carries the same half beat above and below, so the gaps between them (and the
+   centred hairlines at their feet) fall at equal intervals; a phone takes a shorter beat. The Standard keeps its own */
+.why, .work, .doors, .how, .cta { padding-block: clamp(80px, 11vh, 120px); }
+@media (max-width: 640px) { .why, .work, .doors, .how, .cta { padding-block: clamp(60px, 9vh, 84px); } }
 .section-head { display: grid; gap: var(--s-2); justify-items: center; text-align: center; margin-bottom: var(--s-5); }
 .section-head h2 { font-size: var(--fs-h2); }
 .section-head p:not(.eyebrow) { margin: 0; max-width: 58ch; color: var(--ink-2); font-size: var(--fs-md); }
@@ -873,7 +878,7 @@ section { position: relative; }
 .feat-card .rv.cert { flex: 0 1 880px; }   /* the certificate's own rule would let it grow */
 .feat-card .rv:not(.cert) .rv-body { font-size: clamp(18px, 1.6vw, 20px); }
 .feat-foot { display: flex; justify-content: center; margin-top: var(--s-3); }
-.doors { padding-block: clamp(40px, 7vh, 88px) clamp(24px, 4vh, 48px); }
+.featured:not([hidden]) + .doors { padding-top: clamp(24px, 4vh, 48px); }   /* under a featured review the doorways follow it closely, as one beat */
 .door-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .door {
   position: relative;
@@ -933,7 +938,7 @@ section { position: relative; }
   border: 1px solid var(--line-soft);
   background: radial-gradient(70% 90% at 50% 0%, rgba(226, 185, 82, .14), transparent 60%), linear-gradient(180deg, #0d0d0d, #030303);
 }
-.cta-band h2 { font-size: clamp(34px, 5vw, 62px); }
+.cta-band h2 { margin-top: var(--s-2); font-size: clamp(34px, 5vw, 62px); }   /* the eyebrow's gap, as in a section head */
 .cta-band p { margin: 18px auto 0; color: var(--ink-2); max-width: 46ch; text-wrap: pretty; }
 .cta-band p.eyebrow { color: var(--gold-ink); }   /* the rule above outranks .eyebrow */
 .cta-band .actions { margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
@@ -1141,16 +1146,18 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
    motion and without JavaScript). The scrim's middle is a shade deeper, so the caption holds on the white car */
 .group-plate.polish > img { filter: brightness(.45) saturate(.7); transition: filter 1.4s var(--ease) .3s; }
 .group-plate.polish.au-lit > img, .no-js .group-plate.polish > img { filter: brightness(.92) saturate(1); }
-.group-plate.polish::before { background: linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .3) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
+.group-plate.polish::before { background: var(--plate-corner), linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .3) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
 .no-webgl .group-plate > canvas, .no-js .group-plate > canvas { background: repeating-linear-gradient(45deg, transparent 0 26px, rgba(226, 185, 82, .14) 26px 27px), repeating-linear-gradient(-45deg, transparent 0 26px, rgba(226, 185, 82, .14) 26px 27px), radial-gradient(90% 70% at 30% 20%, #1e1e1e, #080808); }
-.group-plate::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .25) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
+/* the shade under the index: a soft corner wash from the top left, like a photographer's vignette (a shade of its
+   own around the index read as a grey smudge on the light mirror photo), so the index holds over the white car's
+   bonnet and the light leather */
+.group-plate { --plate-corner: linear-gradient(160deg, rgba(5, 5, 5, .6) 0%, rgba(5, 5, 5, .32) 16%, rgba(5, 5, 5, 0) 40%); }
+.group-plate::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--plate-corner), linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .25) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
 .group-plate figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: grid; justify-items: start; gap: 14px; padding: clamp(22px, 4vw, 48px); color: #f7f7f4; }
 .group-plate h2 { font-size: var(--fs-h1); font-weight: 300; line-height: .98; color: #f7f7f4; text-indent: -.04em; }
 .group-plate p { margin: 0; color: #d6d6d1; max-width: 58ch; }
 /* the index: the group's mark, its number of the four, and a short gold line */
 .plate-no { position: absolute; z-index: 1; top: clamp(20px, 3.4vw, 40px); left: clamp(22px, 4vw, 48px); margin: 0; display: flex; align-items: center; gap: 9px; font: 600 var(--fs-xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); color: rgba(247, 247, 244, .84); text-shadow: 0 1px 12px rgba(0, 0, 0, .55); }
-/* a soft shade under the index, so it holds over the white car's bonnet and the light leather */
-.plate-no::before { content: ""; position: absolute; z-index: -1; inset: -38px -64px -38px -52px; background: radial-gradient(closest-side, rgba(5, 5, 5, .66), rgba(5, 5, 5, .38) 58%, rgba(5, 5, 5, 0)); pointer-events: none; }
 .plate-no svg { width: 22px; height: 22px; margin-right: 7px; color: #e2b952; filter: drop-shadow(0 1px 8px rgba(0, 0, 0, .5)); }
 .plate-no b { font-weight: 700; color: #f7f7f4; }
 .plate-no i { font-style: normal; }
@@ -1410,7 +1417,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   background: radial-gradient(120% 70% at 100% 0%, rgba(226, 185, 82, .16), rgba(226, 185, 82, 0) 60%), linear-gradient(180deg, #131313, #070707);
 }
 .el-panel .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.el-panel .no { font: 600 13px/1 var(--font-ui); color: var(--muted); }
+.el-panel .no { font: 600 13px/1 var(--font-ui); color: var(--ink-2); }   /* over the gold-tinted corner the muted grey falls under 4.5:1 */
 .el-panel .sym { font: 300 124px/.92 var(--font-display); }
 .el-panel h3 { margin: 0; font: 400 22px/1.2 var(--font-display); letter-spacing: var(--tr-title); text-transform: uppercase; text-wrap: balance; }
 .el-eq { font: 400 20px/1.2 var(--font-display); letter-spacing: .1em; color: var(--gold-hi); }
@@ -1470,7 +1477,10 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .rit .txt { max-width: 40ch; font-size: var(--fs-md); line-height: 1.55; color: #d6d6d1; }
 .rit .chips-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .rit .chip { padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(226, 185, 82, .45); background: rgba(0, 0, 0, .45); font: 600 var(--fs-xs)/1.2 var(--font-ui); color: #f8dd98; }
-.rit:focus-visible { outline-offset: -4px; }
+/* the focus ring is drawn above the step's photo and shade (an outline would sit under them): a gold line just inside
+   the panel, in both themes (the Ritual is dark in both) */
+.rit:focus-visible { outline: none; }
+.rit:focus-visible::after { content: ""; position: absolute; inset: 4px; z-index: 3; border: 2px solid #f8dd98; border-radius: 18px; pointer-events: none; }
 /* a closed step under the pointer lifts its veil a little and takes a gold hairline; a press dims it (its size is the
    animation, so the shared scale press is not used here) */
 .rit:hover:not([aria-expanded="true"]) { border-color: rgba(226, 185, 82, .35); }
@@ -1515,7 +1525,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .bead-film { opacity: 0; pointer-events: none; object-position: 30% 50%; -webkit-mask: radial-gradient(circle var(--mr, 0px) at var(--mx, 50%) var(--my, 50%), transparent 55%, #000 100%); mask: radial-gradient(circle var(--mr, 0px) at var(--mx, 50%) var(--my, 50%), transparent 55%, #000 100%); transition: opacity .35s var(--ease); }
 .bead-film.on { opacity: 1; }
 .bead-film.clearing { transition: opacity .4s var(--ease) .9s, --mr 1s var(--ease-in-out); }
-.bead-hint { position: absolute; left: 56%; top: 30%; display: flex; align-items: center; gap: 16px; transform: translateY(-50%); pointer-events: none; transition: opacity .5s var(--ease); }
+/* the hint is held from the pane's right edge, so its label never runs into the rounded corner on a laptop */
+.bead-hint { position: absolute; right: clamp(16px, 4%, 32px); top: 30%; display: flex; align-items: center; gap: 16px; transform: translateY(-50%); pointer-events: none; transition: opacity .5s var(--ease); }
 .bead-hint i { width: 56px; height: 56px; border-radius: 50%; border: 1px solid rgba(248, 221, 152, .6); box-shadow: 0 0 24px rgba(226, 185, 82, .35), inset 0 0 18px rgba(226, 185, 82, .18); display: grid; place-items: center; }
 .bead-hint i::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #f8dd98; box-shadow: 0 0 14px rgba(248, 221, 152, .9); }
 .bead-hint span { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(10, 10, 10, .72); font: 600 13px/1 var(--font-ui); color: #f7f7f4; white-space: nowrap; }
@@ -1537,6 +1548,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 :where([data-theme="light"]) .el-tile .nm span, :where([data-theme="light"]) .el-facts b.price, :where([data-theme="light"]) .bead-price b, :where([data-theme="light"]) .el-mini .sym, :where([data-theme="light"]) .el-mini .pr { color: var(--gold-deep); }
 :where([data-theme="light"]) .el-tile.au .nm span { color: var(--on-gold); }
 :where([data-theme="light"]) .el-panel { background: radial-gradient(120% 70% at 100% 0%, rgba(184, 144, 44, .14), transparent 60%), var(--panel); border-color: var(--line); box-shadow: 0 24px 40px -34px rgba(20, 18, 12, .35); }
+:where([data-theme="light"]) .el-panel .no { color: var(--muted); }
 :where([data-theme="light"]) .el-mini { background: var(--panel); }
 :where([data-theme="light"]) .bead-price { border-color: rgba(20, 18, 12, .1); }
 :where([data-theme="light"]) .table-sec + .svc-group { border-top-color: rgba(20, 18, 12, .08); }
@@ -1571,6 +1583,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .el-tile .nm b { font-size: 14px; }
   .el-panel { padding: 24px; }
   .el-panel .sym { font-size: 96px; }
+  /* the panel's Book button takes the card's width and may wrap ("Book Signature Combo" on a 360px phone) */
+  .el-actions .btn { width: 100%; white-space: normal; height: auto; min-height: var(--h); padding: 12px 18px; line-height: 1.25; letter-spacing: .16em; text-align: center; }
   .el-legend { align-items: flex-start; }
   .el-key { grid-template-columns: 1fr; gap: 8px; }
   .rit-scroll { margin-inline: 0; padding-inline: 0; overflow: visible; }
@@ -1581,6 +1595,11 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .rit .body { left: 20px; right: 20px; bottom: 20px; gap: 10px; }
   .rit .body b { font-size: 26px; }
   .rit .txt { font-size: 16px; }
+  /* the open step's words sit on the lower half of a 420px panel: the photo dimmer and the shade deeper from the middle
+     down, so every line holds 4.5:1 over the light foam and the carbon */
+  .rit[aria-expanded="true"] img { filter: brightness(.66); }
+  .rit .shade { background: linear-gradient(180deg, rgba(0, 0, 0, .5) 0%, rgba(0, 0, 0, .08) 26%, rgba(0, 0, 0, .74) 50%, rgba(0, 0, 0, .93) 100%); }
+  .rit .txt { color: #ecebe6; text-shadow: 0 1px 10px rgba(0, 0, 0, .7); }
   .bead-cmp { height: 480px; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; border-radius: var(--r-lg); }
   .bead-seam { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 1px; background: linear-gradient(90deg, rgba(226, 185, 82, 0), #e2b952 18%, #e2b952 82%, rgba(226, 185, 82, 0)); }
   .bead-pill { top: 16px; }
@@ -1773,6 +1792,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 
 .bk-body { min-height: 300px; padding-bottom: 8px; }
 .bk-step { display: grid; gap: 26px; }
+/* the booking's grids keep to their width: one wide line inside (a long button) wraps instead of pushing the page sideways */
+.bk, .bk-step, .bk-grid { grid-template-columns: minmax(0, 1fr); }
 .bk-step.in-right { animation: stepIn .55s var(--ease) both; }
 .bk-step.in-left { animation: stepInL .55s var(--ease) both; }
 /* 18px: with the .link hit areas reaching 8px past the content, the slide never leaves a 390px viewport */
@@ -1953,6 +1974,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .svc-opt.on .svc-opt-check { opacity: 1; transform: none; }
 .bk-suggest { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-radius: var(--r-md); border: 1px solid var(--line); background: radial-gradient(100% 120% at 0% 0%, rgba(226, 185, 82, .12), transparent 60%); color: var(--ink-2); font-size: 14.5px; }
 .bk-suggest b { color: var(--gold-hi); font-weight: 600; }
+.bk-suggest .btn { max-width: 100%; white-space: normal; height: auto; min-height: 48px; padding-block: 12px; line-height: 1.3; text-align: center; }   /* "Switch to Full Detail Bundle" wraps on a narrow phone */
 .bk-summary-card { padding: 18px 20px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: rgba(0, 0, 0, .3); }
 .pr { display: grid; gap: 8px; }
 .pr-line { display: flex; justify-content: space-between; gap: 16px; font-size: 15px; color: var(--ink-2); }
@@ -2158,6 +2180,10 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   .bk-nav { flex-wrap: wrap; row-gap: 8px; margin-inline: -16px; padding-inline: calc(16px + env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-right, 0px)); background: linear-gradient(180deg, rgba(10, 10, 10, .94), rgba(3, 3, 3, .98)); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .bk-nav-mid { flex-basis: 100%; order: -1; text-align: left; font-size: 14px; }
   .bk-nav-mid:empty { display: none; }
+  /* Back keeps its size, Continue and Send Request take the rest of the row */
+  .bk-nav .btn-glass { flex: 0 0 auto; }
+  .bk-nav .btn-gold { flex: 1 1 auto; }
+  .bk-suggest .btn { width: 100%; }
   /* the step numbers stay 30px but each is a 44px target (padding, and the margin gives the room back) */
   .bk-progress .lbl { display: none; }
   .bk-progress .num { width: 30px; height: 30px; font-size: 11px; }
@@ -2202,6 +2228,10 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   .svc-opt-icon { width: 24px; height: 24px; }
   .svc-opt-price { padding-top: 2px; justify-items: start; text-align: left; }
   .svc-opt-check { position: static; grid-area: check; align-self: center; }
+}
+/* a narrow phone (360-400px): Back and Send Request still share one row, the buttons a little tighter */
+@media (max-width: 400px) {
+  .bk-nav .btn { padding: 0 14px; gap: 8px; letter-spacing: .14em; }
 }
 
 /* ---------------------------------------------------------------- account and appointments */
@@ -2653,7 +2683,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .cal-item:active { transform: scale(.99); }
 .cal-item b { color: var(--gold-hi); }
 .cal-item small { color: var(--muted); font-size: 11px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* two lines of the services, the rest in the title */
-.cal-item .rv-gold { height: 20px; padding: 0 8px; font-size: var(--fs-2xs); justify-self: start; margin-top: 2px; }
+.cal-item .rv-gold { height: 20px; max-width: 100%; padding: 0 7px; font-size: var(--fs-2xs); letter-spacing: .1em; white-space: nowrap; justify-self: start; margin-top: 2px; }   /* one line in a narrow week column ("Gold": admin.js) */
 .cal-item.st-requested, .cal-item.st-needs_information { border-style: dashed; }
 .cal-item.gold { border-color: rgba(226, 185, 82, .5); }
 /* the log: the time in one column, what happened in the other */
@@ -2905,6 +2935,8 @@ a.adm-tile { text-decoration: none; color: inherit; }
   .hero h1 .l1 { animation: letterSweep 1.6s var(--ease-in-out) 1.45s 1 forwards, paintDrift 14s var(--ease-in-out) 3s infinite alternate; }
 }
 @keyframes paintDrift { from { --hx: 30%; } to { --hx: 70%; } }
+/* the drift rests while the hero is off the screen (.offscreen from app.js): no repaint of the gold text below it */
+html.ready .hero.offscreen h1 .l1 { animation-play-state: paused; }
 .hero-inner { will-change: transform, opacity; }
 /* the hero intro waits for the shader (html.ready, set by app.js two frames after the hero starts),
    so the first frames are never swallowed by the compile */
@@ -3163,7 +3195,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* ---------------------------------------------------------------- the owner's photos (design upgrade) */
 /* our work: an editorial strip. The tiles start on the content column, snap softly under a mouse (firmly under a
    finger), drift a little with the page (--py from app.js) and can be dragged, stepped with the arrows or swiped. */
-.work { padding-bottom: clamp(60px, 10vh, 120px); overflow: hidden; }
+.work { overflow: hidden; }   /* its beat with the other sections: under "sections" */
 .work .section-head { position: relative; }
 .work-nav { position: absolute; right: 0; bottom: 0; display: flex; gap: 8px; }
 .work-nav .icon-btn svg { width: 20px; height: 20px; }
@@ -3179,6 +3211,12 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* the photo is a real button (opens the lightbox); the caption sits over it and lets presses through */
 .work-btn, .gal-btn { all: unset; display: block; cursor: zoom-in; width: 100%; height: 100%; }
 .work-btn:focus-visible, .gal-btn:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: -4px; border-radius: inherit; }
+/* where the browser has :has(), the ring is drawn on the tile itself, above the zoomed photo and its caption (the
+   button's own outline is covered by the picture); pale gold edged in black, so it holds on white paint and black alike */
+@supports selector(:has(*)) {
+  .work-btn:focus-visible, .gal-btn:focus-visible { outline: none; }
+  .work-item:has(.work-btn:focus-visible)::after, .gal-tile:has(.gal-btn:focus-visible)::before { content: ""; position: absolute; inset: 4px; z-index: 3; border: 2px solid #f8dd98; border-radius: calc(var(--r-lg) - 4px); box-shadow: 0 0 0 1px rgba(5, 5, 5, .6), inset 0 0 0 1px rgba(5, 5, 5, .6); pointer-events: none; }
+}
 /* the slow zoom lives on the button; the scroll drift on the taller picture inside it is never transitioned */
 .work-item .work-btn { position: relative; transform: scale(1.03); transition: transform 1.1s var(--ease); }
 .work-item:hover .work-btn, .work-item:has(:focus-visible) .work-btn { transform: scale(1.06); }
@@ -3388,10 +3426,11 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 }
 /* ---- the chrome: bar, buttons, menu */
 :where([data-theme="light"]) .bar { background: rgba(255, 255, 255, .72); border-color: rgba(20, 18, 12, .08); box-shadow: 0 18px 50px -24px rgba(40, 30, 10, .25); }
-:where([data-theme="light"]) .topbar.scrolled .bar { background: rgba(255, 255, 255, .86); border-color: var(--line-soft); }
+/* scrolled, the bar is nearly solid ivory (the chapter bar's): a translucent white blurred over a dark photo (a group
+   plate, the Ritual, a gallery tile) reads as a grey band. Colours only, nothing moves */
+:where([data-theme="light"]) .topbar.scrolled .bar { background: rgba(255, 253, 248, .94); border-color: rgba(20, 18, 12, .08); }
 :where([data-theme="light"]) .topbar.over-wash .bar { background: rgba(255, 253, 248, .94); }
-/* over the Services header's dark photo (.over-dark from app.js) the bar goes nearly solid ivory too: a 72% white blurred
-   over a dark picture reads as a grey band. Colours only, nothing moves */
+/* over the Services header's dark photo (.over-dark from app.js) the same, from the top of the page */
 :where([data-theme="light"]) .topbar.over-dark .bar { background: rgba(255, 253, 248, .94); border-color: rgba(20, 18, 12, .08); }
 :where([data-theme="light"]) .icon-btn { background: linear-gradient(180deg, #fffdf8, #f0ece2); border-color: rgba(20, 18, 12, .1); box-shadow: inset 0 1px 0 #fff, 0 4px 14px -8px rgba(40, 30, 10, .4); }
 /* the gold for icons and large numerals (3.8:1, the large-text floor); small gold text is --gold-ink */

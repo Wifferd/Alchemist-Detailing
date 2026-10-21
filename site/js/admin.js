@@ -316,7 +316,7 @@
       history.replaceState(null, '', '#admin-' + screen); render();
     };
     const item = (b) => el('button.cal-item', { type: 'button', class: 'st-' + b.status + (isGold(b) ? ' gold' : ''), title: name(b) + ' · ' + services(b) + ' · ' + vehicle(b), onclick: () => open(b) },
-      el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')), isGold(b) ? el('span.rv-gold', 'Gold detail') : null);
+      el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')), isGold(b) ? el('span.rv-gold', 'Gold') : null);   // the short label: the week's columns are narrow, the card's gold border says the rest
     const cols = [];
     for (let i = 0; i < days; i++) {
       const iso = H().isoDate(H().addDays(start, i)), past = iso < todayIso, today = iso === todayIso;
