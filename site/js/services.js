@@ -187,10 +187,10 @@
   // ---------------------------------------------------------------- the Ritual
   const STEPS = [
     { n: '01', title: 'Snow foam', text: 'A snow-foam pre-wash covers the car first. Deluxe adds Green Star pre-treatment where appropriate.', chips: ['Snow foam', 'Green Star · Deluxe'], media: () => texture('foam', 1200, 900), pos: '30% 50%' },
-    { n: '02', title: 'Wheels', text: 'Brake Buster on the wheels and tires, then the tires are cleaned.', chips: ['Brake Buster'], media: () => photo('brake', 'Cleaned black wheel with a red brake caliper'), pos: '50% 45%' },
+    { n: '02', title: 'Wheels', text: 'Brake Buster on the wheels and tires, then the tires are cleaned.', chips: ['Brake Buster'], media: () => photo('wheel', 'Rear wheel and arch after cleaning'), pos: '45% 62%' },
     { n: '03', title: 'Hand wash', text: 'A thorough hand wash with professional-grade chemicals.', chips: ['By hand'], media: () => photo('badge', 'M2 badge on wet white paint'), pos: '50% 50%' },
     { n: '04', title: 'Hand dry', text: 'Dried by hand, panel by panel, exterior glass included.', chips: ['Exterior glass'], media: () => photo('front', 'Front of a white BMW M2 after an exterior detail'), pos: '40% 40%' },
-    { n: '05', title: 'Seal', text: 'Koch-Chemie Hydro Foam Sealant for gloss and water beading. Or add WetGloss to any exterior.', chips: ['Hydro Foam Sealant · Deluxe', 'WetGloss · add-on'], media: () => photo('vent', 'Water beading on a carbon-fibre hood vent after a wash'), pos: '50% 40%' },
+    { n: '05', title: 'Seal', text: 'Koch-Chemie Hydro Foam Sealant for gloss and water beading. Or add WetGloss to any exterior.', chips: ['Hydro Foam Sealant · Deluxe', 'WetGloss · add-on'], media: () => photo('mirror', 'Water beading on a side mirror'), pos: '58% 38%' },
   ];
   function mountRitual(container) {
     let open = 4;

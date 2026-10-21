@@ -905,6 +905,10 @@
     const box = root.querySelector('#bk-price'); const sug = root.querySelector('#bk-suggest');
     const nav = root.querySelector('.bk-nav'); if (nav) nav.replaceWith(renderNav());
     if (!box) return;
+    // the bundle note appearing after a pick (not as the step lands with it) is brought into view, once: on a phone
+    // it would open under the sticky bar, below the cards
+    const fresh = !!(sug && sug.dataset.painted && !sug.firstChild);
+    if (sug) sug.dataset.painted = '1';
     if (!q) { box.replaceChildren(el('p.bk-muted', 'Choose a service to see the price.')); if (sug) sug.replaceChildren(); return; }
     if (q.error) { box.replaceChildren(el('p.bk-muted', q.error.message)); if (sug) sug.replaceChildren(); return; }
     box.replaceChildren(priceLines(q, { withTime: true }));
@@ -920,6 +924,7 @@
             const card = root.querySelector('.svc-opt[data-code="' + b.code + '"]');
             if (card) card.focus({ preventScroll: e.detail > 0 });
           } }, 'Switch to ' + b.name)));
+        if (fresh) sug.firstChild.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
       }
     }
   }

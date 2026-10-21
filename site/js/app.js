@@ -348,6 +348,19 @@
     el.classList.add('in');
     if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); }, 1000);
   }
+  // a block that the keyboard reaches before it has risen is shown at once, with no fade, so a focus ring is never
+  // unseen (a click's or a page change's focus is not :focus-visible: those blocks still rise as they enter)
+  document.addEventListener('focusin', (e) => {
+    let kb = false;
+    try { kb = e.target.matches(':focus-visible'); } catch (err) { /* older browsers: they rise as before */ }
+    if (!kb) return;
+    for (let r = e.target.closest('[data-rise]:not(.in)'); r; r = r.parentElement && r.parentElement.closest('[data-rise]:not(.in)')) {
+      r.style.transition = 'none';
+      reveal(r); io.unobserve(r);
+      getComputedStyle(r).opacity;   // the shown state lands now, so the transition can come back without playing
+      r.style.removeProperty('transition');
+    }
+  });
   const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
   function armReveals(scope) {
     $$('[data-reveal]', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
@@ -546,6 +559,16 @@
       if (bar) bar.style.setProperty('--wp', max > 0 ? Math.min(1, (strip.scrollLeft + strip.clientWidth) / strip.scrollWidth).toFixed(3) : '1');
     }
     [prev, next].forEach((b, i) => { if (b) b.addEventListener('click', () => strip.scrollBy({ left: (i ? 1 : -1) * step(), behavior: reduce ? 'auto' : 'smooth' })); });
+    // a photo reached by Tab comes fully into view, on its own snap start (the browser leaves a half-shown one where it is);
+    // a click's focus is not :focus-visible, so a mouse drag is never fought
+    strip.addEventListener('focusin', (e) => {
+      const it = e.target.closest('.work-item');
+      let kb = true;
+      try { kb = e.target.matches(':focus-visible'); } catch (err) { /* older browsers: treat it as the keyboard */ }
+      if (!it || !kb) return;
+      const pad = parseFloat(getComputedStyle(strip).scrollPaddingLeft) || 0, r = it.getBoundingClientRect(), s = strip.getBoundingClientRect();
+      if (r.left < s.left + pad - 1 || r.right > s.right - pad + 1) strip.scrollTo({ left: strip.scrollLeft + r.left - s.left - pad, behavior: reduce ? 'auto' : 'smooth' });
+    });
     let st = false;
     strip.addEventListener('scroll', () => { if (st) return; st = true; requestAnimationFrame(() => { st = false; ends(); }); }, { passive: true });
     window.addEventListener('resize', ends);

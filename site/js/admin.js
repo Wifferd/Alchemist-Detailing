@@ -186,9 +186,9 @@
   }
 
   // One booking as a row (owner §26, §27): the time, length and place with the status, then the customer and the
-  // services with the price, and who is on it. A phone keeps it to two short lines (a third for who, on a job that has
-  // or needs someone; a request shows the time its hold has left where the price goes); a wide screen spreads it over
-  // four columns with the car. In a list of one day (opts.day: Today, Tomorrow) the date is the list's own. The head
+  // services and the car with the price, and who is on it. A phone keeps it to three short lines (a fourth for who, on
+  // a job that has or needs someone; a request shows the time its hold has left where the price goes); a wide screen
+  // spreads it over four columns. In a list of one day (opts.day: Today, Tomorrow) the date is the list's own. The head
   // opens the details. A compact row (opts.compact) is a copy shown in a second list (a request under Today or
   // Tomorrow): one line, the time, the name and the status, no body, so every booking opens in one place only.
   function card(b, opts) {

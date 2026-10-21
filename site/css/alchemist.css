@@ -599,6 +599,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   color: var(--muted);
   text-decoration: none;
 }
+:where(:root:not([data-theme="light"])) .scroll-cue { color: var(--ink-2); }   /* 4.5:1 where the studio light falls behind it */
 .scroll-cue span { width: 1px; height: 46px; background: linear-gradient(180deg, transparent, var(--gold)); position: relative; overflow: hidden; }
 .scroll-cue span::after { content: ""; position: absolute; left: 0; right: 0; height: 40%; background: var(--gold-hi); animation: drip 2.4s var(--ease-in-out) infinite; }
 @keyframes drip { 0% { transform: translateY(-110%); } 70%, 100% { transform: translateY(260%); } }
@@ -940,6 +941,7 @@ section { position: relative; }
   background: radial-gradient(70% 90% at 50% 0%, rgba(226, 185, 82, .14), transparent 60%), linear-gradient(180deg, #0d0d0d, #030303);
 }
 .cta-band h2 { margin-top: var(--s-2); font-size: clamp(34px, 5vw, 62px); }   /* the eyebrow's gap, as in a section head */
+.cta-band h2.gold-text { background-size: 100% 1lh; }   /* one run of the metal per line: on a phone both lines are the same gold */
 .cta-band p { margin: 18px auto 0; color: var(--ink-2); max-width: 46ch; text-wrap: pretty; }
 .cta-band p.eyebrow { color: var(--gold-ink); }   /* the rule above outranks .eyebrow */
 .cta-band .actions { margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
@@ -1126,6 +1128,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .svc-jump a:first-child { margin-left: auto; }
 .svc-jump a:last-of-type { margin-right: auto; }
 .svc-jump .no { font-weight: 600; letter-spacing: .08em; color: var(--muted); transition: color .3s var(--ease); }
+:where(:root:not([data-theme="light"])) .svc-jump .no { color: var(--ink-2); }   /* on the bar's glass over the photo the grey falls under 4.5:1 */
 .svc-jump a:hover, .svc-jump a[aria-current] { color: var(--ink); }
 .svc-jump a[aria-current] .no { color: var(--gold-ink); }
 .svc-jump a:focus-visible { outline-offset: -7px; }   /* inside the strip, where an outer ring would be clipped */
@@ -1354,8 +1357,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .show-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 48px; margin-bottom: clamp(28px, 5vh, 48px); }
 .show-head > div { display: grid; gap: var(--s-2); }
 .show-head h2 { font-size: clamp(26px, 3.4vw, 40px); }
-.show-head p { margin: 0; max-width: 44ch; color: var(--ink-2); font-size: var(--fs-md); }
-.show-head p.eyebrow { color: var(--gold-ink); }   /* the rule above outranks .eyebrow: the Ritual's and the Bead Test's eyebrows are gold like every other */
+.show-head p:not(.eyebrow) { margin: 0; max-width: 44ch; color: var(--ink-2); font-size: var(--fs-md); }
+.show-head p.eyebrow { margin: 0; }   /* the Ritual's and the Bead Test's eyebrows: the shared size and tracking, like every section head */
 
 /* the Alchemist's Table: a 4 x 2 grid of element tiles with column heads (the groups) and row heads (the tiers);
    grid areas carry the layout, so the phone can reflow the same markup into two columns */
@@ -1423,6 +1426,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .el-panel .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .el-panel .no { font: 600 13px/1 var(--font-ui); color: var(--ink-2); }   /* over the gold-tinted corner the muted grey falls under 4.5:1 */
 .el-panel .sym { font: 300 124px/.92 var(--font-display); }
+:is(.el-tile, .el-panel) .sym { padding-bottom: .2em; margin-bottom: -.2em; }   /* the metal reaches below the line box, so Wg keeps its descender */
 .el-panel h3 { margin: 0; font: 400 22px/1.2 var(--font-display); letter-spacing: var(--tr-title); text-transform: uppercase; text-wrap: balance; }
 .el-eq { font: 400 20px/1.2 var(--font-display); letter-spacing: .1em; color: var(--gold-hi); }
 .el-panel p { margin: 0; font-size: var(--fs-md); line-height: 1.6; color: var(--ink-2); }
@@ -1551,6 +1555,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 :where([data-theme="light"]) .el-tile.addon { background: var(--panel-2); border-color: rgba(184, 144, 44, .4); }
 :where([data-theme="light"]) .el-tile .nm span, :where([data-theme="light"]) .el-facts b.price, :where([data-theme="light"]) .bead-price b, :where([data-theme="light"]) .el-mini .sym, :where([data-theme="light"]) .el-mini .pr { color: var(--gold-deep); }
 :where([data-theme="light"]) .el-tile.au .nm span { color: var(--on-gold); }
+:where([data-theme="light"]) :is(.el-tile, .el-panel) .sym.gold-text { font-weight: 400; }   /* the deep metal on ivory needs a fuller stroke than Jost 300 */
 :where([data-theme="light"]) .el-panel { background: radial-gradient(120% 70% at 100% 0%, rgba(184, 144, 44, .14), transparent 60%), var(--panel); border-color: var(--line); box-shadow: 0 24px 40px -34px rgba(20, 18, 12, .35); }
 :where([data-theme="light"]) .el-panel .no { color: var(--muted); }
 :where([data-theme="light"]) .el-mini { background: var(--panel); }
@@ -1838,7 +1843,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .bk-errors .link { color: var(--danger-text); }
 
 /* fields */
-.fld { display: grid; gap: 7px; min-width: 0; }
+.fld { display: grid; gap: 7px; min-width: 0; align-content: start; }   /* beside a field with a message, the label and box keep their places */
 .fld-label { font: 700 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); }
 .fld-label i { font-style: normal; color: var(--gold-ink); }
 .fld-label small { font-size: inherit; font-weight: 500; letter-spacing: .08em; text-transform: none; color: var(--muted); }
@@ -1979,7 +1984,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .svc-opt-meta { grid-area: meta; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
 .svc-opt-check { position: absolute; top: 12px; right: 14px; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold-hi); opacity: 0; transform: translateY(-4px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
 .svc-opt.on .svc-opt-check { opacity: 1; transform: none; }
-.bk-suggest { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-radius: var(--r-md); border: 1px solid var(--line); background: radial-gradient(100% 120% at 0% 0%, rgba(226, 185, 82, .12), transparent 60%); color: var(--ink-2); font-size: 14.5px; }
+.bk-suggest { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-radius: var(--r-md); border: 1px solid var(--line); background: radial-gradient(100% 120% at 0% 0%, rgba(226, 185, 82, .12), transparent 60%); color: var(--ink-2); font-size: 14.5px; scroll-margin-top: calc(96px + env(safe-area-inset-top, 0px)); scroll-margin-bottom: 130px; }   /* brought into view clear of both bars, as .bk-errors */
 .bk-suggest b { color: var(--gold-hi); font-weight: 600; }
 .bk-suggest .btn { max-width: 100%; white-space: normal; height: auto; min-height: 48px; padding-block: 12px; line-height: 1.3; text-align: center; }   /* "Switch to Full Detail Bundle" wraps on a narrow phone */
 .bk-summary-card { padding: 18px 20px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: rgba(0, 0, 0, .3); }
@@ -2103,6 +2108,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sum-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sum-body { margin: 0; display: grid; grid-template-columns: 150px 1fr; gap: 8px 18px; font-size: 15px; }
 .sum-body dt { color: var(--muted); }
+:where(:root:not([data-theme="light"])) .sum-body dt { color: var(--ink-2); }   /* on a dark panel the grey falls under 4.5:1 */
 .sum-body dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 /* the build sheet: when and the total first, on a lit band; then the lines as a ruled table, each service's
    Table mark in a gutter so every name and figure keeps one edge */
@@ -2732,10 +2738,10 @@ a.adm-tile { text-decoration: none; color: inherit; }
 @media (max-width: 720px) {
   .appt.adm .appt-head { grid-template-columns: 1fr auto; grid-template-areas: "when status" "what what" "ref ref"; }
   .appt.adm .appt-tags { grid-area: status; justify-self: end; align-self: start; flex-direction: column; align-items: flex-end; gap: 4px; }   /* the gold pill under the status pill, so the date keeps its line */
-  /* a booking on the owner's phone (§26: open it and see the day): two lines, about 74px. The time, length and
-     place with the status; the customer and the services with the price, or on a request the time its hold has
-     left. Who is on a job takes a short third line; the date loses its weekday; the car and its colour wait in the
-     details; a $200+ row says gold with its rim, its glow and its gold price */
+  /* a booking on the owner's phone (§26: open it and see the day): three lines, about 94px. The time, length and
+     place with the status; the customer, then the services and the car (§27), with the price, or on a request the
+     time its hold has left. Who is on a job takes a short last line; the date loses its weekday; the car's colour
+     waits in the details; a $200+ row says gold with its rim, its glow and its gold price */
   .appt.adm-row .appt-head { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when tags" "what ref" "who who"; align-items: center; gap: 4px 12px; padding: 10px 14px; line-height: 1.35; }
   .appt.adm-row .appt-when { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; min-width: 0; align-self: center; }
   .appt.adm-row .appt-when b { font-size: 15px; }
@@ -2745,6 +2751,14 @@ a.adm-tile { text-decoration: none; color: inherit; }
   .appt.adm-row .appt-sub { display: inline; }
   .appt.adm-row .appt-sub::before { content: " · "; }
   .appt.adm-row :is(.appt-car, .appt-tags .rv-gold, .appt-status small) { display: none; }
+  /* the name beside the price; the services and the car on a full-width line under them, each with its own ellipsis */
+  .appt.adm-row:not(.compact) .appt-head { grid-template-areas: "when tags" "what ref" "sub sub" "who who"; }
+  .appt.adm-row:not(.compact) .appt-what { display: contents; }
+  .appt.adm-row:not(.compact) :is(.appt-what b, .appt-sub) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .appt.adm-row:not(.compact) .appt-what b { grid-area: what; }
+  .appt.adm-row:not(.compact) .appt-sub { grid-area: sub; display: block; }
+  .appt.adm-row:not(.compact) .appt-sub::before { content: none; }
+  .appt.adm-row:not(.compact) .appt-car { display: inline; }
   .appt.adm-row .appt-tags { grid-area: tags; align-self: center; flex-direction: row; }
   .appt.adm-row :is(.appt-ref, .appt-left) { grid-area: ref; justify-self: end; }
   .appt.adm-row .appt-left { display: block; font-size: 14px; color: var(--ink-2); }
@@ -2775,6 +2789,11 @@ a.adm-tile { text-decoration: none; color: inherit; }
   .adm-who { grid-auto-flow: column; justify-items: start; align-items: center; gap: 14px; }
   .adm-panel .bk-row.two, .appt-body .bk-row.two { grid-template-columns: 1fr; }
   .fld-label { line-height: 1.3; }
+}
+/* a narrow phone: the four counts two by two, each number beside its label, so "Tomorrow" stays inside its tile */
+@media (max-width: 420px) {
+  .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adm-tile { grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; }
 }
 
 /* ---------------------------------------------------------------- reviews (the owner's design: gold reviews as assay certificates)
@@ -3200,6 +3219,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .use-row b { font: 500 16px/1.4 var(--font-ui); color: var(--ink); }
 .use-on { color: var(--ink-2); font-size: var(--fs-md); line-height: 1.4; }
 .use-part { justify-self: end; text-align: right; font: 700 var(--fs-2xs)/1.4 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+:where(:root:not([data-theme="light"])) .use-part { color: var(--ink-2); }   /* small capitals on the panel: 4.5:1 */
 .use-row.use-keys { padding: 4px 0 12px; }
 .use-keys span { font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
 .use-keys span:last-child { justify-self: end; }
@@ -3244,7 +3264,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (max-width: 720px) {
   .ct-reach .btn { width: 100%; }
   .ct-rows > div { grid-template-columns: 96px minmax(0, 1fr); }
-  .ct-week th { padding-left: 12px; }   /* the phone's gutter is too narrow to hang today's line in: it moves inside */
+  .ct-week th { padding-left: 12px; width: 1%; }   /* the phone's gutter is too narrow to hang today's line in: it moves inside. The day takes only its word, so Friday's hours keep one line */
   .ct-week tr.today th::before { left: 0; }
 }
 @media (max-width: 720px) {
@@ -3487,7 +3507,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   --gold-pale: #e9d9a8;
   --gold-deep: #7a5d14;
   --gold-grad: linear-gradient(105deg, #9a7322 0%, #d9ac3f 22%, #f6dc96 46%, #fffbe8 52%, #efc65c 62%, #c3932c 82%, #9a7322 100%);
-  --gold-text: linear-gradient(180deg, #b8902c 0%, #d4ad4a 40%, #9c7820 70%, #c9a040 100%);
+  --gold-text: linear-gradient(180deg, #9a7322 0%, #a8842a 40%, #7a5d14 70%, #94711d 100%);   /* every stop 3:1 or more on the cream and the band's #f1ede5 */
   --on-gold: #110c02;
   --danger: #b3412f;
   --danger-text: #a63a2a;
@@ -3691,7 +3711,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (max-width: 640px) {
   .why-item p, .step p, .footer p, .footer a, .bk-note, .checks, .ct-week :is(th, td), .use-on, .lightbox-desc, .pr-line, .sum-body, .svc-notes p, .saving, .addon-main span, .rv-who, .appt-what, .faq-item summary, .tip-body p,
   .sum-list dd, .bk-terms li, .sheet-time, .sheet-notes, .bk-carry-main, .sent-steps b,
-  .section-head p:not(.eyebrow), .page-head p:not(.eyebrow), .show-head p, .el-panel p, .bead-foot .wg p, .rv-reply p, .su-list li { font-size: 16px; }
+  .section-head p:not(.eyebrow), .page-head p:not(.eyebrow), .show-head p:not(.eyebrow), .el-panel p, .bead-foot .wg p, .rv-reply p, .su-list li { font-size: 16px; }
   .bk-muted, .fld-msg, .choice-msg, .choice-sub, .svc-opt-desc, .bk-preview, .sent-steps span, .bk-carry-aside, .bk-carry-wait, .bk-quiet, .svc-note, .cal-item, .fine, .adm-tile small, .bk-h2 small, .appt-when span, .appt-ref, .adm-history summary, .adm-history ul, .bead-price, .bead-ask, .addon-meta { font-size: 14px; }
   .menu-brand small, .foot-brand small { font-size: var(--fs-2xs); }   /* the logo lockup's 10px, lifted on a phone */
 }
