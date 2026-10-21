@@ -21,9 +21,9 @@
     { key: 'front', cap: 'Exterior detail', alt: 'Front of a white BMW M2 after an exterior detail', tags: ['exterior'] },
     { key: 'vent', cap: 'Beading on carbon', alt: 'Water beading on a carbon-fibre hood vent', tags: ['exterior', 'details'], tall: true },
     { key: 'brake', cap: 'Wheels and calipers', alt: 'Cleaned black wheel with a red brake caliper', tags: ['wheels'] },
-    { key: 'mirror', cap: 'Protection at work', alt: 'Water beading on a side mirror', tags: ['exterior', 'details'], tall: true },
+    { key: 'mirror', cap: 'Water beading', alt: 'Water beading on a side mirror', tags: ['exterior', 'details'], tall: true },
     { key: 'badge', cap: 'Badges and trim', alt: 'M2 badge on wet white paint', tags: ['details'] },
-    { key: 'wheel', cap: 'Tires dressed', alt: 'Rear wheel and arch after cleaning', tags: ['wheels'], tall: true },
+    { key: 'wheel', cap: 'Wheels and tires', alt: 'Rear wheel and arch after cleaning', tags: ['wheels'], tall: true },
     { key: 'lip', cap: 'Carbon care', alt: 'Carbon-fibre front lip with water beading', tags: ['exterior', 'details'], tall: true },
     { key: 'side', cap: 'Every panel', alt: 'Side skirt and carbon trim after a wash', tags: ['exterior'] },
   ];
@@ -263,6 +263,14 @@
     window.removeEventListener('scroll', window.__galDrift || (() => {}));
     window.__galDrift = drift; window.addEventListener('scroll', drift, { passive: true }); drift();
   }
+  // Leaving the Gallery (app.js): the scroll drift and the rise observer stop, and a resize no longer rebuilds the
+  // grid, so no other page (the home wash least of all) pays for them. mount() starts them again.
+  function unmount() {
+    if (window.__galDrift) window.removeEventListener('scroll', window.__galDrift);
+    window.__galDrift = null;
+    if (io) { io.disconnect(); io = null; }
+    body = null;
+  }
 
   // ---------------------------------------------------------------- lightbox with previous / next
   let box = null, img = null, cap = null, desc = null, count = null, link = null, lastFocus = null, startX = null, showToken = 0;
@@ -321,7 +329,7 @@
     box.hidden = false;
     requestAnimationFrame(() => box.classList.add('on'));
     show(i);
-    document.documentElement.style.overflow = 'hidden';
+    U.holdPage(true);
     outside().forEach((n) => { n.inert = true; });
     box.focus({ preventScroll: true });
   }
@@ -334,10 +342,10 @@
   function close() {
     box.classList.remove('on');
     setTimeout(() => { box.hidden = true; img.src = ''; }, 300);
-    document.documentElement.style.overflow = '';
+    U.holdPage(false);
     outside().forEach((n) => { n.inert = false; });
     if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
   }
 
-  window.AlchemistGallery = { mount, open, openKey, compare, PHOTOS, PAIRS };
+  window.AlchemistGallery = { mount, unmount, open, openKey, compare, PHOTOS, PAIRS };
 })();

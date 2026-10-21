@@ -266,6 +266,10 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 /* an inline "opens elsewhere" mark for links that leave the site */
 .ext { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-left: 6px; flex-shrink: 0; }
 .btn .ext { width: 14px; height: 14px; margin-left: 0; }
+/* a call button (a tel: link): the menu's phone mark before the words, never an arrow, and the number in its own
+   tighter tracking so it reads as a number, not as spaced-out capitals */
+.btn .tel-mark { width: 16px; height: 16px; flex-shrink: 0; }
+.btn[href^="tel:"] .tnum { letter-spacing: .06em; }
 .btn-gold {
   background: var(--gold-grad);
   background-size: 220% 100%;
@@ -310,6 +314,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   height: 62px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
+  column-gap: 12px;   /* a long page name keeps clear of the buttons and the logo at any width */
   align-items: center;
   padding: 0 9px;
   border-radius: 20px;
@@ -489,6 +494,21 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .menu-sub .call { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; margin-right: -8px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font: 600 13px/1 var(--font-ui); letter-spacing: .06em; white-space: nowrap; transition: color .3s var(--ease); }
 .menu-sub .call:hover { color: var(--gold-hi); }
 .menu-sub :focus-visible { outline-offset: -2px; }   /* the ring sits just inside the 44px box, 6px clear of the gold button above */
+/* a short screen (a laptop's browser window, a phone with its browser bars showing): a tighter rhythm, and below 710px
+   the Book Now item steps aside for the gold Book Now just under it, so the whole menu fits a 664px iPhone screen.
+   Shorter still, the list scrolls between the head and the foot, so the gold Book Now and the phone line stay on the
+   screen, and while more of the list is below it fades out at the foot (.more, from app.js). The scroller reaches
+   14px past the items on the left and 8px on the right, so their entrance and their 4px step are never clipped. */
+@media (max-height: 820px) {
+  .menu-head { margin-bottom: clamp(8px, 2vh, 24px); }
+  .menu nav { flex: 0 1 auto; min-height: 132px; margin-inline: -14px -8px; padding-inline: 14px 8px; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .menu nav::-webkit-scrollbar { display: none; }
+  .menu nav.more { -webkit-mask-image: linear-gradient(#000 calc(100% - 44px), rgba(0, 0, 0, .15)); mask-image: linear-gradient(#000 calc(100% - 44px), rgba(0, 0, 0, .15)); }   /* dimmed, not gone: an item that is nearly all there still reads */
+  .menu nav a.sep { margin-top: 10px; }
+  .menu-foot { padding-top: 12px; }
+}
+@media (max-height: 779px) { .menu { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }   /* flush to the screen (the floating panel keeps its 22px) */
+@media (max-height: 709px) { .menu nav a[href="#book"] { display: none; } }
 
 /* ---------------------------------------------------------------- hero */
 .hero {
@@ -824,7 +844,7 @@ section { position: relative; }
 .why, .how { isolation: isolate; }
 .why::before, .how::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(50% 45% at 50% 0%, rgba(226, 185, 82, .05), transparent 70%); pointer-events: none; }
 .why::after, .how::after { content: ""; position: absolute; left: 50%; bottom: 0; width: min(320px, 60vw); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, var(--line), transparent); pointer-events: none; }
-.why-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.why-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: stretch; }   /* the four cards end on one line */
 .why-item {
   padding: 26px 22px 24px;
   border-radius: var(--r-md);
@@ -835,7 +855,12 @@ section { position: relative; }
 .why-item:hover { border-color: var(--line); transform: translateY(-2px); }
 .why-item svg { width: 36px; height: 36px; color: var(--gold); }
 .why-item h3 { margin: 18px 0 8px; font: 700 var(--fs-sm)/1.3 var(--font-ui); letter-spacing: var(--tr-title); text-transform: uppercase; }
-.why-item h3::before { content: ""; display: block; width: 24px; height: 1px; background: var(--gold); margin: 0 0 14px; }
+.why-item h3::before { content: ""; display: block; width: 24px; height: 1px; background: var(--hair); margin: 0 0 14px; }   /* a neutral hairline: the icon carries the gold */
+/* each icon draws itself once, in gold, as its card rises (every stroke is a path of pathLength 1); hidden only while
+   the card waits to rise, so without motion, without JavaScript and in print it is simply drawn */
+.why-item svg path { stroke-dasharray: 1 2; stroke-dashoffset: 0; }
+.why-item[data-rise]:not(.in) svg path { stroke-dashoffset: 1.01; }
+.why-item.in svg path { transition: stroke-dashoffset .9s var(--ease-in-out) calc(var(--k, 0) * 120ms + .35s); }   /* drawn in, never drawn out */
 .why-item p { margin: 0; color: var(--ink-2); font-size: var(--fs-md); }
 
 /* ---------------------------------------------------------------- after Our work: the featured review and the doorways
@@ -920,7 +945,9 @@ section { position: relative; }
 /* ---------------------------------------------------------------- footer */
 .footer { position: relative; padding: 70px 0 calc(40px + env(safe-area-inset-bottom, 0px)); color: var(--ink-2); border-top: 1px solid var(--hair); }
 .footer::before { content: ""; position: absolute; left: 50%; top: -1px; width: min(320px, 60vw); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, var(--line), transparent); pointer-events: none; }
-.foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; gap: 30px; padding-bottom: 36px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+/* five columns on a wide screen: the four fact and page columns each as wide as their longest line (so "10 miles"
+   stays with its words), the brand in the rest */
+.foot-grid { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, auto); gap: 30px clamp(32px, 3.6vw, 60px); padding-bottom: 36px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
 /* the brand lockup matches the menu's: monogram beside the wordmark (the footer's block-link rule must not win here) */
 .footer a.foot-brand { display: flex; align-items: center; gap: 14px; margin: 0; font-size: inherit; }
 .foot-brand svg { width: 46px; height: 46px; flex-shrink: 0; }
@@ -930,13 +957,21 @@ section { position: relative; }
 .footer h2 { margin: 0 0 12px; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-eyebrow); text-transform: uppercase; color: var(--gold-ink); }
 .footer p, .footer a { margin: 0 0 6px; font-size: var(--fs-md); text-decoration: none; display: block; }
 .footer a:hover { color: var(--gold-hi); }
+.footer p { text-wrap: balance; }   /* where a line has to break, it breaks evenly */
+/* every page, in two short lists side by side (five, then four) */
+.foot-links { display: grid; grid-template-rows: repeat(5, auto); grid-auto-flow: column; justify-content: start; column-gap: 32px; }
+/* a laptop or a tablet: the brand across the top, the four columns spread under it (two by two from 980px down) */
+@media (max-width: 1100px) {
+  .foot-grid { grid-template-columns: repeat(4, auto); justify-content: space-between; }
+  .foot-grid > div:first-child { grid-column: 1 / -1; }
+}
 .fine { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding-top: 22px; font-size: var(--fs-xs); color: var(--muted); }
 /* on Contact the page itself carries the place, the hours and the ways to reach us, so the footer keeps only the brand
    and the pages (.lean from app.js): no fact twice in a row on a phone */
 .footer.lean .foot-fact { display: none; }
 .footer.lean .foot-grid { grid-template-columns: minmax(0, 1fr) auto; }
 .footer.lean .foot-grid > div:first-child { grid-column: auto; }
-@media (max-width: 640px) { .footer.lean .foot-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .footer.lean .foot-grid { grid-template-columns: 1fr; grid-template-areas: "id" "pages"; } }
 
 /* ---------------------------------------------------------------- the 404 page (site/404.html; the old placeholder pages' card) */
 .page { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; text-align: center; padding: calc(120px + env(safe-area-inset-top, 0px)) var(--gutter) 80px; background: radial-gradient(60% 50% at 50% 30%, rgba(226, 185, 82, .07), transparent 70%); }
@@ -1116,12 +1151,16 @@ section { position: relative; }
 .price-card.featured { border-color: rgba(226, 185, 82, .3); background: var(--sheen, none), radial-gradient(120% 70% at 100% 0%, rgba(226, 185, 82, .09), transparent 60%), linear-gradient(180deg, #121212, #080808); }
 .price-card:hover { border-color: rgba(226, 185, 82, .45); transform: translateY(-3px); box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .9), 0 0 36px -14px rgba(226, 185, 82, .3); }
 .price-card.featured:hover { border-color: rgba(226, 185, 82, .55); }
+/* pointed at, or its button reached by Tab: the price brightens and the button's arrow moves on, as on the home cards */
+.price-card:focus-within { border-color: rgba(226, 185, 82, .45); }
+.price-card:is(:hover, :focus-within) .amount { color: var(--gold-pale); text-shadow: 0 0 18px rgba(248, 221, 152, .3); }
+.price-card:is(:hover, :focus-within) .btn .arrow { transform: translateX(4px); }
 .price-card h3 { margin: 0; font: 600 clamp(17px, 1.7vw, 20px)/1.2 var(--font-display); letter-spacing: var(--tr-title); text-transform: uppercase; }
 .price-card .tag ~ h3 { padding-right: clamp(72px, 26vw, 100px); }
 .price-card .tag { position: absolute; z-index: 1; top: clamp(22px, 3vw, 32px); right: clamp(22px, 3vw, 32px); font: 700 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold-ink); }
 .price-card.featured { overflow: hidden; }
 .price-card.featured > :not(.tag) { position: relative; z-index: 1; }
-.amount { margin: 14px 0 0; display: flex; align-items: baseline; gap: 10px; font: 600 clamp(34px, 3.6vw, 44px)/1 var(--font-ui); letter-spacing: -.02em; color: var(--gold-hi); }
+.amount { margin: 14px 0 0; display: flex; align-items: baseline; gap: 10px; font: 600 clamp(34px, 3.6vw, 44px)/1 var(--font-ui); letter-spacing: -.02em; color: var(--gold-hi); transition: color .4s var(--ease), text-shadow .4s var(--ease); }
 .amount small { font: 600 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
 .saving { margin: 10px 0 0; font-size: 13.5px; color: var(--ink-2); }
 .saving b { color: var(--gold-hi); font-weight: 600; }
@@ -1477,10 +1516,21 @@ section { position: relative; }
   .footer a { display: flex; align-items: center; min-height: 44px; margin: 0; }
   .svc-card .go-k { display: none; }
   .hero .actions .btn { width: 100%; }
+  .cta-band .actions { flex-direction: column; align-items: stretch; width: min(100%, 320px); margin-inline: auto; }   /* stacked as in the hero: one width for Book Now and Call */
   .steps { grid-template-columns: 1fr 1fr; row-gap: 34px; }
   .steps::before { display: none; }
   .why-grid { grid-template-columns: 1fr; }
-  .foot-grid { grid-template-columns: 1fr; }
+  /* the footer as a short sign-off: the brand, Where beside Contact, the hours, then every page in two columns (the
+     second in line with Contact) */
+  .footer { padding-top: 52px; }
+  .foot-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "id id" "where contact" "hours hours" "pages pages"; gap: 28px 20px; padding-bottom: 28px; }
+  .foot-grid > div:first-child { grid-area: id; }
+  .foot-where { grid-area: where; }
+  .foot-contact { grid-area: contact; }
+  .foot-hours { grid-area: hours; }
+  .foot-pages { grid-area: pages; }
+  .foot-links { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; }
+  .foot-where p { display: flex; align-items: center; min-height: 44px; margin: 0; }   /* in line with the 44px rows of Contact beside it */
   .work-foot { flex-direction: column; align-items: stretch; }
   .work-foot .btn { width: 100%; }
   .svc-card { padding: 14px; border-radius: var(--r-md); }
@@ -1491,6 +1541,14 @@ section { position: relative; }
   .wash-services { padding-top: calc(84px + env(safe-area-inset-top, 0px)); }
   .price-grid { grid-template-columns: 1fr; }
   .wash { --wash-h: 380vh; }
+}
+/* a narrow phone (360-400px): the page name a size smaller and the monogram a little closer to the account button,
+   so the longest name (Appointments) sits on the centre line with clear space on both sides */
+@media (max-width: 400px) {
+  .page-name { font-size: 11.5px; }
+  .bar-right { gap: 4px; }
+  .brand-link { width: 38px; }
+  .brand-link svg { width: 30px; height: 30px; }
 }
 
 /* ---------------------------------------------------------------- less motion */
@@ -3319,6 +3377,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] :is(.svc-card, .why-item, .price-card, .work-item, .gal-tile):hover { border-color: rgba(184, 144, 44, .55); }
 @media (hover: hover) and (pointer: fine) { [data-theme="light"] .svc-opt:hover { border-color: rgba(184, 144, 44, .55); } }   /* the booking's cards: a mouse only, as in the dark */
 [data-theme="light"] .svc-opt.on, [data-theme="light"] .price-card:hover { box-shadow: 0 18px 40px -26px rgba(40, 30, 10, .35), 0 0 0 1px rgba(184, 144, 44, .35), 0 0 30px -12px rgba(184, 144, 44, .35); }
+[data-theme="light"] .price-card:is(:hover, :focus-within) .amount { color: #a37c22; text-shadow: 0 0 16px rgba(184, 144, 44, .22); }   /* the studio keeps the deep gold: only a faint warm glow */
 [data-theme="light"] .svc-opt.on { background: var(--sheen, none), rgba(184, 144, 44, .08); border-color: var(--gold); }
 [data-theme="light"] :is(.choice-item, .sw-tile).on { background: rgba(184, 144, 44, .1); border-color: var(--gold); box-shadow: 0 0 22px -12px rgba(122, 93, 20, .5); }
 [data-theme="light"] :is(.chips, .tiles) .choice-item.on { background: rgba(184, 144, 44, .14); }
@@ -3406,6 +3465,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   [data-rise], [data-reveal], .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .emblem svg.circle circle { stroke-dashoffset: 0; }
+  .why-item svg path { stroke-dashoffset: 0 !important; }   /* the Why icons on paper, drawn or not on the screen */
   .gold-text, .hero h1 .l1 { background: none !important; color: #8f6a1c !important; -webkit-text-fill-color: #8f6a1c; }
   .amount, .price-card .tag, .svc-card .price, .eyebrow { color: #8f6a1c !important; text-shadow: none !important; }
   .hero { min-height: 0 !important; background: none !important; }

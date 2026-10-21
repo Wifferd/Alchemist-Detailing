@@ -133,6 +133,22 @@
   const menu = $('#menu'), scrim = $('#scrim'), menuBtn = $('#menuBtn'), main = $('#main');
   const footer = $('.footer'), topbar = $('#topbar');
   let menuOpen = false;
+  const holdPage = (on) => { if (window.AlchemistUI) window.AlchemistUI.holdPage(on); else root.style.overflow = on ? 'hidden' : ''; };   // ui.js: no sideways jolt from the scroll bar
+  // On a short screen the list scrolls between the menu's head and foot (alchemist.css): it fades out at the foot
+  // while more of it is below, and it opens with the current page's item in view.
+  const menuNav = $('nav', menu);
+  const fadeNav = () => menuNav.classList.toggle('more', menuNav.scrollHeight - menuNav.scrollTop - menuNav.clientHeight > 2);
+  function fitNav() {
+    menuNav.scrollTop = 0;
+    const here = $('a[aria-current="page"]', menuNav);
+    if (here && here.offsetParent && menuNav.scrollHeight > menuNav.clientHeight) {
+      const below = here.getBoundingClientRect().bottom - menuNav.getBoundingClientRect().bottom;
+      if (below > -44) menuNav.scrollTop = below + 44;   // clear of the fade
+    }
+    fadeNav();
+  }
+  menuNav.addEventListener('scroll', fadeNav, { passive: true });
+  window.addEventListener('resize', () => { if (menuOpen) fadeNav(); });
   function press(btn) {
     btn.classList.add('pressed', 'ringing');
     setTimeout(() => btn.classList.remove('pressed'), 170);
@@ -151,9 +167,10 @@
     main.inert = true;
     topbar.inert = true;
     if (footer) footer.inert = true;
-    root.style.overflow = 'hidden';
+    holdPage(true);
+    fitNav();
     if (hero && hero.pause) hero.pause();
-    setTimeout(() => { const a = $('nav a', menu); if (a) a.focus({ preventScroll: true }); }, reduce ? 0 : 380);
+    setTimeout(() => { const a = (menuNav.scrollTop > 0 && $('a[aria-current="page"]', menuNav)) || $('a', menuNav); if (a) a.focus({ preventScroll: true }); }, reduce ? 0 : 380);   // the first item, or the current one when the list opened scrolled to it
     // the page you are on takes the gold light once its item has slid in (110ms press, 140ms + 28ms a step, .45s)
     const here = $('nav a[aria-current="page"]', menu);
     if (here) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen });
@@ -168,7 +185,7 @@
     main.inert = false;
     topbar.inert = false;
     if (footer) footer.inert = false;
-    root.style.overflow = '';
+    holdPage(false);
     if (hero && hero.resume) hero.resume();
     if (returnFocus) menuBtn.focus({ preventScroll: true });
   }
@@ -734,6 +751,7 @@
     const changed = r !== cur;
     if (changed) {
       closeMenu(false);
+      if (cur === 'gallery' && window.AlchemistGallery && window.AlchemistGallery.unmount) window.AlchemistGallery.unmount();   // its scroll drift stops with the page
       $$('.view').forEach((v) => {
         const on = v.dataset.view === view;
         v.hidden = !on;
