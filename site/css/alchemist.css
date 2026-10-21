@@ -1065,6 +1065,42 @@ section { position: relative; }
 .group-plate svg { grid-row: span 2; width: 40px; height: 40px; color: #e2b952; }
 .group-plate h2 { font-size: clamp(26px, 3.4vw, 40px); color: #f7f7f4; }
 .group-plate p { margin: 0; color: #d6d6d1; max-width: 58ch; }
+/* Interior carries the owner's line under its title (his animation direction, §12), in the hero's tracked capitals */
+#svc-interior .group-plate svg { grid-row: span 3; }
+.group-plate .motto { margin: 1px 0 4px; font: 600 var(--fs-xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-eyebrow); text-transform: uppercase; color: #ece6da; }
+.group-plate .motto i { font-style: normal; color: #e2b952; }
+/* Protection: the beading moment (the owner's §11; app.js). While .beading the photo and the title wait under black
+   paint and a live canvas of the paint lies over the plate (.live): the drops form, a few roll, the gold light passes
+   through them, then the canvas fades to the real photo (.crossing, .8s) and the title rises (.risen). The paint is the
+   lower left corner of the stills' canvas, which app.js sizes so that corner fills the plate. A page opened right at
+   the plate, before the stills' context is up, gets .quick: the photo fades in from the black and the title rises.
+   Reduced motion, forced colours and no WebGL never set .beading: the still photo and its title. */
+.group-plate > canvas.live { inset: auto auto 0 0; max-width: none; transform: none; object-fit: fill; background: #030303; filter: none; transition: opacity .8s var(--ease-in-out); }
+.group-plate.beading { background: #030303; }   /* black paint while it waits, in both themes */
+.group-plate.beading > img { opacity: 0; }
+.group-plate.beading.quick > img { transition: opacity .8s var(--ease-in-out); }
+.group-plate.beading.crossing > img { opacity: 1; }
+.group-plate.crossing > canvas.live { opacity: 0; }
+.group-plate.beading::before { opacity: .3; transition: opacity .8s var(--ease-in-out); }   /* the caption's shade comes with the photo */
+.group-plate.beading.crossing::before { opacity: 1; }
+/* Interior: the cabin lighting up (the owner's §12; app.js .cabin, then .on). The leather waits in the dark under
+   .cabin-dark, black but for a soft pool of light beyond the top left corner; the pool crosses the quilting
+   diagonally (1.4s) with a warm glow on it (.cabin-glow), the dark lifts to the plate's lit state, then the title
+   rises and the owner's line 200ms after it. Transforms and opacity only; the plate stays dark in both themes. */
+.cabin-dark, .cabin-glow { position: absolute; inset: -100%; z-index: -1; pointer-events: none; transform: translate(-28%, -34%); }
+.cabin-dark { background: radial-gradient(circle var(--pool) at 50% 50%, rgba(3, 3, 3, 0) 0%, rgba(3, 3, 3, .28) 34%, rgba(3, 3, 3, .8) 68%, rgba(3, 3, 3, .97) 100%); }
+.cabin-glow { background: radial-gradient(circle var(--pool) at 50% 50%, rgba(255, 220, 160, .2) 0%, rgba(226, 185, 82, .08) 38%, rgba(226, 185, 82, 0) 66%); mix-blend-mode: screen; }
+.group-plate { --pool: clamp(170px, 30vw, 440px); }
+.cabin.on :is(.cabin-dark, .cabin-glow) { animation: cabinPool 1.4s var(--ease-in-out) forwards, cabinUp .9s var(--ease) 1.05s forwards; }
+@keyframes cabinPool { to { transform: translate(6%, 8%); } }
+@keyframes cabinUp { to { opacity: 0; } }
+/* the titles of both moments: down until their moment reaches them */
+:is(.beading, .cabin) figcaption > * { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
+:is(.beading.risen, .cabin.on) figcaption > * { opacity: 1; transform: none; }
+.beading.risen figcaption > p { transition-delay: .12s; }
+.cabin.on figcaption > * { transition-delay: 1.5s; }
+.cabin.on figcaption > .motto { transition-delay: 1.7s; }
+.cabin.on figcaption > p:last-child { transition-delay: 1.82s; }
 .price-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .price-card {
   position: relative;
@@ -3149,8 +3185,10 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .svc-group { padding-block: 6mm; }
   .group-plate { aspect-ratio: auto; background: none !important; border: 0 !important; margin-bottom: 4mm; }
   .group-plate figcaption { position: static; padding: 0; color: #111; }
-  .group-plate h2, .group-plate p { color: #111; }
-  .group-plate svg { color: #8f6a1c; }
+  .group-plate h2, .group-plate p, .group-plate .motto { color: #111; }
+  .group-plate .motto i, .group-plate svg { color: #8f6a1c; }
+  .cabin-dark, .cabin-glow { display: none !important; }
+  .group-plate figcaption > * { opacity: 1 !important; transform: none !important; }
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: #ddd; }
   :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid #d8d8d8 !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; }

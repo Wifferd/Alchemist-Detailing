@@ -196,12 +196,14 @@
   let artQueue = [];
   let artBusy = false;
   let artReady = false;
+  let artHold = false;   // the Bead moment on Services is drawing through the stills' context: they wait for it
   function paintArt() {
-    if (!artReady || !glOk || !window.AlchemistHero) return;
+    if (!artReady || artHold || !glOk || !window.AlchemistHero) return;
     artQueue = $$('canvas[data-art]').filter((c) => c.offsetParent !== null || c.closest('.wash-stage'));
     if (!artBusy) nextArt();
   }
   function nextArt() {
+    if (artHold) { artBusy = false; return; }
     const c = artQueue.shift();
     if (!c) { artBusy = false; return; }
     artBusy = true;
@@ -217,8 +219,8 @@
           const src = window.AlchemistHero.art(c.dataset.art, W, H, +(c.dataset.t || 10), opts);
           if (src) {
             c.width = W; c.height = H;
-            c.getContext('2d').drawImage(src, 0, 0);
-            c.dataset.done = '1';
+            c.getContext('2d').drawImage(src, 0, src.height - H, W, H, 0, 0, W, H);   // the picture is the canvas's lower left corner
+            if (!c.dataset.done) { c.dataset.done = '1'; c.dispatchEvent(new Event('painted')); }   // the Interior moment waits for its leather
           }
         } catch (e) { /* keep the CSS background */ }
       }
@@ -551,6 +553,130 @@
         });
       });
     }, { passive: true });
+  })();
+
+  // ---------------------------------------------------------------- the services plates' moments (one each, played once)
+  // Protection beads up live and Interior's cabin lights up, each the first time its plate comes on the screen. Under
+  // reduced motion and in forced colours neither plays: the plates show their still pictures and titles, as before.
+  const calm = reduce || window.matchMedia('(forced-colors: active)').matches;
+  const onceSeen = (el, o, fn) => {
+    const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); fn(); } }, o);
+    io.observe(el);
+  };
+  // Protection (the owner's §11): at 40% on the screen the paint beads up live. Drops appear and bead up (2.2s), the
+  // gold light passes through them (1.6s) while a few roll down, then the canvas gives way to the real photo of
+  // beading (.8s) and the title rises. It is drawn through the stills' context by their own program (the stills wait
+  // while it is on the screen), at the Interior leather's size, which that canvas already has: nothing to compile,
+  // no resize, nothing in it waits for the GPU process, and nothing to let go afterwards. It draws only while the
+  // plate is on the screen and stops for good once the photo is back. On a page that has only just opened here
+  // (#services-protection), before the stills' context is up, it waits at most 300ms, then the photo fades in and
+  // the title rises. A context lost on the way ends it at once: the photo and the title.
+  (function beading() {
+    const plate = $('#svc-protection .group-plate');
+    if (!plate || calm || !glOk || !window.AlchemistHero) return;
+    plate.classList.add('beading');
+    const small = Math.min(window.innerWidth, window.innerHeight) < 700;
+    const timers = [];
+    const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+    const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const span = (secs, a, b) => Math.min(1, Math.max(0, (secs - a) / (b - a)));
+    let cv = null, raf = 0, t0 = 0, last = 0, seen = true, done = false, W = 2, H = 2, range = 0.5, v0 = 0.5, v1 = 0.5;
+    const watch = new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; });
+    function stopFrames() {
+      cancelAnimationFrame(raf);
+      watch.disconnect();
+      if (cv) { cv.remove(); cv.classList.remove('live'); cv.removeAttribute('style'); cv = null; }
+      if (artHold) { artHold = false; paintArt(); }
+    }
+    function end() {
+      if (done) return;
+      done = true;
+      timers.forEach(clearTimeout);
+      stopFrames();
+      plate.classList.remove('beading', 'crossing', 'risen', 'quick');
+    }
+    // no moment: the photo fades in from the black paint and the title rises
+    function reveal() {
+      if (done) return;
+      done = true;
+      plate.classList.add('quick', 'crossing', 'risen');
+      later(1000, () => plate.classList.remove('beading', 'crossing', 'risen', 'quick'));
+    }
+    const at = (secs) => ({ live: true, studio: false, intro: (secs - 0.3) / 1.6, form: 1 - Math.pow(1 - span(secs, 0.2, 2.4), 3), sweep: v0 + (v1 - v0) * ease(span(secs, 1.2, 2.8)), sweepRange: range, roll: span(secs, 1.6, 3.6) });
+    function frame(now) {
+      raf = requestAnimationFrame(frame);
+      if (!seen || document.hidden || now - last < (small ? 31 : 15)) return;   // 30 fps on a phone, 60 elsewhere
+      last = now;
+      const secs = (now - t0) / 1000;
+      if (window.AlchemistHero.art('beads', W, H, 13.7 + secs, at(secs)) !== cv) end();   // the context was lost
+    }
+    function play(room) {
+      // the paint below the screen's resolution, soft and fast: at the Interior leather's scale (its data-k .6; the
+      // plates are the same size), kept within the stills' canvas as it is (should the plate have grown since)
+      const dpr = Math.min(window.devicePixelRatio || 1, 2), k = Math.min(0.6, room[0] / (plate.clientWidth * dpr), room[1] / (plate.clientHeight * dpr));
+      W = Math.max(2, Math.floor(plate.clientWidth * dpr * k));
+      H = Math.max(2, Math.floor(plate.clientHeight * dpr * k));
+      // the light comes up in the left third of the paint, then passes through the drops to rest right of the middle:
+      // its travel follows the plate's shape (ext: the paint's half-width along the light's axis in the shader's units;
+      // at this time of the scene the bar's own drift holds it near -0.3)
+      const ext = 0.675 * (W / H * 0.82 + 0.57), from = -0.55 * ext + 0.3, to = 0.5 * ext + 0.3;
+      range = 2 * Math.max(-from, to);
+      v0 = 0.5 + from / range;
+      v1 = 0.5 + to / range;
+      artHold = true;   // the stills wait while the canvas is on the screen
+      try { cv = window.AlchemistHero.art('beads', W, H, 13.7, at(0)); } catch (e) { cv = null; }
+      if (!cv) { end(); return; }
+      cv.classList.add('live');
+      cv.setAttribute('aria-hidden', 'true');
+      // the paint is the canvas's lower left W x H corner: sized so that corner fills the plate (which clips the rest)
+      cv.style.width = (100 * cv.width / W) + '%';
+      cv.style.height = (100 * cv.height / H) + '%';
+      plate.insertBefore(cv, plate.querySelector('figcaption'));
+      watch.observe(plate);
+      t0 = last = performance.now();
+      raf = requestAnimationFrame(frame);
+      later(3100, () => plate.classList.add('crossing'));
+      later(3600, () => plate.classList.add('risen'));
+      later(4000, stopFrames);
+      later(4800, () => { done = true; plate.classList.remove('beading', 'crossing', 'risen'); });
+    }
+    onceSeen(plate, { threshold: 0.4 }, () => {
+      const t = performance.now();
+      (function go() {
+        if (done) return;
+        const room = artReady && !artBusy && plate.clientWidth && window.AlchemistHero.artRoom();
+        if (room) play(room);
+        else if (performance.now() - t > 300) reveal();
+        else later(50, go);
+      })();
+    });
+  })();
+  // Interior (the owner's §12): the plate starts nearly black; at 35% on the screen, once its leather is painted, a
+  // soft warm light crosses the quilting diagonally (1.4s), the cabin comes up to its lit state, then INTERIOR rises
+  // and, 200ms later, the owner's line. CSS draws it with transforms and opacity.
+  (function cabin() {
+    const plate = $('#svc-interior .group-plate');
+    if (!plate || calm) return;
+    const leather = $('canvas[data-art]', plate);
+    ['cabin-dark', 'cabin-glow'].forEach((k) => {
+      const s = document.createElement('span');
+      s.className = k;
+      s.setAttribute('aria-hidden', 'true');
+      plate.insertBefore(s, plate.querySelector('figcaption'));
+    });
+    plate.classList.add('cabin');
+    let played = false;
+    const play = () => {
+      if (played) return;
+      played = true;
+      plate.classList.add('on');
+      setTimeout(() => { $$('.cabin-dark, .cabin-glow', plate).forEach((s) => s.remove()); plate.classList.remove('cabin', 'on'); }, 3000);
+    };
+    onceSeen(plate, { threshold: 0.35 }, () => {
+      if (!glOk || !leather || leather.dataset.done) { play(); return; }
+      leather.addEventListener('painted', play, { once: true });
+      setTimeout(play, 2500);   // the stills never came: light it all the same
+    });
   })();
 
   // ---------------------------------------------------------------- the services showroom (built once, the first time the page opens)

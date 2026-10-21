@@ -16,12 +16,19 @@
    cooler panel beside it. The "studio" preset turns the black paint into
    cream paint under a white softbox for light mode.
 
+   Live in the hero, a few of the largest drops slide slowly down the paint (not on phones) and soft specks of
+   light drift up through the air in front of it (none in the stills or under reduced motion).
+
    Real photos or video of the owner's work can replace these later.
    Usage:
-     AlchemistHero.start(canvas, { scene: 'beads' | 'gloss', still?: true, studio?: bool })
+     AlchemistHero.start(canvas, { scene: 'beads' | 'gloss', still?: true, studio?: bool, flow?: [travel, share, rate], motes?: bool })
        -> { stop, pause, resume, setStudio(on), setSweep(0..1) } or null without WebGL
-       studio follows html[data-theme] when the option is left out.
-     AlchemistHero.art(scene, width, height, time, { studio? }) -> a canvas to copy from */
+       studio follows html[data-theme] when the option is left out; flow: how far the moving drops travel
+       (grid cells), the share of the largest drops that move, and their cycles a second.
+     AlchemistHero.art(scene, width, height, time, { studio?, live?, intro?, form?, sweep?, sweepRange?, roll? })
+       -> a canvas to copy from: the picture is its lower left width x height corner (the canvas only grows),
+       or to show while a sequence is drawn through it, frame by frame
+     AlchemistHero.artRoom() -> [width, height] of that canvas, or null before the first still */
 (function () {
   'use strict';
 
@@ -43,6 +50,10 @@ uniform float uZoom;
 uniform float uScene;      // art only: 0 gloss, 1 beads, 2 leather, 3 split, 4 film
 uniform float uStudio;     // 1 = light mode: cream paint under a white softbox
 uniform float uSweep;      // 0..1 nudges the light bar by up to a quarter of the screen (0.5 = at rest)
+uniform float uSweepK;     // how far uSweep moves the bar (0.5: a quarter of the screen either way)
+uniform vec4 uFlow;        // the moving drops: travel (cells; 0 = none), share, cycles a second (0: one pass), its progress
+uniform float uForm;       // 0..1 the drops forming: each appears small at its own moment and beads up (1 = all formed)
+uniform float uMotes;      // 1 = the drifting specks of light in the air (the live hero)
 float hash21(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
 vec2 hash22(vec2 p){ float n = hash21(p); return vec2(n, hash21(p + n + 19.19)); }
 float noise(vec2 p){
@@ -61,7 +72,7 @@ const vec3 COOL = vec3(0.80, 0.82, 0.86);
 // the visible paint or jumps: the frame spans about +-1.3 on this axis at 1440 wide and +-0.8
 // on a phone, the bar stays within -0.45..0.65.
 const vec2 LD = vec2(0.82, -0.57);
-float lightPos(float t){ return 0.1 + 0.5*sin(t*0.3) + 0.05*sin(t*0.11) + (uSweep - 0.5)*0.5; }
+float lightPos(float t){ return 0.1 + 0.5*sin(t*0.3) + 0.05*sin(t*0.11) + (uSweep - 0.5)*uSweepK; }
 // Signed distance to the bar's centre line. The paint is not a mirror: orange peel
 // (fine normals) and the panel's curvature bend the reflection a little.
 float curvature(vec2 q){ return 0.05*sin(q.y*1.8 + 0.4) + 0.02*sin(q.x*3.1); }
@@ -114,29 +125,67 @@ vec3 envFast(vec2 q, float t, float sharp){ return envAt(dot(q, LD) - lightPos(t
 // few large); beads sag downward; a few of the large ones trail a run where two merged.
 // clr is a clearing (its centre in grid cells, and the scale to its ellipse), hole how much it
 // clears: a bead is kept or dropped by its centre, so none is ever cut through.
-float beads(vec2 g, float density, float rmin, float rmax, float sag, float runs, vec4 clr, float hole, out vec2 o, out float rr, out float tt){
+// Compiled in only where they are used:
+//   FLOW  the live hero: in the largest layer a share (flow.y) of the beads slide slowly down by up to flow.x
+//         cells and back, flow.z cycles a second, fading in at the top and out at the end of their travel (fa)
+//   ROLL  the stills' program, for the Bead moment drawn through it: one pass instead, flow.w carrying them from 0
+//         to 1, as far as flow.x cells, so the search reaches two cells up for them
+//   FORM  the stills' program too: the beads forming (uForm below 1)
+// A still sets flow to 0 and uForm to 1, so neither changes a pixel of it.
+// A moving bead takes its run with it, and leaves no track: on a sealed finish the water rolls off clean.
+#ifdef ROLL
+#define JMAX 2
+#else
+#define JMAX 1
+#endif
+float beads(vec2 g, float density, float rmin, float rmax, float sag, float runs, vec4 clr, float hole, vec4 flow, out vec2 o, out float rr, out float tt, out float fa){
   vec2 id = floor(g);
   float best = 9.0;
-  o = vec2(0.0); rr = 0.0;
-  for (int j = -1; j <= 1; j++){
+  o = vec2(0.0); rr = 0.0; fa = 1.0;
+  for (int j = -1; j <= JMAX; j++){
+    if (j == 2 && flow.x < 0.45) break;       // only a bead that travels further is found from two cells below its own
     for (int i = -1; i <= 1; i++){
       vec2 cid = id + vec2(float(i), float(j));
       vec2 c = cid + 0.2 + hash22(cid*1.37 + 3.1)*0.6;
       float kept = hole > 0.0 ? mix(1.0, smoothstep(0.28, 0.58, length((c - clr.xy)*clr.zw)), hole) : 1.0;
-      if (hash21(cid*0.731 + 4.1) > density*kept) continue;
-      float r = mix(rmin, rmax, pow(hash21(cid + 7.7), 2.2));
+      float hv = hash21(cid*0.731 + 4.1);
+      if (hv > density*kept) continue;
+      float rh = hash21(cid + 7.7);
+      float r = mix(rmin, rmax, pow(rh, 2.2));
+#ifdef FORM
+      if (uForm < 1.0){
+        // each bead starts at its own moment and grows to its size
+        float p0 = hv/max(density*kept, 1e-3)*0.6;
+        r *= smoothstep(p0, p0 + 0.4, uForm);
+        if (r < 1e-3) continue;
+      }
+#endif
+      float f = 1.0;
+#if defined(FLOW) || defined(ROLL)
+      if (hv < density*kept*flow.y){
+        float h = fract(rh*9.71);
+#ifdef ROLL
+        float ph = clamp(flow.w*1.5 - h*0.5, 0.0, 1.0);
+        c.y -= flow.x*ph*ph;                  // breaks free, then gathers pace
+#else
+        float ph = fract(uTime*flow.z*(0.75 + 0.5*h) + h);
+        c.y -= flow.x*smoothstep(0.1, 0.85, ph);
+        f = smoothstep(0.0, 0.1, ph)*(1.0 - smoothstep(0.86, 1.0, ph));
+#endif
+      }
+#endif
       vec2 dv = g - c;
       dv.x *= 1.0 + (hash21(cid + 5.5) - 0.5)*0.24;
       if (dv.y < 0.0) dv.y /= 1.0 + sag;          // the lower half bulges with gravity
       float tn = length(dv)/r;
-      if (tn < best){ best = tn; rr = r; o = dv/r; }
+      if (tn < best){ best = tn; rr = r; o = dv/r; fa = f; }
       if (runs > 0.0 && hash21(cid + 9.3) < 0.06){
         // a run: a thinner capsule from the centre down, with a rounded head
         float len = r*mix(0.6, 1.4, hash21(cid + 1.9));
         vec2 dr = vec2(dv.x, dv.y - clamp(dv.y, -len, 0.0));
         float r2 = r*0.35;
         float tn2 = length(dr)/r2;
-        if (tn2 < best){ best = tn2; rr = r2; o = dr/r2; }
+        if (tn2 < best){ best = tn2; rr = r2; o = dr/r2; fa = f; }
       }
     }
   }
@@ -150,6 +199,81 @@ float beads(vec2 g, float density, float rmin, float rmax, float sag, float runs
 #define K0 0
 #define RUNS 1.0
 #endif
+// One layer of drops over col (k: 0 the mist between the beads .. 4 the largest drops; flow: see beads).
+vec3 layer(vec3 col, int k, vec2 q, float t, float blur, float sag, float d0, float density, float zoom, float hole, vec2 qc, vec4 flow){
+  vec2 LP = vec2(-LD.y, LD.x);     // along the bar
+  float sc, dens, rmin, rmax;
+  if (k == 0){ sc = 70.0; dens = 0.35; rmin = 0.03; rmax = 0.05; }        // mist between the beads
+  else if (k == 1){ sc = 34.0; dens = 0.30; rmin = 0.06; rmax = 0.12; }
+  else if (k == 2){ sc = 19.0; dens = 0.55; rmin = 0.11; rmax = 0.28; }
+  else if (k == 3){ sc = 9.0; dens = 0.58; rmin = 0.15; rmax = 0.36; }
+  else { sc = 4.6; dens = 0.55; rmin = 0.18; rmax = mix(0.30, 0.22, uStudio); }   // the largest drops stay under ~90px (65px on cream)
+  // the two finest layers melt into the blur above and below the focus band
+  float keep = k <= 1 ? 1.0 - smoothstep(0.45, 0.65, blur) : 1.0;
+  if (keep <= 0.0) return col;
+  vec2 o; float rr; float tn; float fa;
+  vec4 clr = vec4(qc*sc + float(k)*17.3, vec2(0.7, 1.2)/(1.35*zoom*sc));   // on screen: length((uv - .5)*vec2(asp*.7, 1.2))
+  // on cream paint every drop shows, so the studio carries fewer of them and the wordmark keeps its room
+  float b = beads(q*sc + float(k)*17.3, dens*density*(1.0 - 0.4*uStudio), rmin, rmax, k == 0 ? 0.0 : sag, k >= 3 ? RUNS : 0.0, clr, hole, flow, o, rr, tn, fa);
+  if (b < 0.5) return col;
+  float soft = 0.025 + blur*0.30*(k == 4 ? 1.0 : 0.7);
+  float a = (1.0 - smoothstep(1.0 - soft, 1.0 + soft, tn))*keep;
+  float tt = clamp(tn, 0.0, 1.0);
+  float z = sqrt(max(1.0 - tt*tt, 0.0));
+  vec3 n = normalize(vec3(o*1.25, z*0.8 + 0.2));      // a flattened dome: broad streak highlights
+  float fres = pow(1.0 - z, 2.5);
+  // where the bar is for this bead (dc: its centre's distance from the bar). The light comes from the
+  // bar's side, weaker the further away, but never gone: every drop keeps a little of the bar.
+  float dc = d0 - dot(o*(rr/sc), LD);
+  float near = exp(-dc*dc*3.0);
+  float lit = max(near, 0.15);
+  vec3 L = normalize(vec3(-LD*clamp(dc, -1.0, 1.0)*0.6, 0.8));
+  // away from the bar, in the paint's plane: at least a third of a side, so the crescent never vanishes
+  vec2 away = LD*clamp(sign(dc)*max(abs(dc)/0.2, 0.35), -1.0, 1.0);
+  vec2 on = normalize(o + vec2(1e-4, 0.0));
+  float lightSide = max(dot(on, -away), 0.0);
+  // the bar reflected in the dome: a short streak along the bar's axis, inside the drop
+  vec3 R = reflect(vec3(0.0, 0.0, -1.0), n);
+  vec2 dv2 = (R - L).xy;
+  float al = dot(dv2, LP), ac = dot(dv2, LD);
+  float spec = exp(-(al*al*mix(14.0, 4.0, blur) + ac*ac*mix(110.0, 24.0, blur)))*(1.0 + 1.0*near)*uIntro*(1.0 - blur*0.5);
+  vec3 rimCol = mix(GOLD_HI, CORE, near);
+  if (k == 0){
+    // micro-droplets: just a rim and a glint, no refraction
+    float rim0 = fres*(0.3 + 0.7*lightSide);
+    vec3 c0 = col*(1.0 - smoothstep(0.5, 0.97, tt)*0.18) + rimCol*rim0*(0.08 + 0.7*near)*uIntro + CORE*spec*0.6;
+    return mix(col, c0, a);
+  }
+  // looking into the drop: a convex lens on a mirror shows the scene upright and squeezed (several
+  // radii of paint in each direction), pulled a little toward the light: the half facing the bar
+  // carries the bar's halo, the far half the darker paint
+  vec2 qr = q + o*(rr/sc)*2.6 - away*0.12*rr;
+  vec3 c = envFast(qr, t, 0.6)*0.9*(1.0 - fres*0.85)*(1.0 + 0.05*uStudio);
+  // the meniscus: a dark band just inside the edge (on cream paint a thinner, lighter one)
+  c *= 1.0 - mix(smoothstep(0.62, 0.97, tt)*0.85, smoothstep(0.78, 0.97, tt)*0.6, uStudio);
+  // a darker crescent on the side away from the bar
+  c *= 1.0 - 0.55*smoothstep(0.3, 0.95, dot(o, away))*smoothstep(0.5, 1.0, tt);
+  // the bar compressed into the drop: a short warm streak on the bar's side (the lit face of every
+  // drop in the reference), falling off slowly with distance so far drops still carry it
+  float ib = dot(o, LD) + clamp(dc*2.0, -0.7, 0.7);
+  float img = exp(-ib*ib*12.0)*exp(-pow(dot(o, LP), 2.0)*1.5)*(1.0 - smoothstep(0.7, 0.95, tt))*(0.35 + 0.65*exp(-dc*dc*0.6));
+  c += mix(GOLD*0.9, CORE, near)*img*0.5*uIntro*(1.0 - uStudio*0.3);
+  // fresnel-bright rim, lit on the bar's side (on cream: bright on the bar's side, shaded opposite);
+  // the cool panel in the far rim
+  float rim = fres*(mix(0.25, 0.15, uStudio) + mix(0.75, 0.85, uStudio)*lightSide);
+  c += rimCol*rim*(0.35 + 0.75*near)*uIntro*(1.0 - uStudio*0.8);
+  c += vec3(1.0)*rim*0.45*uStudio*uIntro;
+  c += COOL*fres*(1.0 - lightSide)*0.06*(1.0 - uStudio)*uIntro;
+  c += CORE*spec*(1.0 + 1.2*uStudio);
+  // on the paint around the drop: a soft contact shadow on the far side, and the bar's light
+  // focused through the drop onto the paint just beyond it (a bright lens caustic on cream)
+  float outside = step(1.0, tn);
+  vec2 cp = o + away*1.15;
+  float caus = exp(-dot(cp, cp)*6.8)*smoothstep(1.5, 1.0, tn)*outside*lit;
+  float shadow = smoothstep(1.3, 1.0, tn)*outside*(0.5 + 0.5*dot(on, away))*0.35;
+  vec3 ground = col*(1.0 - shadow) + GOLD*caus*0.25*uIntro*(1.0 - uStudio) + vec3(1.0)*caus*0.35*uStudio;
+  return mix(col, mix(ground, c, a), fa);      // a moving drop fades in and out with its shadow and caustic
+}
 // hole: 0..1, a clearing behind the hero's text (the studio on a wide screen): the drops thin out
 // over an ellipse round the wordmark, tagline and buttons and keep their crisp edges everywhere else
 vec3 paint(vec2 uv, float asp, float t, float density, float zoom, float hole){
@@ -164,82 +288,15 @@ vec3 paint(vec2 uv, float asp, float t, float density, float zoom, float hole){
   float fl = step(0.9955, hash21(floor(q*640.0)));
   col += GOLD_HI*fl*body*(1.0 - blur)*uIntro*(1.0 - uStudio*0.7);
   float sag = 0.18*(1.0 - blur);
-  vec2 LP = vec2(-LD.y, LD.x);     // along the bar
-  for (int k = K0; k < 5; k++){
-    float sc, dens, rmin, rmax;
-    if (k == 0){ sc = 70.0; dens = 0.35; rmin = 0.03; rmax = 0.05; }        // mist between the beads
-    else if (k == 1){ sc = 34.0; dens = 0.30; rmin = 0.06; rmax = 0.12; }
-    else if (k == 2){ sc = 19.0; dens = 0.55; rmin = 0.11; rmax = 0.28; }
-    else if (k == 3){ sc = 9.0; dens = 0.58; rmin = 0.15; rmax = 0.36; }
-    else { sc = 4.6; dens = 0.55; rmin = 0.18; rmax = mix(0.30, 0.22, uStudio); }   // the largest drops stay under ~90px (65px on cream)
-    // the two finest layers melt into the blur above and below the focus band
-    float keep = k <= 1 ? 1.0 - smoothstep(0.45, 0.65, blur) : 1.0;
-    if (keep <= 0.0) continue;
-    vec2 o; float rr; float tn;
-    vec4 clr = vec4(qc*sc + float(k)*17.3, vec2(0.7, 1.2)/(1.35*zoom*sc));   // on screen: length((uv - .5)*vec2(asp*.7, 1.2))
-    // on cream paint every drop shows, so the studio carries fewer of them and the wordmark keeps its room
-    float b = beads(q*sc + float(k)*17.3, dens*density*(1.0 - 0.4*uStudio), rmin, rmax, k == 0 ? 0.0 : sag, k >= 3 ? RUNS : 0.0, clr, hole, o, rr, tn);
-    if (b < 0.5) continue;
-    float soft = 0.025 + blur*0.30*(k == 4 ? 1.0 : 0.7);
-    float a = (1.0 - smoothstep(1.0 - soft, 1.0 + soft, tn))*keep;
-    float tt = clamp(tn, 0.0, 1.0);
-    float z = sqrt(max(1.0 - tt*tt, 0.0));
-    vec3 n = normalize(vec3(o*1.25, z*0.8 + 0.2));      // a flattened dome: broad streak highlights
-    float fres = pow(1.0 - z, 2.5);
-    // where the bar is for this bead (dc: its centre's distance from the bar). The light comes from the
-    // bar's side, weaker the further away, but never gone: every drop keeps a little of the bar.
-    float dc = d0 - dot(o*(rr/sc), LD);
-    float near = exp(-dc*dc*3.0);
-    float lit = max(near, 0.15);
-    vec3 L = normalize(vec3(-LD*clamp(dc, -1.0, 1.0)*0.6, 0.8));
-    // away from the bar, in the paint's plane: at least a third of a side, so the crescent never vanishes
-    vec2 away = LD*clamp(sign(dc)*max(abs(dc)/0.2, 0.35), -1.0, 1.0);
-    vec2 on = normalize(o + vec2(1e-4, 0.0));
-    float lightSide = max(dot(on, -away), 0.0);
-    // the bar reflected in the dome: a short streak along the bar's axis, inside the drop
-    vec3 R = reflect(vec3(0.0, 0.0, -1.0), n);
-    vec2 dv2 = (R - L).xy;
-    float al = dot(dv2, LP), ac = dot(dv2, LD);
-    float spec = exp(-(al*al*mix(14.0, 4.0, blur) + ac*ac*mix(110.0, 24.0, blur)))*(1.0 + 1.0*near)*uIntro*(1.0 - blur*0.5);
-    vec3 rimCol = mix(GOLD_HI, CORE, near);
-    if (k == 0){
-      // micro-droplets: just a rim and a glint, no refraction
-      float rim0 = fres*(0.3 + 0.7*lightSide);
-      vec3 c0 = col*(1.0 - smoothstep(0.5, 0.97, tt)*0.18) + rimCol*rim0*(0.08 + 0.7*near)*uIntro + CORE*spec*0.6;
-      col = mix(col, c0, a);
-      continue;
-    }
-    // looking into the drop: a convex lens on a mirror shows the scene upright and squeezed (several
-    // radii of paint in each direction), pulled a little toward the light: the half facing the bar
-    // carries the bar's halo, the far half the darker paint
-    vec2 qr = q + o*(rr/sc)*2.6 - away*0.12*rr;
-    vec3 c = envFast(qr, t, 0.6)*0.9*(1.0 - fres*0.85)*(1.0 + 0.05*uStudio);
-    // the meniscus: a dark band just inside the edge (on cream paint a thinner, lighter one)
-    c *= 1.0 - mix(smoothstep(0.62, 0.97, tt)*0.85, smoothstep(0.78, 0.97, tt)*0.6, uStudio);
-    // a darker crescent on the side away from the bar
-    c *= 1.0 - 0.55*smoothstep(0.3, 0.95, dot(o, away))*smoothstep(0.5, 1.0, tt);
-    // the bar compressed into the drop: a short warm streak on the bar's side (the lit face of every
-    // drop in the reference), falling off slowly with distance so far drops still carry it
-    float ib = dot(o, LD) + clamp(dc*2.0, -0.7, 0.7);
-    float img = exp(-ib*ib*12.0)*exp(-pow(dot(o, LP), 2.0)*1.5)*(1.0 - smoothstep(0.7, 0.95, tt))*(0.35 + 0.65*exp(-dc*dc*0.6));
-    c += mix(GOLD*0.9, CORE, near)*img*0.5*uIntro*(1.0 - uStudio*0.3);
-    // fresnel-bright rim, lit on the bar's side (on cream: bright on the bar's side, shaded opposite);
-    // the cool panel in the far rim
-    float rim = fres*(mix(0.25, 0.15, uStudio) + mix(0.75, 0.85, uStudio)*lightSide);
-    c += rimCol*rim*(0.35 + 0.75*near)*uIntro*(1.0 - uStudio*0.8);
-    c += vec3(1.0)*rim*0.45*uStudio*uIntro;
-    c += COOL*fres*(1.0 - lightSide)*0.06*(1.0 - uStudio)*uIntro;
-    c += CORE*spec*(1.0 + 1.2*uStudio);
-    // on the paint around the drop: a soft contact shadow on the far side, and the bar's light
-    // focused through the drop onto the paint just beyond it (a bright lens caustic on cream)
-    float outside = step(1.0, tn);
-    vec2 cp = o + away*1.15;
-    float caus = exp(-dot(cp, cp)*6.8)*smoothstep(1.5, 1.0, tn)*outside*lit;
-    float shadow = smoothstep(1.3, 1.0, tn)*outside*(0.5 + 0.5*dot(on, away))*0.35;
-    vec3 ground = col*(1.0 - shadow) + GOLD*caus*0.25*uIntro*(1.0 - uStudio) + vec3(1.0)*caus*0.35*uStudio;
-    col = mix(ground, c, a);
-  }
+#ifdef FLOW
+  for (int k = K0; k < 4; k++) col = layer(col, k, q, t, blur, sag, d0, density, zoom, hole, qc, vec4(0.0));
+  // the largest drops on their own, so only they carry the code that moves a few of them
+  return layer(col, 4, q, t, blur, sag, d0, density, zoom, hole, qc, uFlow);
+#else
+  // (with ROLL, in the stills' program, only the largest drops roll)
+  for (int k = K0; k < 5; k++) col = layer(col, k, q, t, blur, sag, d0, density, zoom, hole, qc, k == 4 ? uFlow : vec4(0.0));
   return col;
+#endif
 }
 // A sheet of water lying flat on bare paint (the Bead Test's "before" side): soft
 // ripples, the bar smeared along the film, puddle edges that catch the light.
@@ -345,12 +402,45 @@ vec3 leather(vec2 uv, float asp, float t){
   return col;
 }`;
 
+  // Specks of light in the air in front of the paint, out of focus (the owner's "extremely subtle floating
+  // particles"): soft discs 16 to 36px across rising slowly, each column of the screen at its own pace, a
+  // little brighter where the bar's light is, kept out of the clearing round the text, none on cream paint.
+  // One per cell at most, inside its cell, so a pixel looks at one cell only.
   const HERO_MAIN = `
+float motes(vec2 uv, float asp, float t){
+  vec2 p = (uv - 0.5)*vec2(asp, 1.0);                     // screen heights from the middle
+  // the clearing round the text; a little lower on a portrait screen, so a phone keeps a few specks above and below it
+  float clear = smoothstep(0.85, 1.2, length(p/vec2(min(0.5, asp*0.45), asp < 1.0 ? 0.26 : 0.31)));
+  if (clear <= 0.0) return 0.0;
+  // a portrait screen keeps them to the bands above and below the text: there smaller cells, more of them taken
+  float CELL = asp < 1.0 ? 0.15 : 0.18;
+  float colm = floor(p.x/CELL);
+  float rise = mix(0.01, 0.022, hash21(vec2(colm, 3.3)));  // screen heights a second
+  vec2 g = vec2(p.x, p.y - t*rise)/CELL;
+  vec2 id = floor(g);
+  if (hash21(id + 0.7) > (asp < 1.0 ? 0.8 : 0.5)) return 0.0;
+  vec2 h = hash22(id*1.7 + 2.3);
+  float s = hash21(id + 5.1);
+  float r = mix(0.05, 0.11, s*s);                         // 16 to 36px across on a desktop screen
+  vec2 c = 0.2 + h*0.6 + vec2(0.05*sin(t*0.21 + h.y*6.283), 0.0);
+  float d = length(fract(g) - c)/r;
+  float m = smoothstep(1.0, 0.3, d)*(0.8 + 0.2*d);        // a soft disc, its rim a touch brighter: out of focus
+  m *= 0.8 + 0.2*sin(t*0.5 + h.x*40.0);
+  return m*mix(1.0, 0.55, s)*clear;                       // the larger (nearer) ones fainter
+}
 void main(){
   vec2 uv = gl_FragCoord.xy/uRes;
   float asp = uRes.x/uRes.y;
   // the studio's clearing behind the text, on wide screens only (a phone's drops already leave the text its room)
   vec3 c = paint(uv, asp, uTime, uDensity, uZoom, uStudio*smoothstep(0.9, 1.2, asp));
+  if (uMotes > 0.0){
+    float m = motes(uv, asp, uTime);
+    if (m > 0.0){
+      vec2 q = (uv - 0.5)*vec2(asp, 1.0)*1.35*uZoom + vec2(uTime*0.006, uTime*0.0025);
+      float d = dot(q, LD) - lightPos(uTime);
+      c += CORE*m*(0.055 + 0.045*exp(-d*d*10.0))*uIntro*(1.0 - uStudio)*uMotes;
+    }
+  }
   gl_FragColor = vec4(finish(c, uv), 1.0);
 }`;
 
@@ -399,7 +489,8 @@ void main(){
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     const u = (n) => gl.getUniformLocation(prog, n);
-    return { prog, uRes: u('uRes'), uTime: u('uTime'), uIntro: u('uIntro'), uDensity: u('uDensity'), uZoom: u('uZoom'), uScene: u('uScene'), uStudio: u('uStudio'), uSweep: u('uSweep') };
+    return { prog, uRes: u('uRes'), uTime: u('uTime'), uIntro: u('uIntro'), uDensity: u('uDensity'), uZoom: u('uZoom'), uScene: u('uScene'), uStudio: u('uStudio'), uSweep: u('uSweep'),
+      uSweepK: u('uSweepK'), uFlow: u('uFlow'), uForm: u('uForm'), uMotes: u('uMotes') };
   }
 
   const root = document.documentElement;
@@ -419,6 +510,11 @@ void main(){
     const preset = opts.scene === 'gloss' ? { density: 0.32, zoom: 1.12 } : { density: 1.0, zoom: 1.0 };
     let studio = opts.studio != null ? !!opts.studio : isLight();
     let sweep = 0.5;
+    // live, a few of the largest drops slide slowly down (0.4 of a cell, about 12 s a cycle) and the specks drift;
+    // a still keeps every drop where it is. Phones (LITE) keep their frame cost: the specks cost next to nothing and
+    // drift there too, the sliding drops are left to larger screens
+    const flow = opts.still ? [0, 0, 0] : opts.flow || (small ? [0, 0, 0] : [0.4, 0.12, 0.08]);
+    const motes = !opts.still && opts.motes !== false;
     let P = null, raf = 0, last = 0, visible = true, lost = false, running = false, vw = 0, vh = 0;
     const t0 = performance.now();
     const timeOffset = opts.time != null ? opts.time : 4 + Math.random() * 30;
@@ -430,11 +526,16 @@ void main(){
       gl.uniform1f(P.uZoom, preset.zoom * (portrait ? 1.25 : 1) * (studio ? 1.2 : 1));
     }
     function setup() {
-      P = program(gl, (small ? '#define LITE\n' : '') + COMMON + PAINT + HERO_MAIN);
+      // the moving drops are compiled in only when they move
+      P = program(gl, (small ? '#define LITE\n' : '') + (flow[0] > 0 ? '#define FLOW\n' : '') + COMMON + PAINT + HERO_MAIN);
       gl.uniform1f(P.uDensity, preset.density);
       applyZoom();
       gl.uniform1f(P.uStudio, studio ? 1 : 0);
       gl.uniform1f(P.uSweep, sweep);
+      gl.uniform1f(P.uSweepK, 0.5);
+      gl.uniform4f(P.uFlow, flow[0], flow[1], flow[2], 0);
+      gl.uniform1f(P.uForm, 1);
+      gl.uniform1f(P.uMotes, motes ? 1 : 0);
       vw = vh = 0;
     }
     function resize() {
@@ -524,7 +625,13 @@ void main(){
     };
   }
 
-  // One shared offscreen context for every still picture.
+  // One shared offscreen context for every still picture. Its canvas only grows: each picture is drawn into its
+  // lower left corner and the caller copies that corner, so a resize (it waits for the GPU process) comes only with a
+  // picture larger than any before it. The Bead moment on Services is drawn through it too, frame by frame, by the
+  // same program (its drops forming and rolling are compiled in and stay still for a still), so the moment needs no
+  // program or context of its own, nothing to compile, wait for or let go. opts: studio; for the sequence live,
+  // intro (the light, 0..1), form (the drops forming, 0..1), sweep with sweepRange (where the bar is), roll (0..1,
+  // a fifth of the largest drops rolling down 1.1 cells).
   let artGL = null;
   function art(scene, w, h, time, opts) {
     opts = opts || {};
@@ -534,21 +641,26 @@ void main(){
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: true });
       if (!gl) return null;
-      artGL = { canvas, gl, P: program(gl, COMMON + PAINT + LEATHER + ART_MAIN) };
+      artGL = { canvas, gl, P: program(gl, '#define FORM\n#define ROLL\n' + COMMON + PAINT + LEATHER + ART_MAIN) };
     }
     const { canvas, gl, P } = artGL;
-    canvas.width = Math.max(2, Math.round(w));
-    canvas.height = Math.max(2, Math.round(h));
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.uniform2f(P.uRes, canvas.width, canvas.height);
+    const W = Math.max(2, Math.round(w)), H = Math.max(2, Math.round(h));
+    if (canvas.width < W || canvas.height < H) { canvas.width = Math.max(canvas.width, W); canvas.height = Math.max(canvas.height, H); }
+    gl.viewport(0, 0, W, H);
+    gl.uniform2f(P.uRes, W, H);
     gl.uniform1f(P.uTime, time);
-    gl.uniform1f(P.uIntro, 1);
+    gl.uniform1f(P.uIntro, opts.intro != null ? clamp01(opts.intro) : 1);
     gl.uniform1f(P.uScene, names[scene] || 0);
     gl.uniform1f(P.uStudio, (opts.studio != null ? !!opts.studio : isLight()) ? 1 : 0);
-    gl.uniform1f(P.uSweep, 0.5);
+    gl.uniform1f(P.uSweep, opts.sweep != null ? clamp01(opts.sweep) : 0.5);
+    gl.uniform1f(P.uSweepK, opts.sweepRange || 0.5);
+    if (opts.live) gl.uniform4f(P.uFlow, 1.1, 0.2, 0, clamp01(opts.roll));
+    else gl.uniform4f(P.uFlow, 0, 0, 0, 0);
+    gl.uniform1f(P.uForm, opts.live && opts.form != null ? clamp01(opts.form) : 1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     return canvas;
   }
+  const artRoom = () => (artGL && !artGL.gl.isContextLost() ? [artGL.canvas.width, artGL.canvas.height] : null);
 
-  window.AlchemistHero = { start, art };
+  window.AlchemistHero = { start, art, artRoom };
 })();
