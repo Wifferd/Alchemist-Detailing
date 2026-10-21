@@ -12,12 +12,7 @@
   if (!glOk) root.classList.add('no-webgl');
 
   const NAMES = { home: 'Home', services: 'Services', book: 'Book', appointments: 'Appointments', reviews: 'Reviews', tips: 'Tips', faq: 'FAQ', about: 'About', contact: 'Contact', account: 'Account', admin: 'Admin', team: 'Team', gallery: 'Gallery' };
-  const PHONE = '(945) 361-7551', TEL = 'tel:+19453617551';
   const HOME_TITLE = 'Alchemist Detailing · Hand car detailing in Parker, Texas';
-  // Pages that come later in the build. Nothing here is a feature that exists yet.
-  const PAGES = {
-    contact: { eyebrow: 'Get in touch', title: 'Contact', text: 'Call to book or to ask a question.', contact: true, primary: { href: TEL, label: 'Call ' + PHONE } },
-  };
 
   // ---------------------------------------------------------------- hero
   // The headline is split into letters first (so the intro has them from its first frame).
@@ -249,7 +244,7 @@
     el.classList.add('in');
     if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); }, 1000);
   }
-  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-photo', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons'];
+  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons'];
   function armReveals(scope) {
     $$('[data-reveal]', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     desyncShine(scope);
@@ -315,7 +310,7 @@
     let px = 0, py = 0, hxTick = false;
     document.addEventListener('pointermove', (e) => {
       px = e.clientX; py = e.clientY;
-      const t = e.target.closest('.price-card, .svc-opt, .why-item, .btn-gold, .appt, .rv, .work-item, .el-tile, .tip, .door');
+      const t = e.target.closest('.price-card, .svc-opt, .why-item, .btn-gold, .appt, .rv, .work-item, .el-tile, .door');
       if (t) {
         const r = t.getBoundingClientRect();
         t.style.setProperty('--mx', ((px - r.left) / r.width * 100).toFixed(1) + '%');
@@ -523,37 +518,12 @@
     const [r, sub] = h.split('-');
     return NAMES[r] ? { r, sub: sub || null } : { r: 'home', sub: null };
   }
-  function fillPage(r) {
-    const d = PAGES[r];
-    $('#pgEyebrow').textContent = d.eyebrow;
-    $('#pgTitle').textContent = d.title;
-    $('#pgText').textContent = d.text;
-    const extra = $('#pgExtra');
-    extra.replaceChildren();
-    if (d.contact) {
-      const box = document.createElement('div');
-      box.className = 'contact-lines';
-      [['Phone', PHONE], ['Area', 'Parker, Texas'], ['Mobile', 'Within about 10 miles'], ['Hours', ['Mon–Thu 10 AM – 4 PM', 'Fri 10 AM – 12 PM, 5 – 8 PM', 'Sat–Sun 10 AM – 8 PM']]].forEach(([k, v]) => {
-        const row = document.createElement('div');
-        const a = document.createElement('span'); a.textContent = k;
-        const b = document.createElement('b');
-        [].concat(v).forEach((line, i) => { if (i) b.appendChild(document.createElement('br')); b.appendChild(document.createTextNode(line)); });   // one line per day group
-        row.append(a, b);
-        box.appendChild(row);
-      });
-      extra.appendChild(box);
-    }
-    const prim = $('#pgPrimary');
-    const label = d.primary ? d.primary.label : 'Book Now';
-    prim.setAttribute('href', d.primary ? d.primary.href : '#book');
-    prim.firstChild.textContent = label + ' ';
-  }
   function render(first) {
     const { r, sub } = parse();
     // Leaving home with the wash finished: its pinned length goes now, while home is still laid out (every rect is
     // zero once it is hidden), with no scroll; home's position is stored in the shorter layout.
     const shift = cur === 'home' && r !== 'home' ? (wash ? wash.foldNow({ scroll: false }) : washPin ? washPin.now({ scroll: false }) : 0) : 0;
-    const view = ['home', 'services', 'book', 'account', 'appointments', 'admin', 'team', 'reviews', 'gallery'].includes(r) ? r : ['tips', 'faq', 'about'].includes(r) ? 'content' : 'page';
+    const view = ['tips', 'faq', 'about', 'contact'].includes(r) ? 'content' : r;   // every other route has its own view
     if (cur) memo[cur] = window.scrollY + shift;
     const changed = r !== cur;
     if (changed) {
@@ -568,7 +538,6 @@
           v.addEventListener('animationend', function done(e) { if (e.target !== v) return; v.classList.remove('enter'); v.removeEventListener('animationend', done); });
         }
       });
-      if (view === 'page') fillPage(r);
       if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'));
       if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
       if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
@@ -579,6 +548,7 @@
       if (view === 'gallery' && window.AlchemistGallery) window.AlchemistGallery.mount($('#galleryApp'));
       if (view === 'services') mountServices();
       setName(NAMES[r]);
+      if (footer) footer.classList.toggle('lean', r === 'contact');   // Contact carries the place, hours and phone itself: the footer keeps the brand and the pages
       $$('nav a', menu).forEach((a) => {
         if (a.getAttribute('href') === '#' + r) a.setAttribute('aria-current', 'page');
         else a.removeAttribute('aria-current');

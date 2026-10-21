@@ -3,8 +3,10 @@
    scroll drift on alternating tiles, the Transmutation (his before / after
    slider, fed by PAIRS), and the one lightbox on the site (the home page's
    "Our work" strip opens it too, through openKey) with previous / next,
-   keyboard arrows and swipe. Only real photos of real work; add new ones to
-   PHOTOS below (web versions in site/img/work/). */
+   keyboard arrows and swipe, a two-line caption (the part, then what the
+   photo shows) and a link to the services that do that work. Only real
+   photos of real work; add new ones to PHOTOS below (web versions in
+   site/img/work/). */
 (function () {
   'use strict';
   const U = window.AlchemistUI;
@@ -32,6 +34,10 @@
   // owner's placeholder in its place so he can see the design.
   const PAIRS = [{ key: 'front', title: 'Exterior detail', before: null, after: 'front' }];
   const NEXT = ['Wheels', 'Interior'];   // the pairs still to shoot, shown as dashed "Next pair" tiles
+  // the service group behind a photo, by its tags: the group, never a package (which one the car got is the owner's to say)
+  const groupOf = (p) => (p.tags.includes('interior') ? ['#services-interior', 'Interior services']
+    : p.tags.some((t) => ['exterior', 'details', 'wheels'].includes(t)) ? ['#services-exterior', 'Exterior services'] : null);
+  const two = (n) => String(n).padStart(2, '0');
   const src = (k, w) => 'img/work/' + k + '-' + w + '.webp';
   const srcset = (k) => src(k, 600) + ' 600w, ' + src(k, 1200) + ' 1200w';
   const byKey = (k) => PHOTOS.find((p) => p.key === k) || {};
@@ -144,15 +150,16 @@
     const range = el('input.tm-range', { type: 'range', min: 4, max: 96, step: 1, value: 46, 'aria-label': 'Compare before and after', oninput: () => slide(range.value) });
     const frame = el('div.tm-frame', after, before,
       el('span.tm-scrim', { 'aria-hidden': 'true' }),
+      el('span.tm-ticks', { 'aria-hidden': 'true' }),   // the inspection's viewfinder: four thin corner ticks, nothing measured
       el('span.tm-seam', { 'aria-hidden': 'true' }),
       el('span.tm-handle', { 'aria-hidden': 'true' }, el('span', '‹'), el('i', '✦'), el('span', '›')),
       el('span.tm-pill.before', 'Before'), el('span.tm-pill.after', 'After'),
       range);
-    const slide = (v) => {
+    const paint = (v) => {
       frame.style.setProperty('--pos', v + '%');
       frame.style.setProperty('--cr', (100 - v) + '%');
-      range.setAttribute('aria-valuetext', v + '% before');
     };
+    const slide = (v) => { paint(v); range.setAttribute('aria-valuetext', v + '% before'); };
     const thumbs = el('div.tm-thumbs',
       pairs.map((p, i) => el('div.tm-pair',
         el('button.tm-thumb', { type: 'button', 'aria-label': 'Show ' + p.title, 'aria-pressed': 'false', onclick: () => pick(i) },
@@ -169,9 +176,51 @@
     };
     pick(0);
     slide(range.value);
+    nudge(frame, range, paint, () => slide(range.value));
     return el('section.transmute', { 'aria-labelledby': 'tmTitle' },
       el('div.section-head', el('p.eyebrow', 'Before and after'), el('h2.display', { id: 'tmTitle' }, 'The Transmutation'), el('p.script', 'Drag the seam. Same car, same spot. ✦')),
       frame, thumbs);
+  }
+
+  // The seam shows it can be dragged: the first time the frame is 40% on screen it glides out to 58% and back
+  // (about 1.4s, the long unveil ease), then rests. Skipped under reduced motion; a touch of the frame, a key or a drag
+  // on the slider stops it at once and the seam is where the slider says. The rAF loop runs only for the glide.
+  const glide = bezier(.16, 1, .3, 1);   // --ease-unveil in the stylesheet
+  function nudge(frame, range, paint, rest) {
+    if (reduce || !('IntersectionObserver' in window)) return;
+    let raf = 0, over = false;
+    const from = +range.value, to = 58, OUT = 650, HOLD = 150, BACK = 650;
+    const stop = () => {
+      if (over) return;
+      over = true;
+      cancelAnimationFrame(raf);
+      seen.disconnect();
+      rest();
+    };
+    const seen = new IntersectionObserver((es) => {
+      if (!es.some((e) => e.isIntersecting)) return;
+      seen.disconnect();
+      const t0 = performance.now();
+      const frameStep = (now) => {
+        if (over) return;
+        const t = now - t0;
+        const v = t < OUT ? from + (to - from) * glide(t / OUT) : t < OUT + HOLD ? to : to + (from - to) * glide(Math.min(1, (t - OUT - HOLD) / BACK));
+        paint(v.toFixed(2));
+        if (t < OUT + HOLD + BACK) raf = requestAnimationFrame(frameStep); else stop();
+      };
+      raf = requestAnimationFrame(frameStep);
+    }, { threshold: 0.4 });
+    seen.observe(frame);
+    ['pointerdown', 'keydown', 'input'].forEach((t) => frame.addEventListener(t, stop, { once: true, passive: true }));
+  }
+  // cubic-bezier(x1, y1, x2, y2) as a function of progress, solved by bisection (the CSS easing, for the rAF glide)
+  function bezier(x1, y1, x2, y2) {
+    const at = (t, a, b) => 3 * a * t * (1 - t) * (1 - t) + 3 * b * t * t * (1 - t) + t * t * t;
+    return (x) => {
+      let lo = 0, hi = 1, t = x;
+      for (let i = 0; i < 24; i++) { t = (lo + hi) / 2; if (at(t, x1, x2) < x) lo = t; else hi = t; }
+      return at(t, y1, y2);
+    };
   }
 
   // Tiles rise in as they enter and are marked settled once they land (so the tilt is quick after
@@ -216,7 +265,7 @@
   }
 
   // ---------------------------------------------------------------- lightbox with previous / next
-  let box = null, img = null, cap = null, count = null, lastFocus = null, startX = null, showToken = 0;
+  let box = null, img = null, cap = null, desc = null, count = null, link = null, lastFocus = null, startX = null, showToken = 0;
   function ensureBox() {
     if (box) return;
     box = el('div.lightbox.gal-box', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Photo', tabIndex: -1, hidden: true, onclick: (e) => { if (e.target === box) close(); } },
@@ -224,7 +273,12 @@
       el('button.icon-btn.gal-prev', { type: 'button', 'aria-label': 'Previous photo', onclick: () => step(-1) }, icon('M15 6l-6 6 6 6')),
       el('button.icon-btn.gal-next', { type: 'button', 'aria-label': 'Next photo', onclick: () => step(1) }, icon('M9 6l6 6-6 6')),
       img = el('img', { alt: '' }),
-      el('div.lightbox-foot', cap = el('p.lightbox-cap'), count = el('span.gal-count.tnum')));
+      // the part, the counter, what the photo shows (the alt text, so the reader hears it once, from the photo), and
+      // the services behind it: the link closes the box first (overflow, inert, focus), then the router follows it
+      el('div.lightbox-foot',
+        cap = el('p.lightbox-cap'), count = el('span.gal-count.tnum'),
+        desc = el('p.lightbox-desc', { 'aria-hidden': 'true' }),
+        link = el('a.note-link.lightbox-go', { href: '#services', hidden: true, onclick: () => close() })));
     box.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
     box.addEventListener('touchend', (e) => { if (startX == null) return; const dx = e.changedTouches[0].clientX - startX; if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1); startX = null; }, { passive: true });
     document.addEventListener('keydown', (e) => {
@@ -233,7 +287,7 @@
       if (e.key === 'ArrowRight') step(1);
       if (e.key === 'ArrowLeft') step(-1);
       if (e.key === 'Tab') {   // focus stays inside the open lightbox
-        const f = Array.from(box.querySelectorAll('button'));
+        const f = Array.from(box.querySelectorAll('button, a')).filter((n) => !n.hidden);
         const first = f[0], last = f[f.length - 1];
         if (e.shiftKey && (document.activeElement === first || document.activeElement === box)) { e.preventDefault(); last.focus(); }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -251,7 +305,11 @@
     const go = () => {
       if (token !== showToken) return;
       img.classList.remove('swap'); void img.offsetWidth; img.classList.add('swap');
-      img.src = next.src; img.alt = p.alt; cap.textContent = p.cap; count.textContent = (current + 1) + ' / ' + list.length;
+      img.src = next.src; img.alt = p.alt; cap.textContent = p.cap; desc.textContent = p.alt;
+      count.textContent = two(current + 1) + ' / ' + two(list.length);
+      const g = groupOf(p);
+      link.hidden = !g;
+      if (g) { link.href = g[0]; link.replaceChildren(g[1], el('span.arrow', { 'aria-hidden': 'true' }, '→')); }
     };
     next.decode().then(go, go);
     [1, -1].forEach((d) => { const q = list[(current + d + list.length) % list.length]; if (q !== p) new Image().src = src(q.key, 1200); });
