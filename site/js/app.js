@@ -101,15 +101,16 @@
     };
   })();
   window.AlchemistLight = light;
-  // Arrivals: the Services header, a brand page's title, a completed (or gold) appointment, the Gold client card and
-  // the Exterior and Bundles photo plates get their pass once a third of them is on the screen, after their own
-  // entrance has landed. One that scrolled away before its turn gets it when it comes back.
-  const ARRIVE = '.svc-top, .book-page .page-head h1, .appt:not(.adm):is(.done, .gold), .gold-card, .group-plate.polish';
+  // Arrivals: the Services header, a brand page's title, the Gold client card and the Exterior and Bundles photo
+  // plates get their pass once a third of them is on the screen, after their own entrance has landed. One that
+  // scrolled away before its turn gets it when it comes back. (An appointment takes its pass when it is first
+  // opened: account.js.)
+  const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish';
   const arriveIo = new IntersectionObserver((es) => es.forEach((e) => {
     if (!e.isIntersecting) return;
     const el = e.target;
     arriveIo.unobserve(el);
-    light.pass(el, { delay: el.matches('.appt, .svc-top') ? 650 : 450, size: el.matches('.group-plate, .svc-top') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
+    light.pass(el, { delay: el.matches('.svc-top') ? 650 : 450, size: el.matches('.group-plate, .svc-top') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
   }), { threshold: 0.35 });
 
   // ---------------------------------------------------------------- the bar's page name

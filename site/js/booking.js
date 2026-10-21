@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
-  const { el, money, minutesText, clock, longDate, phonePretty, tel, loading, star, field, choices, flash, priceLines, miniBtn, showError, clearError, toast } = U;
+  const { el, money, minutesText, clock, longDate, phonePretty, tel, loading, star, field, choices, flash, priceLines, miniBtn, showError, clearError, toast, refGroups, copyRef } = U;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // the optional email and its code show only once the site can email codes (config.js)
   const emailCodes = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.emailCodes);
@@ -1339,8 +1339,7 @@
     const minutes = r.duration_min || (q && q.duration_min);
     const ref = String(r.ref || '');
     // grouped for reading aloud (AD- then fours); Copy takes the reference exactly as written
-    const cut = ref.indexOf('-') + 1, fours = ref.slice(cut).match(/.{1,4}/g) || [''];
-    const groups = [ref.slice(0, cut) + fours[0]].concat(fours.slice(1)).filter(Boolean);
+    const groups = refGroups(ref);
     return el('div.bk.bk-sent',
       el('div.sent-mark', sentMark()),
       el('p.eyebrow', 'Request received'),
@@ -1387,17 +1386,6 @@
       svg.append(defs, band);
     }
     return svg;
-  }
-  // The reference, copied exactly as the database wrote it (the clipboard, or a selected copy where it is blocked)
-  async function copyRef(ref) {
-    let ok = false;
-    try { await navigator.clipboard.writeText(ref); ok = true; } catch (e) {
-      try {
-        const t = el('textarea', { value: ref, readOnly: true, style: { position: 'fixed', top: '0', left: '0', opacity: '0' } });
-        document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove();
-      } catch (e2) { ok = false; }
-    }
-    toast(ok ? 'Reference copied' : 'Copying is blocked here. Your reference is ' + ref);
   }
 
   window.AlchemistBooking = { mount, offer, get state() { return st; } };

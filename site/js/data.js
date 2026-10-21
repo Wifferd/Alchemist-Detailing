@@ -250,6 +250,36 @@
   let previewSession = null;
   const previewBookings = [];   // receipts made in this preview, newest first
   const previewVehicles = [];
+  const previewRef = () => { const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let r = 'AD-'; for (let i = 0; i < 8; i++) r += abc[Math.floor(Math.random() * abc.length)]; return r; };
+
+  // Preview only: the example customer's past details, so the owner can see the account's history (gold by value,
+  // the progress line, the folded cancelled list) before any real customer has one. Each is priced by the preview
+  // quote above, so its lines and mobile charge are the menu's own; each says example: true and the account labels
+  // it. Live mode never has these: myBookings there is the database's my_bookings.
+  function previewExamples() {
+    const weekend = (weeks, sunday) => { let d = addDays(todayLocal(), -7 * weeks); while (d.getDay() !== 6) d = addDays(d, -1); return sunday ? addDays(d, 1) : d; };
+    const at = (day, daysBefore, min) => { const d = addDays(day, -daysBefore); d.setHours(0, min, 0, 0); return d.toISOString(); };
+    const make = (day, start, p, status, extra) => {
+      const q = previewQuote(p);
+      const steps = status === 'cancelled'
+        ? [['requested', at(day, 6, 1210)], ['confirmed', at(day, 5, 570)], ['cancelled', at(day, 1, 1085)]]
+        : [['requested', at(day, 5, 1182)], ['confirmed', at(day, 4, 555)], ['in_progress', at(day, 0, start)], ['completed', at(day, 0, start + q.duration_min)]];
+      return Object.assign({
+        id: uuid(), ref: previewRef(), status, service_date: isoDate(day), start_min: start, duration_min: q.duration_min, end_min: start + q.duration_min,
+        location_type: p.location_type, address: null, address_zip: null,
+        vehicle: { make: 'Toyota', model: 'Camry', year: 2020, color: null, type: 'sedan', size: 'standard', not_sure: false, description: null },
+        hold_expires_at: null, value_cents: q.value_cents, bundle_savings_cents: q.bundle_savings_cents, mobile_cents: q.mobile_cents,
+        extra_cost_cents: null, extra_cost_note: null, price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
+        created_at: steps[0][1], preview: true, example: true, shop_address: null, team: [], history: steps.map(([s, t]) => ({ status: s, at: t, note: null })),
+      }, extra || {});
+    };
+    return [
+      make(weekend(1), 600, { location_type: 'mobile', bundle: 'full_detail', vehicle_type: 'sedan', conditions: ['none'] }, 'completed', { address: 'Example address', address_zip: '75002' }),
+      make(weekend(3, true), 600, { location_type: 'shop', bundle: 'signature_combo', vehicle_type: 'sedan', conditions: ['none'] }, 'cancelled'),
+      make(weekend(5, true), 660, { location_type: 'shop', interior: 'int_deluxe', vehicle_type: 'sedan', conditions: ['pet_hair'] }, 'completed'),
+      make(weekend(8), 840, { location_type: 'shop', exterior: 'ext_basic', vehicle_type: 'sedan' }, 'completed'),
+    ];
+  }
 
   // A busy page (shaders compiling on a slow phone) can run the timer before an answer that has already
   // arrived, so the timer gives up only after a further moment with the call still open.
@@ -421,6 +451,7 @@
       if (mode === 'preview') {
         await new Promise((r) => setTimeout(r, 500));
         previewSession = { userId: 'preview', phone: n, firstName: names && names.first || null, lastName: names && names.last || null, phoneConfirmed: true, preview: true };
+        if (!previewBookings.some((b) => b.example)) previewBookings.push(...previewExamples());   // older than anything booked here
         return previewSession;
       }
       const { error } = await sb.auth.verifyOtp({ phone: '+' + n, token: c, type: 'sms' });
@@ -518,11 +549,9 @@
         if (p.start_min == null) throw fail('invalid_input', 'Choose one of the start times shown.', 'start_min');
         const hasInterior = q.lines.some((l) => !l.included && (l.kind === 'interior' || l.kind === 'bundle'));
         if (hasInterior && !(p.conditions || []).length) throw fail('invalid_input', 'Tell us what the car is like, or choose None.', 'conditions');
-        const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let ref = 'AD-'; for (let i = 0; i < 8; i++) ref += alphabet[Math.floor(Math.random() * alphabet.length)];
         const created = new Date();
         const r = {
-          id: uuid(), ref, status: 'requested', service_date: p.service_date, start_min: p.start_min,
+          id: uuid(), ref: previewRef(), status: 'requested', service_date: p.service_date, start_min: p.start_min,
           duration_min: q.duration_min, end_min: p.start_min + q.duration_min, location_type: p.location_type,
           address: p.address || null, address_zip: p.address_zip || null,
           vehicle: { make: p.vehicle_make || null, model: p.vehicle_model || null, year: p.vehicle_year || null, color: p.vehicle_color || null,
@@ -530,7 +559,8 @@
           hold_expires_at: new Date(created.getTime() + SEED.settings.hold_hours * 3600000).toISOString(),
           value_cents: q.value_cents, bundle_savings_cents: q.bundle_savings_cents, mobile_cents: q.mobile_cents,
           price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
-          created_at: created.toISOString(), preview: true, shop_address: null, team: [], history: [],
+          created_at: created.toISOString(), preview: true, shop_address: null, team: [],
+          history: [{ status: 'requested', at: created.toISOString(), note: null }],   // as my_bookings logs a new request
         };
         previewBookings.unshift(r);
         return r;

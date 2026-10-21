@@ -237,5 +237,22 @@
 
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce };
+  // A booking reference grouped for reading aloud (AD- then fours); the grouping is only visual
+  const refGroups = (ref) => {
+    const r = String(ref || ''), cut = r.indexOf('-') + 1, fours = r.slice(cut).match(/.{1,4}/g) || [''];
+    return [r.slice(0, cut) + fours[0]].concat(fours.slice(1)).filter(Boolean);
+  };
+  // The reference, copied exactly as the database wrote it (the clipboard, or a selected copy where it is blocked)
+  async function copyRef(ref) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(ref); ok = true; } catch (e) {
+      try {
+        const t = el('textarea', { value: ref, readOnly: true, style: { position: 'fixed', top: '0', left: '0', opacity: '0' } });
+        document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove();
+      } catch (e2) { ok = false; }
+    }
+    toast(ok ? 'Reference copied' : 'Copying is blocked here. Your reference is ' + ref);
+  }
+
+  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef };
 })();

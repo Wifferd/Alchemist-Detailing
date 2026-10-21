@@ -2006,8 +2006,9 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .acct-static { margin: 0; min-height: 50px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 0 18px; border-radius: var(--r-field); border: 1px solid rgba(255, 255, 255, .06); background: rgba(0, 0, 0, .2); color: var(--ink-2); }
 .acct-static .tnum { white-space: nowrap; }   /* the number stays on one line; "confirmed" may wrap under it */
 .acct-static small { color: var(--gold-ink); font-size: 12px; }
-.acct-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.acct-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .acct-actions .btn { --h: 46px; padding: 0 20px; }
+.acct-actions > .link { margin: 0 0 0 8px; }   /* Sign out: a quiet word beside Save name */
 .veh-list { display: grid; gap: 8px; }
 .veh { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .025); }
 .veh.editing { border-color: var(--line); }
@@ -2020,10 +2021,100 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .link.danger { color: var(--danger-text); }
 .link.danger:hover { color: #ffb8a8; }
 .veh-form { display: grid; gap: 18px; padding: 18px; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .25); }
+
+/* a text action (Porsche's "button pure"): capitals, a gold arrow that moves 4px, an underline that grows from the
+   left under a mouse */
+.acct-go { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font: 700 var(--fs-xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink); text-decoration: none; }
+.acct-go > span:first-child { padding: 6px 0; background: linear-gradient(var(--gold), var(--gold)) 0 100% / 0 1px no-repeat; transition: background-size .45s var(--ease), color .3s var(--ease); }
+.acct-go .arrow { color: var(--gold); transition: transform .35s var(--ease); }
+@media (hover: hover) and (pointer: fine) {
+  .acct-go:hover > span:first-child { background-size: 100% 1px; color: var(--gold-hi); }
+  .acct-go:hover .arrow { transform: translateX(4px); }
+}
+
+/* accounts are coming soon (guest booking, doc 37): one composed block on the black, centred in the page; the
+   monogram in a hairline ring, the line, the paragraph, Book and Call. It settles in once as the page opens. */
+.book-page:has(.acct-soon) { display: grid; align-content: center; }
+.acct-soon { width: min(100%, 600px); margin-inline: auto; display: grid; justify-items: center; text-align: center; padding-block: clamp(8px, 4vh, 48px); }
+.acct-soon .bk-preview { margin: 0 0 clamp(28px, 5vh, 44px); }
+.soon-mark { position: relative; display: grid; place-items: center; width: 116px; height: 116px; margin-bottom: 34px; border-radius: 50%; border: 1px solid var(--line-soft); background: radial-gradient(closest-side, rgba(226, 185, 82, .1), transparent 72%); }
+.soon-mark::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .05); }
+.soon-mark svg { width: 52px; height: 54px; overflow: visible; filter: drop-shadow(0 8px 22px rgba(226, 185, 82, .32)); }
+.soon-title { font-size: clamp(26px, 3.6vw, 40px); line-height: 1.12; }
+.soon-text { margin: 22px 0 0; max-width: 46ch; font-size: 16px; line-height: 1.7; color: var(--ink-2); text-wrap: pretty; }
+.soon-actions { margin-top: 36px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 34px; }
+.soon-actions .btn { min-width: 210px; }
+.acct-soon > * { animation: soonIn .8s var(--ease-unveil) both; }
+.acct-soon > :nth-child(2) { animation-delay: .08s; }
+.acct-soon > :nth-child(3) { animation-delay: .16s; }
+.acct-soon > :nth-child(4) { animation-delay: .24s; }
+.acct-soon > :nth-child(5) { animation-delay: .32s; }
+@keyframes soonIn { from { opacity: 0; transform: translateY(12px); } }
+:where([data-theme="light"]) .soon-mark { background: radial-gradient(closest-side, rgba(184, 144, 44, .1), transparent 72%); }
+:where([data-theme="light"]) .soon-mark::before { border-color: rgba(20, 18, 12, .06); }
+:where([data-theme="light"]) .soon-mark svg { filter: drop-shadow(0 8px 18px rgba(122, 93, 20, .22)); }
+
+/* the next appointment, as the owner drew it (direction §25): the day, the date large, the time and where, the
+   services with their marks; the status at the top right; the reference and View appointment along the foot.
+   Black and gold (§24) in both themes' dark tokens. */
+.appt-next { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 18px 24px; padding: 24px 26px 0; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: radial-gradient(90% 140% at 0% 0%, rgba(226, 185, 82, .08), transparent 60%), linear-gradient(180deg, #121212, #080808); overflow: hidden; }
+.nx-when { display: grid; gap: 8px; justify-items: start; min-width: 0; }
+.nx-day { font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.nx-date { font: 300 clamp(34px, 4.6vw, 52px)/1 var(--font-display); letter-spacing: .05em; text-transform: uppercase; color: var(--ink); }
+.nx-time { font-size: var(--fs-md); color: var(--ink-2); }
+.nx-time .tnum { color: var(--gold-hi); font-weight: 600; }
+.nx-when .appt-what { margin-top: 8px; }
+.nx-foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 14px 0 16px; border-top: 1px solid rgba(255, 255, 255, .07); }
+.nx-foot .btn { --h: 46px; padding: 0 20px; }
+[data-theme="light"] .appt-next { --ink: #f7f7f4; --ink-2: #bdbdb8; --muted: #85857f; --gold: #e2b952; --gold-hi: #f8dd98; --gold-ink: #e2b952; --line: rgba(226, 185, 82, .3); --hair: rgba(255, 255, 255, .09); color: var(--ink); box-shadow: 0 30px 50px -36px rgba(20, 18, 12, .55); }
+[data-theme="light"] .appt-next :is(.appt-status, .sig, .mini-btn, .btn-glass) { background: rgba(255, 255, 255, .04); }
+[data-theme="light"] .appt-next .sig { border-color: rgba(255, 255, 255, .24); }
+[data-theme="light"] .appt-next .sig.au { border-color: var(--gold); }
+[data-theme="light"] .appt-next .btn-glass { border-color: var(--line); color: var(--ink); }
+
+/* the garage (direction §21): a card per saved vehicle, a generic line drawing of its size of car (account.js
+   CAR_ART: never the customer's own car, never another brand's shape), the name as typed in capitals, colour and
+   type, Edit and Remove; Add is a dashed card of the same size. Two across, one on a phone. */
+.garage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.car-card { position: relative; display: grid; grid-template-rows: auto 1fr auto; min-height: 232px; padding: 16px 22px 14px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: radial-gradient(70% 60% at 50% 30%, rgba(255, 255, 255, .035), transparent 70%), linear-gradient(180deg, #111, #080808); transition: border-color .3s var(--ease); }
+.car-card.editing { border-color: var(--line); }
+.car-card.asking { border-color: rgba(212, 106, 90, .45); }
+.car-art { display: block; height: 92px; margin: 4px -8px 12px; color: var(--ink-2); }
+.car-art svg { display: block; width: 100%; height: 100%; }
+.car-art .floor { stroke: var(--gold); opacity: .35; }
+.car-main { min-width: 0; }
+.car-name { margin: 0; font: 500 17px/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); overflow-wrap: anywhere; }
+.car-meta { margin: 5px 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.car-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; margin-top: 14px; padding: 10px 0 0 8px; border-top: 1px solid rgba(255, 255, 255, .06); }
+.car-actions .veh-ask { margin-left: -8px; }
+.car-add { place-content: center; justify-items: center; gap: 14px; grid-template-rows: none; border-style: dashed; border-color: var(--line); background: rgba(226, 185, 82, .02); color: var(--ink-2); font: 700 var(--fs-xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; cursor: pointer; touch-action: manipulation; }
+.car-plus { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); font: 300 26px/1 var(--font-display); color: var(--gold); transition: border-color .3s var(--ease), transform .35s var(--ease); }
+@media (hover: hover) and (pointer: fine) {
+  .car-add:hover { border-color: var(--gold); color: var(--gold-hi); }
+  .car-add:hover .car-plus { border-color: var(--gold); transform: rotate(90deg); }
+}
+:where([data-theme="light"]) .car-card { background: #fff; border-color: rgba(20, 18, 12, .08); box-shadow: 0 24px 40px -34px rgba(20, 18, 12, .35), 0 0 0 1px rgba(20, 18, 12, .05); }
+:where([data-theme="light"]) .car-actions { border-top-color: rgba(20, 18, 12, .08); }
+:where([data-theme="light"]) .car-add { background: rgba(184, 144, 44, .04); box-shadow: none; border-color: var(--line); }
+:where([data-theme="light"]) .car-card.asking { border-color: rgba(179, 65, 47, .45); }
+
+/* the history (direction §25): the count of completed details as a figure in gold (Jost light), the latest one,
+   and the way to the whole history */
+.hist { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 40px; padding: 20px 24px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .07); background: rgba(255, 255, 255, .02); }
+.hist-fig { margin: 0; display: flex; align-items: center; gap: 14px; }
+.hist-fig b { font: 300 clamp(44px, 5vw, 56px)/.9 var(--font-display); color: var(--gold-hi); }
+.hist-fig span { max-width: 10ch; font: 700 var(--fs-2xs)/1.35 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); }
+.hist-last { flex: 1 1 220px; margin: 0; display: grid; gap: 6px; font-size: var(--fs-md); color: var(--ink); }
+.hist-last span { font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+:where([data-theme="light"]) .hist { background: #fff; border-color: rgba(20, 18, 12, .08); box-shadow: 0 24px 40px -34px rgba(20, 18, 12, .3); }
+
+/* the booking cards */
 .appt { border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, #111111, #080808); overflow: hidden; }
 .appt.open { border-color: var(--line); }
 .appt-head { width: 100%; display: grid; grid-template-columns: 1.2fr 1.4fr auto auto; align-items: center; gap: 14px; padding: 14px 18px; background: none; border: 0; color: var(--ink); text-align: left; cursor: pointer; touch-action: manipulation; transition: background-color .3s var(--ease); }
 .appt-head:hover { background: rgba(226, 185, 82, .04); }
+.appt-head:focus-visible { outline-offset: -3px; border-radius: inherit; }   /* inside the card, which clips anything outside it */
+.acct .appt.gold:is(.in, .settled) .appt-head:focus-visible { outline-color: #110c02; }   /* a dark ring on the gold face */
 /* the chevron says the head opens; it turns over while the card is open */
 .appt-head:has(.appt-chev) { grid-template-columns: 1.2fr 1.4fr auto auto 18px; }
 .appt-chev { width: 18px; height: 18px; color: var(--gold); transition: transform .3s var(--ease); }
@@ -2041,29 +2132,124 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .st-completed .appt-status { border-color: rgba(255, 255, 255, .2); color: var(--ink); }
 .appt-ref { color: var(--muted); font-size: 12px; letter-spacing: .06em; }
 .appt-body { display: grid; gap: 14px; padding: 4px 18px 18px; border-top: 1px solid rgba(255, 255, 255, .06); }
+/* the customer's cards: the services with the Table's marks, the reference set larger (Manrope 600, tabular),
+   the status with the Au seal beside it on a gold card, and an "Example" tag on the preview's examples */
+.appt-sigs { display: flex; gap: 4px; flex-shrink: 0; }
+.appt-sigs:empty { display: none; }
+.acct .appt-what { display: flex; align-items: center; gap: 12px; }
+.appt-what .sig { width: 30px; height: 30px; padding: 5px 0 0 2px; font-size: 12px; }
+.appt-what .sig small { top: 3px; left: 4px; font-size: 7.5px; }
+.appt-names { min-width: 0; }
+.appt-state { display: inline-flex; align-items: center; gap: 8px; justify-self: end; }
+.acct .appt-ref { font: 600 13px/1 var(--font-ui); letter-spacing: .05em; color: var(--ink-2); }
+.appt-ex { justify-self: start; margin-top: 5px; padding: 3px 8px; border-radius: 999px; border: 1px dashed currentColor; font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.sig.seal { background: #110c02; border-color: #110c02; color: #efc65c; }
+.sig.seal small { color: #d9ac3f; }
+/* the prices in a customer's opened card, laid out like the receipt's build sheet: the marks in a gutter, the names
+   aligned (the console's cards keep their own plain list) */
+.acct .appt-body .pr { --gut: 44px; gap: 0; }
+.acct .appt-body .pr-line { position: relative; align-items: center; min-height: 44px; padding: 8px 0 8px var(--gut); border-top: 1px solid rgba(255, 255, 255, .06); color: var(--ink); }
+.acct .appt-body .pr-line:first-child { border-top: 0; }
+.acct .appt-body .pr-line.inc { color: var(--muted); }
+.acct .appt-body .pr-line small { display: inline-block; margin-left: .28em; }   /* "· Included" wraps as one piece, after the whole name (the margin is its space) */
+.acct .appt-body .pr-line .sig { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; padding: 5px 0 0 2px; font-size: 12px; }
+.acct .appt-body .pr-line .sig small { top: 3px; left: 4px; font-size: 7.5px; }
+.acct .appt-body .pr-note { margin: -4px 0 8px; padding-left: var(--gut); }
+.acct .appt-body :is(.pr-total, .pr > .bk-muted) { padding-left: var(--gut); }
+:where([data-theme="light"]) .acct .appt-body .pr-line { border-top-color: rgba(20, 18, 12, .08); }
+/* the reference with Copy: the database's own, grouped for reading aloud */
+.appt-refline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0; }
+.ref-k { font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.ref-v { display: inline-flex; gap: .42em; font: 600 15px/1.2 var(--font-ui); letter-spacing: .06em; color: var(--ink); }
+.appt-refline .mini-btn { min-height: 40px; margin: 0; padding: 0 14px; }
+.acct .appt-body .sum-body { align-items: baseline; }   /* Reference lines up with the reference, not the top of its Copy button */
+/* the cancelled and declined, folded under the completed ones: muted, no glow, no rim */
+.acct-fold { border-top: 1px solid rgba(255, 255, 255, .06); }
+.acct-fold summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 6px 2px; list-style: none; cursor: pointer; font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); touch-action: manipulation; }
+.acct-fold summary::-webkit-details-marker { display: none; }
+.acct-fold summary:hover { color: var(--ink-2); }
+.acct-fold[open] > summary .appt-chev { transform: rotate(180deg); }   /* the summary's own chevron, not the cards' */
+.acct-fold-list { display: grid; gap: 10px; padding-bottom: 4px; }
+.acct-fold .appt { background: rgba(255, 255, 255, .015); }
+.acct-fold .appt .appt-glow { display: none; }
+.acct-fold .appt-head { opacity: .72; }
+.acct-fold .appt.open .appt-head { opacity: 1; }
+.acct-fold .appt.open { border-color: rgba(255, 255, 255, .12); }   /* opened, it stays muted: no gold rim, the total in ink */
+.acct-fold .pr-total span:last-child { color: var(--ink); }
+:where([data-theme="light"]) .acct-fold .appt.open { border-color: rgba(20, 18, 12, .14); }
 @media (max-width: 720px) {
   /* the head on a phone: when, the status chip and the chevron on the first row, then what, then the reference */
   .appt-head, .appt-head:has(.appt-chev) { grid-template-columns: 1fr auto; grid-template-areas: "when status" "what what" "ref ref"; }
   .appt-head:has(.appt-chev) { grid-template-columns: 1fr auto 18px; grid-template-areas: "when status chev" "what what what" "ref ref ref"; }
-  .appt-when { grid-area: when; }
-  .appt-status { grid-area: status; justify-self: end; align-self: start; }
-  .appt-what { grid-area: what; }
-  .appt-ref { grid-area: ref; }
-  .appt-chev { grid-area: chev; align-self: start; margin-top: 4px; }
+  .appt-head .appt-when { grid-area: when; }   /* inside a card head only: the next appointment's grid has no named areas */
+  .appt-head :is(.appt-status, .appt-state) { grid-area: status; justify-self: end; align-self: start; }
+  .appt-head .appt-state .appt-status { grid-area: auto; }
+  .appt-head .appt-what { grid-area: what; }
+  .appt-head .appt-ref { grid-area: ref; }
+  .appt-head .appt-chev { grid-area: chev; align-self: start; margin-top: 4px; }
+  /* the customer's card on a phone: the date keeps its line; the status and the reference share the last row */
+  .acct .appt-head:has(.appt-chev) { grid-template-columns: 1fr auto 18px; grid-template-areas: "when when chev" "what what what" "status ref ref"; row-gap: 12px; }
+  .acct .appt-head :is(.appt-status, .appt-state) { justify-self: start; align-self: center; }
+  .acct .appt-head .appt-ref { justify-self: end; align-self: center; }
   .veh { flex-direction: column; align-items: flex-start; }
+  .appt-next { grid-template-columns: 1fr; padding: 20px 20px 0; }
+  .appt-next > .appt-status { grid-row: 1; justify-self: start; }
+  .nx-foot .btn { width: 100%; }
+  .nx-foot .ref-k { flex-basis: 100%; }   /* the label over the reference and its Copy, which keep one line */
+}
+@media (max-width: 640px) {
+  .garage { grid-template-columns: 1fr; }
+  .car-card { min-height: 0; }
+  .car-add { min-height: 132px; }
+  .hist { padding: 18px 20px; }
 }
 @media (max-width: 480px) {
   .acct-sec .bk-row.two:has(.acct-static) { grid-template-columns: 1fr; }   /* the phone number and the email each get the width */
+  /* an opened card's prices on a narrow phone: a narrower mark gutter and panel, and the bundle note across the width */
+  .acct .appt-body .bk-summary-card { padding: 14px 12px; }
+  .acct .appt-body .pr { --gut: 38px; }
+  .acct .appt-body .pr-line { gap: 12px; font-size: 14px; }
+  .acct .appt-body .pr-note { padding-left: 0; }
 }
-/* Completed details light up as they come into view (data-reveal → .in from app.js): from a plain dark card to
-   "done" (a faint gold corner glow) or, at $200 or more, "gold" (doc 22): the gold rim, a stronger glow and the
-   status pill filled with gold. Only opacity and colours move. On the account page the head is plain (.static)
-   with a link to Appointments under it. */
+
+/* the progress line in an opened card (a service tracker): a hairline with a dot per stop; the stops reached are
+   gold, with the time the database logged, the one it stands at now has a soft glow; a cancelled or declined
+   booking ends in one muted stop. Across on a wide screen, down on a phone. */
+.trk { position: relative; list-style: none; margin: 12px 0 2px; padding: 0; display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
+.trk li { position: relative; display: grid; align-content: start; gap: 6px; min-width: 0; padding: 24px 10px 0 0; }
+.trk li:not(:last-child)::before { content: ""; position: absolute; top: 5px; left: 15px; right: 4px; height: 1px; background: rgba(255, 255, 255, .12); }   /* the line on to the next stop */
+.trk li.run::before { background: linear-gradient(90deg, var(--gold), rgba(226, 185, 82, .5)); }
+.trk li.run:has(+ .end)::before { background: repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 7px); }
+.trk-dot { position: absolute; top: 0; left: 0; width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .26); background: var(--bg); box-sizing: border-box; }
+.trk li.on .trk-dot { border-color: var(--gold-hi); background: var(--gold); }
+.trk li.now .trk-dot { box-shadow: 0 0 0 4px rgba(226, 185, 82, .14), 0 0 12px rgba(226, 185, 82, .55); }
+.trk li.end .trk-dot { border-color: var(--muted); background: var(--muted); }
+.trk b { font: 700 var(--fs-2xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.trk li.on b { color: var(--ink); }
+.trk li.end b { color: var(--muted); }
+.trk time { font-size: 13px; color: var(--ink-2); }
+/* its gold light, once, the first time the card opens (app.js's queue): along the line from the first stop to the
+   one it stands at, then that stop glows */
+.trk.au-run::after { content: ""; position: absolute; top: 5px; left: 5px; width: calc(var(--to, 0) * 100%); height: 1px; background: linear-gradient(90deg, transparent, var(--gold-hi) 40%, var(--gold-pale) 50%, var(--gold-hi) 60%, transparent) calc(var(--au-p) * 186% - 43%) 0 / 30% 100% no-repeat; filter: drop-shadow(0 0 3px var(--gold-hi)); pointer-events: none; animation: auPass calc(var(--au-dur) * .6) var(--au-ease) 1 both; }
+.trk.au-run li.now .trk-dot { animation: trkGlow calc(var(--au-dur) * .5) var(--au-ease) calc(var(--au-dur) * .45) 1 both; }
+@keyframes trkGlow { 50% { box-shadow: 0 0 0 6px rgba(248, 221, 152, .22), 0 0 22px rgba(248, 221, 152, .9); } }
+:where([data-theme="light"]) .trk li:not(:last-child)::before { background: rgba(20, 18, 12, .14); }
+:where([data-theme="light"]) .trk li.run::before { background: linear-gradient(90deg, var(--gold), rgba(184, 144, 44, .5)); }
+:where([data-theme="light"]) .trk-dot { border-color: rgba(20, 18, 12, .3); background: #fff; }
+@media (max-width: 560px) {
+  .trk { grid-template-columns: 1fr; }
+  .trk li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; padding: 0 0 16px 26px; }
+  .trk li:last-child { padding-bottom: 0; }
+  .trk li:not(:last-child)::before { top: 15px; bottom: 1px; left: 5px; right: auto; width: 1px; height: auto; }
+  .trk li.run::before { background: linear-gradient(180deg, var(--gold), rgba(226, 185, 82, .5)); }
+  .trk li.run:has(+ .end)::before { background: repeating-linear-gradient(180deg, var(--muted) 0 3px, transparent 3px 7px); }
+  .trk-dot { top: 2px; }
+  .trk.au-run::after { content: none; }
+}
+
+/* Cards light up as they come into view (data-reveal → .in from app.js): the corner glow, and on a gold card the
+   rim. In the console a gold booking's status pill fills with gold. Only opacity and colours move. */
 .appt { position: relative; isolation: isolate; transition: border-color .4s var(--ease); }
-.appt-head.static { cursor: default; }
-.appt-head.static:hover { background: none; }
-.appt-go { padding-top: 14px; justify-items: start; }
-.appt-go .btn { --h: 46px; padding: 0 20px; }
 .appt-glow { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: radial-gradient(120% 80% at 100% 0%, rgba(226, 185, 82, .07), transparent 60%); opacity: 0; transition: opacity .8s var(--ease); pointer-events: none; }
 .appt.gold .appt-glow { background: radial-gradient(120% 80% at 100% 0%, rgba(226, 185, 82, .18), transparent 60%); }
 .appt.in .appt-glow { opacity: 1; }
@@ -2079,12 +2265,57 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 :where([data-theme="light"]) .appt.gold .appt-glow { background: radial-gradient(120% 80% at 100% 0%, rgba(184, 144, 44, .16), transparent 60%); }
 :where([data-theme="light"]) .appt.gold:not(.in) { border-color: rgba(20, 18, 12, .08); }
 :where([data-theme="light"]) .appt.done.in { border-color: rgba(184, 144, 44, .3); }
+
+/* A completed detail on Appointments warms from black toward gold by what it cost (--au: its total over $200, at
+   most 1, from the same figure as the gold rule; account.js). Under $200 ("done") the gold rises from the bottom
+   edge, its height and the rim's strength growing with --au, so the writing always sits on black (a $50 detail is
+   black with a gold edge). At $200 or more ("gold") the closed face is matte gold, the gold's middle stops only,
+   with dark writing (9:1) and the Au seal. The opened body stays a dark panel, so the prices and the review keep
+   their contrast; in the light theme the face keeps its dark and gold, like the Gold client card, over a white
+   body. A fine grain keeps the gradients from banding. The gold fades in over .9s as the card first comes into
+   view; the first time it is opened the gold light crosses it once (account.js). */
+.acct .appt-head { position: relative; isolation: isolate; }
+.appt-au { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .9s var(--ease); }
+.appt.in .appt-au { opacity: 1; }
+.appt-au::before { content: ""; position: absolute; inset: 0; opacity: .5; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .45  0 0 0 0 .4  0 0 0 .06 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
+.appt.done .appt-au { background: linear-gradient(175deg, transparent calc(90% - var(--au) * 66%), rgba(122, 92, 32, calc(.05 + var(--au) * .55)) calc(100% - 2px), rgba(240, 201, 102, calc(.25 + var(--au) * .7)) 100%); }
+.acct .appt.done.in { border-color: rgba(226, 185, 82, calc(.12 + var(--au) * .36)); }
+.acct .appt.done .appt-status { border-color: rgba(226, 185, 82, calc(.22 + var(--au) * .5)); }
+.appt.gold .appt-au { background: linear-gradient(100deg, #d9ac3f 0%, #e5ba4f 46%, #efc65c 78%, #e3b74c 100%); }
+.acct .appt.gold .appt-status::before { content: none; }   /* on the gold face the pill is a dark line, not more gold */
+.acct .appt-head :is(.appt-when b, .appt-when span, .appt-what, .appt-ref, .appt-chev, .appt-ex, .sig, .sig small) { transition: color .9s var(--ease), border-color .9s var(--ease); }
+.acct .appt.gold:is(.in, .settled) .appt-head { --ink: #110c02; --ink-2: #2b1f05; --muted: #4a3a12; --gold: #110c02; --gold-hi: #110c02; --gold-ink: #110c02; color: var(--ink); }
+.acct .appt.gold:is(.in, .settled) .appt-status { color: #110c02; border-color: rgba(17, 12, 2, .5); }
+.acct .appt.gold:is(.in, .settled) .appt-head .sig:not(.seal) { border-color: rgba(17, 12, 2, .45); }
+/* a rebuilt list (a card opened or closed, Refresh, back from the account) lands as it was: app.js adds .settled
+   with .in, so the gold and the writing on it never fade in again */
+.appt.settled .appt-au, .acct .appt.settled .appt-head :is(.appt-when b, .appt-when span, .appt-what, .appt-ref, .appt-chev, .appt-ex, .sig, .sig small) { transition: none; }
+@media (hover: hover) and (pointer: fine) { .acct .appt.gold .appt-head:hover .appt-au { filter: brightness(1.04); } }
+/* its gold light: the shared band across the card, and on the face a soft-light band so it reads on gold too */
+.acct .appt.au-run .appt-glow::after { animation-duration: var(--au-dur-card); }
+.acct .appt.au-run .appt-au::after { content: ""; position: absolute; inset: -20% -40%; background: var(--au-band); mix-blend-mode: screen; animation: sweep var(--au-dur-card) var(--au-ease) 1 both; }
+.acct .appt.gold.au-run .appt-au::after { background: linear-gradient(var(--au-angle), transparent 40%, rgba(255, 250, 235, .35) 47%, rgba(255, 252, 240, .95) 50%, rgba(255, 250, 235, .35) 53%, transparent 60%); mix-blend-mode: soft-light; }
+/* the light theme: the completed face keeps its dark tokens (a dark piece in the studio, like the Gold client card) */
+[data-theme="light"] .acct .appt.st-completed .appt-head { background-color: #0b0b0b; --ink: #f7f7f4; --ink-2: #bdbdb8; --muted: #85857f; --gold: #e2b952; --gold-hi: #f8dd98; --gold-ink: #e2b952; color: var(--ink); }
+[data-theme="light"] .acct .appt.st-completed .appt-status { background: transparent; }
+[data-theme="light"] .acct .appt.st-completed .appt-head .sig:not(.seal) { border-color: rgba(255, 255, 255, .24); }
+[data-theme="light"] .acct .appt.st-completed .appt-head .sig.au:not(.seal) { border-color: var(--gold); }
+[data-theme="light"] .acct .appt.done .appt-status { border-color: rgba(226, 185, 82, calc(.22 + var(--au) * .5)); }
+[data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: #110c02; --ink-2: #2b1f05; --muted: #4a3a12; --gold: #110c02; --gold-hi: #110c02; --gold-ink: #110c02; }
+[data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-status { border-color: rgba(17, 12, 2, .5); }
+[data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head .sig:not(.seal) { border-color: rgba(17, 12, 2, .45); }
+[data-theme="light"] .acct .appt.st-completed .appt-head:hover { background-color: #121212; }
 @media (prefers-reduced-motion: reduce) {   /* the lit state is simply there */
-  .appt-glow, .appt.gold:not(.in)::before { opacity: 1; }
+  .appt-glow, .appt.gold:not(.in)::before, .appt-au { opacity: 1; }
   .appt.gold:not(.in) { border-color: rgba(226, 185, 82, .45); }
   .appt.done { border-color: rgba(226, 185, 82, .22); }
+  .acct .appt.done { border-color: rgba(226, 185, 82, calc(.12 + var(--au) * .36)); }
   .appt.gold.st-completed .appt-status { color: var(--on-gold); border-color: transparent; }
   .appt.gold.st-completed .appt-status::before { opacity: 1; }
+  .acct .appt.gold .appt-head, [data-theme="light"] .acct .appt.gold .appt-head { --ink: #110c02; --ink-2: #2b1f05; --muted: #4a3a12; --gold: #110c02; --gold-hi: #110c02; --gold-ink: #110c02; color: var(--ink); }
+  .acct .appt.gold .appt-status { color: #110c02; border-color: rgba(17, 12, 2, .5); }
+  .acct .appt.gold .appt-head .sig:not(.seal) { border-color: rgba(17, 12, 2, .45); }
+  .acct-soon > * { animation: none; }
 }
 
 /* ---------------------------------------------------------------- the Gold client card (the owner's design; the Gold client of doc 22)
@@ -3146,7 +3377,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (forced-colors: active) {
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
-  .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band { display: none; }
+  .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after { display: none; }
 }
 
 /* =====================================================================
@@ -3165,6 +3396,10 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
     --gold: #8f6a1c; --gold-hi: #8f6a1c; --gold-ink: #8f6a1c; --gold-pale: #8f6a1c; --gold-deep: #8f6a1c;
   }
   .svc-card, [data-theme="light"] :is(.svc-card, .gold-card) { --ink: #111; --ink-2: #333; --muted: #555; --gold: #8f6a1c; --gold-hi: #8f6a1c; --gold-ink: #8f6a1c; }
+  /* the account's dark pieces print as ink on paper: no gold face, no drawing's light */
+  .appt-next, .car-card, .acct .appt .appt-head, [data-theme="light"] .appt-next, [data-theme="light"] .acct .appt.st-completed .appt-head, .acct .appt.gold:is(.in, .settled) .appt-head, [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: #111; --ink-2: #333; --muted: #555; --gold: #8f6a1c; --gold-hi: #8f6a1c; --gold-ink: #8f6a1c; color: #111; background: #fff !important; box-shadow: none !important; }
+  .appt-au, .trk::after, .acct-soon .soon-mark { display: none !important; }
+  .acct-soon > * { animation: none !important; }
   html, body { background: #fff !important; color: #111 !important; }
   .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
   .hero::before, .hero::after, .standard::before, .why::before, .how::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
