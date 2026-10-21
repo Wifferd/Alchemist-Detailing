@@ -778,12 +778,17 @@
     return box;
   }
   const carriedCard = () => st.service.carried && root.querySelector('.svc-opt.on[data-code="' + st.service.carried + '"]');
+  // A chosen card's moment: the head of light runs its rim once (.glow) and the gold light crosses it once (app.js)
+  function glowOnce(b) {
+    flash(b, 'glow', 1400, '::after');
+    if (window.AlchemistLight) window.AlchemistLight.pass(b);
+  }
   // Most of it (two thirds) between the floating top bar and the sticky bar
   function inSight(n) { const r = n.getBoundingClientRect(), s = sight(); return Math.min(r.bottom, s.bottom + 16) - Math.max(r.top, s.top - 16) >= r.height * 2 / 3; }
   function litOnce() {
     const b = carriedCard(), note = root.querySelector('#bk-carried [data-carried] > span');
     if (!b) return;
-    if (inSight(b)) { flash(b, 'glow', 1400, '::after'); return; }
+    if (inSight(b)) { glowOnce(b); return; }
     if (note && !note.querySelector('.link')) note.append(' ', el('button.link', { type: 'button', onclick: seeCarried }, 'See it'));
   }
   // "See it": the card is brought to the middle of the clear band (a tap, so no finger is on the glass), takes the
@@ -796,7 +801,7 @@
     if (Math.abs(by) > 1) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
     b.focus({ preventScroll: true });
     let lit = false;
-    const light = () => { if (lit) return; lit = true; window.removeEventListener('scrollend', light); flash(b, 'glow', 1400, '::after'); };
+    const light = () => { if (lit) return; lit = true; window.removeEventListener('scrollend', light); glowOnce(b); };
     if (reduce || Math.abs(by) <= 1) light();
     else { window.addEventListener('scrollend', light); setTimeout(light, 800); }
   }
@@ -862,7 +867,7 @@
       const on = [s.bundle, s.exterior, s.interior].includes(b.dataset.code);
       const was = b.classList.contains('on');
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      if (on && !was) { flash(b, 'just', 700); flash(b, 'glow', 1400, '::after'); }
+      if (on && !was) { flash(b, 'just', 700); glowOnce(b); }
     });
     const old = root.querySelector('[data-field="addons"]'); if (old) old.replaceWith(addonsBlock());
     updatePrices();
@@ -1217,7 +1222,9 @@
     const lost = w.lost ? el('p.bk-lost', { role: 'status' }, w.lost) : null;
     if (!w.date) return [lost || el('p.bk-muted', 'Pick a day to see start times.')];
     const head = el('h2.bk-h2', longDate(w.date));
-    if (w.times == null) return [head, el('p.bk-muted', 'Checking times…')];
+    // while they load: the places of the first few start times, the size of real ones, under the gold light's slow
+    // pass (the CSS), and the line that says so where "Can't find a time?" will be
+    if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map((i) => el('span.time-ph', { style: { '--t': i } }))), el('p.choice-msg', { role: 'status' }, 'Checking times…')];
     if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.')];
     const row = el('div.chips', { class: fresh ? 'enter' : null }, w.times.map((m, i) => el('button.choice-item.time', {
       type: 'button', class: w.start === m ? 'on' : '', 'aria-pressed': w.start === m ? 'true' : 'false', dataset: { m }, style: { '--t': i },

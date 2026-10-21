@@ -53,8 +53,9 @@
   // A phone number in running text is always a tel: link, on one line.
   const tel = (raw) => el('a.tnum', { href: 'tel:+1' + digits(raw) }, raw);
 
-  // The loading line: a reader hears it, and hears the screen arrive in its place.
-  const loading = (text) => el('div.bk-loading', { role: 'status', 'aria-live': 'polite' }, el('span.bk-spin', { 'aria-hidden': 'true' }), text);
+  // The loading line: a hairline with the gold light running along it (the CSS's .au-line), then the words; a reader
+  // hears them, and hears the screen arrive in its place.
+  const loading = (text) => el('div.bk-loading', { role: 'status', 'aria-live': 'polite' }, el('span.au-line', { 'aria-hidden': 'true' }), text);
   // The required star is drawn; the reader hears "required" (and the input carries aria-required).
   const star = () => [el('i', { 'aria-hidden': 'true' }, ' *'), el('span.sr-only', ' required')];
 

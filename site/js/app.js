@@ -54,6 +54,64 @@
     return done;
   }
 
+  // ---------------------------------------------------------------- the gold light (one pass at a time)
+  // The owner's gold shimmer system: one pass of light across a thing as it arrives or changes, never looping, and
+  // never two on the screen together. A pass waits for the one before it, then plays only if its element is still
+  // on the screen (and, for one that had to wait, still wanted: when). .au-run while it plays, .au-lit from its
+  // start on (what stays lit after the light has gone). The CSS draws it (the gold light); under reduced motion and
+  // in forced colours nothing passes. Book Now's .shine is the one light that repeats.
+  const AU_MS = { el: 1200, card: 1400, wide: 1800 };   // --au-dur, --au-dur-card, --au-dur-wide
+  const light = (() => {
+    const off = reduce || window.matchMedia('(forced-colors: active)').matches;
+    const q = [];
+    let busy = false, timer = 0;
+    const onScreen = (el) => {
+      if (!el.isConnected) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+    };
+    function play(it) {
+      busy = true;
+      const el = it.el;
+      el.classList.remove('au-run');
+      void el.offsetWidth;
+      el.classList.add('au-run', 'au-lit');
+      setTimeout(() => { el.classList.remove('au-run'); busy = false; setTimeout(next, 120); }, it.ms + 60);
+    }
+    function next() {
+      clearTimeout(timer);
+      while (!busy && q.length) {
+        const it = q[0], wait = it.at - performance.now();
+        if (wait > 0) { timer = setTimeout(next, wait); return; }
+        q.shift();
+        if (onScreen(it.el) && (!it.when || it.when())) play(it);
+        else if (it.miss) it.miss();
+      }
+    }
+    return {
+      // o: { delay (ms), size ('el', 'card', 'wide'), when (still wanted, if it had to wait), miss (it could not play) }
+      pass(el, o) {
+        o = o || {};
+        if (off || !el || el.classList.contains('au-run') || q.some((it) => it.el === el)) return;
+        const it = { el, at: performance.now() + (o.delay || 0), ms: AU_MS[o.size] || AU_MS.el, when: o.when, miss: o.miss };
+        if (!busy && !q.length && !o.delay && onScreen(el)) { play(it); return; }   // nothing ahead of it: at once
+        q.push(it);
+        next();
+      },
+    };
+  })();
+  window.AlchemistLight = light;
+  // Arrivals: the Services header, a brand page's title, a completed (or gold) appointment, the Gold client card and
+  // the Exterior and Bundles photo plates get their pass once a third of them is on the screen, after their own
+  // entrance has landed. One that scrolled away before its turn gets it when it comes back.
+  const ARRIVE = '.svc-top, .book-page .page-head h1, .appt:not(.adm):is(.done, .gold), .gold-card, .group-plate.polish';
+  const arriveIo = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    arriveIo.unobserve(el);
+    light.pass(el, { delay: el.matches('.appt, .svc-top') ? 650 : 450, size: el.matches('.group-plate, .svc-top') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
+  }), { threshold: 0.35 });
+
   // ---------------------------------------------------------------- the bar's page name
   const pageName = $('#pageName');
   function setName(text) {
@@ -95,6 +153,9 @@
     root.style.overflow = 'hidden';
     if (hero && hero.pause) hero.pause();
     setTimeout(() => { const a = $('nav a', menu); if (a) a.focus({ preventScroll: true }); }, reduce ? 0 : 380);
+    // the page you are on takes the gold light once its item has slid in (110ms press, 140ms + 28ms a step, .45s)
+    const here = $('nav a[aria-current="page"]', menu);
+    if (here) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen });
   }
   function closeMenu(returnFocus) {
     if (!menuOpen) return;
@@ -201,6 +262,10 @@
   }
   new IntersectionObserver((es) => overWash(es[es.length - 1].isIntersecting), { rootMargin: '-10% 0px -10% 0px' }).observe(washSection);
   washSection.addEventListener('washend', () => topbar.classList.remove('over-wash'));   // the canvas has stopped for good
+  // While the Services header's dark photo is under the bar, .over-dark: in the white studio the bar goes nearly solid
+  // ivory there (CSS), so it never reads as a grey band. The observed strip is the top tenth of the screen, the bar's.
+  const svcTop = $('.svc-top');
+  if (svcTop) new IntersectionObserver((es) => topbar.classList.toggle('over-dark', es[es.length - 1].isIntersecting), { rootMargin: '0px 0px -90% 0px' }).observe(svcTop);
   // Under a finger there is no hover: once the cards are revealed, the row scrolled to the middle of the screen is lit.
   let litArmed = false;
   function armLit() {
@@ -211,10 +276,23 @@
       es.forEach((e) => { if (e.isIntersecting) seen.set(e.target, e.intersectionRatio); else seen.delete(e.target); });
       let best = null;
       seen.forEach((ratio, el) => { if (!best || ratio > seen.get(best)) best = el; });
-      cards.forEach((c) => c.classList.toggle('lit', !!best && (c === best || (seen.has(c) && c.offsetTop === best.offsetTop))));
+      cards.forEach((c) => {
+        const on = !!best && (c === best || (seen.has(c) && c.offsetTop === best.offsetTop));
+        c.classList.toggle('lit', on);
+        if (on) sweepCard(c);
+      });
     }, { rootMargin: '-38% 0px -38% 0px', threshold: [0, .25, .5, .75, 1] });
     cards.forEach((c) => lio.observe(c));
   }
+  // The first time a card is lit (a pointer, the keyboard, or the row under a finger) one line of light crosses its
+  // photo, and never again on this visit; a card that had to wait plays only if it is still lit by then.
+  function sweepCard(c) {
+    if (!c.classList.contains('au-lit')) light.pass(c, { size: 'card', when: () => c.matches(':hover, :focus-visible, .lit') });
+  }
+  $$('.svc-card').forEach((c) => {
+    c.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') sweepCard(c); });
+    c.addEventListener('focus', () => { if (c.matches(':focus-visible')) sweepCard(c); });
+  });
   new MutationObserver(() => { if (stageEl.classList.contains('revealed')) armLit(); }).observe(stageEl, { attributes: true, attributeFilter: ['class'] });
   // the services must fit the pinned screen; scale them down on short screens
   function fitServices() {
@@ -250,6 +328,7 @@
     desyncShine(scope);
     $$('.shine, .scroll-cue', scope).forEach((el) => ioAway.observe(el));
     if (reduce) return;
+    $$(ARRIVE, scope).forEach((el) => { if (!el.classList.contains('au-lit')) arriveIo.observe(el); });
     const counts = new Map();   // stagger index per parent, so a page is not one long queue
     RISE.forEach((sel) => {
       $$(sel, scope).forEach((el) => {
@@ -658,6 +737,8 @@
       focusHeading(view);
       desyncShine(view);
       $$('.shine', view).forEach((el) => ioAway.observe(el));
+      // the booking step just reached (.fresh, booking.js) takes the gold light: along the line into it, then its number
+      nodes.forEach((n) => (n.matches('.bk-progress') ? [n] : $$('.bk-progress', n)).forEach((ol) => { const li = $('li.current.fresh', ol); if (li) light.pass(li, { delay: 200 }); }));
       if (!nodes.some((n) => n.matches(ARM) || n.querySelector(ARM))) return;
       if (view.dataset.armed) {
         nodes.forEach((n) => (n.matches('[data-reveal]') ? [n] : []).concat($$('[data-reveal]', n)).forEach((el) => { el.classList.add('in', 'settled'); io.unobserve(el); }));
