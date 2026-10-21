@@ -38,10 +38,11 @@ async def main():
         days = await pg.query_selector_all('.cal-day.open'); await days[2].click()
         await pg.wait_for_selector('.choice-item.time'); await (await pg.query_selector_all('.choice-item.time'))[0].click()
         await pg.click('#bk-next'); await pg.wait_for_selector('.sum'); await pg.click('#bk-next'); await pg.wait_for_selector('.bk-sent')
-        # the guest is signed out after sending; sign in again on the account page
+        # the guest is signed out after sending; sign in again on the account page (its own Send code: the receipt
+        # left in the hidden booking view has a Copy button of the same kind)
         await pg.evaluate('location.hash = "account"'); await pg.wait_for_selector('#phone', timeout=8000)
         await pg.wait_for_timeout(400); await pg.screenshot(path=f'{prefix}-account-signin.png')
-        await pg.fill('#si_first', 'Carla'); await pg.fill('#phone', '9725552011'); await pg.click('.mini-btn'); await pg.wait_for_selector('#phone_code'); await pg.fill('#phone_code', '123456')
+        await pg.fill('#si_first', 'Carla'); await pg.fill('#phone', '9725552011'); await pg.click('#accountApp .mini-btn'); await pg.wait_for_selector('#phone_code'); await pg.fill('#phone_code', '123456')
         await pg.wait_for_selector('#first_name', timeout=8000); await pg.wait_for_timeout(400)
         await full(pg, f'{prefix}-account.png')
         await pg.click('text=+ Add vehicle'); await pg.wait_for_selector('#vehicle_make')

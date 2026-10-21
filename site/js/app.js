@@ -503,7 +503,7 @@
     if (!wantHeading) return false;
     const a = document.activeElement;
     if (a && a !== document.body && a !== main && a !== fromEl) { wantHeading = false; return false; }
-    const h = scope.querySelector('h1');
+    const h = scope.querySelector('[data-land]') || scope.querySelector('h1');   // data-land: a question the page asks first (the booking's)
     if (!h) return false;
     wantHeading = false;
     focusEl(h);
@@ -538,7 +538,8 @@
           v.addEventListener('animationend', function done(e) { if (e.target !== v) return; v.classList.remove('enter'); v.removeEventListener('animationend', done); });
         }
       });
-      if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'));
+      // #book-ed and the like: a service chosen on Services (the Table's symbols), taken into the booking
+      if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'), { pick: sub });
       if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
       if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
       if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
@@ -557,6 +558,7 @@
     }
     cur = r;
     if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
+    if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub);   // already booking: offered, never forced
     if (r === 'services' && sub) {
       const el = document.getElementById('svc-' + sub);
       if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }));

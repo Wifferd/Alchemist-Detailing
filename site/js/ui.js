@@ -194,17 +194,23 @@
 
   // The price breakdown shared by the booking (a quote), the summary, the account and the appointments (a
   // booking row): the lines, bundle savings, the mobile fee, an extra the owner added, and the total or the
-  // "we confirm" note with its reason. opts.withTime adds the length and the payment line.
+  // "we confirm" note with its reason. opts.withTime adds the length and the payment line; opts.mark(code) puts a
+  // service's mark before its name (the booking's build sheet and receipt).
   function priceLines(q, opts) {
     opts = opts || {};
     const rows = (q.lines || []).map((l) => el('div.pr-line', { class: l.included ? 'inc' : '' },
-      el('span', l.name, l.included ? el('small', ' · Included') : null),
+      el('span', opts.mark && !l.included ? opts.mark(l.code) : null, l.name, l.included ? el('small', ' · Included') : null),
       el('span.tnum', l.included ? '$0.00' : l.price_cents == null ? 'Confirmed by us' : money(l.price_cents))));
     const out = el('div.pr', rows);
     // the bundle line already carries the bundle price, so the saving is said once, as a note with no amount in
     // the price column (shown as a minus line, the column would add up to less than the total). The saving is on
-    // the base prices: bundles and basics carry different mobile rates, so a mobile booking says so.
-    if (q.bundle_savings_cents) out.appendChild(el('p.pr-note', 'The bundle price saves you ' + money(q.bundle_savings_cents) + ' against booking its services separately' + (q.location_type === 'mobile' ? ', before the mobile charge.' : '.')));
+    // the base prices: bundles and basics carry different mobile rates, so a mobile booking says so. The note sits
+    // straight under the bundle's own line, so it never reads as part of the line above it.
+    if (q.bundle_savings_cents) {
+      const note = el('p.pr-note', 'The bundle price saves you ' + money(q.bundle_savings_cents) + ' against booking its services separately' + (q.location_type === 'mobile' ? ', before the mobile charge.' : '.'));
+      const at = (q.lines || []).findIndex((l) => l.kind === 'bundle' && !l.included);
+      if (at >= 0) rows[at].after(note); else out.appendChild(note);
+    }
     if (q.location_type === 'mobile') out.appendChild(el('div.pr-line', el('span', 'Mobile service'), el('span.tnum', money(q.mobile_cents))));
     if (q.extra_cost_cents) out.appendChild(el('div.pr-line', el('span', 'Extra' + (q.extra_cost_note ? ' · ' + q.extra_cost_note : '')), el('span.tnum', money(q.extra_cost_cents))));
     const pending = q.total_cents == null;

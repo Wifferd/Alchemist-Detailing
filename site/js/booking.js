@@ -36,19 +36,33 @@
     bundle: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5L12 21l8-4.5"/></g></svg>',
     addon: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.3l7 2.6v5.4c0 4.6-3 8.1-7 9.5-4-1.4-7-4.9-7-9.5V5.9z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
   };
+  // The owner's Alchemist's Table (services.js): each service's symbol, number and route token (#book-ed). Only
+  // these come from there; every price is the database's.
+  const signs = () => (window.AlchemistServices && window.AlchemistServices.signs) || [];
+  const signOf = (code) => signs().find((g) => g.code === code) || null;
+  // A service's mark: its symbol, the number at the top left, in a hairline square (gold for Au, the Full Detail Bundle)
+  function sigMark(code) {
+    const g = signOf(code);
+    return g ? el('span.sig', { class: g.key === 'au' ? 'au' : null, 'aria-hidden': 'true' }, el('small.tnum', g.num), g.sym) : null;
+  }
 
   // ---------------------------------------------------------------- state
   let root = null, settings = null, menu = null, session = null, phone = null;
   let step = 1, farthest = 1, renderedStep = 0, busy = false, mounted = false;
+  // offered: a route token (#book-ed) waiting for the menu; asking: a service chosen on Services that differs from the
+  // one this request already has, asked about at the top of the card (a choice already made is never replaced unasked)
+  let offered = null, asking = null;
   const blank = {
     contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '' }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
-    service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '' }),
-    // fit: the job's length and place the days and times were loaded for; lost: the quiet line once a chosen day or time no longer fits
-    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, fit: null, lost: null }),
+    // carried: the service chosen on the Services page, while it is still the choice; glow: step 04 lights it once
+    service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '', carried: null, glow: false }),
+    // fit: the job's length and place the days and times were loaded for; lost: the quiet line once a chosen day or time
+    // no longer fits; switching: the strip that changes the service on the date step is open
+    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, fit: null, lost: null, switching: false }),
   };
-  const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: null, direction: 1, prices: {} };
+  const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, sentAsGuest: false, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
 
   // A fresh request: everything but who is booking (names, phone and email stay typed in; the phone is confirmed
@@ -61,7 +75,7 @@
       if (c.emailState !== 'skipped' && !(session && session.email)) c.emailState = 'none';
     } else st.contact = blank.contact();
     quoteCache.clear();
-    step = farthest = 1; renderedStep = 0; busy = false;
+    step = farthest = 1; renderedStep = 0; busy = false; asking = null;
   }
 
   // ---------------------------------------------------------------- helpers
@@ -101,12 +115,18 @@
   }
   async function getQuote(input) {
     const key = JSON.stringify(input);
-    if (!quoteCache.has(key)) quoteCache.set(key, D.quote(input).catch((e) => ({ error: e })));
+    // a quote that failed is not kept, so asking again (another tap, Continue) tries again
+    if (!quoteCache.has(key)) quoteCache.set(key, D.quote(input).catch((e) => { quoteCache.delete(key); return { error: e }; }));
     return quoteCache.get(key);
   }
+  // An answer for a request that changed again while it was on its way (two quick taps) is dropped: only the quote for
+  // the request as it stands now becomes st.quote. STALE tells the caller a newer answer is coming.
+  const STALE = { stale: true };
   async function refreshQuote() {
     if (!mainsChosen()) { st.quote = null; return null; }
+    const key = JSON.stringify(quoteInput());
     const q = await getQuote(quoteInput());
+    if (JSON.stringify(quoteInput()) !== key) return STALE;
     st.quote = q && !q.error ? q : null;
     return q;
   }
@@ -135,13 +155,16 @@
   }
 
   // ---------------------------------------------------------------- shell
-  function mount(container) {
+  // opts.pick: a route token from the Services page (#book-ed), taken in once the menu is here
+  function mount(container, opts) {
     root = container;
+    if (opts && opts.pick) offered = opts.pick;
     if (mounted) {
       // the first visit's load is still on its way: it draws the booking when it lands
       if (!menu) { root.replaceChildren(loading('Loading the booking…')); return; }
       if (st.receipt) reset(true);   // a receipt from an earlier visit: the next visit starts a fresh request
-      render();
+      takeOffer();
+      redraw();
       // signed in (the account page) or out since the last visit: the contact and the saved vehicles follow
       D.session().then((s) => { if ((s && s.userId) !== (session && session.userId)) adopt(s).then(render); }).catch(() => {});
       return;
@@ -155,6 +178,7 @@
         phone = settings.public_phone;
         await adopt(s);
         st.requestId = st.requestId || D.helpers.uuid();
+        takeOffer();
         render();
       } catch (e) {
         mounted = false;   // the next visit tries again
@@ -162,6 +186,51 @@
       }
     })();
   }
+  // A token arriving while the booking is open (#book-ed typed or followed on the booking page): the same rules
+  function offer(tok) {
+    offered = tok;
+    if (!menu || !root) return;
+    if (st.receipt) reset(true);
+    takeOffer();
+    Promise.resolve(redraw()).then(() => { if (asking) focusAsk(); });
+  }
+  // Drawn again after a change from outside the steps: the date step and the summary need this booking's quote
+  // first (go fetches it, and sends a summary whose length changed back to the date step)
+  function redraw() { if (step >= 5 && !st.quote && mainsChosen()) return go(step); render(); }
+  // The service chosen on the Services page, taken into the request. A request with no service yet takes it as
+  // chosen (step 04 opens with it lit once); one that already has another keeps its own, and the top of the card
+  // asks. An add-on joins the add-ons and counts once a service it goes with is chosen. An unknown token is ignored.
+  function takeOffer() {
+    const tok = offered; offered = null;
+    if (!tok || !menu) return;
+    const g = signs().find((x) => x.key === tok), x = g && svc(g.code);
+    if (!x) return;
+    const s = st.service;
+    if (x.kind === 'addon') {   // one the request's service already includes needs nothing
+      if (!s.addons.includes(x.code) && !includedCodes().has(x.code)) { s.addons = s.addons.concat(x.code); invalidatePrice(); }
+      return;
+    }
+    if ([s.bundle, s.exterior, s.interior].includes(x.code)) { asking = null; return; }
+    if (mainsChosen()) { asking = x.code; return; }
+    choose(x); s.carried = x.code; s.glow = true; invalidatePrice();
+  }
+  // The request's service changed outside step 04: the quote it had no longer applies
+  function invalidatePrice() { st.quote = null; }
+  // The customer's answer to the service offered from Services: 'switch' (a bundle replaces everything, a service
+  // replaces its own kind), 'add' (beside the other kind), 'only' (it alone), or 'keep' the request's own
+  async function answerOffer(mode) {
+    const code = asking; asking = null;
+    if (mode !== 'keep' && code) {
+      if (mode === 'only') { st.service.exterior = null; st.service.interior = null; }
+      choose(svc(code), false); st.service.carried = code; st.service.glow = step <= 4;
+      invalidatePrice();
+      if (step >= 4) await refreshQuote();
+      if (step >= 5) { go(step); return; }   // the date step checks the day and time again for the new length
+    }
+    render();
+    focusTitle();
+  }
+
   // The data layer's session, taken into the request: a signed-in customer's names (unless typed already), the
   // confirmed phone, the email and the saved vehicles; signed out, the phone is confirmed again.
   async function adopt(s) {
@@ -193,6 +262,7 @@
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is sent.' + (guest() ? '' : ' Any 6-digit code works.'))
         : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — this is a practice booking on the test database.') : null),
       renderProgress(moved),
+      askLine() || carryLine(),
       el('div.bk-body', { id: 'bk-body' }, el('div.bk-step', { class: moved ? (st.direction > 0 ? 'in-right' : 'in-left') : null }, renderStep())),
       renderNav());
     root.appendChild(shell);
@@ -211,6 +281,52 @@
         el('button', { type: 'button', disabled: state === 'todo', onclick: () => go(n), 'aria-label': 'Step ' + s.n + ', ' + s.name },
           el('span.num', s.n), el('span.lbl', s.name)));
     }));
+  }
+
+  // The request's service at the top of steps 01 to 03, once one is chosen (on the Services page, or at step 04 before
+  // coming back): kept, with where to change it
+  const mainCodes = () => [st.service.bundle, st.service.exterior, st.service.interior].filter(Boolean);
+  // An add-on that can't go with the chosen service yet (WetGloss with an interior only) is not part of it: it waits
+  // on a line of its own, in step 04's words.
+  function carryLine() {
+    const s = st.service, mains = mainCodes(), extra = s.addons.filter((a) => !includedCodes().has(a));
+    const codes = mains.concat(mains.length ? extra.filter(canHaveAddon) : extra);
+    if (step > 3 || !codes.length) return null;
+    const waiting = mains.length ? extra.filter((a) => !canHaveAddon(a)) : [];
+    return el('div.bk-carry', { style: { '--marks': codes.filter(signOf).length } },
+      el('span.bk-carry-marks', codes.map(sigMark)),
+      el('p.bk-carry-main', el('span.eyebrow', mains.length ? 'Your service' : 'Your add-on'), el('b', codes.map((c) => svc(c).name).join(' + ')),
+        waiting.map((a) => el('span.bk-carry-wait', svc(a).name + ' is added once you choose ' + waitsFor(a) + '.'))),
+      farthest >= 4 ? el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')
+        : el('span.bk-carry-aside', mains.length ? 'You can change it at step 04' : 'Choose a service for it at step 04'));
+  }
+  // A service chosen on Services while this request already has another. Each answer says what it does: a bundle, or
+  // a service of a kind the request has, switches (a kept other kind is named in the result); an exterior offered to a
+  // request with only an interior (or the reverse) can be added, or taken alone; or the request keeps its own. The
+  // question is where a page change lands (data-land, app.js), so a screen reader hears it first.
+  function askLine() {
+    const x = asking && svc(asking);
+    if (!x) return null;
+    const s = st.service, own = mainCodes().map((c) => svc(c).name).join(' + ');
+    const other = x.kind === 'exterior' ? 'interior' : x.kind === 'interior' ? 'exterior' : null;
+    const pair = !!other && !s.bundle && !s[x.kind] && !!s[other];   // only the other kind: the two go together
+    const both = !!other && !s.bundle && !!s[x.kind] && !!s[other];   // the same kind is switched, the other stays
+    const result = both ? [s.exterior, s.interior].map((c) => (svc(c).kind === x.kind ? x.name : svc(c).name)).join(' + ') : x.name;
+    const answers = pair
+      ? [miniBtn('Add ' + x.name, () => answerOffer('add')), miniBtn('Switch to ' + x.name + ' only', () => answerOffer('only'))]
+      : [miniBtn('Switch to ' + result, () => answerOffer('switch'))];
+    return el('div.bk-carry.ask', { role: 'group', tabindex: -1, 'aria-label': 'A service chosen on the Services page', 'aria-describedby': 'bk-ask-q', dataset: { land: '' }, style: { '--marks': signOf(x.code) ? 1 : 0 } },
+      el('span.bk-carry-marks', sigMark(x.code)),
+      el('p.bk-carry-main', { id: 'bk-ask-q' }, el('span.eyebrow', 'Chosen on Services'), el('span', el('b', x.name), '. This request has ', el('b', own), '.')),
+      el('div.bk-carry-act', answers, el('button.link', { type: 'button', onclick: () => answerOffer('keep') }, 'Keep ' + own)));
+  }
+  // The question takes the focus when it comes up on an open booking (a page change lands on it through app.js)
+  function focusAsk() {
+    const a = root.querySelector('.bk-carry.ask');
+    if (!a) return;
+    a.focus({ preventScroll: true });
+    const r = a.getBoundingClientRect(), s = sight();
+    if (r.top < s.top || r.bottom > s.bottom) window.scrollTo({ top: cardTop(), behavior: 'auto' });
   }
 
   function renderNav() {
@@ -243,6 +359,7 @@
   function show(n) {
     st.direction = n > step ? 1 : -1;
     step = n;
+    if (n !== 5) st.when.switching = false;
     window.scrollTo({ top: cardTop(), behavior: 'auto' });
     render();
     focusTitle();
@@ -487,13 +604,17 @@
 
   // ---------------------------------------------------------------- 02 Vehicle
   // What we must know first (the vehicle, its type and size, the inside, the notes, known damage); the
-  // modifications and photos fold away under "Modifications and photos", optional.
+  // modifications and photos fold away under "Modifications and photos", optional. The same questions in the same
+  // order, in three titled parts: A the car, B inside the car, C before we start.
+  const part = (no, title, kids) => el('section.bk-part', { 'aria-labelledby': 'bk-part-' + no },
+    el('h2.bk-part-h', { id: 'bk-part-' + no }, el('span.bk-part-no', { 'aria-hidden': 'true' }, no), title), el('div.bk-grid', kids));
   function stepVehicle() {
     const v = st.vehicle;
-    const box = el('div.bk-grid');
+    const box = el('div.bk-grid.bk-parts');
+    const carBox = [], inside = [], before = [];
     if (v.saved.length) {
       if (!v.vehicleId && !v.addingNew) v.vehicleId = v.saved[0].id;   // a saved vehicle is the usual answer: the first is chosen, the form stays folded
-      box.appendChild(choices({
+      carBox.push(choices({
         id: 'vehicle_id', label: 'Your vehicles', value: v.vehicleId || 'new',
         items: v.saved.map((x) => ({ code: x.id, label: [x.year, x.make, x.model].filter(Boolean).join(' '), sub: [x.color, (menu.vehicleTypes.find((t) => t.code === x.vehicle_type) || {}).name, x.size === 'xl' ? 'XL' : null].filter(Boolean).join(' · ') }))
           .concat([{ code: 'new', label: '+ Add vehicle', cls: 'add' }]),
@@ -501,17 +622,17 @@
       }));
     }
     if (!v.vehicleId) {
-      box.appendChild(el('div.bk-row.four',
+      carBox.push(el('div.bk-row.four',
         field({ id: 'vehicle_year', label: 'Year', optional: true, inputmode: 'numeric', maxlength: 4, value: v.year, oninput: (e) => { v.year = e.target.value; clearError(root, 'vehicle_year'); } }),
         field({ id: 'vehicle_make', label: 'Make', required: !v.notSure, value: v.make, maxlength: 40, oninput: (e) => { v.make = e.target.value; clearError(root, 'vehicle_make'); } }),
         field({ id: 'vehicle_model', label: 'Model', required: !v.notSure, value: v.model, maxlength: 40, oninput: (e) => { v.model = e.target.value; clearError(root, 'vehicle_model'); } }),
         field({ id: 'vehicle_color', label: 'Color', optional: true, value: v.color, maxlength: 30, oninput: (e) => { v.color = e.target.value; clearError(root, 'vehicle_color'); } })));
       const typeItems = menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name }));
-      box.appendChild(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, size: 'tile', value: v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
-      box.appendChild(el('div.bk-inline',
+      carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, size: 'tile', value: v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
+      carBox.push(el('div.bk-inline',
         el('label.bk-toggle', el('input', { type: 'checkbox', checked: v.notSure, onchange: (e) => { v.notSure = e.target.checked; render(); } }), el('span', 'Not sure? Type here')),
         v.notSure ? field({ id: 'vehicle_description', label: 'Describe the vehicle', required: true, value: v.description, maxlength: 1000, oninput: (e) => { v.description = e.target.value; clearError(root, 'vehicle_description'); } }) : null));
-      box.appendChild(choices({
+      carBox.push(choices({
         id: 'vehicle_size', label: 'Size', value: v.size, items: [
           { code: 'standard', label: 'Standard', sub: 'Most cars, crossovers, SUVs and trucks' },
           { code: 'xl', label: 'XL', sub: 'Minivans and some modified trucks, such as a Raptor. We confirm the price before your appointment.' }],
@@ -521,34 +642,34 @@
 
     // Conditions: mandatory, with the fees that apply to interior services
     const feeOf = (o) => o.fee_code ? svc(o.fee_code) : null;
-    box.appendChild(choices({
+    inside.push(choices({
       id: 'conditions', label: "What's the inside of the car like?", required: true, multi: true, value: v.conditions,
       hint: 'Choose everything that applies, or None. Fees apply with an interior service; Interior Deluxe and the Full Detail Bundle include the lighter ones.',
       items: menu.options.condition.map((o) => {
         const f = feeOf(o);
+        const sub = o.code === 'heavy_stains' ? 'If your car\'s condition is similar to the one listed, you may select it. If the selection turns out to be inaccurate, you will be charged ' + money(f.base_price_cents) + '.'
+          : o.code === 'other' ? 'Toothpaste, coffee, anything unusual: tell us in the notes below and we\'ll price it.' : null;
         return {
-          code: o.code, label: o.label, exclusive: !!o.is_none,
+          code: o.code, label: o.label, exclusive: !!o.is_none, sub,
           priceText: f ? '+' + money(f.base_price_cents) : (o.is_none ? 'No fee' : (o.sends_to_review ? 'We price it' : null)),
-          sub: o.code === 'heavy_stains' ? 'If your car\'s condition is similar to the one listed, you may select it. If the selection turns out to be inaccurate, you will be charged ' + money(f.base_price_cents) + '.'
-             : o.code === 'other' ? 'Toothpaste, coffee, anything unusual: tell us in the notes below and we\'ll price it.'
-             : (f && (menu.includes.int_deluxe || []).includes(f.code) ? 'Included in Interior Deluxe and the Full Detail Bundle' : null),
+          cls: sub ? null : 'short',   // a card with no note is short: the short ones sit side by side
         };
       }),
       onchange: (vals) => { v.conditions = vals; invalidateQuotes(); notesRequired(vals.includes('other')); if (vals.includes('other')) { const n = root.querySelector('#special_request'); if (n) n.focus(); } },
     }));
-    box.appendChild(field({ id: 'special_request', label: 'Anything we should know?', optional: !v.conditions.includes('other'), required: v.conditions.includes('other'), multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
+    inside.push(field({ id: 'special_request', label: 'Anything we should know?', optional: !v.conditions.includes('other'), required: v.conditions.includes('other'), multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
       hint: 'Bugs, tar, odors, anything unusual. We price special requests ourselves. No links, please.',
       oninput: (e) => { st.service.notes = e.target.value; clearError(root, 'special_request'); } }));
 
     // Damage
-    box.appendChild(choices({
+    before.push(choices({
       id: 'damage', label: 'Known damage', required: true, size: 'tile', multi: true, value: v.damage,
       hint: 'So we know what was there before we start.',
       items: menu.options.damage.map((o) => ({ code: o.code, label: o.label, exclusive: !!o.is_none })),
       onchange: (vals) => { v.damage = vals; render(); },
     }));
     if (menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code))) {
-      box.appendChild(field({ id: 'damage_note', label: 'Describe the damage', required: true, value: v.damageNote, maxlength: 1000, hint: 'Requests with unknown or other damage are reviewed by us before we confirm.', oninput: (e) => { v.damageNote = e.target.value; clearError(root, 'damage_note'); } }));
+      before.push(field({ id: 'damage_note', label: 'Describe the damage', required: true, value: v.damageNote, maxlength: 1000, hint: 'Requests with unknown or other damage are reviewed by us before we confirm.', oninput: (e) => { v.damageNote = e.target.value; clearError(root, 'damage_note'); } }));
     }
 
     // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
@@ -560,8 +681,9 @@
           v.photos.map((p) => el('figure.bk-photo', el('img', { src: p.url, alt: '', width: 96, height: 96 }), el('button.bk-photo-x', { type: 'button', 'aria-label': 'Remove photo', onclick: async () => { await D.removePhoto(p.name).catch(() => {}); v.photos = v.photos.filter((x) => x !== p); render(); } }, '×'))),
           v.photos.length < 6 ? el('label.bk-photo-add', el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', multiple: true, onchange: addPhotos }), el('span', '+'), el('span.small', 'Add')) : null),
         el('p.choice-msg', { role: 'status', dataset: { hint: 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.' } }, 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.')));
-    box.appendChild(el('details.bk-more', { open: v.moreOpen || v.photos.length > 0 || v.modifications.length > 0, ontoggle: (e) => { v.moreOpen = e.target.open; } },
+    before.push(el('details.bk-more', { open: v.moreOpen || v.photos.length > 0 || v.modifications.length > 0, ontoggle: (e) => { v.moreOpen = e.target.open; } },
       el('summary', el('span', v.vehicleId ? 'Photos' : guest() ? 'Modifications' : 'Modifications and photos', el('small', ' optional'))), more));
+    box.append(part('A', 'The car', carBox), part('B', 'Inside the car', inside), part('C', 'Before we start', before));
     return box;
   }
   // "Other" makes the notes required: the label's "optional" becomes the star, in place
@@ -626,7 +748,8 @@
     const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind));
     const groups = [['bundle', 'Bundles', 'Exterior and interior together, for less.'], ['exterior', 'Exterior', 'Choose one.'], ['interior', 'Interior', 'Choose one.']];
     const wrap = el('div.bk-services', { dataset: { field: 'services' }, 'aria-busy': Object.keys(st.prices).length ? null : 'true' },
-      el('p.choice-msg', { role: 'status' }));   // the step's own message sits under the heading, where it is seen
+      el('p.choice-msg', { role: 'status' }),   // the step's own message sits under the heading, where it is seen
+      el('div.bk-carried', { id: 'bk-carried' }, carriedNotes()));
     groups.forEach(([kind, title, sub]) => {
       const list = el('div.svc-pick');
       mains.filter((x) => x.kind === kind).forEach((x) => {
@@ -649,7 +772,42 @@
     box.appendChild(addonsBlock());
     box.appendChild(el('div.bk-summary-card', { id: 'bk-price' }));
     setTimeout(updatePrices, 0);
+    // the service brought from the Services page lights up once, as the step lands, where it can be seen; below the
+    // fold (a phone) its note offers "See it", and the light plays once the card is in sight
+    if (s.glow) { s.glow = false; setTimeout(litOnce, 380); }
     return box;
+  }
+  const carriedCard = () => st.service.carried && root.querySelector('.svc-opt.on[data-code="' + st.service.carried + '"]');
+  // Most of it (two thirds) between the floating top bar and the sticky bar
+  function inSight(n) { const r = n.getBoundingClientRect(), s = sight(); return Math.min(r.bottom, s.bottom + 16) - Math.max(r.top, s.top - 16) >= r.height * 2 / 3; }
+  function litOnce() {
+    const b = carriedCard(), note = root.querySelector('#bk-carried [data-carried] > span');
+    if (!b) return;
+    if (inSight(b)) { flash(b, 'glow', 1400, '::after'); return; }
+    if (note && !note.querySelector('.link')) note.append(' ', el('button.link', { type: 'button', onclick: seeCarried }, 'See it'));
+  }
+  // "See it": the card is brought to the middle of the clear band (a tap, so no finger is on the glass), takes the
+  // focus, and its rim of light runs once
+  function seeCarried() {
+    const b = carriedCard();
+    if (!b) return;
+    const r = b.getBoundingClientRect(), s = sight();
+    const by = r.top - (s.top + Math.max(0, (s.bottom - s.top - r.height) / 2));
+    if (Math.abs(by) > 1) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+    b.focus({ preventScroll: true });
+    let lit = false;
+    const light = () => { if (lit) return; lit = true; window.removeEventListener('scrollend', light); flash(b, 'glow', 1400, '::after'); };
+    if (reduce || Math.abs(by) <= 1) light();
+    else { window.addEventListener('scrollend', light); setTimeout(light, 800); }
+  }
+  // Quiet lines over the cards: the service still as chosen on the Services page, and an add-on that waits for the
+  // service it goes with (WetGloss for an exterior, steam for an interior)
+  const waitsFor = (a) => (menu.addonRules[a] === 'interior' ? 'an interior service' : menu.addonRules[a] === 'exterior' ? 'an exterior service' : 'a service') + (menu.addonRules[a] === 'any_main' ? '' : ' or a bundle');
+  function carriedNotes() {
+    const s = st.service, out = [];
+    if (s.carried && mainCodes().includes(s.carried)) out.push(el('p.bk-quiet', { dataset: { carried: s.carried } }, el('span', svc(s.carried).name + ' was chosen on the Services page. Tap another card to change it.')));
+    s.addons.filter((a) => !canHaveAddon(a)).forEach((a) => out.push(el('p.bk-quiet', svc(a).name + ' is added once you choose ' + waitsFor(a) + '.')));
+    return out;
   }
   // The add-ons: what each needs, what the chosen services already include, the price for this vehicle.
   function addonsBlock() {
@@ -668,7 +826,7 @@
         return {
           code: x.code, label: x.name, disabled: included || !allowed,
           priceText: included ? 'Included' : typed ? (tp != null ? money(tp) : 'Price confirmed by us') : money(x.base_price_cents),
-          sub: included ? 'Already part of your service' : !allowed ? (menu.addonRules[x.code] === 'exterior' ? 'Needs an exterior service' : 'Needs an interior service') : x.description + ' About ' + minutesText(x.duration_min) + ' more.',
+          sub: included ? 'Already part of your service' : !allowed ? (s.addons.includes(x.code) ? 'Added once you choose ' + waitsFor(x.code) : menu.addonRules[x.code] === 'exterior' ? 'Needs an exterior service' : 'Needs an interior service') : x.description + ' About ' + minutesText(x.duration_min) + ' more.',
         };
       }),
       onchange: (vals) => { s.addons = vals; updatePrices(); },
@@ -684,18 +842,22 @@
       p.conds ? el('small', '+ ' + money(p.conds) + ' conditions') : (p.condsIncluded ? el('small.inc', 'conditions included') : null),
       p.mobile ? el('small', '+ ' + money(p.mobile) + ' mobile') : null];
   }
-  function pickMain(x) {
-    const s = st.service;
-    if (x.kind === 'bundle') { s.bundle = s.bundle === x.code ? null : x.code; if (s.bundle) { s.exterior = null; s.interior = null; } }
-    else { s.bundle = null; if (x.kind === 'exterior') s.exterior = s.exterior === x.code ? null : x.code; else s.interior = s.interior === x.code ? null : x.code; }
-    paintMains();
+  // A main service chosen (a bundle stands alone; an exterior and an interior go together); toggle: choosing the
+  // chosen one again lets it go, as on the cards
+  function choose(x, toggle) {
+    const s = st.service, again = (c) => toggle !== false && c === x.code;
+    if (x.kind === 'bundle') { s.bundle = again(s.bundle) ? null : x.code; if (s.bundle) { s.exterior = null; s.interior = null; } }
+    else { s.bundle = null; if (x.kind === 'exterior') s.exterior = again(s.exterior) ? null : x.code; else s.interior = again(s.interior) ? null : x.code; }
   }
+  function pickMain(x) { choose(x); paintMains(); }
   // The cards follow the chosen services in place (the one just chosen lifts once and a rim of light runs
   // around it once, then stays lit; focus and scroll stay where they are); add-on availability changes with
   // the mains, so that block is rebuilt, then the prices and the breakdown follow.
   function paintMains() {
     const s = st.service;
     clearError(root, 'services');
+    if (s.carried && !mainCodes().includes(s.carried)) s.carried = null;   // changed here: the customer's own pick now
+    const notes = root.querySelector('#bk-carried'); if (notes) notes.replaceChildren(...carriedNotes());
     root.querySelectorAll('.svc-opt').forEach((b) => {
       const on = [s.bundle, s.exterior, s.interior].includes(b.dataset.code);
       const was = b.classList.contains('on');
@@ -705,8 +867,9 @@
     const old = root.querySelector('[data-field="addons"]'); if (old) old.replaceWith(addonsBlock());
     updatePrices();
   }
-  async function updatePrices() {
-    const s = st.service;
+  // Each main service alone, for this vehicle, these conditions and this place (the cards' prices, and the date
+  // step's tiles), each one painted by each(code) as it arrives
+  async function mainPrices(each) {
     const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind));
     await Promise.all(mains.map(async (x) => {
       const over = { bundle: null, exterior: null, interior: null, addons: [] };
@@ -722,11 +885,15 @@
           condsIncluded: q.lines.some((l) => l.condition && l.included),
         };
       }
-      const elp = root.querySelector('#price-' + x.code);
-      if (elp) { elp.replaceChildren(); U.append(elp, [priceNodes(x.code)]); }
+      if (each) each(x.code);
     }));
+  }
+  async function updatePrices() {
+    const s = st.service;
+    await mainPrices((code) => { const elp = root.querySelector('#price-' + code); if (elp) { elp.replaceChildren(); U.append(elp, [priceNodes(code)]); } });
     const wrap = root.querySelector('.bk-services'); if (wrap) wrap.removeAttribute('aria-busy');
     const q = await refreshQuote();
+    if (q === STALE) return;   // a newer pick paints when its quote lands
     const box = root.querySelector('#bk-price'); const sug = root.querySelector('#bk-suggest');
     const nav = root.querySelector('.bk-nav'); if (nav) nav.replaceWith(renderNav());
     if (!box) return;
@@ -744,23 +911,20 @@
   }
 
   // ---------------------------------------------------------------- 05 Date and time
+  // The service, the strip that changes it (open: beside the calendar on a wide screen, a row of tiles over it on a
+  // phone), the owner's note and the calendar, then the times
   function stepWhen() {
-    const w = st.when, q = st.quote;
-    const box = el('div.bk-grid');
-    const names = q ? q.lines.filter((l) => !l.included && !l.condition).map((l) => l.name).join(' + ') : '';
-    box.appendChild(el('div.bk-chosen', el('div', el('span.eyebrow', 'Your service'), el('b', names), el('span.bk-muted', 'About ' + minutesText(q ? q.duration_min : 0) + (q && q.total_cents != null ? ' · ' + money(q.total_cents) : ' · price confirmed by us'))), el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')));
+    const w = st.when;
+    switchBack = null;
+    const box = el('div.bk-grid.bk-when', { class: w.switching ? 'switching' : null });
+    box.append(chosenBlock(), switchStrip());
     const today = D.helpers.todayLocal();
     const first = D.helpers.addDays(today, settings.min_days_ahead), last = D.helpers.addDays(today, settings.max_days_ahead);
     if (!w.month) w.month = new Date(first.getFullYear(), first.getMonth(), 1);
-    // The job's length or its place changed since the days and times were loaded (a service, an add-on or the
-    // location): both load again for this booking. The chosen start is held aside until its day's times are back
-    // (refit), so it is never shown, or sent on, before it is known to fit.
-    let held = null;
-    if (w.fit !== fitKey()) {
-      if (w.fit && w.date) { held = w.start; w.start = null; w.times = null; }
-      w.fit = fitKey(); w.calendar = {}; w.loaded = null;
-    }
-    if (settings.customer_notice) box.appendChild(el('div.bk-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', settings.customer_notice)));
+    const held = checkFit();
+    const main = el('div.bk-when-main');
+    box.appendChild(main);
+    if (settings.customer_notice) main.appendChild(el('div.bk-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', settings.customer_notice)));
     const cal = el('div.cal', { dataset: { field: 'service_date' } });
     // The month changes under the arrows (only the title and the days are rebuilt), so the arrow pressed keeps
     // the focus; at the edge of the booking window it can't go further and hands the focus to the other one.
@@ -770,17 +934,19 @@
     const arrow = (d, label, sign) => el('button.icon-btn.small', { type: 'button', 'aria-label': label, onclick: (e) => {
       const btn = e.currentTarget, had = document.activeElement === btn;
       w.month = new Date(w.month.getFullYear(), w.month.getMonth() + d, 1);
-      paintMonth();
+      paintMonth(d);
       if (had && btn.disabled) (d < 0 ? nextBtn : prevBtn).focus({ preventScroll: true });
     } }, sign);
     const prevBtn = arrow(-1, 'Previous month', '‹'), nextBtn = arrow(1, 'Next month', '›');
-    function paintMonth() {
+    // dir: the month glides in from the side it was asked for (24px and a fade; still under reduced motion)
+    function paintMonth(dir) {
       const monthName = w.month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       title.textContent = monthName;
       grid.setAttribute('aria-label', 'Choose a day in ' + monthName);
       prevBtn.disabled = new Date(w.month.getFullYear(), w.month.getMonth(), 0) < new Date(first.getFullYear(), first.getMonth(), 1);
       nextBtn.disabled = new Date(w.month.getFullYear(), w.month.getMonth() + 1, 1) > last;
       grid.replaceChildren(...monthDays(first, last));
+      if (dir && !reduce) flash(grid, dir > 0 ? 'glide-next' : 'glide-prev', 600);
       loadCalendar();
     }
     // the gold fills a chosen day outward from where the finger (or pointer) landed
@@ -794,12 +960,131 @@
     cal.appendChild(grid);
     cal.appendChild(el('div.cal-keys', el('span.cal-key.open', 'Available'), el('span.cal-key.full', 'Full')));
     cal.appendChild(el('p.choice-msg', { role: 'status' }));
-    box.appendChild(cal);
+    main.appendChild(cal);
     box.appendChild(el('div.times', { id: 'bk-times', dataset: { field: 'start_min' } }, timesBlock(false)));
     paintMonth();
     if (w.date && w.times == null) refit(w.date, held);
     return box;
   }
+  // The job's length or its place changed since the days and times were loaded (a service, an add-on or the location):
+  // both load again for this booking. The chosen start is held aside (returned) until its day's times are back (refit),
+  // so it is never shown, or sent on, before it is known to fit.
+  function checkFit() {
+    const w = st.when;
+    let held = null;
+    if (w.fit !== fitKey()) {
+      if (w.fit && w.date) { held = w.start; w.start = null; w.times = null; }
+      w.fit = fitKey(); w.calendar = {}; w.loaded = null;
+    }
+    return held;
+  }
+
+  // The service on the date step (the owner's §23: "I want this service, but actually Thursday doesn't work"): its
+  // name, length and total, and Change, which opens the six services as small Table tiles beside the calendar
+  const chosenNames = () => (st.quote ? st.quote.lines.filter((l) => !l.included && !l.condition).map((l) => l.name).join(' + ') : '');
+  const chosenMeta = () => { const q = st.quote; return !q ? '' : 'About ' + minutesText(q.duration_min) + (q.total_cents != null ? ' · ' + money(q.total_cents) : ' · price confirmed by us'); };
+  function chosenBlock() {
+    const w = st.when;
+    const toggle = el('button.link', { type: 'button', id: 'bk-change', 'aria-expanded': w.switching ? 'true' : 'false', 'aria-controls': 'bk-switch', onclick: () => {
+      w.switching = !w.switching;
+      toggle.setAttribute('aria-expanded', w.switching ? 'true' : 'false');
+      toggle.textContent = w.switching ? 'Done' : 'Change';
+      const strip = root.querySelector('#bk-switch'), box = root.querySelector('.bk-when');
+      strip.hidden = !w.switching;
+      if (box) box.classList.toggle('switching', w.switching);
+      if (w.switching) { paintSwitch(); showChosenTile(); if (!reduce) flash(strip, 'opening', 600); revealSwitch(); }
+    } }, w.switching ? 'Done' : 'Change');
+    return el('div.bk-chosen',
+      el('div', el('span.eyebrow', 'Your service'), el('b', { id: 'bk-chosen-name' }, chosenNames()), el('span.bk-muted', { id: 'bk-chosen-meta' }, chosenMeta())),
+      toggle);
+  }
+  // The tiles by the Table's numbers (Eb Ed Ib Id Sc Au), each with this car's price for that service alone (the
+  // database's quote); the chosen ones carry the gold rim. Add-ons and notes stay on step 04, one tap away.
+  function switchStrip() {
+    const num = (code) => { const g = signOf(code); return g ? Number(g.num) : 999; };
+    const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind)).sort((a, b) => num(a.code) - num(b.code));
+    const strip = el('div.bk-switch', { id: 'bk-switch', hidden: !st.when.switching },
+      el('div.sw-grid', { role: 'group', 'aria-label': 'Change the service' }, mains.map((x) => el('button.sw-tile', {
+        type: 'button', dataset: { code: x.code }, 'aria-pressed': 'false', onclick: () => switchMain(x) },
+        sigMark(x.code),
+        el('span.sw-name', x.name),
+        el('span.sw-meta', el('span.sw-price.tnum', { id: 'sw-price-' + x.code }), el('span', minutesText(x.duration_min)))))),
+      el('div.sw-foot', el('div', { id: 'bk-sw-notes', role: 'status' }), el('button.link', { type: 'button', onclick: () => go(4) }, 'Add-ons and notes')));
+    if (st.when.switching) setTimeout(() => { paintSwitch(); showChosenTile(); }, 0);
+    return strip;
+  }
+  // On a phone the tiles are one row that scrolls sideways. A tile out of sight, or showing only its edge, comes to the
+  // middle of the row, so the tiles either side of it show too: the chosen one when the strip opens (at once), and
+  // one tapped at the edge (gliding, still under reduced motion). A tile already in view stays where it is.
+  function showTile(t, glide) {
+    const row = t && t.parentElement;
+    if (!row || row.scrollWidth <= row.clientWidth) return;
+    const r = row.getBoundingClientRect(), b = t.getBoundingClientRect();
+    if (b.left >= r.left + 15 && b.right <= r.right - 15) return;
+    row.scrollTo({ left: row.scrollLeft + (b.left + b.right) / 2 - (r.left + r.right) / 2, behavior: glide && !reduce ? 'smooth' : 'auto' });
+  }
+  const showChosenTile = () => showTile(root.querySelector('.sw-grid .sw-tile.on'), false);
+  // The strip just opened (a click, so no finger is on the glass): the page moves just enough for the whole calendar
+  // to sit over the sticky bar, never so far that "Your service" goes under the floating top bar; nothing moves when
+  // the calendar is already in sight
+  function revealSwitch() {
+    const chosen = root.querySelector('.bk-chosen'), grid = root.querySelector('.cal-grid');
+    if (!chosen || !grid) return;
+    const s = sight();
+    const by = Math.min(grid.getBoundingClientRect().bottom - s.bottom, chosen.getBoundingClientRect().top - s.top + 4);
+    if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+  }
+  // The tiles follow the request: which are chosen, their prices (looked up once, if step 04 has not already), and
+  // a quiet line for an add-on the new service leaves off
+  function paintSwitch() {
+    const mains = mainCodes();
+    root.querySelectorAll('.sw-tile').forEach((b) => {
+      const on = mains.includes(b.dataset.code);
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    const price = (code) => { const n = root.querySelector('#sw-price-' + code), p = st.prices[code]; if (n) n.textContent = !p ? '' : p.base == null ? '—' : money(p.base); };
+    if (Object.keys(st.prices).length) Object.keys(st.prices).forEach(price);
+    else mainPrices(price);
+    const notes = root.querySelector('#bk-sw-notes');
+    if (notes) notes.replaceChildren(...st.service.addons.filter((a) => !canHaveAddon(a))
+      .map((a) => el('p.bk-quiet', svc(a).name + ' goes with ' + waitsFor(a) + ', so it is left off for now.')));
+  }
+  // A tile tapped: the service changes in place (as a card would on step 04; the last one chosen stays, the date step
+  // always has one), then the bar, the length and the total follow, and the open days cross-fade to this length
+  // The service and its quote to go back to when a tapped tile's price can't load (after two quick taps, the one
+  // before the first). stepWhen starts it afresh.
+  let switchBack = null;
+  async function switchMain(x) {
+    const mains = mainCodes();
+    if (mains.length === 1 && mains[0] === x.code) return;
+    const s = st.service;
+    if (st.quote) switchBack = { bundle: s.bundle, exterior: s.exterior, interior: s.interior, carried: s.carried, quote: st.quote };
+    choose(x);
+    if (s.carried && !mainCodes().includes(s.carried)) s.carried = null;
+    invalidatePrice();   // the old quote no longer applies (Continue meanwhile fetches this one)
+    paintSwitch();
+    const tile = root.querySelector('.sw-tile.on[data-code="' + x.code + '"]'); if (tile) showTile(tile, true);
+    const q = await refreshQuote();
+    if (q === STALE) return;   // another tile was tapped meanwhile: its answer paints
+    if (step !== 5) return;
+    // no price for the new service (the network, most often): the request goes back to the service it had, with
+    // its price, and the days and the chosen day and time stay as they were
+    if (!q || q.error) {
+      const b = switchBack;
+      if (b) { Object.assign(s, { bundle: b.bundle, exterior: b.exterior, interior: b.interior, carried: b.carried }); st.quote = b.quote; }
+      paintSwitch();
+      toast(q && q.error ? q.error.message : "Couldn't load that service's price. Try again.");
+      return;
+    }
+    const nav = root.querySelector('.bk-nav'); if (nav) nav.replaceWith(renderNav());
+    const n = root.querySelector('#bk-chosen-name'), m = root.querySelector('#bk-chosen-meta');
+    if (n) n.textContent = chosenNames();
+    if (m) m.textContent = chosenMeta();
+    const held = checkFit();
+    loadCalendar();
+    if (st.when.date && st.when.times == null) { paintTimes(false); refit(st.when.date, held); }
+  }
+
   // The month's days, weeks starting on Monday (the owner, Oct 11). The days of the months either side that share
   // a week with this one are grey, with their month under the number, and not for picking (the arrows go to that
   // month); the owner asked for this on Oct 11.
@@ -819,7 +1104,9 @@
       const cls = !inWindow ? 'out' : avail === false ? 'full' : avail === true ? 'open' : 'unknown';
       out.push(el('button.cal-day', { type: 'button', class: cls + (w.date === iso ? ' on' : ''), disabled: !inWindow || avail === false, dataset: { iso }, 'aria-pressed': w.date === iso ? 'true' : 'false', 'aria-label': longDate(iso) + (avail === false ? ', full' : ''), onclick: () => pickDay(iso) }, el('span', d)));
     }
-    const tail = 6 - (new Date(yr, mo, daysIn).getDay() + 6) % 7;   // the rest of the last week, from the next month
+    // the rest of the last week from the next month, and a sixth week of it when the month fills only five: the grid
+    // is always six weeks tall, so it never changes height between months
+    const tail = 42 - firstDow - daysIn;
     for (let i = 1; i <= tail; i++) out.push(other(new Date(yr, mo + 1, i)));
     return out;
   }
@@ -861,6 +1148,7 @@
   async function pickDay(iso) {
     const w = st.when, fit = w.fit;
     if (!st.quote) return;
+    const tap = watchTap();
     w.date = iso; w.start = null; w.times = null; w.lost = null;
     markDay(iso);
     clearError(root, 'service_date');
@@ -868,9 +1156,41 @@
     let times;
     try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
     catch (e) { times = []; toast(e.message); }
+    tap.end();
     if (w.date !== iso || w.fit !== fit) return;   // another day was picked meanwhile, or the booking changed
     w.times = times;
     paintTimes(true);
+    if (tap.still()) revealTimes();
+  }
+  // From a tap until its answer lands: whether the page stayed as it was (no finger back on the glass, no wheel, no
+  // scroll) and the answer came soon. Only then may the page move for it (a scroll under a finger fights iOS, doc 35).
+  function watchTap() {
+    const y = window.scrollY, at = performance.now();
+    let moved = false;
+    const on = () => { moved = true; };
+    window.addEventListener('touchstart', on, { passive: true });
+    window.addEventListener('wheel', on, { passive: true });
+    return {
+      end: () => { window.removeEventListener('touchstart', on); window.removeEventListener('wheel', on); },
+      still: () => !moved && Math.abs(window.scrollY - y) < 2 && performance.now() - at < 600,
+    };
+  }
+  // The band of the screen nothing covers: under the floating top bar, over the booking's sticky bar
+  function sight() {
+    const nav = root.querySelector('.bk-nav'), bar = document.querySelector('.topbar .bar');
+    return { top: (bar ? bar.getBoundingClientRect().bottom : 0) + 16, bottom: Math.min(nav ? nav.getBoundingClientRect().top : window.innerHeight, window.innerHeight) - 16 };
+  }
+  // The chosen day's times come into view when their heading and first row sit under the sticky bar (from the tap's
+  // click, never a pointerdown, so a finger is off the glass): enough to show the whole list where it fits, never so
+  // far that the heading goes under the floating bar. Nothing moves when they are already in sight.
+  function revealTimes() {
+    const t = root.querySelector('#bk-times');
+    const head = t && t.querySelector('.bk-h2'), chip = t && t.querySelector('.time');
+    if (!head || !chip) return;
+    const s = sight();
+    if (chip.getBoundingClientRect().bottom <= s.bottom) return;
+    const by = Math.min(t.getBoundingClientRect().bottom - s.bottom, head.getBoundingClientRect().top - s.top);
+    if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
   // The chosen day's start times again, for this booking's length and place: a day with none left is let go, and
   // so is a start (held aside by stepWhen) that is no longer among them, each with one quiet line saying so.
@@ -917,28 +1237,56 @@
   }
 
   // ---------------------------------------------------------------- 06 Summary
+  // The vehicle in words: the saved one, the description of one the customer isn't sure of, or year, make, model, colour
+  function vehicleText() {
+    const v = st.vehicle, sv = savedVehicle();
+    if (sv) return [sv.year, sv.make, sv.model, sv.color && '· ' + sv.color].filter(Boolean).join(' ');
+    return v.notSure ? v.description : [v.year, v.make, v.model, v.color && '· ' + v.color].filter(Boolean).join(' ');
+  }
+  // A build sheet: when and how much first, then the services line by line (each with its Table mark), then the
+  // details in three small parts, and one calm panel of what sending means. Every Edit goes back to its step.
   function stepSummary() {
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when, q = st.quote;
     const box = el('div.bk-grid');
-    const sec = (title, n, lines) => el('section.sum', el('div.sum-head', el('h2.bk-h2', title), el('button.link', { type: 'button', onclick: () => go(n) }, 'Edit')), el('dl.sum-body', lines.filter(Boolean).map(([k, val]) => [el('dt', k), el('dd', val)])));
+    const edit = (n, what) => el('button.link', { type: 'button', 'aria-label': 'Edit ' + what, onclick: () => go(n) }, 'Edit');
+    const list = (rows) => el('dl.sum-list', rows.filter(Boolean).map(([k, val]) => el('div', el('dt', k), el('dd', val))));
+    const sec = (title, n, rows, cls) => el('section.sum', { class: cls || null }, el('div.sum-head', el('h2.bk-h2', title), edit(n, title.toLowerCase())), list(rows));
     const vf = vehicleFacts();
     const vt = (menu.vehicleTypes.find((t) => t.code === vf.type) || {}).name;
     const savedV = savedVehicle();
     const condLabels = hasInterior() ? v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ') : 'Not needed for an exterior-only service';
-    box.appendChild(sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]));
-    box.appendChild(sec('Vehicle', 2, [
-      ['Vehicle', savedV ? [savedV.year, savedV.make, savedV.model, savedV.color && '· ' + savedV.color].filter(Boolean).join(' ') : v.notSure ? v.description : [v.year, v.make, v.model, v.color && '· ' + v.color].filter(Boolean).join(' ')],
-      !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : 'Standard'].filter(Boolean).join(' · ')] : null,
-      ['Inside the car', condLabels],
-      ['Known damage', v.damage.map((d) => (menu.options.damage.find((o) => o.code === d) || {}).label).join(', ') + (v.damageNote.trim() ? ' — ' + v.damageNote.trim() : '')],
-      !savedV && v.modifications.length ? ['Modifications', v.modifications.map((m) => (menu.options.modification.find((o) => o.code === m) || {}).label).join(', ')] : null,
-      v.photos.length ? ['Photos', v.photos.length + ' added'] : null]));
-    box.appendChild(sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]));
-    box.appendChild(sec('Service', 4, [['Service', q ? q.lines.filter((x) => !x.included && !x.condition).map((x) => x.name).join(' + ') : ''], s.notes.trim() ? ['Notes', s.notes.trim()] : null]));
-    box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + (w.start != null ? ' at ' + clock(w.start) : '') + ' · about ' + minutesText(q ? q.duration_min : 0) : '']]));
-    box.appendChild(el('div.bk-summary-card', q ? priceLines(q) : null));
-    box.appendChild(el('p.bk-note', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.'));
-    box.appendChild(el('p.bk-note', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request. We\'ll contact you to confirm.'));
+    const priced = !!q && q.total_cents != null;
+    box.appendChild(el('section.sheet', { 'aria-label': 'Your booking' },
+      el('div.sheet-top',
+        el('div.sheet-when',
+          el('div.sheet-k', el('span', 'When')),
+          el('p.sheet-date', w.date ? longDate(w.date) : ''),
+          el('p.sheet-time.tnum', el('span', [w.start != null ? clock(w.start) : null, q ? 'about ' + minutesText(q.duration_min) : null].filter(Boolean).join(' · ')), edit(5, 'date and time'))),
+        el('div.sheet-total',
+          el('div.sheet-k', el('span', priced ? 'Total' : 'Price')),
+          el('p.sheet-sum.tnum', { class: priced ? null : 'pending' }, priced ? money(q.total_cents) : 'We confirm the price before your appointment'))),
+      el('div.sheet-lines',
+        el('div.sheet-k', el('span', 'Service'), edit(4, 'service')),
+        q ? priceLines(q, { mark: sigMark }) : null,
+        s.notes.trim() ? el('p.sheet-notes', el('span', 'Notes'), s.notes.trim()) : null)));
+    box.appendChild(el('div.sum-grid',
+      sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]),
+      sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]),
+      sec('Vehicle', 2, [
+        ['Vehicle', vehicleText()],
+        !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : 'Standard'].filter(Boolean).join(' · ')] : null,
+        ['Inside the car', condLabels],
+        ['Known damage', v.damage.map((d) => (menu.options.damage.find((o) => o.code === d) || {}).label).join(', ') + (v.damageNote.trim() ? ' — ' + v.damageNote.trim() : '')],
+        !savedV && v.modifications.length ? ['Modifications', v.modifications.map((m) => (menu.options.modification.find((o) => o.code === m) || {}).label).join(', ')] : null,
+        v.photos.length ? ['Photos', v.photos.length + ' added'] : null], 'wide')));
+    // what pressing Send means, in the booking's own terms (no reply time is promised: nothing alerts the owner yet)
+    box.appendChild(el('section.bk-before', { 'aria-labelledby': 'bk-before-h' },
+      el('h2.bk-h2', { id: 'bk-before-h' }, 'Before you send'),
+      el('ul.bk-terms',
+        el('li', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request.'),
+        el('li', guest() ? 'We\'ll call or text you at ' : 'We\'ll contact you at ', el('span.tnum', phonePretty(c.phone)), ' to confirm.'),
+        el('li', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.')),
+      el('p.bk-muted', 'Questions? Call ', tel(phone), '.')));
     box.appendChild(el('div', { dataset: { field: 'submit' } }, el('p.choice-msg', { role: 'alert' })));
     return box;
   }
@@ -951,8 +1299,9 @@
     const veil = document.getElementById('veil');
     if (veil && !reduce) { veil.classList.remove('run'); void veil.offsetWidth; veil.classList.add('run'); }
     try {
-      const r = await D.submit(payload(), { guest: guest() });
-      st.receipt = r;
+      const asGuest = guest();
+      const r = await D.submit(payload(), { guest: asGuest });
+      st.receipt = r; st.sentAsGuest = asGuest;
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
       window.scrollTo({ top: cardTop(), behavior: 'auto' });
@@ -971,32 +1320,78 @@
   }
 
   // ---------------------------------------------------------------- Request sent
+  // The guest's only record of the booking (no confirmation text yet, no account to look again): what was booked, for
+  // which car, when and where, the price lines as the database stored them, the reference set large with Copy, and
+  // what happens next. It prints or saves to one page through the print stylesheet.
   function renderSent() {
-    const r = st.receipt;
+    const r = st.receipt, q = st.quote;
     const holdEnds = r.hold_expires_at ? new Date(r.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
-    // the monogram, from the symbol in the page (an SVG element proper, so it draws)
-    const mark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    mark.setAttribute('aria-hidden', 'true');
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttribute('href', '#ad-mark');
-    mark.appendChild(use);
+    const rec = r.lines && r.lines.length ? r : q;   // the database's own lines; the quote as it was sent, failing that
+    const rv = r.vehicle;
+    const vehicle = (rv && (rv.not_sure ? rv.description : [rv.year, rv.make, rv.model, rv.color && '· ' + rv.color].filter(Boolean).join(' '))) || vehicleText();
+    const minutes = r.duration_min || (q && q.duration_min);
+    const ref = String(r.ref || '');
+    // grouped for reading aloud (AD- then fours); Copy takes the reference exactly as written
+    const cut = ref.indexOf('-') + 1, fours = ref.slice(cut).match(/.{1,4}/g) || [''];
+    const groups = [ref.slice(0, cut) + fours[0]].concat(fours.slice(1)).filter(Boolean);
     return el('div.bk.bk-sent',
-      el('div.sent-mark', mark),
+      el('div.sent-mark', sentMark()),
       el('p.eyebrow', 'Request received'),
       el('h1.display.bk-title', 'Thank you'),
-      el('p.sent-ref', 'Reference ', el('b.tnum', r.ref)),
+      el('div.sent-ref',
+        el('span.sent-ref-k', 'Reference'),
+        el('p.sent-code.tnum', groups.map((g) => el('span', g))),
+        miniBtn('Copy', () => copyRef(ref), { 'aria-label': 'Copy the reference ' + ref })),
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing was sent. The reference is made up.') : null,
-      el('dl.sum-body.sent-body',
-        el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min)),
-        el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? r.address + ', ' + r.address_zip : settings.public_area + ' — we send the address with your confirmation'),
-        el('dt', 'Price'), el('dd', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents)),
-        holdEnds ? [el('dt', 'Held until'), el('dd', holdEnds)] : null),
-      el('p.bk-note', 'What happens next: we review your request and contact you at ', el('span.tnum', phonePretty(st.contact.phone)), ' to confirm. You pay in person after your detail.'),
+      el('section.sheet.sent-sheet', { 'aria-label': 'Your booking' },
+        el('dl.sum-list',
+          el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min) + (minutes ? ' · about ' + minutesText(minutes) : ''))),
+          el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? r.address + ', ' + r.address_zip : settings.public_area + ' — we send the address with your confirmation')),
+          vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
+        rec ? priceLines(rec, { mark: sigMark }) : el('p.bk-muted', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents))),
+      el('section.sent-next', { 'aria-labelledby': 'sent-next-h' },
+        el('h2.bk-h2', { id: 'sent-next-h' }, 'What happens next'),
+        el('ol.sent-steps',
+          el('li', el('b', 'Request sent'), el('span.tnum', ref)),
+          el('li', el('b', 'We review it'), el('span', holdEnds ? 'Your time is held until ' + holdEnds : 'Your time is held while we review it')),
+          el('li', el('b', (st.sentAsGuest ? 'We call or text ' : 'We contact you at ') + phonePretty(st.contact.phone) + ' to confirm'), el('span', 'You pay in person after your detail'))),
+        el('p.bk-muted.sent-help', 'Questions? Call ', tel(phone), '.')),   // on paper, where the Call button isn't
       el('div.bk-actions',
         el('a.btn.btn-gold.shine', { href: '#home' }, 'Back to home'),
         el('button.btn.btn-glass', { type: 'button', onclick: () => { reset(true); window.scrollTo({ top: cardTop(), behavior: 'auto' }); render(); focusTitle(); } }, 'Book another detail'),
-        el('a.btn.btn-glass', { href: 'tel:+1' + phone.replace(/\D/g, '') }, 'Call ', el('span.tnum', phone))));
+        el('a.btn.btn-glass', { href: 'tel:+1' + phone.replace(/\D/g, '') }, 'Call ', el('span.tnum', phone))),
+      el('button.link.sent-print', { type: 'button', onclick: () => window.print() }, 'Print or save'));
+  }
+  // The monogram from the symbol in the page, and one pass of gold light across it as the screen lands (clipped to
+  // the mark's own shape; none under reduced motion)
+  function sentMark() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const mk = (tag, attrs) => { const n = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); return n; };
+    const svg = mk('svg', { viewBox: '0 20 570 590', 'aria-hidden': 'true' });
+    svg.appendChild(mk('use', { href: '#ad-mark', x: 0, y: 20, width: 570, height: 590 }));
+    const shape = document.querySelector('#ad-mark path');
+    if (!reduce && shape) {
+      const defs = mk('defs', {}), light = mk('linearGradient', { id: 'sentLight', x1: 0, y1: 0, x2: 1, y2: 0 }), clip = mk('clipPath', { id: 'sentClip' });
+      [[0, 0], [0.5, 0.9], [1, 0]].forEach(([o, a]) => light.appendChild(mk('stop', { offset: o, 'stop-color': '#fff6d8', 'stop-opacity': a })));
+      clip.appendChild(mk('path', { d: shape.getAttribute('d') }));
+      defs.append(light, clip);
+      const band = mk('g', { 'clip-path': 'url(#sentClip)' });
+      band.appendChild(mk('rect', { class: 'sent-pass', x: -260, y: 0, width: 200, height: 640, fill: 'url(#sentLight)' }));
+      svg.append(defs, band);
+    }
+    return svg;
+  }
+  // The reference, copied exactly as the database wrote it (the clipboard, or a selected copy where it is blocked)
+  async function copyRef(ref) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(ref); ok = true; } catch (e) {
+      try {
+        const t = el('textarea', { value: ref, readOnly: true, style: { position: 'fixed', top: '0', left: '0', opacity: '0' } });
+        document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove();
+      } catch (e2) { ok = false; }
+    }
+    toast(ok ? 'Reference copied' : 'Copying is blocked here. Your reference is ' + ref);
   }
 
-  window.AlchemistBooking = { mount, get state() { return st; } };
+  window.AlchemistBooking = { mount, offer, get state() { return st; } };
 })();

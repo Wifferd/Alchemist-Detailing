@@ -13,25 +13,28 @@
   const SVG = 'http://www.w3.org/2000/svg';
 
   // ---------------------------------------------------------------- the elements (the menu, Oct 10, 2026)
+  // code: the service in the database; the key is also the booking's route token (#book-ed opens it chosen)
   const ELEMENTS = [
-    { key: 'eb', sym: 'Eb', num: '1', name: 'Exterior Basic', short: 'Exterior Basic', price: '$49.99', time: '60 min', mobile: '+2.5%', eq: '',
+    { key: 'eb', code: 'ext_basic', sym: 'Eb', num: '1', name: 'Exterior Basic', short: 'Exterior Basic', price: '$49.99', time: '60 min', mobile: '+2.5%', eq: '',
       desc: 'Snow-foam pre-wash, Brake Buster on wheels and tires, exterior glass, then a thorough hand wash and hand dry.' },
-    { key: 'ib', sym: 'Ib', num: '3', name: 'Interior Basic', short: 'Interior Basic', price: '$59.99', time: '60 min', mobile: '+2.5%', eq: '',
+    { key: 'ib', code: 'int_basic', sym: 'Ib', num: '3', name: 'Interior Basic', short: 'Interior Basic', price: '$59.99', time: '60 min', mobile: '+2.5%', eq: '',
       desc: 'Full vacuum, dash and plastics with Top Star, Gummifix on rubber and mats, interior glass and a general wipe-down.' },
-    { key: 'sc', sym: 'Sc', num: '5', name: 'Signature Combo', short: 'Signature Combo', price: '$99.99', time: '2 h', mobile: '+7%', eq: 'Eb + Ib → Sc',
+    { key: 'sc', code: 'signature_combo', sym: 'Sc', num: '5', name: 'Signature Combo', short: 'Signature Combo', price: '$99.99', time: '2 h', mobile: '+7%', eq: 'Eb + Ib → Sc',
       desc: 'Exterior Basic and Interior Basic together: $109.98 booked separately, so you save $9.99 before any mobile charge.' },
-    { key: 'wg', sym: 'Wg', num: '7', name: 'WetGloss', short: 'WetGloss', price: 'from $44.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
+    { key: 'wg', code: 'perfect_finish_sealant', sym: 'Wg', num: '7', name: 'WetGloss', short: 'WetGloss', price: 'from $44.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
       desc: 'Spray-on sealant for gloss and water beading, added after a wash with an exterior service. Lasts several weeks. $44.99 car, coupe or sedan; $54.99 crossover, SUV or minivan; $64.99 truck or large SUV. Van, convertible or other: priced by us before your appointment.' },
-    { key: 'ed', sym: 'Ed', num: '2', name: 'Exterior Deluxe', short: 'Exterior Deluxe', price: '$94.99', time: '90 min', mobile: '+7%', eq: '',
+    { key: 'ed', code: 'ext_deluxe', sym: 'Ed', num: '2', name: 'Exterior Deluxe', short: 'Exterior Deluxe', price: '$94.99', time: '90 min', mobile: '+7%', eq: '',
       desc: 'Everything in Exterior Basic, plus Green Star pre-treatment where appropriate and Koch-Chemie Hydro Foam Sealant for gloss and water beading.' },
-    { key: 'id', sym: 'Id', num: '4', name: 'Interior Deluxe', short: 'Interior Deluxe', price: '$134.99', time: '2 h', mobile: '+7%', eq: '',
+    { key: 'id', code: 'int_deluxe', sym: 'Id', num: '4', name: 'Interior Deluxe', short: 'Interior Deluxe', price: '$134.99', time: '2 h', mobile: '+7%', eq: '',
       desc: 'Everything in Interior Basic, plus deep steam or shampoo, drill-brush agitation, deeper stain removal and Leather Star conditioning. Steam cleaning included.' },
-    { key: 'au', sym: 'Au', num: '79', name: 'Full Detail Bundle', short: 'Full Detail', price: '$209.99', time: '3½ h', mobile: '+7%', eq: 'Ed + Id → Au',
+    { key: 'au', code: 'full_detail', sym: 'Au', num: '79', name: 'Full Detail Bundle', short: 'Full Detail', price: '$209.99', time: '3½ h', mobile: '+7%', eq: 'Ed + Id → Au',
       desc: 'Exterior Deluxe and Interior Deluxe together, steam cleaning included: $229.98 booked separately, so you save $19.99 before any mobile charge.' },
-    { key: 'st', sym: 'St', num: '8', name: 'Steam Cleaning', short: 'Steam Cleaning', price: '$49.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
+    { key: 'st', code: 'steam_cleaning', sym: 'St', num: '8', name: 'Steam Cleaning', short: 'Steam Cleaning', price: '$49.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
       desc: 'Deep steam for carpets, upholstery and interior surfaces. Already included in Interior Deluxe and the Full Detail Bundle.' },
   ];
   const BY = Object.fromEntries(ELEMENTS.map((e) => [e.key, e]));
+  // what the booking takes from the Table: the symbol, the number and the token of each service, never its prices
+  const SIGNS = ELEMENTS.map((e) => ({ key: e.key, code: e.code, sym: e.sym, num: e.num }));
   // column heads: the group, its element, and a small mark
   const COLS = [
     { area: 'c1', name: 'Exterior', elem: 'Water', icon: ['M4 6h16L12 20z'] },
@@ -114,6 +117,7 @@
     const pNo = el('span.no.tnum'), pSym = el('div.sym.gold-text', { 'aria-hidden': 'true' }), pName = el('h3', { 'aria-live': 'polite' });
     const pEq = el('div.el-eq'), pDesc = el('p'), pPrice = el('b.price.tnum'), pTime = el('b.tnum'), pMobile = el('b.tnum');
     const pLabel = document.createTextNode('');
+    const pBook = el('a.btn.btn-gold.shine', { href: '#book' }, pLabel, arrow());   // opens the booking with the picked element chosen
     // under the grid (phones, tablets), a text action takes the visitor back up to the tile they tapped
     const back = el('button.el-back', { type: 'button', onclick: () => {
       const t = tiles.get(picked);
@@ -123,7 +127,7 @@
     const panel = el('aside.el-panel', { 'aria-label': 'The picked element' },
       el('div.top', el('span.eyebrow', 'Element'), pNo), pSym, pName, pEq, pDesc,
       el('div.el-facts', el('div', el('span', 'Price'), pPrice), el('div', el('span', 'Time'), pTime), el('div', el('span', 'Mobile'), pMobile)),
-      el('div.el-actions', el('a.btn.btn-gold.shine', { href: '#book' }, pLabel, arrow()), back));
+      el('div.el-actions', pBook, back));
     function pick(key, focus, tapped) {
       const e = BY[key];
       if (!e) return;
@@ -134,6 +138,7 @@
       pEq.textContent = e.eq; pEq.hidden = !e.eq; pDesc.textContent = e.desc;
       pPrice.textContent = e.price; pTime.textContent = e.time; pMobile.textContent = e.mobile;
       pLabel.data = 'Book ' + e.short + ' ';
+      pBook.setAttribute('href', '#book-' + e.key);
       if (changed && !reduce) { panel.classList.remove('swap'); void panel.offsetWidth; panel.classList.add('swap'); }
       if (focus) tiles.get(key).focus({ preventScroll: true });
       // a tap with the panel under the grid: the panel comes up from below, so the change is seen (keyboard picks
@@ -219,7 +224,7 @@
         // the database has no WetGloss price for these types: the quote holds the price (the FAQ's words)
         el('div.bead-prices', el('div.bead-chips', WG_PRICES.map(([v, p]) => el('span.bead-price', v + ' ', el('b.tnum', p)))),
           el('p.bead-ask', 'Van, convertible or other: priced by us before your appointment')),
-        el('a.btn.btn-gold.shine', { href: '#book' }, 'Add WetGloss ', arrow())));
+        el('a.btn.btn-gold.shine', { href: '#book-wg' }, 'Add WetGloss ', arrow())));
   }
   // Press and drag to spray (desktop only): a film of water comes back under the pointer and the
   // beads show through a growing hole in it; on release the whole panel clears to beads again.
@@ -272,5 +277,5 @@
     })).catch(() => { /* the menu couldn't load: the line stays as the page has it */ });
   }
 
-  window.AlchemistServices = { mountTable, mountRitual, mountBead, syncIncludes };
+  window.AlchemistServices = { mountTable, mountRitual, mountBead, syncIncludes, signs: SIGNS };
 })();
