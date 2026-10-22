@@ -37,6 +37,7 @@
     // so the first letters are never swallowed by it. (CSS pauses the hero animations until html.ready.)
     requestAnimationFrame(() => requestAnimationFrame(() => {
       root.classList.add('ready');
+      light.hold(1450 + 1600 + 240);   // Book Now's shine crosses after the wordmark's light has (letterSweep: 1.45s, then 1.6s)
       if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
     }));
   }
@@ -66,58 +67,158 @@
   // never two on the screen together. A pass waits for the one before it, then plays only if its element is still
   // on the screen (and, for one that had to wait, still wanted: when). .au-run while it plays, .au-lit from its
   // start on (what stays lit after the light has gone). The CSS draws it (the gold light); under reduced motion and
-  // in forced colours nothing passes. Book Now's .shine is the one light that repeats.
+  // in forced colours nothing passes. Book Now's .shine is the one light that repeats, and it keeps the same rule: a
+  // pass waits while a shine on the screen is crossing its button (or the hero wordmark's light, or the gold veil into
+  // booking), a shine on the screen that would start crossing during a pass or another shine's crossing starts just
+  // after it instead, a crossing apart from the next, and one that starts anyway (a late frame) steps back into its
+  // rest, unseen, until the light ahead of it has gone. Its rest is longer that once; its rhythm is otherwise unchanged.
+  // The customer's own input (now: a service chosen, a booking step reached, the menu opened, a booking opened) waits
+  // for no shine: a shine crossing then fades out where it is and goes on from its rest, and a pass still playing
+  // stops for it. Only the arrivals wait for the shines.
   const AU_MS = { el: 1200, card: 1400, wide: 1800 };   // --au-dur, --au-dur-card, --au-dur-wide
+  const CROSSING = { shine: 0.22, letterSweep: 1, veil: 1 };   // the part of each CSS light's run spent crossing (@keyframes)
   const light = (() => {
     const off = reduce || window.matchMedia('(forced-colors: active)').matches;
     const q = [];
-    let busy = false, timer = 0;
+    let cur = null, busyUntil = 0, timer = 0;
     const onScreen = (el) => {
-      if (!el.isConnected) return false;
+      if (!el || !el.isConnected) return false;
       const r = el.getBoundingClientRect();
-      return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+      return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
     };
+    // the CSS lights now running on the screen ([animation, its timing]); none where the browser can't list them
+    function others(names) {
+      let all = [];
+      try { all = document.getAnimations ? document.getAnimations() : []; } catch (e) { /* older browsers: passes only */ }
+      return all.filter((a) => names[a.animationName] && a.playState === 'running' && a.currentTime != null && a.effect && onScreen(a.effect.target))
+        .map((a) => [a, a.effect.getComputedTiming()]);
+    }
+    // ms until no other light is crossing anything (for a shine just starting: no other that started before it; for
+    // one just back on the screen, none at all; for the customer's own input, firm: only the lights that can't give
+    // way, the hero wordmark's and the veil)
+    function crossing(self, seen, firm) {
+      const mine = !self || seen ? -1 : self.effect.getComputedTiming().progress || 0;
+      return others(CROSSING).reduce((ms, [a, t]) => {
+        const part = CROSSING[a.animationName];
+        if (a === self || t.progress == null || t.progress >= part || (self && a.animationName === 'shine' && t.progress <= mine)) return ms;
+        if (firm && a.animationName === 'shine') return ms;
+        return Math.max(ms, (part - t.progress) * t.duration);
+      }, 0);
+    }
+    // the shines crossing on the screen give way to the customer's own input: each goes on at once from the start of
+    // its rest (so its next crossing comes at its usual time), while its band stays where it was and fades (.yield)
+    function yieldShines() {
+      others({ shine: 1 }).forEach(([a, t]) => {
+        if (t.progress == null || t.progress >= CROSSING.shine) return;
+        const el = a.effect.target;
+        el.style.setProperty('--yield-at', getComputedStyle(el, '::after').transform);
+        el.classList.add('yield');
+        a.currentTime += (CROSSING.shine - t.progress) * t.duration + 20;
+        setTimeout(() => { el.classList.remove('yield'); el.style.removeProperty('--yield-at'); }, 220);
+      });
+    }
+    // the shines on the screen that would start crossing in the next ms start just after, a crossing apart
+    function holdShines(ms, self) {
+      const part = CROSSING.shine;
+      others({ shine: 1 }).filter(([a]) => a !== self).map(([a, t]) => {
+        const until = t.progress == null ? (a.effect.getTiming().delay || 0) - a.currentTime   // before its first crossing
+          : t.progress >= part ? (1 - t.progress) * t.duration : Infinity;
+        return [until, a, t];
+      }).filter(([until]) => until < ms).sort((x, y) => x[0] - y[0]).forEach(([until, a, t], k) => {
+        const at = ms + k * (t.duration * part + 240);   // when it starts crossing now
+        // a shine at rest moves back within its rest (never into its crossing: then it keeps its time)
+        if (t.progress == null || at <= t.duration * (1 - part)) a.currentTime -= at - until;
+      });
+    }
+    // a shine starting its run (the crossing is its first 22%), or coming back on the screen part way across: it
+    // waits if another light is crossing (stepping back into its rest while its band is still beyond the button's
+    // edge, or while it was off the screen), and otherwise the other shines wait for it
+    function settle(el, seen) {
+      if (!onScreen(el)) return;
+      let a = null;
+      try { a = el.getAnimations({ subtree: true }).find((x) => x.animationName === 'shine'); } catch (err) { return; }
+      if (!a || a.playState !== 'running' || a.currentTime == null) return;
+      const t = a.effect.getComputedTiming(), p = t.progress;
+      if (p == null || p >= CROSSING.shine) return;   // at rest: the start of its next run sees to it
+      const wait = Math.max(busyUntil - performance.now(), crossing(a, seen));
+      if (wait > 0) { if (seen || p < 0.05) a.currentTime -= wait + 120 + p * t.duration; }
+      else holdShines(t.duration * (CROSSING.shine - p) + 240, a);
+    }
+    const onShine = (e) => { if (e.animationName === 'shine') settle(e.target, false); };
+    if (!off) ['animationstart', 'animationiteration'].forEach((type) => document.addEventListener(type, onShine, true));
+    // the pass playing stops where it is (the customer's own input has come, or its service was let go of)
+    function cut() {
+      clearTimeout(cur.end);
+      cur.el.classList.remove('au-run');
+      cur = null;
+      busyUntil = performance.now();
+    }
     function play(it) {
-      busy = true;
+      if (cur) cut();
+      cur = it;
+      busyUntil = performance.now() + it.ms + 60;
       const el = it.el;
+      if (it.now) yieldShines();
+      holdShines(it.ms + 240);
+      // a band that slides (sweep) starts and ends just outside its frame however tall the frame is (a phone's
+      // closing band, a tall card): the 118deg tilt needs more reach the taller the frame is for its width
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--au-reach', (38 + 19 * Math.min(4, r.height / Math.max(1, r.width))).toFixed(1) + '%');
       el.classList.remove('au-run');
       void el.offsetWidth;
       el.classList.add('au-run', 'au-lit');
-      setTimeout(() => { el.classList.remove('au-run'); busy = false; setTimeout(next, 120); }, it.ms + 60);
+      it.end = setTimeout(() => { el.classList.remove('au-run'); cur = null; setTimeout(next, 120); }, it.ms + 60);
     }
     function next() {
       clearTimeout(timer);
-      while (!busy && q.length) {
-        const it = q[0], wait = it.at - performance.now();
-        if (wait > 0) { timer = setTimeout(next, wait); return; }
+      while (q.length) {
+        const it = q[0], now = performance.now();
+        if (cur && !it.now) return;   // after the pass playing (its end calls next)
+        // its time has come, and nothing else is crossing (after 4s of waiting on other lights it goes anyway)
+        const wait = Math.max(it.at - now, now - it.at < 4000 ? crossing(null, false, it.now) : 0);
+        if (wait > 0) { timer = setTimeout(next, wait + 40); return; }
         q.shift();
         if (onScreen(it.el) && (!it.when || it.when())) play(it);
         else if (it.miss) it.miss();
       }
     }
     return {
-      // o: { delay (ms), size ('el', 'card', 'wide'), when (still wanted, if it had to wait), miss (it could not play) }
+      // o: { delay (ms), size ('el', 'card', 'wide'), when (still wanted, if it had to wait), miss (it could not play),
+      // now (the customer's own input: ahead of the arrivals, and at once once its delay is over) }
       pass(el, o) {
         o = o || {};
-        if (off || !el || el.classList.contains('au-run') || q.some((it) => it.el === el)) return;
-        const it = { el, at: performance.now() + (o.delay || 0), ms: AU_MS[o.size] || AU_MS.el, when: o.when, miss: o.miss };
-        if (!busy && !q.length && !o.delay && onScreen(el)) { play(it); return; }   // nothing ahead of it: at once
-        q.push(it);
+        if (off || !el || el.classList.contains('au-run')) return;
+        const k = q.findIndex((it) => it.el === el);
+        if (k >= 0) { if (!o.now) return; q.splice(k, 1); }   // already waiting: the customer's own input takes it ahead
+        const it = { el, now: !!o.now, at: performance.now() + (o.delay || 0), ms: AU_MS[o.size] || AU_MS.el, when: o.when, miss: o.miss };
+        if (!o.delay && onScreen(el) && (it.now ? !crossing(null, false, true) : !cur && !q.length && !crossing())) { play(it); return; }   // nothing ahead of it: at once
+        q.splice(it.now ? q.filter((x) => x.now).length : q.length, 0, it);   // the customer's own input, in order, ahead of the arrivals
         next();
       },
+      // a light no longer wanted (a chosen service let go of): it stops, or leaves the queue
+      stop(el) {
+        if (off || !el) return;
+        const k = q.findIndex((it) => it.el === el);
+        if (k >= 0) q.splice(k, 1);
+        if (cur && cur.el === el) { cut(); setTimeout(next, 120); }
+      },
+      // a CSS light of its own is about to cross for ms (the hero's wordmark): the shines on the screen wait for it
+      hold(ms) { if (!off) holdShines(ms); },
+      // a shine back on the screen (its pause lifted): one caught part way across waits its turn
+      settle(el) { if (!off) settle(el, true); },
     };
   })();
   window.AlchemistLight = light;
-  // Arrivals: the Services header, a brand page's title, the Gold client card and the Exterior and Bundles photo
-  // plates get their pass once a third of them is on the screen, after their own entrance has landed. One that
-  // scrolled away before its turn gets it when it comes back. (An appointment takes its pass when it is first
-  // opened: account.js.)
-  const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish';
+  // Arrivals: the Services header, a brand page's title, the Gold client card, the Exterior and Bundles photo plates
+  // and the closing band on home get their pass once a third of them is on the screen, after their own entrance has
+  // landed. One that scrolled away before its turn gets it when it comes back. (An appointment takes its pass when it
+  // is first opened: account.js.)
+  const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish, .cta-band';
   const arriveIo = new IntersectionObserver((es) => es.forEach((e) => {
     if (!e.isIntersecting) return;
     const el = e.target;
     arriveIo.unobserve(el);
-    light.pass(el, { delay: el.matches('.svc-top') ? 650 : 450, size: el.matches('.group-plate, .svc-top') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
+    light.pass(el, { delay: el.matches('.svc-top, .cta-band') ? 650 : 450, size: el.matches('.group-plate, .svc-top, .cta-band') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
   }), { threshold: 0.35 });
 
   // ---------------------------------------------------------------- the bar's page name
@@ -181,9 +282,10 @@
     fitNav();
     if (hero && hero.pause) hero.pause();
     setTimeout(() => { const a = (menuNav.scrollTop > 0 && $('a[aria-current="page"]', menuNav)) || $('a', menuNav); if (a) a.focus({ preventScroll: true }); }, reduce ? 0 : 380);   // the first item, or the current one when the list opened scrolled to it
-    // the page you are on takes the gold light once its item has slid in (110ms press, 140ms + 28ms a step, .45s)
+    // the page you are on takes the gold light once its item has slid in (110ms press, 140ms + 28ms a step, .45s): the
+    // customer's own input, so no shine holds it back
     const here = $('nav a[aria-current="page"]', menu);
-    if (here) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen });
+    if (here) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen, now: true });
   }
   function closeMenu(returnFocus) {
     if (!menuOpen) return;
@@ -451,7 +553,10 @@
     });
   }
   let shineCount = 0;
-  const ioAway = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle('offscreen', !e.isIntersecting)), { rootMargin: '10% 0px' });
+  const ioAway = new IntersectionObserver((es) => es.forEach((e) => {
+    e.target.classList.toggle('offscreen', !e.isIntersecting);
+    if (e.isIntersecting && e.target.classList.contains('shine')) light.settle(e.target);
+  }), { rootMargin: '10% 0px' });
 
   // Press: one feel for every pressable, from a delegated pointerdown (released 80ms after the pointer lets go).
   const PRESS = '.btn, .icon-btn, .choice-item, .svc-opt, .cal-day, .mini-btn, .link, .gal-tile, .work-item, .door, .el-tile, .rit, .tm-thumb, .adm-tile, .adm-nav a, .appt-head:not(.static), .svc-jump a, .faq-item summary, .menu nav a, .theme-btn, .cal-item';
@@ -1054,7 +1159,8 @@
       desyncShine(view);
       $$('.shine', view).forEach((el) => ioAway.observe(el));
       // the booking step just reached (.fresh, booking.js) takes the gold light: along the line into it, then its number
-      nodes.forEach((n) => (n.matches('.bk-progress') ? [n] : $$('.bk-progress', n)).forEach((ol) => { const li = $('li.current.fresh', ol); if (li) light.pass(li, { delay: 200 }); }));
+      // (the customer's own input: Continue's shine gives way to it)
+      nodes.forEach((n) => (n.matches('.bk-progress') ? [n] : $$('.bk-progress', n)).forEach((ol) => { const li = $('li.current.fresh', ol); if (li) light.pass(li, { delay: 200, now: true }); }));
       if (!nodes.some((n) => n.matches(ARM) || n.querySelector(ARM))) return;
       if (view.dataset.armed) {
         nodes.forEach((n) => (n.matches('[data-reveal]') ? [n] : []).concat($$('[data-reveal]', n)).forEach((el) => { el.classList.add('in', 'settled'); io.unobserve(el); }));

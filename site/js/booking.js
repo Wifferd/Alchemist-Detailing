@@ -781,10 +781,11 @@
     return box;
   }
   const carriedCard = () => st.service.carried && root.querySelector('.svc-opt.on[data-code="' + st.service.carried + '"]');
-  // A chosen card's moment: the head of light runs its rim once (.glow) and the gold light crosses it once (app.js)
-  function glowOnce(b) {
+  // A chosen card's moment: the head of light runs its rim once (.glow) and the gold light crosses it once (app.js);
+  // the customer's own pick (now) is lit at once, and a card let go of before its turn is never lit
+  function glowOnce(b, now) {
     flash(b, 'glow', 1400, '::after');
-    if (window.AlchemistLight) window.AlchemistLight.pass(b);
+    if (window.AlchemistLight) window.AlchemistLight.pass(b, { now, when: () => b.classList.contains('on') });
   }
   // Most of it (two thirds) between the floating top bar and the sticky bar
   function inSight(n) { const r = n.getBoundingClientRect(), s = sight(); return Math.min(r.bottom, s.bottom + 16) - Math.max(r.top, s.top - 16) >= r.height * 2 / 3; }
@@ -804,7 +805,7 @@
     if (Math.abs(by) > 1) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
     b.focus({ preventScroll: true });
     let lit = false;
-    const light = () => { if (lit) return; lit = true; window.removeEventListener('scrollend', light); glowOnce(b); };
+    const light = () => { if (lit) return; lit = true; window.removeEventListener('scrollend', light); glowOnce(b, true); };
     if (reduce || Math.abs(by) <= 1) light();
     else { window.addEventListener('scrollend', light); setTimeout(light, 800); }
   }
@@ -870,7 +871,8 @@
       const on = [s.bundle, s.exterior, s.interior].includes(b.dataset.code);
       const was = b.classList.contains('on');
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      if (on && !was) { flash(b, 'just', 700); glowOnce(b); }
+      if (on && !was) { flash(b, 'just', 700); glowOnce(b, true); }
+      else if (was && !on && window.AlchemistLight) window.AlchemistLight.stop(b);   // its light goes with it
     });
     const old = root.querySelector('[data-field="addons"]'); if (old) old.replaceWith(addonsBlock());
     updatePrices();

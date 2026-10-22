@@ -394,12 +394,12 @@
     }
     // A booking opened for the first time takes the gold light once (the owner's "when a customer opens a completed
     // appointment"): across a completed card's gold, or along the progress line to where an open one stands now.
-    // The light itself is app.js's (one at a time, none under reduced motion).
+    // The light itself is app.js's (one at a time, none under reduced motion; the customer's own input, now).
     const glow = appts.light;
     appts.light = null;
     const c = glow && appts.open === glow ? root.querySelector('.appt.open') : null;
     const target = c && (c.classList.contains('st-completed') ? c : c.querySelector('.trk li.now') ? c.querySelector('.trk') : null);   // a cancelled one ends muted: no light
-    if (target && window.AlchemistLight) window.AlchemistLight.pass(target, { delay: want ? 700 : 260, size: c === target ? 'card' : 'el' });
+    if (target && window.AlchemistLight) window.AlchemistLight.pass(target, { delay: want ? 700 : 260, size: c === target ? 'card' : 'el', now: true });
   }
   // One booking as a card: its head is a button that opens the details (a chevron says so). The head carries the
   // date, time and where, the services with the Table's marks, the status and the reference. A completed detail
