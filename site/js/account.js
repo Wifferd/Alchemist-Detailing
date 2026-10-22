@@ -375,12 +375,22 @@
       if (!root.contains(document.activeElement)) pressed.querySelector('.appt-head').focus({ preventScroll: true });
     }
     // arrived from the account page for one booking: it is open; bring it into view and put focus on its head
-    // (focus moved here first, so the page's heading focus in app.js leaves it where it is)
+    // (focus moved here first, so the page's heading focus in app.js leaves it where it is). Come to write its review
+    // (the Gold card's button), the whole form is shown and its stars take the focus. The place comes from the
+    // layout, not the screen: the page is still rising into place, which would leave the card under the top bar.
     const head = want && appts.open === want ? root.querySelector('.appt.open .appt-head') : null;
     if (head) {
-      head.focus({ preventScroll: true });
+      const card = head.closest('.appt'), form = appts.form && appts.form.id === want ? card.querySelector('[data-field="review"]') : null;
+      const star = form && form.querySelector('.star-pick [tabindex="0"]');
+      (star || head).focus({ preventScroll: true });
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      requestAnimationFrame(() => head.closest('.appt').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' }));
+      const top = (n) => { let y = 0; for (; n; n = n.offsetParent) y += n.offsetTop; return y; };
+      requestAnimationFrame(() => {
+        const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+        let y = top(card) - pad;
+        if (form) y = Math.max(y, Math.min(top(form) + form.offsetHeight + 24 - window.innerHeight, top(form) - pad));   // its top never under the bar
+        window.scrollTo({ top: Math.max(0, y), behavior: reduce ? 'auto' : 'smooth' });
+      });
     }
     // A booking opened for the first time takes the gold light once (the owner's "when a customer opens a completed
     // appointment"): across a completed card's gold, or along the progress line to where an open one stands now.
