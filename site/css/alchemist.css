@@ -439,6 +439,9 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(226, 185, 82, .08), transparent 60%), linear-gradient(180deg, rgba(14, 14, 14, .95), rgba(4, 4, 4, .96)); }
 }
+/* opened over the live wash (the bar's .over-wash): the foam redraws every frame, so the panel drops its blur as the
+   bar does and goes nearly solid; the foam still shows, dimmed, beside it */
+.topbar.over-wash ~ .menu { backdrop-filter: none; -webkit-backdrop-filter: none; background: radial-gradient(120% 60% at 0% 0%, rgba(226, 185, 82, .08), transparent 60%), linear-gradient(180deg, rgba(14, 14, 14, .95), rgba(4, 4, 4, .96)); }
 .menu-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: clamp(18px, 4vh, 40px); }
 .menu-brand { display: flex; align-items: center; gap: 14px; min-height: 44px; text-decoration: none; }
 .menu-brand svg { width: 42px; height: 42px; }
@@ -486,6 +489,8 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .menu nav a:is(:hover, :focus-visible) { text-shadow: 0 0 22px rgba(226, 185, 82, .4); translate: 4px 0; }
 .menu nav a:is(:hover, :focus-visible)::before { opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .5); }
 .menu nav a[aria-current="page"]::before { width: 34px; opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .6); }
+/* the keyboard ring in the panel's soft shapes, drawn close so it stays inside the short-screen scroller (below) with the 4px step */
+.menu nav a:focus-visible { outline-offset: 2px; border-radius: var(--r-sm); }
 .menu nav a.sep { margin-top: 18px; }   /* the owner's blank line before Account: a gap, not a second hairline */
 /* the foot: one gold Book Now, then a quiet row with the light/dark switch and the phone number */
 .menu-foot { margin-top: auto; padding-top: 26px; display: grid; gap: 6px; }
@@ -497,13 +502,16 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 /* a short screen (a laptop's browser window, a phone with its browser bars showing): a tighter rhythm, and below 710px
    the Book Now item steps aside for the gold Book Now just under it, so the whole menu fits a 664px iPhone screen.
    Shorter still, the list scrolls between the head and the foot, so the gold Book Now and the phone line stay on the
-   screen, and while more of the list is below it fades out at the foot (.more, from app.js). The scroller reaches
-   14px past the items on the left and 8px on the right, so their entrance and their 4px step are never clipped. */
+   screen, and while more of the list is below it fades out at the foot (.more, from app.js), and under the head while
+   some is above (.above). The scroller reaches 14px past the items on the left, 8px on the right and 4px above and
+   below, so their entrance, their 4px step and the keyboard ring are never clipped. */
 @media (max-height: 820px) {
   .menu-head { margin-bottom: clamp(8px, 2vh, 24px); }
-  .menu nav { flex: 0 1 auto; min-height: 132px; margin-inline: -14px -8px; padding-inline: 14px 8px; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .menu nav { flex: 0 1 auto; min-height: 132px; margin: -4px -8px -4px -14px; padding: 4px 8px 4px 14px; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none; }
   .menu nav::-webkit-scrollbar { display: none; }
   .menu nav.more { -webkit-mask-image: linear-gradient(#000 calc(100% - 44px), rgba(0, 0, 0, .15)); mask-image: linear-gradient(#000 calc(100% - 44px), rgba(0, 0, 0, .15)); }   /* dimmed, not gone: an item that is nearly all there still reads */
+  .menu nav.above { -webkit-mask-image: linear-gradient(rgba(0, 0, 0, .15), #000 32px); mask-image: linear-gradient(rgba(0, 0, 0, .15), #000 32px); }   /* no half-letters cut off under the logo */
+  .menu nav.above.more { -webkit-mask-image: linear-gradient(rgba(0, 0, 0, .15), #000 32px, #000 calc(100% - 44px), rgba(0, 0, 0, .15)); mask-image: linear-gradient(rgba(0, 0, 0, .15), #000 32px, #000 calc(100% - 44px), rgba(0, 0, 0, .15)); }
   .menu nav a.sep { margin-top: 10px; }
   .menu-foot { padding-top: 12px; }
 }
@@ -3588,6 +3596,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :where([data-theme="light"]) .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(184, 144, 44, .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(241, 237, 229, .97)); }
 }
+:where([data-theme="light"]) .topbar.over-wash ~ .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(184, 144, 44, .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(241, 237, 229, .97)); }   /* over the live wash: no blur (above) */
 :where([data-theme="light"]) .menu nav a { border-bottom-color: rgba(20, 18, 12, .06); }
 :where([data-theme="light"]) .menu nav a::before { background: var(--gold); box-shadow: none; }
 [data-theme="light"] .menu nav a:is(:hover, :focus-visible) { text-shadow: 0 0 18px rgba(184, 144, 44, .3); }

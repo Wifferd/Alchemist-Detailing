@@ -270,17 +270,19 @@
     toast(ok ? 'Reference copied' : 'Copying is blocked here. Your reference is ' + ref);
   }
 
-  // The page held still under the menu or the lightbox (overflow: hidden on <html>). On a computer with a classic
+  // The page held still under the menu or the lightbox (overflow: hidden on <body>, which the browser passes on to the
+  // page's own scrolling; on <html> it would make the body a scroll box of its own, so the wash's pinned stage and the
+  // sticky bars would let go and leave a black page behind the menu's glass). On a computer with a classic
   // scroll bar its width is given back as padding, and the fixed top bar keeps its right edge, so neither the page nor
   // the bar moves sideways as the scroll bar goes and comes back. Overlay scroll bars (phones) measure 0: no change.
   function holdPage(on) {
-    const r = document.documentElement, bar = document.getElementById('topbar');
+    const r = document.documentElement, b = document.body, bar = document.getElementById('topbar');
     if (on) {
       const sb = window.innerWidth - r.clientWidth;
-      r.style.overflow = 'hidden';
+      b.style.overflow = 'hidden';
       if (sb > 0) { r.style.paddingRight = sb + 'px'; if (bar) bar.style.right = sb + 'px'; }
     } else {
-      r.style.overflow = ''; r.style.paddingRight = '';
+      b.style.overflow = ''; r.style.paddingRight = '';
       if (bar) bar.style.right = '';
     }
   }

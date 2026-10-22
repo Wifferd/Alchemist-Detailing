@@ -140,11 +140,14 @@
   const menu = $('#menu'), scrim = $('#scrim'), menuBtn = $('#menuBtn'), main = $('#main');
   const footer = $('.footer'), topbar = $('#topbar');
   let menuOpen = false;
-  const holdPage = (on) => { if (window.AlchemistUI) window.AlchemistUI.holdPage(on); else root.style.overflow = on ? 'hidden' : ''; };   // ui.js: no sideways jolt from the scroll bar
+  const holdPage = (on) => { if (window.AlchemistUI) window.AlchemistUI.holdPage(on); else document.body.style.overflow = on ? 'hidden' : ''; };   // ui.js: no sideways jolt from the scroll bar
   // On a short screen the list scrolls between the menu's head and foot (alchemist.css): it fades out at the foot
-  // while more of it is below, and it opens with the current page's item in view.
+  // while more of it is below, and under the head while some of it is above; it opens with the current page's item in view.
   const menuNav = $('nav', menu);
-  const fadeNav = () => menuNav.classList.toggle('more', menuNav.scrollHeight - menuNav.scrollTop - menuNav.clientHeight > 2);
+  const fadeNav = () => {
+    menuNav.classList.toggle('more', menuNav.scrollHeight - menuNav.scrollTop - menuNav.clientHeight > 2);
+    menuNav.classList.toggle('above', menuNav.scrollTop > 2);
+  };
   function fitNav() {
     menuNav.scrollTop = 0;
     const here = $('a[aria-current="page"]', menuNav);
