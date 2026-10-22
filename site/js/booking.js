@@ -1399,7 +1399,7 @@
       el('div.bk-actions',
         el('a.btn.btn-gold.shine', { href: '#home' }, 'Back to home'),
         el('button.btn.btn-glass', { type: 'button', onclick: () => { reset(true); window.scrollTo({ top: cardTop(), behavior: 'auto' }); render(); focusTitle(); } }, 'Book another detail'),
-        el('a.btn.btn-glass', { href: 'tel:+1' + phone.replace(/\D/g, '') }, 'Call ', el('span.tnum', phone))),
+        el('a.btn.btn-glass', { href: 'tel:+1' + phone.replace(/\D/g, '') }, U.telMark(), el('span', 'Call ', el('span.tnum', phone)))),   // the phone mark, as on every call button
       el('button.link.sent-print', { type: 'button', onclick: () => window.print() }, 'Print or save'));
   }
   // The monogram from the symbol in the page, and one pass of gold light across it as the screen lands (clipped to

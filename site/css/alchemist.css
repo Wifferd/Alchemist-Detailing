@@ -873,7 +873,7 @@ section { position: relative; }
 .why-item svg path { stroke-dasharray: 1 2; stroke-dashoffset: 0; }
 .why-item[data-rise]:not(.in) svg path { stroke-dashoffset: 1.01; }
 .why-item.in svg path { transition: stroke-dashoffset .9s var(--ease-in-out) calc(var(--k, 0) * 120ms + .35s); }   /* drawn in, never drawn out */
-.why-item p { margin: 0; color: var(--ink-2); font-size: var(--fs-md); }
+.why-item p { margin: 0; color: var(--ink-2); font-size: var(--fs-md); text-wrap: pretty; }   /* no word left alone on a card's last line */
 
 /* ---------------------------------------------------------------- after Our work: the featured review and the doorways
    The review slot holds one approved review (reviews.js), centred under its head with a quiet link to the rest; it
@@ -930,7 +930,7 @@ section { position: relative; }
 }
 .steps.in .step .n { border-color: var(--line); color: var(--gold-hi); transition-delay: calc(var(--k, 0) * 220ms + .3s); }
 .step h3 { margin: 0 0 6px; font: 700 var(--fs-sm)/1.3 var(--font-ui); letter-spacing: var(--tr-title); text-indent: var(--tr-title); text-transform: uppercase; }
-.step p { margin: 0 auto; color: var(--ink-2); font-size: var(--fs-md); max-width: 26ch; }
+.step p { margin: 0 auto; color: var(--ink-2); font-size: var(--fs-md); max-width: 26ch; text-wrap: pretty; }
 
 /* ---------------------------------------------------------------- closing call to action */
 .cta-band {

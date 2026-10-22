@@ -57,6 +57,17 @@
   };
   // A phone number in running text is always a tel: link, on one line.
   const tel = (raw) => el('a.tnum', { href: 'tel:+1' + digits(raw) }, raw);
+  // The menu's phone mark, for every call button (a call never gets an arrow). An SVG needs its own namespace,
+  // which el() does not make.
+  function telMark() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const s = document.createElementNS(NS, 'svg'), p = document.createElementNS(NS, 'path');
+    s.setAttribute('class', 'tel-mark'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
+    p.setAttribute('d', 'M6.6 3.8l2.3-.4 1.6 3.9-1.8 1.3a11 11 0 0 0 4.7 4.7l1.3-1.8 3.9 1.6-.4 2.3a2 2 0 0 1-2 1.7A15.6 15.6 0 0 1 4.9 5.8a2 2 0 0 1 1.7-2z');
+    p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '1.7'); p.setAttribute('stroke-linejoin', 'round');
+    s.appendChild(p);
+    return s;
+  }
 
   // The loading line: a hairline with the gold light running along it (the CSS's .au-line), then the words; a reader
   // hears them, and hears the screen arrive in its place.
@@ -274,5 +285,5 @@
     }
   }
 
-  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage };
+  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage };
 })();

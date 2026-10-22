@@ -173,15 +173,6 @@
     s.appendChild(p);
     return s;
   }
-  function telMark() {   // the menu's phone mark, for a call button (a call never gets an arrow)
-    const NS = 'http://www.w3.org/2000/svg';
-    const s = document.createElementNS(NS, 'svg'), p = document.createElementNS(NS, 'path');
-    s.setAttribute('class', 'tel-mark'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
-    p.setAttribute('d', 'M6.6 3.8l2.3-.4 1.6 3.9-1.8 1.3a11 11 0 0 0 4.7 4.7l1.3-1.8 3.9 1.6-.4 2.3a2 2 0 0 1-2 1.7A15.6 15.6 0 0 1 4.9 5.8a2 2 0 0 1 1.7-2z');
-    p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '1.7'); p.setAttribute('stroke-linejoin', 'round');
-    s.appendChild(p);
-    return s;
-  }
   // "Do we come to you?": the booking's check and its words (booking.js zipHint), against the ZIPs in the database.
   // The field waits quietly for the menu; if the menu can't be read, the field goes and the FAQ's sentence stands.
   function zipCheck() {
@@ -211,7 +202,7 @@
     const reach = el('section.ct-block.ct-reach', { 'aria-labelledby': 'ctReach' },
       el('h2.ct-h#ctReach', 'Reach us'),
       el('p.ct-phone.tnum', PHONE),
-      el('a.btn.btn-gold.shine', { href: TEL, 'aria-label': 'Call us at ' + PHONE }, telMark(), 'Call us'),
+      el('a.btn.btn-gold.shine', { href: TEL, 'aria-label': 'Call us at ' + PHONE }, U.telMark(), 'Call us'),
       rows([
         ['Instagram', el('a.ct-link', { href: INSTAGRAM, target: '_blank', rel: 'noopener', 'aria-label': 'Instagram, @alchemy_details (opens in a new tab)' }, '@alchemy_details', extMark())],
         ['Online', el('a.note-link', { href: '#book' }, 'Book online', arrow())],
