@@ -958,7 +958,10 @@
       if (had && btn.disabled) (d < 0 ? nextBtn : prevBtn).focus({ preventScroll: true });
     } }, sign);
     const prevBtn = arrow(-1, 'Previous month', '‹'), nextBtn = arrow(1, 'Next month', '›');
-    // dir: the month glides in from the side it was asked for (24px and a fade; still under reduced motion)
+    // dir: the month's days glide in from the side it was asked for (24px and a fade) under a weekday row that stays
+    // put, and its name follows; still under reduced motion. A quick second press starts the glide afresh (turned
+    // round if it was the other arrow) and puts off taking the class away, so the first press can't cut it short.
+    let glideOff = 0;
     function paintMonth(dir) {
       const monthName = w.month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       title.textContent = monthName;
@@ -966,7 +969,12 @@
       prevBtn.disabled = new Date(w.month.getFullYear(), w.month.getMonth(), 0) < new Date(first.getFullYear(), first.getMonth(), 1);
       nextBtn.disabled = new Date(w.month.getFullYear(), w.month.getMonth() + 1, 1) > last;
       grid.replaceChildren(...monthDays(first, last));
-      if (dir && !reduce) flash(grid, dir > 0 ? 'glide-next' : 'glide-prev', 600);
+      if (dir && !reduce) {
+        const glides = (on) => [grid, title].forEach((n) => { n.classList.remove('glide-next', 'glide-prev'); if (on) { void n.offsetWidth; n.classList.add(on); } });
+        clearTimeout(glideOff);
+        glides(dir > 0 ? 'glide-next' : 'glide-prev');
+        glideOff = setTimeout(() => glides(), 600);
+      }
       loadCalendar();
     }
     // the gold fills a chosen day outward from where the finger (or pointer) landed
@@ -1024,11 +1032,12 @@
     const num = (code) => { const g = signOf(code); return g ? Number(g.num) : 999; };
     const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind)).sort((a, b) => num(a.code) - num(b.code));
     const strip = el('div.bk-switch', { id: 'bk-switch', hidden: !st.when.switching },
-      el('div.sw-grid', { role: 'group', 'aria-label': 'Change the service' }, mains.map((x) => el('button.sw-tile', {
+      el('div.sw-grid', { role: 'group', 'aria-label': 'Change the service', 'aria-describedby': 'bk-sw-hint' }, mains.map((x) => el('button.sw-tile', {
         type: 'button', dataset: { code: x.code }, 'aria-pressed': 'false', onclick: () => switchMain(x) },
         sigMark(x.code),
         el('span.sw-name', x.name),
         el('span.sw-meta', el('span.sw-price.tnum', { id: 'sw-price-' + x.code }), el('span', minutesText(x.duration_min)))))),
+      el('p.sw-hint', { id: 'bk-sw-hint' }, swHint()),
       el('div.sw-foot', el('div', { id: 'bk-sw-notes', role: 'status' }), el('button.link', { type: 'button', onclick: () => go(4) }, 'Add-ons and notes')));
     if (st.when.switching) setTimeout(() => { paintSwitch(); showChosenTile(); }, 0);
     return strip;
@@ -1072,14 +1081,18 @@
     const by = Math.min(aim, cap);
     if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
-  // The tiles follow the request: which are chosen, their prices (looked up once, if step 04 has not already), and
-  // a quiet line for an add-on the new service leaves off
+  // The tiles work as the cards on step 04 do, so the line under them says how: a tile adds to the other kind and
+  // takes the place of its own (an exterior and an interior together; a bundle alone), and with two lit either can go
+  const swHint = () => 'An exterior and an interior can go together; a bundle stands alone.' + (mainCodes().length > 1 ? ' Tap a lit tile to take it off.' : '');
+  // The tiles follow the request: which are chosen, their prices (looked up once, if step 04 has not already), the
+  // line under them, and a quiet line for an add-on the new service leaves off
   function paintSwitch() {
     const mains = mainCodes();
     root.querySelectorAll('.sw-tile').forEach((b) => {
       const on = mains.includes(b.dataset.code);
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    const hint = root.querySelector('#bk-sw-hint'); if (hint) hint.textContent = swHint();
     const price = (code) => { const n = root.querySelector('#sw-price-' + code), p = st.prices[code]; if (n) n.textContent = !p ? '' : p.base == null ? '—' : money(p.base); };
     if (Object.keys(st.prices).length) Object.keys(st.prices).forEach(price);
     else mainPrices(price);
@@ -1385,16 +1398,16 @@
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing was sent. The reference is made up.') : null,
       el('section.sheet.sent-sheet', { 'aria-label': 'Your booking' },
         el('dl.sum-list',
-          el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min) + (minutes ? ' · about ' + minutesText(minutes) : ''))),
-          el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? r.address + ', ' + r.address_zip : settings.public_area + ' — we send the address with your confirmation')),
+          el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min), minutes ? [' · ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
+          el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? 'We come to you · ' + r.address + ', ' + r.address_zip : 'Come to us · ' + settings.public_area + ' — we send the address with your confirmation')),   // in the summary's words
           vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
         rec ? priceLines(rec, { mark: sigMark }) : el('p.bk-muted', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents))),
       el('section.sent-next', { 'aria-labelledby': 'sent-next-h' },
         el('h2.bk-h2', { id: 'sent-next-h' }, 'What happens next'),
         el('ol.sent-steps',
-          el('li', el('b', 'Request sent'), el('span.tnum', ref)),
+          el('li', el('b', 'Request sent'), el('span.tnum.sent-ref-sm', groups.map((g) => el('span', g)))),   // grouped as the reference above
           el('li', el('b', 'We review it'), el('span', holdEnds ? 'Your time is held until ' + holdEnds : 'Your time is held while we review it')),
-          el('li', el('b', (st.sentAsGuest ? 'We call or text ' : 'We contact you at ') + phonePretty(st.contact.phone) + ' to confirm'), el('span', 'You pay in person after your detail'))),
+          el('li', el('b', st.sentAsGuest ? 'We call or text ' : 'We contact you at ', el('span.tnum', phonePretty(st.contact.phone)), ' to confirm'), el('span', 'You pay in person after your detail'))),
         el('p.bk-muted.sent-help', 'Questions? Call ', tel(phone), '.')),   // on paper, where the Call button isn't
       el('div.bk-actions',
         el('a.btn.btn-gold.shine', { href: '#home' }, 'Back to home'),

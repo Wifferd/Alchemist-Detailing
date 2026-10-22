@@ -2095,6 +2095,8 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 @media (hover: hover) and (pointer: fine) { .sw-tile:hover { border-color: rgba(226, 185, 82, .5); } }
 .sw-tile.on { border-color: var(--gold); background: rgba(226, 185, 82, .08); box-shadow: 0 0 26px -10px rgba(226, 185, 82, .6); }
 .sw-tile.on :is(.sw-name, .sw-price) { color: var(--gold-hi); }
+/* how the tiles add up (as the cards on step 04 do), in one small line under them */
+.sw-hint { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .sw-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 18px; }
 .sw-foot > div { flex: 1 1 260px; min-width: 0; display: grid; gap: 6px; }
 .sw-foot > div:empty { position: absolute; }   /* nothing to say: still a live region, but no row of its own */
@@ -2122,23 +2124,26 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .icon-btn.small { width: 44px; height: 44px; font-size: 20px; line-height: 1; }
 .icon-btn:disabled { opacity: .35; cursor: default; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-/* a new month glides in 24px from the side it was asked for (booking.js; none under reduced motion) */
-.cal-grid.glide-next { animation: glideNext .4s var(--ease) both; }
-.cal-grid.glide-prev { animation: glidePrev .4s var(--ease) both; }
-@keyframes glideNext { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
-@keyframes glidePrev { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+/* a new month's days glide in 24px from the side it was asked for while the weekday row stays put, and its name
+   follows 12px (booking.js; none under reduced motion). Each lands on its own opacity (a grey day stays grey, a past
+   day stays faint), and the chosen day keeps its own pop */
+:is(.cal-grid.glide-next > :not(.cal-dow, .on), .cal-head .glide-next) { animation: glideNext .4s var(--ease) backwards; }
+:is(.cal-grid.glide-prev > :not(.cal-dow, .on), .cal-head .glide-prev) { animation: glidePrev .4s var(--ease) backwards; }
+.cal-head :is(.glide-next, .glide-prev) { --glide: 12px; }
+@keyframes glideNext { from { opacity: 0; transform: translateX(var(--glide, 24px)); } }
+@keyframes glidePrev { from { opacity: 0; transform: translateX(calc(-1 * var(--glide, 24px))); } }
 .cal-dow { text-align: center; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-indent: var(--tr-label); color: var(--muted); padding: 6px 0 4px; }
-.cal-day { position: relative; isolation: isolate; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--ink-2); font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; touch-action: manipulation; transition: border-color .25s var(--ease), color .25s var(--ease), background-color .25s var(--ease), box-shadow .25s var(--ease), transform .3s var(--ease); }
+.cal-day { position: relative; isolation: isolate; justify-self: center; width: 100%; max-width: 56px; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--ink-2); font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; touch-action: manipulation; transition: border-color .25s var(--ease), color .25s var(--ease), background-color .25s var(--ease), box-shadow .25s var(--ease), transform .3s var(--ease); }
 /* open and full fade in as the days arrive, and cross-fade when the service changes: the full hatch is a layer */
 .cal-day::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 50%; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(226, 185, 82, .14) 6px 8px); opacity: 0; transition: opacity .25s var(--ease); pointer-events: none; }
 .cal-day.full::before { opacity: 1; }
 .cal-day.open { border-color: rgba(255, 255, 255, .1); color: var(--ink); }
-@media (hover: hover) and (pointer: fine) { .cal-day.open:hover { border-color: var(--gold); color: var(--gold-hi); } }
+@media (hover: hover) and (pointer: fine) { .cal-day.open:not(.on):hover { border-color: var(--gold); color: var(--gold-hi); } }   /* the chosen day keeps its dark number under the pointer */
 .cal-day.unknown { border-color: rgba(255, 255, 255, .06); }
 .cal-day.full { color: var(--muted); cursor: not-allowed; }
 .cal-day.out { opacity: .25; cursor: default; }
 /* a day of the month before or after that shares a week with this one: grey, its month in small capitals under the number */
-.cal-other { aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); opacity: .6; font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; user-select: none; }
+.cal-other { justify-self: center; width: 100%; max-width: 56px; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); opacity: .6; font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; user-select: none; }
 .cal-other small { font: 600 10px/1 var(--font-ui); letter-spacing: var(--tr-label); text-indent: var(--tr-label); text-transform: uppercase; }
 /* a chosen day settles in softly, and the gold spreads out from where the finger landed (--px/--py from booking.js; the centre for a key press) */
 .cal-day.on { border-color: var(--gold); background: var(--gold-grad); color: var(--on-gold); font-weight: 700; box-shadow: 0 0 22px -4px rgba(226, 185, 82, .75); animation: dayPop .45s var(--ease); }
@@ -2226,7 +2231,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sent-sheet > .sum-list { padding-bottom: 16px; margin-bottom: 4px; border-bottom: 1px solid var(--hair); }
 .sent-next { display: grid; gap: 16px; padding: 4px 4px 0; }
 .sent-steps { margin: 0; padding: 0; list-style: none; display: grid; }
-.sent-steps li { position: relative; display: grid; gap: 4px; padding: 0 0 20px 32px; }
+.sent-steps li { position: relative; display: grid; align-content: start; gap: 4px; padding: 0 0 20px 32px; }   /* on paper the three sit side by side: each keeps its lines together at the top */
 .sent-steps li:last-child { padding-bottom: 0; }
 .sent-steps li::before { content: ""; position: absolute; left: 3px; top: 4px; width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--gold); background: var(--bg); box-sizing: border-box; }
 .sent-steps li:first-child::before { background: var(--gold); box-shadow: 0 0 12px rgba(226, 185, 82, .55); }   /* done: the request is in */
@@ -2234,6 +2239,10 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sent-steps li:last-child::after { content: none; }
 .sent-steps b { font-size: 15px; font-weight: 600; color: var(--ink); }
 .sent-steps span { font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.sent-steps b .tnum { font-size: inherit; line-height: inherit; color: inherit; white-space: nowrap; }   /* the phone number on one line */
+.sent-ref-sm span { letter-spacing: .04em; }
+.sent-ref-sm span + span { margin-left: .32em; }   /* grouped as the reference above; copied as one */
+.sent-len { white-space: nowrap; }   /* "about 3 h 30 min" stays together on a phone */
 .bk-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .sent-print { margin-top: -6px; }
 .sent-help { display: none; }   /* printed only: the Call button doesn't print */
@@ -2289,7 +2298,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   .sum-body { grid-template-columns: 1fr; gap: 2px 0; }
   .sum-body dt { margin-top: 8px; font-size: 12px; letter-spacing: var(--tr-label); text-transform: uppercase; }
   .cal-grid { gap: 4px; }   /* seven 44px days fit a 390px phone */
-  .cal-day, .cal-other { max-height: none; font-size: 13px; }
+  .cal-day, .cal-other { max-height: none; max-width: none; font-size: 13px; }
   /* the start times (and their places while they load) in three even columns across the card, not a ragged wrap */
   .times .chips, .times-wait { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .times .chips .choice-item { min-width: 0; justify-content: center; padding-inline: 8px; }
@@ -3821,25 +3830,51 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid #d8d8d8 !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; }
   .bk-sent :is(.mini-btn, .link, .bk-actions), .sent-pass { display: none !important; }
-  /* the receipt on one page: tighter, the mark smaller, the footer left off (the receipt carries the phone itself) */
+  /* the receipt on one page, a long booking too: tighter, the mark smaller, the footer left off (the receipt carries
+     the phone itself) */
   body:has(.bk-sent) .footer { display: none !important; }
   .book-page:has(.bk-sent) { padding-block: 0 !important; }
   .bk.bk-sent { gap: 8px; padding: 4mm 8mm !important; }
   .sig { border-color: #bbb; }
-  .sent-sheet { padding: 12px 16px; }
-  .sent-sheet .sum-list { gap: 8px 20px; }
-  .sheet .pr-line { min-height: 0; padding-block: 6px; }
-  .sheet .pr-total { padding-top: 10px; }
-  .sent-mark svg { width: 40px; height: 40px; filter: none; animation: none; }
-  .bk-sent .bk-title { font-size: 26px; }
-  .sent-code { font-size: 26px; }
-  .sent-ref { gap: 6px; }
-  /* what happens next across the page: three points on one line */
-  .sent-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 18px; }
-  .sent-steps li { padding: 20px 0 0; }
+  .sent-mark svg { width: 34px; height: 34px; filter: none; animation: none; }
+  .bk-sent .eyebrow { margin-block: 4px; }
+  .bk-sent .bk-title { font-size: 22px; }
+  .sent-code { font-size: 22px; }
+  .sent-ref { gap: 2px; }
+  .bk-sent .bk-preview { padding: 6px 12px; }
+  .sent-sheet { padding: 10px 16px 12px; }
+  /* When beside Where, the vehicle across under them */
+  .sent-sheet > .sum-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; padding-bottom: 10px; }
+  .sent-sheet > .sum-list > div:nth-child(3) { grid-column: 1 / -1; }
+  .sent-sheet .sum-list dd { font-size: 14px; }
+  /* the price lines a little closer, their Table marks smaller to match */
+  .sent-sheet .pr { --gut: 40px; }
+  .sheet .pr-line { min-height: 0; padding-block: 4px; font-size: 14px; }
+  .sent-sheet .pr-line .sig { width: 28px; height: 28px; padding: 4px 0 0 2px; font-size: 11px; }
+  .sent-sheet .pr-line .sig small { top: 2px; left: 3px; font-size: 7px; }
+  .sheet .pr-note { margin: -2px 0 6px; }
+  .sheet .pr-total { padding-top: 8px; font-size: 16px; }
+  /* what happens next across the page: three points on one line, the third the widest (it holds the phone number),
+     the call line beside the heading; kept whole, so none of it prints alone on a second page */
+  .sent-next { grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 10px 18px; break-inside: avoid; page-break-inside: avoid; }
+  .sent-next > .bk-h2, .bk-sent .sent-help { grid-row: 1; }
+  .sent-steps { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr); column-gap: 18px; }
+  .sent-steps li { padding: 18px 0 0; }
   .sent-steps li::before { left: 0; top: 0; }
   .sent-steps li::after { left: 15px; right: -14px; top: 5px; bottom: auto; width: auto; height: 1px; }
-  .bk-sent .sent-help { display: block; }
+  .sent-ref-sm { white-space: nowrap; }   /* the reference in one piece */
+  .bk-sent .sent-help { display: block; text-align: right; }
+  /* a narrow page (a phone's print view): one column, the three points down the page as on the screen, the call
+     line under them */
+  @media (max-width: 480px) {
+    .sent-sheet > .sum-list, .sent-next, .sent-steps { grid-template-columns: minmax(0, 1fr); }
+    .sent-next > .bk-h2, .bk-sent .sent-help { grid-row: auto; }
+    .bk-sent .sent-help { text-align: left; }
+    .sent-steps li { padding: 0 0 14px 32px; }
+    .sent-steps li:last-child { padding-bottom: 0; }
+    .sent-steps li::before { left: 3px; top: 4px; }
+    .sent-steps li::after { left: 8px; right: auto; top: 19px; bottom: 3px; width: 1px; height: auto; }
+  }
   .sheet, .sheet-top, .bk-before { background: #fff !important; border-color: #d8d8d8 !important; box-shadow: none !important; }
   .work-strip { flex-wrap: wrap; overflow: visible; }
   .work-item { flex-basis: calc(33.33% - 10px); }
