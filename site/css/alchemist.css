@@ -903,13 +903,17 @@ section { position: relative; }
   padding: clamp(28px, 3.2vw, 44px);
   border-radius: var(--r-lg);
   border: 1px solid rgba(255, 255, 255, .07);
-  background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+  background: linear-gradient(180deg, #080808, #030303);   /* white at 3% to 1% on the black page, as solid colours: a see-through rounded card was repainted brighter in bands */
   color: var(--ink);
   text-decoration: none;
   touch-action: manipulation;
   transition: transform .35s var(--ease), border-color .4s var(--ease);
 }
-.door .line { width: 44px; height: 1px; margin: 18px 0 22px; background: linear-gradient(90deg, var(--gold), transparent); }
+.door .line { width: 44px; height: 1px; margin: 18px 0 22px; background: linear-gradient(90deg, var(--gold), transparent); transform-origin: left; }
+/* the short gold line draws itself in from the left once its card has risen, as the section rules do; it waits only
+   while the card waits to rise, so without motion, without JavaScript and in print it is simply drawn */
+.door[data-rise]:not(.in) .line { transform: scaleX(0); }
+.door.in .line { transition: transform 1.1s var(--ease) calc(var(--k, 0) * 120ms + .35s); }
 .door-line { max-width: 30ch; font: 400 clamp(21px, 2vw, 26px)/1.35 var(--font-ui); letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }
 .door-nobr { white-space: nowrap; }
 .door-text { margin-top: 12px; max-width: 52ch; font-size: var(--fs-md); line-height: 1.6; color: var(--ink-2); text-wrap: pretty; }
@@ -3785,7 +3789,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   html, body { background: #fff !important; color: #111 !important; }
   .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
   .hero::before, .hero::after, .standard::before, .why::before, .how::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
-  [data-rise], [data-reveal], .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
+  [data-rise], [data-reveal], .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .emblem svg.circle circle { stroke-dashoffset: 0; }
   .why-item svg path { stroke-dashoffset: 0 !important; }   /* the Why icons on paper, drawn or not on the screen */
