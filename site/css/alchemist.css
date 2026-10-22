@@ -1108,6 +1108,9 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   transition: transform .5s var(--ease-unveil), opacity .35s var(--ease), background .5s var(--ease);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .svc-jump { background: rgba(8, 8, 8, .96); } }
+/* held under the top bar, it takes the scrolled top bar's deeper glass, so the two read as one header and a gold button
+   passing under it shows only faintly (the lighter glass turned the whole strip gold) */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :where(:root:not([data-theme="light"])) .svc-jump.stuck { background: linear-gradient(180deg, rgba(16, 16, 16, .86), rgba(4, 4, 4, .86)); } }
 .svc-jump:is(.away, .menu-away) { transform: translateY(calc(-100% - 20px)); opacity: 0; pointer-events: none; }
 /* held under the top bar (.stuck from app.js), the two bars are one header: the page above the chapter bar and in its
    top corners is covered in the page colour, so no line of text shows sliced in the slit between them. It goes with
@@ -1165,7 +1168,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .svc-jump a:focus-visible { outline-offset: -7px; }   /* inside the strip, where an outer ring would be clipped */
 .svc-jump-ink { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; background: var(--gold); transform-origin: 0 50%; transform: translateX(var(--x, 0px)) scaleX(var(--w, 0)); opacity: 0; pointer-events: none; transition: transform .55s var(--ease-unveil), opacity .35s var(--ease); }
 .svc-jump.marked .svc-jump-ink { opacity: 1; }
-.svc-group { padding-block: clamp(40px, 7vh, 72px); scroll-margin-top: 4px; }   /* html's scroll-padding already clears the bar */
+.svc-group { padding-block: clamp(40px, 7vh, 72px); scroll-margin-top: calc(4px - clamp(40px, 7vh, 72px)); }   /* opened (#services-exterior, a chapter link), a group lands with its plate 16px under the chapter bar: html's scroll-padding clears the bars, the margin takes back the group's top padding */
 .svc-group + .svc-group { border-top: 1px solid rgba(255, 255, 255, .05); }
 /* each group opens on a photo plate with its title inside (bottom left, over the card scrim); the picture
    drifts a little with the page (--py from app.js) and keeps dark tokens in both themes */
@@ -1463,7 +1466,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .el-panel p { margin: 0; font-size: var(--fs-md); line-height: 1.6; color: var(--ink-2); }
 .el-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-top: 18px; border-top: 1px solid var(--hair); }
 .el-facts div { display: grid; gap: 6px; align-content: start; }
-.el-facts span { font: 700 var(--fs-xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.el-facts div > span { font: 700 var(--fs-xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
 .el-facts b { font: 600 16px/1.2 var(--font-ui); }
 .el-facts b.price { font-weight: 700; color: var(--gold); }
 .el-actions { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
@@ -1668,6 +1671,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .svc-jump-row { padding: 0; }
   .svc-jump a { flex: 1 0 auto; justify-content: center; padding: 0 7px; letter-spacing: .14em; }   /* all four fit from 360px; narrower, the row scrolls */
   .svc-jump .no { display: none; }
+  .svc-group { scroll-margin-top: calc(-4px - clamp(40px, 7vh, 72px)); }   /* the plate 16px under the phone's lower chapter bar too */
 }
 @media (max-width: 640px) {
   .el-key, .el-note, .el-mini .pr { font-size: 14px; }
