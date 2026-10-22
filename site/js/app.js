@@ -30,7 +30,8 @@
       let scene = scenes[Math.random() < 0.5 ? 0 : 1];
       if (scene === last) scene = scenes.find((s) => s !== last);
       try { localStorage.setItem('ad.hero', scene); } catch (e) { /* storage unavailable */ }
-      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce }); } catch (e) { root.classList.add('no-hero-gl'); }
+      // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
+      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce, studio: false }); } catch (e) { root.classList.add('no-hero-gl'); }
     }
     // The intro waits for the shader: two frames after the hero starts, the compile is behind us,
     // so the first letters are never swallowed by it. (CSS pauses the hero animations until html.ready.)
@@ -288,10 +289,15 @@
   }
   new IntersectionObserver((es) => overWash(es[es.length - 1].isIntersecting), { rootMargin: '-10% 0px -10% 0px' }).observe(washSection);
   washSection.addEventListener('washend', () => topbar.classList.remove('over-wash'));   // the canvas has stopped for good
-  // While the Services header's dark photo is under the bar, .over-dark: in the white studio the bar goes nearly solid
-  // ivory there (CSS), so it never reads as a grey band. The observed strip is the top tenth of the screen, the bar's.
-  const svcTop = $('.svc-top');
-  if (svcTop) new IntersectionObserver((es) => topbar.classList.toggle('over-dark', es[es.length - 1].isIntersecting), { rootMargin: '0px 0px -90% 0px' }).observe(svcTop);
+  // While a dark piece is under the bar (the black hero, the Services header's photo), .over-dark: in the white studio
+  // the bar goes nearly solid ivory there (CSS), so it never reads as a grey band. The observed strip is the top tenth
+  // of the screen, the bar's; the two are on different pages, so whichever is in it counts.
+  const darkTops = [$('.hero'), $('.svc-top')].filter(Boolean), underBar = new Set();
+  const darkIo = new IntersectionObserver((es) => {
+    es.forEach((e) => { if (e.isIntersecting) underBar.add(e.target); else underBar.delete(e.target); });
+    topbar.classList.toggle('over-dark', underBar.size > 0);
+  }, { rootMargin: '0px 0px -90% 0px' });
+  darkTops.forEach((el) => darkIo.observe(el));
   // Under a finger there is no hover: once the cards are revealed, the row scrolled to the middle of the screen is lit.
   let litArmed = false;
   function armLit() {
@@ -339,10 +345,11 @@
   // ---------------------------------------------------------------- the motion system
   // Sections rise in as they enter the screen, children staggered 60ms (capped at 3) within
   // their parent; hairlines draw. Once an element is in, data-rise is dropped so its own hover
-  // transitions take over.
+  // transitions take over. A block rises when 15% of it is in, or 24px of it for a tall one (a price card on a short
+  // phone, landed on by a jump, shows only its top and would otherwise wait for a scroll that never comes).
   const io = new IntersectionObserver((es) => {
-    es.forEach((e) => { if (e.isIntersecting) { reveal(e.target); io.unobserve(e.target); } });
-  }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    es.forEach((e) => { if (e.isIntersecting && (e.intersectionRatio >= 0.15 || e.intersectionRect.height >= 24)) { reveal(e.target); io.unobserve(e.target); } });
+  }, { threshold: [0, 0.02, 0.05, 0.1, 0.15], rootMargin: '0px 0px -8% 0px' });
   function reveal(el) {
     if (el.classList.contains('in')) return;
     el.classList.add('in');
@@ -501,7 +508,6 @@
         const y = Math.min(window.scrollY, 900);
         heroInner.style.transform = 'translateY(' + (y * 0.18).toFixed(1) + 'px)';
         heroInner.style.opacity = String(Math.max(0, 1 - y / 700));
-        if (heroEl) heroEl.style.setProperty('--key', (y / 900).toFixed(3));   // the studio's hairline of light slides with the page
         ticking = false;
       });
     }, { passive: true });
@@ -526,7 +532,6 @@
       const light = !isLight();
       const apply = () => {
         if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
-        if (hero && hero.setStudio) hero.setStudio(light);
         paint();
       };
       try { localStorage.setItem('ad.theme', light ? 'light' : 'dark'); } catch (e) { /* storage unavailable */ }
@@ -849,6 +854,7 @@
       else if (dy > 4 && performance.now() - felt < 700) away = true;
       else if (dy < -4) away = false;
       bar.classList.toggle('away', away);
+      bar.classList.toggle('stuck', stuck);   // held under the top bar: the two bars cover the page between them (CSS)
       mark();
     }
     const soon = () => { if (!tick) { tick = true; requestAnimationFrame(frame); } };

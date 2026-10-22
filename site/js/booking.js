@@ -1044,27 +1044,32 @@
     row.scrollTo({ left: row.scrollLeft + (b.left + b.right) / 2 - (r.left + r.right) / 2, behavior: glide && !reduce ? 'smooth' : 'auto' });
   }
   const showChosenTile = () => showTile(root.querySelector('.sw-grid .sw-tile.on'), false);
-  // Step 05 just opened (a click, so no finger is on the glass): on a short phone the first day that can be booked (or
-  // the chosen one) can sit under the sticky bar, so the page moves just enough to show its week, never so far that
-  // "Your service" goes under the floating top bar; nothing moves when it is already in sight. The open days can land
-  // after the step is drawn (loadCalendar), so it waits for them once (wait, daysWait); a month change never moves the page.
+  // Step 05 just opened (a click, so no finger is on the glass): on a phone the month's open days can sit under the
+  // sticky bar, so the page moves just enough to show the whole month, never so far that "Your service" goes under
+  // the floating top bar; nothing moves when it is already in sight. The open days can land after the step is drawn
+  // (loadCalendar), so it waits for them once (wait, daysWait); a month change never moves the page.
   function revealDays(wait) {
-    const day = root.querySelector('.cal-day.on') || root.querySelector('.cal-day.open'), chosen = root.querySelector('.bk-chosen');
+    const day = root.querySelector('.cal-day.on') || root.querySelector('.cal-day.open'), chosen = root.querySelector('.bk-chosen'), grid = root.querySelector('.cal-grid');
     if (!day) { daysWait = !!wait; return; }
     daysWait = false;
     if (!chosen) return;
     const s = sight();
-    const by = Math.min(day.getBoundingClientRect().bottom - s.bottom, chosen.getBoundingClientRect().top - s.top + 4);
+    const by = Math.min((grid || day).getBoundingClientRect().bottom - s.bottom, chosen.getBoundingClientRect().top - s.top + 4);
     if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
-  // The strip just opened (a click, so no finger is on the glass): the page moves just enough for the whole calendar
-  // to sit over the sticky bar, never so far that "Your service" goes under the floating top bar; nothing moves when
-  // the calendar is already in sight
+  // The strip just opened (a click, so no finger is on the glass): the page moves just enough for the open days to sit
+  // over the sticky bar, never so far that "Your service" goes under the floating top bar. On a short phone that
+  // still hides them, it may go as far as the tiles' row (the lit tile says which service is chosen); nothing moves
+  // when the days are already in sight
   function revealSwitch() {
     const chosen = root.querySelector('.bk-chosen'), grid = root.querySelector('.cal-grid');
     if (!chosen || !grid) return;
+    const open = root.querySelectorAll('.cal-day.open'), tiles = root.querySelector('.sw-grid');
     const s = sight();
-    const by = Math.min(grid.getBoundingClientRect().bottom - s.bottom, chosen.getBoundingClientRect().top - s.top + 4);
+    const aim = (open.length ? open[open.length - 1] : grid).getBoundingClientRect().bottom - s.bottom;
+    let cap = chosen.getBoundingClientRect().top - s.top + 4;
+    if (aim > cap && tiles) cap = Math.max(cap, tiles.getBoundingClientRect().top - s.top);
+    const by = Math.min(aim, cap);
     if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
   // The tiles follow the request: which are chosen, their prices (looked up once, if step 04 has not already), and

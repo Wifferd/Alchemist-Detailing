@@ -58,7 +58,8 @@
   // ---------------------------------------------------------------- data (live reads through RLS; actions through functions)
   const sb = () => D.client();
   async function loadBookings() {
-    if (!D.isLive) { seedPreview(); st.bookings = PREVIEW.bookings.slice(); return st.bookings; }
+    // the preview's examples in the live query's order (by day, then start time), so every list reads as it will live
+    if (!D.isLive) { seedPreview(); st.bookings = PREVIEW.bookings.slice().sort((a, b) => (a.service_date < b.service_date ? -1 : a.service_date > b.service_date ? 1 : a.start_min - b.start_min)); return st.bookings; }
     const from = H().isoDate(H().addDays(H().todayLocal(), -30));
     const { data, error } = await sb().from('appointments')
       .select('*, items:appointment_items(code,name,kind,price_cents,mobile_cents,duration_min,included,sort), assignments:appointment_assignments(employee_id, profile:profiles(first_name,last_name)), events:appointment_events(from_status,to_status,from_queue,to_queue,note,created_at)')
@@ -304,7 +305,15 @@
       tile('needs', needs.length, 'need you', needs.length ? 'oldest hold: ' + (needs[0].hold_expires_at ? hoursLeft(needs[0].hold_expires_at) : '—') : 'all clear', () => jump('needs')),
       tile('tomorrow', tmr.length, 'tomorrow', '', () => jump('tomorrow')),
       tile('admin-requests', all.filter((b) => b.queue === 'review' && live(b)).length, 'in review', '', () => { st.lane = 'review'; screen = 'requests'; history.replaceState(null, '', '#admin-requests'); render(); }));
+    // the team today (doc 20: the morning view shows the team): each active member with the times of the jobs assigned
+    // to them today. Time off isn't recorded yet, so it never says who is off or available
+    if (st.staffList == null) { try { await loadStaff(); } catch (e) { st.staffList = []; } }
+    const crew = (st.staffList || []).filter((s) => s.is_active).map((s) => {
+      const mine = todays.filter((b) => (b.assignments || []).some((a) => a.employee_id === s.id)).sort((a, b) => a.start_min - b.start_min);
+      return el('li', el('b', [s.first_name, s.last_name].filter(Boolean).join(' ') || roleOf(s.role)), el('span.bk-muted', mine.length ? mine.map((b) => clock(b.start_min)).join(', ') : 'No jobs today'));
+    });
     return el('div.bk-grid', tiles,
+      crew.length ? el('div.adm-crew', el('h2', 'Team today'), el('ul', crew)) : null,
       section('Today', todays, 'Nothing on today.', { id: 'today', compact: inNeeds, day: true }),
       section('Needs you', needs, 'No requests waiting.', { id: 'needs' }),
       section('Tomorrow', tmr, 'Nothing booked for tomorrow yet.', { id: 'tomorrow', compact: inNeeds, day: true }));
