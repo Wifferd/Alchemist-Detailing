@@ -259,7 +259,7 @@
       el('p.eyebrow', d.eyebrow),
       el('h1.display.gold-text', d.title),
       el('span.rule', { 'data-reveal': '' }),
-      el('p.bk-lead', withPhone(d.intro)),
+      el('p.bk-lead', withPhone(d.intro).flatMap((x) => (typeof x === 'string' ? whole(x, 'nobr') : [x]))),   // the centred lead never breaks at a hyphen ("owner-run")
       SHOW_DRAFT_BANNER ? el('div.bk-preview.draft', el('b', 'Draft'), ' — these words are a first draft for the owner to edit. Nothing here is final.') : null);
     let body;
     if (page === 'tips') body = el('div.tip-list', d.items.map(tip));

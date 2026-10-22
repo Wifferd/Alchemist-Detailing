@@ -57,8 +57,9 @@
   }
   const extMark = () => svg('svg', { class: 'ext', viewBox: '0 0 24 24', 'aria-hidden': 'true' }).appendChild(svg('path', { d: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })).parentNode;
 
+  // the signature under the words: the name, then the service and the month on a quieter line
   function review(r, featured) {
-    const who = el('p.rv-who', el('b', r.name), r.services ? el('span', r.services) : null, el('span', when(r.created_at)));
+    const who = el('p.rv-who', el('b', r.name), el('span.rv-meta', [r.services, when(r.created_at)].filter(Boolean).map((t) => el('span', t))));
     const body = el('p.rv-body', '“' + r.body + '”');
     const reply = r.reply ? el('div.rv-reply', el('span.eyebrow', 'Alchemist replied'), el('p', r.reply)) : null;
     const cls = featured ? 'is-featured' : null;
