@@ -412,7 +412,7 @@ uniform vec2 uD;
 uniform vec3 uSpray;
 uniform vec2 uSprayDir;
 
-const vec3 GOLD = vec3(0.886, 0.725, 0.322);
+const vec3 GOLD = vec3(0.922, 0.718, 0.345);
 const vec2 LD = vec2(0.82, 0.57);    // the site's light axis (118deg) in screen space, y down
 float h21(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
 vec2 h22(vec2 p){ float n = h21(p); return vec2(n, h21(p + n + 19.19)); }

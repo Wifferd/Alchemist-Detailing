@@ -10,8 +10,8 @@
      art scenes: gloss, beads, leather, split (paint above, leather below),
                  film (a sheet of water lying flat on bare paint).
 
-   The light is the same everywhere on the site: a warm bar (#fff3cf core,
-   #e2b952 body, a wide amber halo) reflected along the 118deg axis, gliding
+   The light is the same everywhere on the site: a warm bar (#fff6dc core,
+   #ebb758 body, a wide amber halo) reflected along the 118deg axis, gliding
    across the paint and back without ever leaving the frame, with a faint
    cooler panel beside it. The "studio" preset turns the black paint into
    cream paint under a white softbox for light mode.
@@ -61,10 +61,10 @@ float noise(vec2 p){
   return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a*noise(p); p = p*2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
-// The brand's gold (#e2b952, #f8dd98), the light's warm core (#fff3cf) and its deep amber falloff.
-const vec3 GOLD = vec3(0.886, 0.725, 0.322);
-const vec3 GOLD_HI = vec3(0.973, 0.867, 0.596);
-const vec3 CORE = vec3(1.0, 0.953, 0.81);
+// The brand's gold (--au-500 #ebb758, --au-200 #fadc9c), the light's warm core (--au-100 #fff6dc) and its deep amber falloff.
+const vec3 GOLD = vec3(0.922, 0.718, 0.345);
+const vec3 GOLD_HI = vec3(0.980, 0.863, 0.612);
+const vec3 CORE = vec3(1.0, 0.965, 0.863);
 const vec3 AMBER = vec3(0.60, 0.40, 0.10);
 const vec3 COOL = vec3(0.80, 0.82, 0.86);
 // One light for the whole site: a studio light bar reflected across the 118deg axis. It glides
@@ -390,7 +390,7 @@ vec3 leather(vec2 uv, float asp, float t){
     if (a < 1.0){
       float br = sqrt(max(1.0 - a*a, 0.0));
       float sh = 0.45 + 0.7*br*(0.55 + 0.45*sin(st*3.1416));
-      vec3 th = vec3(0.92, 0.74, 0.36)*sh*(0.45 + key*0.75);
+      vec3 th = GOLD*sh*(0.45 + key*0.75);
       th += vec3(1.0, 0.9, 0.7)*pow(br, 10.0)*(0.12 + band*0.9)*uIntro;
       col = mix(col, th, dash*smoothstep(1.0, 0.7, a));
       col *= 1.0 - (1.0 - dash)*0.5*smoothstep(1.0, 0.0, a);   // needle holes

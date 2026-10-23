@@ -731,7 +731,7 @@
     const paint = () => {
       const light = isLight();
       if (btn) btn.querySelector('span').textContent = light ? 'Dark mode' : 'Light mode';
-      if (meta) meta.setAttribute('content', light ? '#faf8f4' : '#000000');
+      if (meta) meta.setAttribute('content', light ? '#f8f5ee' : '#000000');
     };
     paint();
     if (!btn) return;

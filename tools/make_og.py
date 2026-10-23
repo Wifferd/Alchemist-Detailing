@@ -12,19 +12,19 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 site = ROOT / 'site'
 out = site / 'img' / 'og.jpg'
 mono = 'data:image/webp;base64,' + base64.b64encode((site / 'img' / 'mono-metallic.webp').read_bytes()).decode()
-FONTS = 'https://fonts.googleapis.com/css2?family=Jost:wght@400;500&family=Manrope:wght@600&display=block'
+FONTS = 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,300..600&display=block'
 HTML = f'''<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="{FONTS}"><style>
 html, body {{ margin: 0; }}
-body {{ position: relative; width: 1200px; height: 630px; overflow: hidden; display: grid; place-items: center; background: #000; color: #f7f7f4; font-family: "Manrope", system-ui, sans-serif; }}
-.glow {{ position: absolute; inset: 0; background: radial-gradient(55% 60% at 50% 44%, rgba(226, 185, 82, .26), rgba(226, 185, 82, .06) 55%, transparent 76%); }}
-.light {{ position: absolute; inset: -30%; background: linear-gradient(118deg, transparent 40%, rgba(226, 185, 82, .07) 47%, rgba(255, 243, 207, .16) 50%, rgba(226, 185, 82, .07) 53%, transparent 60%); }}
+body {{ position: relative; width: 1200px; height: 630px; overflow: hidden; display: grid; place-items: center; background: #000; color: #f4f4f4; font-family: "Archivo", system-ui, sans-serif; }}
+.glow {{ position: absolute; inset: 0; background: radial-gradient(55% 60% at 50% 44%, rgba(235, 183, 88, .26), rgba(235, 183, 88, .06) 55%, transparent 76%); }}
+.light {{ position: absolute; inset: -30%; background: linear-gradient(118deg, transparent 40%, rgba(235, 183, 88, .07) 47%, rgba(255, 246, 220, .16) 50%, rgba(235, 183, 88, .07) 53%, transparent 60%); }}
 .in {{ position: relative; display: grid; justify-items: center; text-align: center; }}
-img {{ width: 200px; height: auto; filter: drop-shadow(0 14px 40px rgba(226, 185, 82, .3)); }}
-h1 {{ margin: 26px 0 0; font: 400 112px/.92 "Jost", sans-serif; letter-spacing: .14em; text-indent: .14em; text-transform: uppercase; background: linear-gradient(180deg, #fff6d8 0%, #f6dc96 30%, #e2b952 56%, #b88a27 80%, #f0c966 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }}
-.l2 {{ margin-top: 18px; display: flex; align-items: center; gap: 22px; font: 500 26px/1 "Jost", sans-serif; letter-spacing: .42em; text-indent: .42em; text-transform: uppercase; color: #f8dd98; }}
-.l2::before, .l2::after {{ content: ""; width: 90px; height: 1px; background: linear-gradient(90deg, transparent, #e2b952); }}
-.l2::after {{ background: linear-gradient(90deg, #e2b952, transparent); }}
-.place {{ margin: 34px 0 0; font: 600 18px/1.5 "Manrope", sans-serif; letter-spacing: .22em; text-transform: uppercase; color: #bdbdb8; }}
+img {{ width: 200px; height: auto; filter: drop-shadow(0 14px 40px rgba(235, 183, 88, .3)); }}
+h1 {{ margin: 26px 0 0; font: 300 96px/.92 "Archivo", sans-serif; font-stretch: 125%; letter-spacing: .06em; text-indent: .06em; text-transform: uppercase; background: linear-gradient(180deg, #fffaf0 0%, #fadc9c 30%, #ebb758 56%, #be8732 80%, #f5ca72 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }}
+.l2 {{ margin-top: 18px; display: flex; align-items: center; gap: 22px; font: 500 20px/1 "Archivo", sans-serif; font-stretch: 125%; letter-spacing: .48em; text-indent: .48em; text-transform: uppercase; color: #fadc9c; }}
+.l2::before, .l2::after {{ content: ""; width: 90px; height: 1px; background: linear-gradient(90deg, transparent, #ebb758); }}
+.l2::after {{ background: linear-gradient(90deg, #ebb758, transparent); }}
+.place {{ margin: 34px 0 0; font: 600 18px/1.5 "Archivo", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #c2c2c2; }}
 </style></head><body><div class="glow"></div><div class="light"></div>
 <div class="in"><img src="{mono}" alt=""><h1>Alchemist</h1><div class="l2">Detailing</div><p class="place">Parker, Texas · Mobile within about 10 miles</p></div>
 </body></html>'''
@@ -44,7 +44,7 @@ async def main():
     img = Image.open(io.BytesIO(png)).convert('RGB')
     img.save(out, format='JPEG', quality=82, optimize=True)
     print(f'{out.relative_to(ROOT)}  {img.size[0]}x{img.size[1]}  {out.stat().st_size} bytes  fonts: '
-          + ('Google Fonts' if fonts['ok'] else 'Google Fonts unreachable, the locally installed Jost and Manrope were used'))
+          + ('Google Fonts' if fonts['ok'] else 'Google Fonts unreachable, a locally installed Archivo (if any) was used'))
 
 
 asyncio.run(main())

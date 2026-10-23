@@ -1427,7 +1427,7 @@
     const shape = document.querySelector('#ad-mark path');
     if (!reduce && shape) {
       const defs = mk('defs', {}), light = mk('linearGradient', { id: 'sentLight', x1: 0, y1: 0, x2: 1, y2: 0 }), clip = mk('clipPath', { id: 'sentClip' });
-      [[0, 0], [0.5, 0.9], [1, 0]].forEach(([o, a]) => light.appendChild(mk('stop', { offset: o, 'stop-color': '#fff6d8', 'stop-opacity': a })));
+      [[0, 0], [0.5, 0.9], [1, 0]].forEach(([o, a]) => light.appendChild(mk('stop', { offset: o, 'stop-color': '#fffaf0', 'stop-opacity': a })));
       clip.appendChild(mk('path', { d: shape.getAttribute('d') }));
       defs.append(light, clip);
       const band = mk('g', { 'clip-path': 'url(#sentClip)' });
