@@ -389,7 +389,8 @@
       });
       fromMenu(m);
       if (lineup) syncLineup(m);
-    }).catch(() => { /* the menu couldn't load: the page keeps the menu as seeded */ });
+      return window.AlchemistData.isLive;   // true: the figures on the page are the database's (the home row's light glints in them)
+    }).catch(() => false);   // the menu couldn't load: the page keeps the menu as seeded
   }
 
   // ---------------------------------------------------------------- the bundle lineup: what stepping up adds

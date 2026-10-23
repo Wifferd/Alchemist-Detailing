@@ -198,8 +198,8 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .book-page .page-head h1.au-run { --au-ink: var(--gold-text); }
 .menu nav a.au-run > span { --au-ink: linear-gradient(var(--gold-hi), var(--gold-hi)); }
 /* across a photo or a dark card: the Gold client card, a completed appointment (on its glow layer, so the card's
-   own rims keep ::before and ::after), a service card's photo (.au-band, under its scrim), a services photo plate */
-.gold-card.au-run::after, .appt.au-run .appt-glow::after, .svc-card.au-run > .au-band, .group-plate.polish.au-run::after {
+   own rims keep ::before and ::after), a services photo plate */
+.gold-card.au-run::after, .appt.au-run .appt-glow::after, .group-plate.polish.au-run::after {
   content: "";
   position: absolute;
   inset: -20% -40%;
@@ -210,9 +210,31 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 }
 .gold-card.au-run::after { z-index: 2; }
 .appt.au-run .appt-glow::after { mix-blend-mode: normal; opacity: .32; }   /* the glow is a layer of its own: plain light, softer */
-.svc-card > .au-band { display: none; }
-.svc-card.au-run > .au-band { display: block; z-index: -2; animation-duration: var(--au-dur-card); }
 .group-plate.polish.au-run::after { z-index: -2; animation-duration: var(--au-dur-wide); }
+/* across the home service cards after the wash (app.js rowPlay): one light crossing the row, taken by each card on
+   the screen in turn on its own band (.au-band, under its scrim); --au-delay sets each card's turn along the light's
+   way, --au-reach the band's travel for the card's shape */
+.svc-card > .au-band { display: none; }
+.svc-grid.au-run .au-glow > .au-band {
+  display: block;
+  position: absolute;
+  inset: -20% -40%;
+  z-index: -2;
+  background: var(--au-band);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: sweep var(--au-dur-card) var(--au-ease) var(--au-delay, 0s) 1 both;
+}
+/* each "From" price takes a glint inside its figures as the light reaches it (--au-gdelay: its glint is in the middle
+   of the figures as the band's light passes them), at a word's pace (--au-dur, as the menu's current page); only once
+   the database's menu has answered (.au-priced). Around the glint the figures keep their own colour */
+.svc-grid.au-run.au-priced .au-glow .price {
+  background: linear-gradient(var(--au-angle), transparent 25%, var(--au-glint) 50%, transparent 75%) calc(var(--au-p) * 233% - 67%) 0 / 40% 100% no-repeat, linear-gradient(currentColor, currentColor);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: auPass var(--au-dur) var(--au-ease) var(--au-gdelay, 0s) 1 both;
+}
 /* across a small part: the service just chosen, the booking step just reached (the light runs the line from the
    step before, then crosses the gold number) */
 .svc-opt.au-run { isolation: isolate; }
@@ -844,8 +866,11 @@ section { position: relative; }
 .svc-card:hover::after, .svc-card:focus-visible::after, .svc-card.lit::after { opacity: 1; transition-duration: .6s; }
 .svc-card:hover .photo, .svc-card:focus-visible .photo, .svc-card.lit .photo { transform: scale(1.055); filter: brightness(1) saturate(1); }
 .svc-card:hover .art, .svc-card:focus-visible .art, .svc-card.lit .art { transform: scale(1.055); filter: brightness(1) contrast(1.06); }
-/* the first time a card is lit, one line of light crosses its photo (.au-band, app.js) and the picture brightens just behind it */
-.svc-card.au-run :is(.photo, .art) { transition-delay: 0s, .3s; }
+/* as the row's light crosses after the wash (app.js rowPlay), each picture on the screen brightens to its lit state
+   just behind the band and settles back to its satin rest (--au-lit-at: just before the light reaches the card's
+   centre); one already lit stays lit. The photo itself stays still */
+.svc-grid.au-run .au-glow :is(.photo, .art) { animation: cardLit 1.2s var(--ease-in-out) var(--au-lit-at, 0s) 1; }
+@keyframes cardLit { 30% { filter: brightness(1) saturate(1); } }
 .svc-card:hover .price, .svc-card:focus-visible .price, .svc-card.lit .price { color: var(--gold-hi); text-shadow: 0 0 18px rgba(248, 221, 152, .35); }
 .svc-card:hover .go .arrow, .svc-card:focus-visible .go .arrow, .svc-card.lit .go .arrow { transform: translateX(5px); }
 /* entrance, scrubbed by the rinse (--r goes 0 -> 1) */
@@ -3819,6 +3844,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .why-item svg path { stroke-dashoffset: 0 !important; }   /* the Why icons on paper, drawn or not on the screen */
   .gold-text, .hero h1 .l1 { background: none !important; color: #8f6a1c !important; -webkit-text-fill-color: #8f6a1c; }
   .amount, .price-card .tag, .svc-card .price, .eyebrow { color: #8f6a1c !important; text-shadow: none !important; }
+  .svc-card .price { background: none !important; -webkit-text-fill-color: currentColor !important; }   /* the row's glint, mid-pass, never prints */
+  .au-band { display: none !important; }
   .hero { min-height: 0 !important; background: none !important; }
   .hero-inner { padding: 10mm 0 6mm; }
   .section { padding-block: 8mm; }

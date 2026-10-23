@@ -76,6 +76,7 @@
   // for no shine: a shine crossing then fades out where it is and goes on from its rest, and a pass still playing
   // stops for it. Only the arrivals wait for the shines.
   const AU_MS = { el: 1200, card: 1400, wide: 1800 };   // --au-dur, --au-dur-card, --au-dur-wide
+  const reach = (r) => (38 + 19 * Math.min(4, r.height / Math.max(1, r.width))).toFixed(1) + '%';   // a sweep's --au-reach
   const CROSSING = { shine: 0.22, letterSweep: 1, veil: 1 };   // the part of each CSS light's run spent crossing (@keyframes)
   const light = (() => {
     const off = reduce || window.matchMedia('(forced-colors: active)').matches;
@@ -156,14 +157,17 @@
     function play(it) {
       if (cur) cut();
       cur = it;
-      busyUntil = performance.now() + it.ms + 60;
       const el = it.el;
+      // its turn has come: a pass made of several lights (the service cards' row) lays them out now and says how long
+      // they run in all
+      if (it.start) it.ms = it.start() || it.ms;
+      busyUntil = performance.now() + it.ms + 60;
       if (it.now) yieldShines();
       holdShines(it.ms + 240);
       // a band that slides (sweep) starts and ends just outside its frame however tall the frame is (a phone's
       // closing band, a tall card): the 118deg tilt needs more reach the taller the frame is for its width
       const r = el.getBoundingClientRect();
-      el.style.setProperty('--au-reach', (38 + 19 * Math.min(4, r.height / Math.max(1, r.width))).toFixed(1) + '%');
+      el.style.setProperty('--au-reach', reach(r));
       el.classList.remove('au-run');
       void el.offsetWidth;
       el.classList.add('au-run', 'au-lit');
@@ -184,13 +188,14 @@
     }
     return {
       // o: { delay (ms), size ('el', 'card', 'wide'), when (still wanted, if it had to wait), miss (it could not play),
-      // now (the customer's own input: ahead of the arrivals, and at once once its delay is over) }
+      // now (the customer's own input: ahead of the arrivals, and at once once its delay is over), start (it plays now;
+      // it may return how long it runs) }
       pass(el, o) {
         o = o || {};
         if (off || !el || el.classList.contains('au-run')) return;
         const k = q.findIndex((it) => it.el === el);
         if (k >= 0) { if (!o.now) return; q.splice(k, 1); }   // already waiting: the customer's own input takes it ahead
-        const it = { el, now: !!o.now, at: performance.now() + (o.delay || 0), ms: AU_MS[o.size] || AU_MS.el, when: o.when, miss: o.miss };
+        const it = { el, now: !!o.now, at: performance.now() + (o.delay || 0), ms: AU_MS[o.size] || AU_MS.el, when: o.when, miss: o.miss, start: o.start };
         if (!o.delay && onScreen(el) && (it.now ? !crossing(null, false, true) : !cur && !q.length && !crossing())) { play(it); return; }   // nothing ahead of it: at once
         q.splice(it.now ? q.filter((x) => x.now).length : q.length, 0, it);   // the customer's own input, in order, ahead of the arrivals
         next();
@@ -206,6 +211,8 @@
       hold(ms) { if (!off) holdShines(ms); },
       // a shine back on the screen (its pause lifted): one caught part way across waits its turn
       settle(el) { if (!off) settle(el, true); },
+      // no light here at all (reduced motion, forced colours): what would wait for one is simply there
+      get off() { return off; },
     };
   })();
   window.AlchemistLight = light;
@@ -386,7 +393,7 @@
   // While the live wash is under the bar, the bar drops its backdrop blur (CSS .over-wash: nearly solid instead).
   // The observer follows the section; the wash's start is checked by hand (it does not move the section), and its end
   // comes as the washend event.
-  const washSection = $('#wash'), stageEl = $('#washStage');
+  const washSection = $('#wash');
   const overWash = (on) => topbar.classList.toggle('over-wash', !!(on && wash && wash.live()));
   function overWashNow() {
     const r = washSection.getBoundingClientRect(), m = window.innerHeight * 0.1;
@@ -403,7 +410,8 @@
     topbar.classList.toggle('over-dark', underBar.size > 0);
   }, { rootMargin: '0px 0px -90% 0px' });
   darkTops.forEach((el) => darkIo.observe(el));
-  // Under a finger there is no hover: once the cards are revealed, the row scrolled to the middle of the screen is lit.
+  // Under a finger there is no hover: once the row's light has crossed (at once where no light plays), the row
+  // scrolled to the middle of the screen is lit.
   let litArmed = false;
   function armLit() {
     if (litArmed || !window.matchMedia('(hover: none)').matches) return;
@@ -413,24 +421,106 @@
       es.forEach((e) => { if (e.isIntersecting) seen.set(e.target, e.intersectionRatio); else seen.delete(e.target); });
       let best = null;
       seen.forEach((ratio, el) => { if (!best || ratio > seen.get(best)) best = el; });
-      cards.forEach((c) => {
-        const on = !!best && (c === best || (seen.has(c) && c.offsetTop === best.offsetTop));
-        c.classList.toggle('lit', on);
-        if (on) sweepCard(c);
-      });
+      cards.forEach((c) => c.classList.toggle('lit', !!best && (c === best || (seen.has(c) && c.offsetTop === best.offsetTop))));
     }, { rootMargin: '-38% 0px -38% 0px', threshold: [0, .25, .5, .75, 1] });
     cards.forEach((c) => lio.observe(c));
   }
-  // The first time a card is lit (a pointer, the keyboard, or the row under a finger) one line of light crosses its
-  // photo, and never again on this visit; a card that had to wait plays only if it is still lit by then.
-  function sweepCard(c) {
-    if (!c.classList.contains('au-lit')) light.pass(c, { size: 'card', when: () => c.matches(':hover, :focus-visible, .lit') });
+  // Reveal the paint (the owner's §9, and "wash it, then reveal the paint"): after the rinse, once the row is half on
+  // the screen, the four cards sit a beat in their satin dimness, then one light at the 118deg angle crosses the row:
+  // each card on the screen takes it on its own band (.au-band, under its scrim) in turn, its start set by where the
+  // card's centre lies along the light's way (straight along the desktop row, diagonally through a phone's 2x2 grid).
+  // Each picture brightens to its lit state just behind the light and settles back, and each "From" price takes a
+  // glint inside its figures as the light reaches it, only once the database's menu has answered (a price never moves
+  // before the database confirms it). It waits for washend (the canvas has stopped for good, the pin has let go), so
+  // it never plays over the foam or the drops; without WebGL, or with a wash that could not start, it plays the first
+  // time the row is half on the screen. Once per visit, as one pass in the light's queue. None under reduced motion
+  // or in forced colours: the cards are simply there.
+  const grid = $('.svc-grid');
+  const AU_X = Math.sin(118 * Math.PI / 180), AU_Y = -Math.cos(118 * Math.PI / 180);   // the light's way: across, a little down
+  const ROW_MS = 1600;   // the light's time along the row's whole length on its way (corner to corner)
+  let rowArmed = false;
+  function rowArm() {
+    if (rowArmed) return;
+    rowArmed = true;
+    if (!grid || light.off) { armLit(); return; }
+    if (wash && wash.live()) washSection.addEventListener('washend', rowWatch, { once: true });
+    else rowWatch();
   }
-  $$('.svc-card').forEach((c) => {
-    c.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') sweepCard(c); });
-    c.addEventListener('focus', () => { if (c.matches(':focus-visible')) sweepCard(c); });
-  });
-  new MutationObserver(() => { if (stageEl.classList.contains('revealed')) armLit(); }).observe(stageEl, { attributes: true, attributeFilter: ['class'] });
+  // half of the row on the screen
+  function rowHalf() {
+    const r = grid.getBoundingClientRect(), seen = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+    return r.height > 0 && seen >= Math.min(r.height, innerHeight) * 0.5;
+  }
+  const rowIo = new IntersectionObserver(() => { if (rowHalf()) { rowIo.disconnect(); rowGo(); } }, { threshold: [0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1] });
+  function rowWatch() { rowIo.observe(grid); }
+  function rowGo() {
+    const t0 = performance.now(), S = window.AlchemistServices;
+    const asked = S && S.syncMenu ? S.syncMenu() : Promise.resolve(false);   // after the wash: no shader is being built
+    // the beat (600ms from the row's arrival), and the database's answer for the prices' glint (at most 1.5s; in a
+    // preview, or with no answer by then, the light crosses without it)
+    Promise.race([asked, new Promise((res) => setTimeout(res, 1500, false))]).then((priced) => {
+      light.pass(grid, { size: 'wide', delay: Math.max(1, 600 - (performance.now() - t0)), when: rowHalf, miss: rowWatch, start: () => rowPlay(priced === true) });
+    });
+  }
+  // when (0 to 1 of a sweep's time) the light, on its ease (--ease-in-out), has gone f of its way
+  const EASE = (getComputedStyle(root).getPropertyValue('--ease-in-out').match(/-?[\d.]+/g) || []).map(Number);
+  function timeAt(f) {
+    const [x1, y1, x2, y2] = EASE.length === 4 ? EASE : [0.65, 0, 0.35, 1];
+    const bz = (a, b, u) => 3 * a * u * (1 - u) * (1 - u) + 3 * b * u * u * (1 - u) + u * u * u;
+    let lo = 0, hi = 1;
+    f = Math.min(1, Math.max(0, f));
+    for (let i = 0; i < 24; i++) { const u = (lo + hi) / 2; if (bz(y1, y2, u) < f) lo = u; else hi = u; }
+    return bz(x1, x2, (lo + hi) / 2);
+  }
+  // The row's light, laid out as its turn comes, in layout pixels (the services may be scaled to fit a short screen;
+  // offsets ignore that). Returns how long it runs in all.
+  function rowPlay(priced) {
+    const cards = $$('.svc-card', grid);
+    const within = (el, card) => { let x = 0, y = 0; for (let n = el; n && n !== card; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return [x, y]; };
+    const box = cards.map((c) => [c.offsetLeft, c.offsetTop, c.offsetWidth, c.offsetHeight]);
+    const x0 = Math.min(...box.map((b) => b[0])), y0 = Math.min(...box.map((b) => b[1]));
+    const span = AU_X * (Math.max(...box.map((b) => b[0] + b[2])) - x0) + AU_Y * (Math.max(...box.map((b) => b[1] + b[3])) - y0);
+    let shown = cards.map((c) => { const r = c.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth; });
+    if (!shown.some(Boolean)) shown = cards.map(() => true);
+    const centre = (b) => AU_X * (b[0] + b[2] / 2) + AU_Y * (b[1] + b[3] / 2);   // along the light's way
+    const first = Math.min(...box.filter((b, i) => shown[i]).map(centre));
+    const CARD = AU_MS.card, GLINT = AU_MS.el;   // --au-dur-card across a card, --au-dur through a price's figures
+    let end = 0;
+    cards.forEach((c, i) => {
+      if (!shown[i]) return;
+      const b = box[i], w = b[2], h = b[3];
+      const d = ROW_MS * (centre(b) - first) / span;
+      // its band slides from -R to R (sweep: --au-reach of its 1.8 widths) and its light reaches a point dx, dy from the
+      // card's centre when the band has moved dx plus the tilt's lean over dy
+      const r = reach({ width: w, height: h }), R = parseFloat(r) / 100 * 1.8 * w;
+      const at = (dx, dy) => d + timeAt((dx + AU_Y / AU_X * dy + R) / (2 * R)) * CARD;
+      c.style.setProperty('--au-reach', r);
+      c.style.setProperty('--au-delay', Math.round(d) + 'ms');
+      // the picture's light: from just before the light reaches the card's centre, peaking just behind it
+      const lit = Math.max(0, at(0, 0) - 150);
+      c.style.setProperty('--au-lit-at', Math.round(lit) + 'ms');
+      end = Math.max(end, d + CARD, lit + 1200);
+      // the price's glint: in the middle of its figures (half its own run) as the light passes them
+      const p = $('.price', c);
+      if (p && priced) {
+        const [px, py] = within(p, c), g = Math.max(0, at(px + p.offsetWidth / 2 - w / 2, py + p.offsetHeight / 2 - h / 2) - GLINT / 2);
+        c.style.setProperty('--au-gdelay', Math.round(g) + 'ms');
+        end = Math.max(end, g + GLINT);
+      }
+      c.classList.add('au-glow');
+    });
+    grid.classList.toggle('au-priced', priced);
+    end = Math.round(end);
+    setTimeout(() => {
+      grid.classList.remove('au-priced');
+      cards.forEach((c) => {
+        c.classList.remove('au-glow');
+        ['--au-reach', '--au-delay', '--au-lit-at', '--au-gdelay'].forEach((k) => c.style.removeProperty(k));
+      });
+      armLit();
+    }, end + 160);   // after the pass has ended (.au-run goes at end + 60)
+    return end;
+  }
   // the services must fit the pinned screen; scale them down on short screens
   function fitServices() {
     const wrap = $('#svcWrap'), box = $('#washServices'), stage = $('#washStage');
@@ -1178,7 +1268,7 @@
     if (heavy) return;
     heavy = true;
     startWash();
-    if (!wash) armLit();   // nothing to wait for (reduced motion, no WebGL): the cards are already there
+    rowArm();   // the row's light after the wash (no wash: the first time the row is half on the screen; no light: none)
     artReady = true;
     paintArt();
   }
