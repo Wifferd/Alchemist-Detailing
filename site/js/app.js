@@ -19,9 +19,12 @@
   const unsplit = splitHeadline();
   let hero = null, heroStarted = false;
   // The hero's shader is built the first time home opens (render), not for a visitor who lands on another page.
-  function startHero() {
+  function startHero(first) {
     if (heroStarted) return;
     heroStarted = true;
+    // the page opened on home and the head script has let the intro go (a slow script): the letters are already
+    // rising, so the studio light is simply at rest
+    const late = first && root.classList.contains('ready');
     root.classList.remove('ready');   // home opened later: its intro waits for this compile too (the head script's 1.5s let it go)
     if (glOk && window.AlchemistHero) {
       const scenes = ['beads', 'gloss'];
@@ -31,16 +34,84 @@
       if (scene === last) scene = scenes.find((s) => s !== last);
       try { localStorage.setItem('ad.hero', scene); } catch (e) { /* storage unavailable */ }
       // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
-      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce, studio: false }); } catch (e) { root.classList.add('no-hero-gl'); }
+      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce, studio: false, entrance: !late && !light.off, onFrame: glass, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
     }
     // The intro waits for the shader: two frames after the hero starts, the compile is behind us,
     // so the first letters are never swallowed by it. (CSS pauses the hero animations until html.ready.)
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      root.classList.add('ready');
-      light.hold(1450 + 1600 + 240);   // Book Now's shine crosses after the wordmark's light has (letterSweep: 1.45s, then 1.6s)
-      if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
-    }));
+    // The studio light's path is worked out in the first of them, so the intro's own frame carries nothing more.
+    requestAnimationFrame(() => {
+      const p = hero && hero.enter ? plan() : null;
+      requestAnimationFrame(() => {
+        const held = p ? lightOn(p) : 0;
+        root.classList.add('ready');
+        light.hold(held || 1450 + 1600 + 240);   // Book Now's shine crosses after the wordmark's light has (letterSweep: 1.45s, then 1.6s)
+        if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
+      });
+    });
   }
+  // The studio light comes on (hero-gl.js enter()): the bar glides in across the paint, behind the monogram and the
+  // wordmark, and each takes the light as the bar's centre reaches it, as one light: the monogram one glint (the
+  // shared 1.2s pass, its middle on the mark's centre: --glint-at), the wordmark the line of light inside its letters
+  // (letterSweep, its middle on the word's centre and its pace the bar's across the word: --sweep-at, --sweep-dur),
+  // and a soft shade under each while the bar's core is behind them (--shade-in, --shade-out). plan() works out those
+  // times (ms after enter()); lightOn() sets them as the intro starts, counted from then, and returns how long Book
+  // Now's shine waits: until the bar has slowed past the word and the letters' light has gone.
+  const heroWord = $('.hero h1 .l1'), heroMono = $('.hero-mono');
+  let glideEnd = 0, skipped = false;
+  function plan() {
+    if (!heroWord || !heroMono) return null;
+    const w = heroWord.getBoundingClientRect(), m = heroMono.getBoundingClientRect(), y = w.top + w.height / 2;
+    const at = performance.now(), p = hero.enter(y, w.right + window.innerWidth * 0.05);   // the bar slows just past the word's end
+    if (!p) return null;
+    glideEnd = at + p.turn + 200;
+    const a = p.when(w.left, y), b = p.when(w.right, y), c = p.when(w.left + w.width / 2, y), g = p.when(m.left + m.width / 2, m.top + m.height / 2);
+    if (a == null || b == null || c == null || g == null) return { at, held: p.turn + 240 };   // beyond the bar's turn: the letters' light keeps its own time
+    // the sweep's band crosses the letters in the middle 39% of its run (letterSweep: --sx -15% to 115%, --ease-in-out)
+    const dur = Math.round(Math.min(2400, Math.max(1600, (b - a) / 0.39)));
+    return { at, end: p.end, dur, sweep: c - dur / 2, glint: g - AU_MS.el / 2, shadeIn: Math.min(a, g) - 650, shadeOut: Math.max(b, g) + 150, held: Math.max(p.turn, c + dur / 2) + 240 };
+  }
+  function lightOn(p) {
+    if (skipped) return 0;
+    const lag = performance.now() - p.at, ms = (t) => Math.round(t - lag) + 'ms';
+    if (p.dur) {
+      const el = $('.hero');
+      heroWord.style.setProperty('--sweep-at', ms(p.sweep));
+      heroWord.style.setProperty('--sweep-dur', p.dur + 'ms');
+      heroMono.style.setProperty('--glint-at', ms(p.glint));
+      el.style.setProperty('--shade-in', ms(p.shadeIn));
+      el.style.setProperty('--shade-out', ms(p.shadeOut));
+      el.classList.add('enter');
+      // once the shade has gone (its second run, the fade out), the glint and the shade leave with their layers
+      const done = () => { el.classList.remove('enter'); el.removeEventListener('animationend', gone); };
+      const gone = (e) => { if (e.animationName === 'heroShade' && e.elapsedTime > 1) done(); };
+      el.addEventListener('animationend', gone);
+      setTimeout(done, p.end + 30000);   // should that event never come
+    }
+    return Math.round(p.held - lag);
+  }
+  // a stalled first picture cancelled the entrance: the letters' light keeps its own time and the monogram none
+  function unplan() {
+    glideEnd = 0;
+    skipped = true;
+    heroWord.style.removeProperty('--sweep-at');
+    heroWord.style.removeProperty('--sweep-dur');
+    $('.hero').classList.remove('enter');   // before the shade or the glint has begun
+  }
+  // The glass catches the studio light: the floating bar's top edge is brightest right above where the light bar is
+  // on the paint under it (.bar-light, placed after each of the hero's pictures, so it holds still when the hero
+  // does). It fades out toward the bar's ends, and wherever the hero is not under the bar (.over-hero, CSS).
+  const glassBar = $('.bar'), glassLight = $('.bar-light i');
+  let glassBox = null, glassAt = null, glassA = null;
+  function glass(h) {
+    if (!glassLight || root.dataset.theme === 'light') return;   // the white studio's bar is solid over the hero: no light in it
+    const b = glassBox || (glassBox = glassBar.getBoundingClientRect());
+    const x = h.lineX(b.top + b.height / 2) - b.left;
+    const a = Math.max(0, Math.min(1, (Math.min(x, b.width - x) - 30) / 90)).toFixed(2);
+    const at = (Math.round(Math.max(-b.width, Math.min(b.width, x - b.width / 2)) * 2) / 2) + 'px';
+    if (at !== glassAt) { glassAt = at; glassLight.style.transform = 'translate3d(' + at + ', 0, 0)'; }
+    if (a !== glassA) { glassA = a; glassLight.style.opacity = a; }
+  }
+  window.addEventListener('resize', () => { glassBox = null; });
   function splitHeadline() {
     const l1 = $('.hero h1 .l1');
     if (!l1 || reduce) return null;
@@ -408,6 +479,7 @@
   const darkIo = new IntersectionObserver((es) => {
     es.forEach((e) => { if (e.isIntersecting) underBar.add(e.target); else underBar.delete(e.target); });
     topbar.classList.toggle('over-dark', underBar.size > 0);
+    topbar.classList.toggle('over-hero', [...underBar].some((el) => el.matches('.hero')));   // the studio light is under the glass
   }, { rootMargin: '0px 0px -90% 0px' });
   darkTops.forEach((el) => darkIo.observe(el));
   // Under a finger there is no hover: once the row's light has crossed (at once where no light plays), the row
@@ -1144,7 +1216,7 @@
       if (view === 'content' && window.AlchemistContent) window.AlchemistContent.mount($('#contentApp'), r);
       if (view === 'gallery' && window.AlchemistGallery) window.AlchemistGallery.mount($('#galleryApp'));
       if (view === 'services') mountServices();
-      if (view === 'home') startHero();
+      if (view === 'home') startHero(first);
       setName(NAMES[r]);
       if (footer) footer.classList.toggle('lean', r === 'contact');   // Contact carries the place, hours and phone itself: the footer keeps the brand and the pages
       if (footer) footer.classList.toggle('staff', r === 'admin' || r === 'team');   // the staff consoles are tools: one quiet line, no marketing footer (owner §26, §36)
@@ -1283,7 +1355,8 @@
   }
   const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1200 }) : (fn) => setTimeout(fn, 600);
   ['wheel', 'touchstart', 'keydown', 'scroll'].forEach((t) => window.addEventListener(t, () => idle(startHeavy), { once: true, passive: true }));
-  setTimeout(() => idle(startHeavy), reduce ? 0 : 3200);
+  // (while the studio light is still gliding in, they wait for it to slow: plan())
+  setTimeout(() => setTimeout(() => idle(startHeavy), Math.max(0, glideEnd - performance.now())), reduce ? 0 : 3200);
   // The Services header's photo waits (loading="lazy") while its page is hidden, so the first page doesn't pay for it;
   // once that page has settled it is fetched in the background, and Services opens on it at once.
   const topPhoto = $('.top-photo');

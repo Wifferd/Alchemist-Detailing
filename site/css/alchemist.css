@@ -70,6 +70,7 @@
   --danger-text: #f0a090;
   --border-strong: rgba(255, 255, 255, .38);  /* inputs and checkboxes: 3.4:1 */
   --floor: #000;                              /* the studio floor the hero and the wash stand on */
+  --shade-rgb: 3, 3, 3;                       /* the black showroom's shade under the hero's words (the hero stays black in both themes) */
   /* the type: Archivo for everything but the logo's italic tagline (Cormorant Garamond). Each family token carries
      the metric fallback of its width (below), so nothing moves when the font arrives. The widths are tokens because
      the font shorthand resets font-stretch: a rule that sets font: also sets font-stretch: var(--wdth-...) */
@@ -510,6 +511,24 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   transition: background .5s var(--ease), border-color .5s var(--ease);
+  position: relative;
+}
+/* the glass catches the studio light: over the hero, its top edge is brightest right above where the light bar is
+   on the paint (app.js places .bar-light i after each of the hero's pictures, along the bar, and fades it toward the
+   bar's ends), with a faint warm bloom under it. Only while the hero is under the bar (.over-hero); never over the
+   wash, and not in the white studio, whose bar is solid there (below) */
+.bar-light { position: absolute; top: -1px; left: 20px; right: 20px; height: 40px; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .4s var(--ease); }   /* along the edge's straight run, between its rounded corners */
+.topbar.over-hero:not(.over-wash) .bar-light { opacity: 1; }
+.bar-light i {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 110px);
+  width: 220px;
+  height: 100%;
+  background:
+    linear-gradient(90deg, transparent, rgba(var(--gold-pale-rgb), .45) 50%, transparent) top / 100% 1px no-repeat,
+    radial-gradient(50% 100% at 50% 0, rgba(var(--gold-rgb), .07), transparent) top / 100% 100% no-repeat;
+  will-change: transform, opacity;
 }
 .topbar.scrolled .bar { background: linear-gradient(180deg, rgba(16, 16, 16, .86), rgba(4, 4, 4, .86)); border-color: rgba(var(--gold-rgb), .14); }
 /* over the wash the bar drops its backdrop blur (the foam under it is a live canvas) and goes nearly solid instead */
@@ -740,8 +759,10 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   justify-items: center;
   gap: 0;
 }
-.hero-mark { width: clamp(62px, 8vw, 92px); margin-bottom: clamp(18px, 3vh, 30px); filter: drop-shadow(0 10px 30px rgba(var(--gold-rgb), .25)); }
-.hero h1 { margin: 0; display: grid; justify-items: center; }
+.hero { --mono-w: clamp(62px, 8vw, 92px); --mono-gap: clamp(18px, 3vh, 30px); }   /* the monogram's width and its space above the word */
+.hero-mono { position: relative; z-index: 1; display: block; margin-bottom: var(--mono-gap); }   /* the monogram and its glint (below), over the wordmark's shade */
+.hero-mark { display: block; width: var(--mono-w); filter: drop-shadow(0 10px 30px rgba(var(--gold-rgb), .25)); }
+.hero h1 { position: relative; margin: 0; display: grid; justify-items: center; }
 .hero h1 .l1 {
   font: 300 var(--fs-display)/.92 var(--font-display);
   font-stretch: var(--wdth-display);
@@ -1269,7 +1290,14 @@ section { position: relative; }
   z-index: -2;
   background: linear-gradient(118deg, transparent 44%, rgba(var(--gold-rgb), .0) 46%, rgba(248, 181, 95, .5) 50%, rgba(var(--gold-rgb), 0) 54%, transparent 56%);
   pointer-events: none;
+  animation: stripeIn 2.4s var(--ease-in-out) .5s 1 both paused;   /* the studio light comes on: in once from the left, then at rest */
 }
+.ready:is(.no-webgl, .no-hero-gl) .hero::after, .ready:is(.no-webgl, .no-hero-gl) .bar-light i { animation-play-state: running; }
+@keyframes stripeIn { from { transform: translateX(-62%); } }
+/* the glass edge rests above the stripe (118deg: right of the middle by the hero's half height less the bar's, times
+   tan 28deg) and lights as the stripe settles */
+:is(.no-webgl, .no-hero-gl) .bar-light i { transform: translateX(calc((50svh - 43px) * .53)); animation: auFade .6s var(--ease) 2.6s 1 both paused; }
+@keyframes auFade { from { opacity: 0; } }
 
 /* ---------------------------------------------------------------- services page */
 /* the brand pages share one head: centred eyebrow, gold title, one lead sentence, a drawn rule */
@@ -3316,7 +3344,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
     var(--gold-text);
   -webkit-background-clip: text;
   background-clip: text;
-  animation: letterSweep 1.6s var(--ease-in-out) 1.45s 1 forwards;
+  animation: letterSweep var(--sweep-dur, 1.6s) var(--ease-in-out) var(--sweep-at, 1.45s) 1 forwards;   /* its time: the studio light's (app.js), or 1.45s and 1.6s */
 }
 @keyframes letterSweep { from { --sx: -15%; } to { --sx: 115%; } }
 /* the split word keeps the whole word's indent once, not once per letter (text-indent inherits), so the
@@ -3339,10 +3367,12 @@ a.adm-tile { text-decoration: none; color: inherit; }
   background-clip: text;
 }
 @keyframes chIn { to { opacity: 1; transform: none; filter: none; } }
-/* without a pointer the reflection drifts slowly across the wordmark */
+/* without a pointer the reflection drifts slowly across the wordmark: from where it rests (46%) out to one side, then
+   from side to side, so it never jumps as it starts */
 @media (hover: none) {
-  .hero h1 .l1 { animation: letterSweep 1.6s var(--ease-in-out) 1.45s 1 forwards, paintDrift 14s var(--ease-in-out) 3s infinite alternate; }
+  .hero h1 .l1 { animation: letterSweep var(--sweep-dur, 1.6s) var(--ease-in-out) var(--sweep-at, 1.45s) 1 forwards, paintDriftIn 7s var(--ease-in-out) 3s 1 forwards, paintDrift 14s var(--ease-in-out) 10s infinite alternate-reverse; }
 }
+@keyframes paintDriftIn { from { --hx: 46%; } to { --hx: 70%; } }
 @keyframes paintDrift { from { --hx: 30%; } to { --hx: 70%; } }
 /* the drift rests while the hero is off the screen (.offscreen from app.js): no repaint of the gold text below it */
 html.ready .hero.offscreen h1 .l1 { animation-play-state: paused; }
@@ -3351,6 +3381,36 @@ html.ready .hero.offscreen h1 .l1 { animation-play-state: paused; }
    so the first frames are never swallowed by the compile */
 .hero [data-in], .hero h1 .l1, .hero h1 .l1.split .ch { animation-play-state: paused; }
 html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.split .ch { animation-play-state: running; }
+/* the monogram takes one glint as the studio light's bar passes behind it (the owner's gold reflection on the logo):
+   the shared pass of light inside the letters (auPass, --au-dur), masked by the monogram's own picture. Its middle is on
+   the mark's centre when the bar's is (--glint-at, app.js); .enter only while the light comes on */
+.hero.enter .hero-mono::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(var(--au-angle), transparent 25%, rgba(var(--gold-hi-rgb), .38) 41%, rgba(var(--gold-pale-rgb), .68) 50%, rgba(var(--gold-hi-rgb), .38) 59%, transparent 75%) calc(var(--au-p) * 200% - 50%) 0 / 40% 100% no-repeat;   /* warm: light on gold, not on chrome */
+  -webkit-mask: url(../img/mono-metallic.webp) center / 100% 100% no-repeat;
+  mask: url(../img/mono-metallic.webp) center / 100% 100% no-repeat;
+  animation: auPass var(--au-dur) var(--au-ease) var(--glint-at, 0s) 1 both;
+}
+/* while the bar's core crosses the monogram and the wordmark, a soft shade under each (the mark's deeper: thin
+   metal needs the most) keeps the gold clear of it: it comes in just before the bar reaches them and goes once the bar
+   is past, on opacity alone (--shade-in, --shade-out: app.js) */
+.hero.enter h1::before, .hero.enter .hero-mono::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -30% -12% -18%;
+  background: radial-gradient(closest-side, rgba(var(--shade-rgb), .55), rgba(var(--shade-rgb), .3) 62%, rgba(var(--shade-rgb), 0));
+  pointer-events: none;
+  opacity: 0;
+  animation: heroShade .5s var(--ease-in-out) var(--shade-in, 0s) 1 both, heroShade 1.4s var(--ease-in-out) var(--shade-out, 0s) 1 reverse forwards;
+}
+.hero.enter .hero-mono::before { inset: calc(-.65 * var(--mono-w)); background: radial-gradient(closest-side, rgba(var(--shade-rgb), .62), rgba(var(--shade-rgb), .3) 50%, rgba(var(--shade-rgb), 0)); }
+@keyframes heroShade { from { opacity: 0; } to { opacity: 1; } }
+/* the menu opened over the hero holds the studio light where it is (hero-gl.js), and the lights that ride on it with it */
+.menu.on ~ #main .hero.enter .hero-mono::after, .menu.on ~ #main .hero.enter .hero-mono::before, .menu.on ~ #main .hero.enter h1::before, .menu.on ~ #main .hero.enter h1 .l1 { animation-play-state: paused; }
 
 /* sections rise in as they enter; children staggered 60ms, capped at 3 (--k, set per parent by app.js).
    The hidden state lives on :not(.in) so hover transforms win once an element is in; app.js then drops
@@ -3915,6 +3975,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .topbar.over-wash .bar { background: rgba(255, 253, 248, .94); }
 /* over the Services header's dark photo (.over-dark from app.js) the same, from the top of the page */
 :where([data-theme="light"]) .topbar.over-dark .bar { background: rgba(255, 253, 248, .94); border-color: rgba(17, 17, 17, .08); }
+:where([data-theme="light"]) .bar-light { display: none; }   /* solid there: no studio light in the glass */
 :where([data-theme="light"]) .icon-btn { background: linear-gradient(180deg, #fffdf8, #f0ece2); border-color: rgba(17, 17, 17, .1); box-shadow: inset 0 1px 0 #fff, 0 4px 14px -8px rgba(27, 27, 27, .4); }
 /* the gold for icons and large numerals (--gold: 3.3:1 at worst, on the floor; the large-text floor is 3:1); small gold text is --gold-ink */
 [data-theme="light"] :is(.icon-btn, .amount, .adm-tile b, .el-row i, .tip-no) { color: var(--gold); }
@@ -4104,7 +4165,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (forced-colors: active) {
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
-  .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after, .cta-band::after, .btn-gold::before, .work-item::before, .gal-btn::after { display: none; }
+  .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after, .cta-band::after, .btn-gold::before, .work-item::before, .gal-btn::after, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
   .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */
   .svc-jump a[aria-current] { text-decoration: underline; text-underline-offset: 6px; }   /* the gold line is painted over: the group on the screen keeps a mark */
@@ -4133,7 +4194,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .acct-soon > * { animation: none !important; }
   html, body { background: #fff !important; color: #111 !important; }
   .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
-  .hero::before, .hero::after, .standard::before, .why::before, .how::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
+  .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .how::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
   [data-rise], [data-reveal], .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .emblem svg.circle circle { stroke-dashoffset: 0; }

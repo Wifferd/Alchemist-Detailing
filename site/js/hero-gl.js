@@ -21,16 +21,34 @@
 
    Real photos or video of the owner's work can replace these later.
    Usage:
-     AlchemistHero.start(canvas, { scene: 'beads' | 'gloss', still?: true, studio?: bool, flow?: [travel, share, rate], motes?: bool })
-       -> { stop, pause, resume, setStudio(on), setSweep(0..1) } or null without WebGL
+     AlchemistHero.start(canvas, { scene: 'beads' | 'gloss', still?: true, studio?: bool, flow?: [travel, share, rate], motes?: bool,
+                                   entrance?: bool, onFrame?: fn(hero), onSkip?: fn() })
+       -> { stop, pause, resume, setStudio(on), setSweep(0..1), enter(rowY, endX), lineX(y) } or null without WebGL
        studio follows html[data-theme] when the option is left out; flow: how far the moving drops travel
-       (grid cells), the share of the largest drops that move, and their cycles a second.
+       (grid cells), the share of the largest drops that move, and their cycles a second. entrance: the studio
+       light comes on with enter() (see there); onFrame runs after every picture, for what follows the light on
+       the page; onSkip if a slow first picture cancels an entrance already planned. lineX(y): where the light
+       bar's centre line crosses the screen row y in the last picture (px, both in the viewport; null until the hero
+       has been laid out and seen by its observer).
      AlchemistHero.art(scene, width, height, time, { studio?, live?, intro?, form?, sweep?, sweepRange?, roll? })
        -> a canvas to copy from: the picture is its lower left width x height corner (the canvas only grows),
        or to show while a sequence is drawn through it, frame by frame
      AlchemistHero.artRoom() -> [width, height] of that canvas, or null before the first still */
 (function () {
   'use strict';
+
+  // One light for the whole site, written once: the shaders below take these numbers, and the script uses the same
+  // ones to say where the bar is (the glass bar's edge, the entrance's timing), so the page and the paint never part.
+  // The bar is reflected along the 118deg axis LD and glides across the paint and back (a pass takes about 10 s):
+  // DRIFT is its place on that axis over time, CURVE the panel's curvature that bends it, SPAN how much paint a
+  // screen height shows, PAN the paint's slow drift a second.
+  const LD = [0.82, -0.57];
+  const DRIFT = [0.1, 0.5, 0.3, 0.05, 0.11];   // 0.1 + 0.5 sin(0.3 t) + 0.05 sin(0.11 t)
+  const CURVE = [0.05, 1.8, 0.4, 0.02, 3.1];   // 0.05 sin(1.8 y + 0.4) + 0.02 sin(3.1 x)
+  const SPAN = 1.35, PAN = [0.006, 0.0025];
+  const drift = (t) => DRIFT[0] + DRIFT[1] * Math.sin(t * DRIFT[2]) + DRIFT[3] * Math.sin(t * DRIFT[4]);
+  const curve = (x, y) => CURVE[0] * Math.sin(y * CURVE[1] + CURVE[2]) + CURVE[3] * Math.sin(x * CURVE[4]);
+  const glf = (v) => (Number.isInteger(v) ? v.toFixed(1) : String(v));   // as a GLSL float
 
   const VERT = `
 attribute vec2 aPos;
@@ -49,8 +67,8 @@ uniform float uDensity;    // how many water beads (1 = wet, ~0.3 = mostly clear
 uniform float uZoom;
 uniform float uScene;      // art only: 0 gloss, 1 beads, 2 leather, 3 split, 4 film
 uniform float uStudio;     // 1 = light mode: cream paint under a white softbox
-uniform float uSweep;      // 0..1 nudges the light bar by up to a quarter of the screen (0.5 = at rest)
-uniform float uSweepK;     // how far uSweep moves the bar (0.5: a quarter of the screen either way)
+uniform float uSweep;      // nudges the light bar along its axis by (uSweep - 0.5)*uSweepK (0.5 = at rest)
+uniform float uSweepK;     // how far uSweep moves the bar (the stills: 0.5, a quarter of the screen either way; the live hero: 1)
 uniform vec4 uFlow;        // the moving drops: travel (cells; 0 = none), share, cycles a second (0: one pass), its progress
 uniform float uForm;       // 0..1 the drops forming: each appears small at its own moment and beads up (1 = all formed)
 uniform float uMotes;      // 1 = the drifting specks of light in the air (the live hero)
@@ -67,15 +85,15 @@ const vec3 GOLD_HI = vec3(0.992, 0.867, 0.592);
 const vec3 CORE = vec3(1.0, 0.965, 0.863);
 const vec3 AMBER = vec3(0.60, 0.40, 0.10);
 const vec3 COOL = vec3(0.80, 0.82, 0.86);
-// One light for the whole site: a studio light bar reflected across the 118deg axis. It glides
-// across the paint and back (a pass takes about 10 s), slowing at the turns, and never leaves
-// the visible paint or jumps: the frame spans about +-1.3 on this axis at 1440 wide and +-0.8
-// on a phone, the bar stays within -0.45..0.65.
-const vec2 LD = vec2(0.82, -0.57);
-float lightPos(float t){ return 0.1 + 0.5*sin(t*0.3) + 0.05*sin(t*0.11) + (uSweep - 0.5)*uSweepK; }
+// One light for the whole site: a studio light bar reflected across the 118deg axis (the numbers come
+// from the script's LD, DRIFT and CURVE). It glides across the paint and back (a pass takes about 10 s),
+// slowing at the turns, and never leaves the visible paint or jumps: the frame spans about +-1.3 on this
+// axis at 1440 wide and +-0.8 on a phone, the bar stays within -0.45..0.65.
+const vec2 LD = vec2(${glf(LD[0])}, ${glf(LD[1])});
+float lightPos(float t){ return ${glf(DRIFT[0])} + ${glf(DRIFT[1])}*sin(t*${glf(DRIFT[2])}) + ${glf(DRIFT[3])}*sin(t*${glf(DRIFT[4])}) + (uSweep - 0.5)*uSweepK; }
 // Signed distance to the bar's centre line. The paint is not a mirror: orange peel
 // (fine normals) and the panel's curvature bend the reflection a little.
-float curvature(vec2 q){ return 0.05*sin(q.y*1.8 + 0.4) + 0.02*sin(q.x*3.1); }
+float curvature(vec2 q){ return ${glf(CURVE[0])}*sin(q.y*${glf(CURVE[1])} + ${glf(CURVE[2])}) + ${glf(CURVE[3])}*sin(q.x*${glf(CURVE[4])}); }
 float lightD(vec2 q, float t){
   float w = (noise(q*11.0) - 0.5)*0.008 + (noise(q*47.0) - 0.5)*0.0025;
   return dot(q, LD) - lightPos(t) + w + curvature(q);
@@ -212,7 +230,7 @@ vec3 layer(vec3 col, int k, vec2 q, float t, float blur, float sag, float d0, fl
   float keep = k <= 1 ? 1.0 - smoothstep(0.45, 0.65, blur) : 1.0;
   if (keep <= 0.0) return col;
   vec2 o; float rr; float tn; float fa;
-  vec4 clr = vec4(qc*sc + float(k)*17.3, vec2(0.7, 1.2)/(1.35*zoom*sc));   // on screen: length((uv - .5)*vec2(asp*.7, 1.2))
+  vec4 clr = vec4(qc*sc + float(k)*17.3, vec2(0.7, 1.2)/(${glf(SPAN)}*zoom*sc));   // on screen: length((uv - .5)*vec2(asp*.7, 1.2))
   // on cream paint every drop shows, so the studio carries fewer of them and the wordmark keeps its room
   float b = beads(q*sc + float(k)*17.3, dens*density*(1.0 - 0.4*uStudio), rmin, rmax, k == 0 ? 0.0 : sag, k >= 3 ? RUNS : 0.0, clr, hole, flow, o, rr, tn, fa);
   if (b < 0.5) return col;
@@ -277,8 +295,8 @@ vec3 layer(vec3 col, int k, vec2 q, float t, float blur, float sag, float d0, fl
 // hole: 0..1, a clearing behind the hero's text (the studio on a wide screen): the drops thin out
 // over an ellipse round the wordmark, tagline and buttons and keep their crisp edges everywhere else
 vec3 paint(vec2 uv, float asp, float t, float density, float zoom, float hole){
-  vec2 q = (uv - 0.5)*vec2(asp, 1.0)*1.35*zoom + vec2(t*0.006, t*0.0025);
-  vec2 qc = vec2(t*0.006, t*0.0025);    // the text block's centre: the middle of the screen
+  vec2 q = (uv - 0.5)*vec2(asp, 1.0)*${glf(SPAN)}*zoom + vec2(t*${glf(PAN[0])}, t*${glf(PAN[1])});
+  vec2 qc = vec2(t*${glf(PAN[0])}, t*${glf(PAN[1])});    // the text block's centre: the middle of the screen
   // shallow depth of field: sharp across the middle band, soft above and below
   float blur = smoothstep(0.10, 0.48, abs(uv.y - 0.46 - 0.04*sin(t*0.05)));
   float d0 = lightD(q, t);
@@ -301,7 +319,7 @@ vec3 paint(vec2 uv, float asp, float t, float density, float zoom, float hole){
 // A sheet of water lying flat on bare paint (the Bead Test's "before" side): soft
 // ripples, the bar smeared along the film, puddle edges that catch the light.
 vec3 film(vec2 uv, float asp, float t){
-  vec2 q = (uv - 0.5)*vec2(asp, 1.0)*1.35 + vec2(t*0.006, t*0.0025);
+  vec2 q = (uv - 0.5)*vec2(asp, 1.0)*${glf(SPAN)} + vec2(t*${glf(PAN[0])}, t*${glf(PAN[1])});
   float m = fbm(q*1.4 + 5.0) - 0.5;
   float inside = smoothstep(-0.012, 0.012, m);
   float edge = exp(-m*m*1800.0);
@@ -436,7 +454,7 @@ void main(){
   if (uMotes > 0.0){
     float m = motes(uv, asp, uTime);
     if (m > 0.0){
-      vec2 q = (uv - 0.5)*vec2(asp, 1.0)*1.35*uZoom + vec2(uTime*0.006, uTime*0.0025);
+      vec2 q = (uv - 0.5)*vec2(asp, 1.0)*${glf(SPAN)}*uZoom + vec2(uTime*${glf(PAN[0])}, uTime*${glf(PAN[1])});
       float d = dot(q, LD) - lightPos(uTime);
       c += CORE*m*(0.055 + 0.045*exp(-d*d*10.0))*uIntro*(1.0 - uStudio)*uMotes;
     }
@@ -496,6 +514,20 @@ void main(){
   const root = document.documentElement;
   const isLight = () => root.dataset.theme === 'light';
   const clamp01 = (v) => Math.min(1, Math.max(0, +v || 0));
+  // a CSS cubic-bezier as a function of 0..1 (clamped), so the script's own motion runs on the site's curves
+  function bezier(x1, y1, x2, y2) {
+    const B = (a, b, t) => 3 * a * (1 - t) * (1 - t) * t + 3 * b * (1 - t) * t * t + t * t * t;
+    const dB = (a, b, t) => 3 * a * (1 - t) * (1 - t) + 6 * (b - a) * (1 - t) * t + 3 * (1 - b) * t * t;
+    return (x) => {
+      if (!(x > 0)) return 0;
+      if (x >= 1) return 1;
+      // Newton's method: the site's curves are nowhere flat along x, so five steps are exact far below a pixel
+      let t = x;
+      for (let i = 0; i < 5; i++) { const d = dB(x1, x2, t); if (d < 1e-6) break; t = Math.min(1, Math.max(0, t - (B(x1, x2, t) - x) / d)); }
+      return B(y1, y2, t);
+    };
+  }
+  const inOut = bezier(0.65, 0, 0.35, 1);   // --ease-in-out, the curve of every pass of light
 
   function start(canvas, opts) {
     opts = opts || {};
@@ -516,14 +548,106 @@ void main(){
     const flow = opts.still ? [0, 0, 0] : opts.flow || (small ? [0, 0, 0] : [0.4, 0.12, 0.08]);
     const motes = !opts.still && opts.motes !== false;
     let P = null, raf = 0, last = 0, visible = true, lost = false, running = false, paused = false, stopped = false, vw = 0, vh = 0;
-    const t0 = performance.now();
-    const timeOffset = opts.time != null ? opts.time : 4 + Math.random() * 30;
+    let t0 = performance.now();   // set again once the shader is built, so a slow build never eats the light's fade-up
+    let timeOffset = opts.time != null ? opts.time : 4 + Math.random() * 30;
+    let zoom = 1, shown = { T: timeOffset, L: drift(timeOffset) }, rect = null;   // the last picture: its paint time, where its bar was
 
     // portrait screens see less of the surface, so zoom out a little there; the cream studio a little
     // more, so its drops stay small on the paint
     function applyZoom() {
       const portrait = canvas.clientHeight > canvas.clientWidth;
-      gl.uniform1f(P.uZoom, preset.zoom * (portrait ? 1.25 : 1) * (studio ? 1.2 : 1));
+      zoom = preset.zoom * (portrait ? 1.25 : 1) * (studio ? 1.2 : 1);
+      gl.uniform1f(P.uZoom, zoom);
+    }
+    // the canvas on the screen, kept in page coordinates (so a scroll needs no layout) and taken from the observer's
+    // reports below, which come from the page's own layout: a picture never makes the page lay out. Measured only for
+    // a still and for enter() (called once the page is laid out); null until then
+    function place(r) { rect = r && r.width > 0 ? { left: r.left + window.scrollX, top: r.top + window.scrollY, w: r.width, h: r.height || 1 } : null; }
+    function box(measure) {
+      if (!rect && measure) place(canvas.getBoundingClientRect());
+      return rect && { left: rect.left - window.scrollX, top: rect.top - window.scrollY, w: rect.w, h: rect.h };
+    }
+    // a screen point's place on the light's axis at paint time T: the bar's centre line passes through it when the
+    // bar is there (the shader's paint() coordinates and lightD(), without the orange peel)
+    function axisAt(x, y, T, r) {
+      const k = SPAN * zoom;
+      const qx = ((x - r.left) / r.w - 0.5) * (r.w / r.h) * k + T * PAN[0], qy = (0.5 - (y - r.top) / r.h) * k + T * PAN[1];
+      return qx * LD[0] + qy * LD[1] + curve(qx, qy);
+    }
+    // where the bar's centre line crosses the screen row y in the last picture (px; null before the canvas is placed)
+    function lineX(y) {
+      const r = box(!!opts.still), k = SPAN * zoom, { T, L } = shown;
+      if (!r) return null;
+      const qy = (0.5 - (y - r.top) / r.h) * k + T * PAN[1];
+      let qx = 0;
+      for (let i = 0; i < 3; i++) qx = (L - qy * LD[1] - curve(qx, qy)) / LD[0];
+      return r.left + ((qx - T * PAN[0]) / ((r.w / r.h) * k) + 0.5) * r.w;
+    }
+
+    // The studio light comes on (opts.entrance, from enter(rowY, endX) on, which the page calls as the hero's intro
+    // starts). Until then the bar rests where it always has, unseen (the light fades up from 0.3 s). From enter() it
+    // waits at the left edge on the wordmark's row (rowY), its centre just beyond it, while the light comes up; it glides
+    // across the paint to just past the word's end (endX, at least IN.to of the width) in IN.glide on --ease-in-out, so
+    // the crossing itself takes about IN.glide, and slows there, where its own drift takes it on (over
+    // IN.back the two blend), and from then on the hero is as it always was. The path is measured on the wordmark's
+    // row in widths of the screen, so a phone sees the light cross at the same pace as a desk. Its clock stops while
+    // the hero is paused (the menu over it) and runs on, unseen, off the screen or in a hidden tab. enter() later
+    // than 0.35 s after the shader was built (the light already up) plays nothing; a first picture that comes only
+    // once the glide is under way (a stalled start, IN.at + 0.3 s after enter()) cancels it (onSkip), so the bar never
+    // pops in part way across: it is at rest, as before.
+    const IN = { at: 0.5, glide: 3.6, back: 5, tail: 1, from: -0.05, to: 0.86 };
+    let armed = !!opts.entrance && !opts.still, entry = null;
+    function entryAt(s, rest) {
+      const g = (s - IN.at) / IN.glide, x = entry.from + (entry.to - entry.from) * inOut(g);
+      return g < 1 ? x : x + (rest - x) * inOut((s - IN.at - IN.glide) / IN.back);
+    }
+    function enter(rowY, endX) {
+      if (!armed || lost) return null;
+      armed = false;
+      const now = performance.now();
+      if (now - t0 > 350) return null;
+      const r = box(true), turn = IN.at + IN.glide, end = turn + IN.back;
+      const toX = r.left + Math.min(0.95, Math.max(IN.to, ((endX || 0) - r.left) / r.w)) * r.w;
+      const tAt = (s) => timeOffset + (now - t0) / 1000 + s;   // paint time s seconds into the entrance
+      // the drift takes the bar on where it slows: the paint's clock is set now (unseen, the light still dark) so the
+      // drift is there at that moment and on its way back, and from the turn the bar simply drifts on with it
+      // (where the turn is beyond the drift's reach, as near as it comes: its own turn). The clock is scanned in
+      // quarter seconds, one of the nearly best is taken at random (each visit sees the paint at another moment),
+      // and the best fit is found around it
+      if (opts.time == null) {
+        const base = (now - t0) / 1000 + turn;
+        const miss = (o) => { const T = o + base; return drift(T + 0.05) <= drift(T) ? Math.abs(drift(T) - axisAt(toX, rowY, T, r)) : Infinity; };
+        const fits = [];
+        let best = Infinity;
+        for (let o = 4; o <= 34; o += 0.25) { const m = miss(o); fits.push(m); if (m < best) best = m; }
+        const near = [];
+        fits.forEach((m, i) => { if (m < best + 0.03) near.push(4 + i * 0.25); });
+        let pick = near[Math.floor(Math.random() * near.length)], pm = miss(pick);
+        for (let o = pick - 0.2, k = 0; k <= 8; k++, o += 0.05) { const m = miss(o); if (m < pm) { pm = m; pick = o; } }
+        timeOffset = pick;
+      }
+      entry = { at: now, held: 0, pausedAt: 0, seen: !wanted(), from: axisAt(r.left + IN.from * r.w, rowY, tAt(IN.at), r), to: axisAt(toX, rowY, tAt(turn), r) };
+      // how far the bar's centre is past a screen point s seconds into the entrance (its drift taking it on after)
+      const past = (x, y, s) => entryAt(s, drift(tAt(s))) - axisAt(x, y, tAt(s), r);
+      // the moment it changes sign between lo and hi, found by halving (ms after enter())
+      const halve = (x, y, lo, hi, n) => {
+        const sign = past(x, y, lo) < 0;
+        for (let i = 0; i < n; i++) { const s = (lo + hi) / 2; if ((past(x, y, s) < 0) === sign) lo = s; else hi = s; }
+        return Math.round(hi * 1000);
+      };
+      // when the bar's centre first reaches a screen point: it only moves on during the glide; null for a point
+      // beyond its turn
+      function when(x, y) {
+        if (past(x, y, turn) < 0) return null;
+        return past(x, y, IN.at) >= 0 ? IN.at * 1000 : halve(x, y, IN.at, turn, 14);
+      }
+      // when it has gone back past that point on its way back, within the entrance or IN.tail after it; null if not
+      function back(x, y) {
+        if (past(x, y, turn) < 0) return null;
+        for (let s = turn + 0.25; s <= end + IN.tail; s += 0.25) if (past(x, y, s) < 0) return halve(x, y, s - 0.25, s, 8);
+        return null;
+      }
+      return { when, back, turn: turn * 1000, end: end * 1000 };
     }
     function setup() {
       // the moving drops are compiled in only when they move
@@ -531,8 +655,8 @@ void main(){
       gl.uniform1f(P.uDensity, preset.density);
       applyZoom();
       gl.uniform1f(P.uStudio, studio ? 1 : 0);
-      gl.uniform1f(P.uSweep, sweep);
-      gl.uniform1f(P.uSweepK, 0.5);
+      gl.uniform1f(P.uSweep, 0.5);
+      gl.uniform1f(P.uSweepK, 1);   // draw() places the bar: uSweep carries its offset from the drift
       gl.uniform4f(P.uFlow, flow[0], flow[1], flow[2], 0);
       gl.uniform1f(P.uForm, 1);
       gl.uniform1f(P.uMotes, motes ? 1 : 0);
@@ -548,11 +672,25 @@ void main(){
     function draw(now) {
       if (lost) return;
       resize();
-      const secs = (now - t0) / 1000;
+      const secs = (now - t0) / 1000, T = timeOffset + (opts.still ? 0 : secs);
+      // where the bar is: its drift (setSweep nudges it by up to a quarter of the screen), or the entrance's path
+      let L = drift(T) + (sweep - 0.5) * 0.5;
+      if (entry) {
+        const s = (now - entry.at - entry.held) / 1000;
+        if (!entry.seen) {
+          entry.seen = true;
+          if (s > IN.at + 0.3) { entry = null; if (opts.onSkip) opts.onSkip(); }
+        }
+        if (entry && s >= IN.at + IN.glide + IN.back) entry = null;
+        else if (entry) L = entryAt(s, L);
+      }
       gl.uniform2f(P.uRes, canvas.width, canvas.height);
-      gl.uniform1f(P.uTime, timeOffset + (opts.still ? 0 : secs));
+      gl.uniform1f(P.uTime, T);
       gl.uniform1f(P.uIntro, opts.still ? 1 : Math.min(1, Math.max(0, (secs - 0.3) / 1.6)));
+      gl.uniform1f(P.uSweep, 0.5 + L - drift(T));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      shown = { T, L };
+      if (opts.onFrame) opts.onFrame(api);
     }
     function loop(now) {
       raf = requestAnimationFrame(loop);
@@ -584,9 +722,7 @@ void main(){
     }
     function setSweep(v) {
       sweep = clamp01(v);
-      if (lost) return;
-      gl.uniform1f(P.uSweep, sweep);
-      if (opts.still) drawNow();
+      if (!lost && opts.still) drawNow();   // live, the next picture takes it
     }
     // A lost context (the tab in the background too long, the GPU reset): the loop stops and
     // the CSS fallback shows (html.no-hero-gl) until the browser gives the context back.
@@ -603,30 +739,46 @@ void main(){
       if (opts.still) drawNow(); else follow();
     });
     setup();
+    t0 = performance.now();
 
+    const api = {
+      stop() { stopped = true; halt(); if (io) io.disconnect(); document.removeEventListener('visibilitychange', follow); if (themeWatch) themeWatch.disconnect(); window.removeEventListener('resize', onResize); },
+      pause() {
+        paused = true; halt();
+        if (entry && !entry.pausedAt) entry.pausedAt = performance.now();
+      },
+      resume() {
+        if (entry && entry.pausedAt) { entry.held += performance.now() - entry.pausedAt; entry.pausedAt = 0; }
+        paused = false; follow();
+      },
+      setStudio,
+      setSweep,
+      enter,
+      lineX,
+    };
     // the studio preset follows the site's theme unless the caller chose
     let themeWatch = null;
     if (opts.studio == null && window.MutationObserver) {
       themeWatch = new MutationObserver(() => setStudio(isLight()));
       themeWatch.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
     }
-    const onResize = opts.still ? drawNow : resize;
+    // a new size: the still is measured again as it is drawn; the live hero waits for the observer's next report
+    // (observed afresh), and its glass light holds still until then
+    const onResize = () => {
+      if (opts.still) { rect = null; drawNow(); return; }
+      resize();
+      if (io) { io.unobserve(canvas); io.observe(canvas); }
+    };
     window.addEventListener('resize', onResize);
     let io = null;
     if (opts.still) drawNow();
     else {
-      io = new IntersectionObserver((es) => { visible = es[es.length - 1].isIntersecting; follow(); }, { threshold: 0 });
+      io = new IntersectionObserver((es) => { const e = es[es.length - 1]; visible = e.isIntersecting; place(e.boundingClientRect); follow(); }, { threshold: 0 });
       io.observe(canvas);
       document.addEventListener('visibilitychange', follow);
       run();
     }
-    return {
-      stop() { stopped = true; halt(); if (io) io.disconnect(); document.removeEventListener('visibilitychange', follow); if (themeWatch) themeWatch.disconnect(); window.removeEventListener('resize', onResize); },
-      pause() { paused = true; halt(); },
-      resume() { paused = false; follow(); },
-      setStudio,
-      setSweep,
-    };
+    return api;
   }
 
   // One shared offscreen context for every still picture. Its canvas only grows: each picture is drawn into its
