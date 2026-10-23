@@ -11,7 +11,7 @@
                  film (a sheet of water lying flat on bare paint).
 
    The light is the same everywhere on the site: a warm bar (#fff6dc core,
-   #ebb758 body, a wide amber halo) reflected along the 118deg axis, gliding
+   #f5ba4c body, a wide amber halo) reflected along the 118deg axis, gliding
    across the paint and back without ever leaving the frame, with a faint
    cooler panel beside it. The "studio" preset turns the black paint into
    cream paint under a white softbox for light mode.
@@ -61,9 +61,9 @@ float noise(vec2 p){
   return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a*noise(p); p = p*2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
-// The brand's gold (--au-500 #ebb758, --au-200 #fadc9c), the light's warm core (--au-100 #fff6dc) and its deep amber falloff.
-const vec3 GOLD = vec3(0.922, 0.718, 0.345);
-const vec3 GOLD_HI = vec3(0.980, 0.863, 0.612);
+// The brand's gold (--au-500 #f5ba4c, --au-200 #fddd97), the light's warm core (--au-100 #fff6dc) and its deep amber falloff.
+const vec3 GOLD = vec3(0.961, 0.729, 0.298);
+const vec3 GOLD_HI = vec3(0.992, 0.867, 0.592);
 const vec3 CORE = vec3(1.0, 0.965, 0.863);
 const vec3 AMBER = vec3(0.60, 0.40, 0.10);
 const vec3 COOL = vec3(0.80, 0.82, 0.86);
