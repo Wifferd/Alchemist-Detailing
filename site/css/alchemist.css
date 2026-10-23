@@ -24,7 +24,16 @@
   --gold-hi: #f8dd98;
   --gold-pale: #fff3cf;
   --gold-deep: #8f6a1c;
-  --gold-grad: linear-gradient(105deg, #9a7322 0%, #d9ac3f 22%, #f6dc96 46%, #fffbe8 52%, #efc65c 62%, #c3932c 82%, #9a7322 100%);
+  /* the polished gold's stops, written once: --gold-grad is made of them, and so are Book Now's gold and its
+     reflection (--gold-base, --gold-glare, below), so a change of gold here reaches every gold surface. The hot spot
+     is kept as channels, because the reflection's soft edges are the same colour at lower alpha */
+  --gold-s1: #9a7322;
+  --gold-s2: #d9ac3f;
+  --gold-s3: #f6dc96;
+  --gold-s4: 255, 251, 232;   /* #fffbe8 */
+  --gold-s5: #efc65c;
+  --gold-s6: #c3932c;
+  --gold-grad: linear-gradient(105deg, var(--gold-s1) 0%, var(--gold-s2) 22%, var(--gold-s3) 46%, rgb(var(--gold-s4)) 52%, var(--gold-s5) 62%, var(--gold-s6) 82%, var(--gold-s1) 100%);
   --gold-text: linear-gradient(180deg, #fff6d8 0%, #f6dc96 30%, #e2b952 56%, #b88a27 80%, #f0c966 100%);
   --on-gold: #110c02;
   /* gold as ink (small gold text): the gold itself on black, the deep gold on cream (6:1) */
@@ -45,6 +54,20 @@
   --ease: cubic-bezier(.2, .8, .2, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
   --ease-unveil: cubic-bezier(.16, 1, .3, 1);   /* unveils and glides: a long, calm settle, no overshoot */
+  /* the press: it lands under the finger within 80ms and springs back in 180ms (app.js holds it 80ms after the lift) */
+  --dur-press: 80ms;
+  --dur-release: 180ms;
+  --press-glass: rgba(0, 0, 0, .34);     /* glass pressed against the black */
+  --press-shade: rgba(0, 0, 0, .6);      /* a card's inner shade as it goes in */
+  --press-rim: rgba(226, 185, 82, .55);  /* a hairline warmed toward gold */
+  /* three empty outer shadows ahead of a press's inner shade: they line up with a chosen glow or a contact shadow
+     (three at most), so the browser blends the two lists instead of swapping them in one frame */
+  --press-under: 0 0 0 0 transparent, 0 0 0 0 transparent, 0 0 0 0 transparent;
+  /* Book Now's gold: today's polished gradient (the stops above), its bright reflection lifted onto a layer of its own
+     (.btn-gold::before) so it can slide along the button as the page scrolls. At rest the two together are
+     --gold-grad, stop for stop */
+  --gold-base: linear-gradient(105deg, var(--gold-s1) 0%, var(--gold-s2) 22%, var(--gold-s3) 46%, var(--gold-s5) 62%, var(--gold-s6) 82%, var(--gold-s1) 100%);
+  --gold-glare: linear-gradient(105deg, rgba(var(--gold-s4), 0) 46%, rgba(var(--gold-s4), .56) 49%, rgb(var(--gold-s4)) 52%, rgba(var(--gold-s4), .63) 55%, rgba(var(--gold-s4), .33) 58%, rgba(var(--gold-s4), 0) 62%);
   --col: 1180px;
   --gutter: clamp(16px, 4vw, 40px);
   /* spacing scale (8pt) */
@@ -87,6 +110,9 @@
 *, *::before, *::after { box-sizing: border-box; }
 /* scroll-padding keeps a focused or scrolled-to element clear of the floating bar above and the booking's sticky bar below */
 html { -webkit-text-size-adjust: 100%; scroll-behavior: auto; scroll-padding-top: calc(86px + env(safe-area-inset-top, 0px)); scroll-padding-bottom: 110px; }
+/* no browser tap flash (Android's blue box, iPhone's grey): each pressable answers with its own press (app.js, the press
+   section below). Without JavaScript there is no press, so the browser's flash stays */
+html:not(.no-js) { -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0;
   background: var(--bg);
@@ -287,7 +313,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   white-space: nowrap;
   flex-shrink: 0;
   touch-action: manipulation;
-  transition: transform .35s var(--ease), box-shadow .35s var(--ease), filter .35s var(--ease), background-color .35s var(--ease), border-color .35s var(--ease), color .35s var(--ease);
+  transition: transform .35s var(--ease), translate .35s var(--ease), box-shadow .35s var(--ease), filter .35s var(--ease), background-color .35s var(--ease), border-color .35s var(--ease), color .35s var(--ease);
 }
 /* the two big moments (hero, closing band) get the larger cut */
 .btn-lg { --h: 58px; padding: 0 34px; font-size: 14px; letter-spacing: var(--tr-label); border-radius: 16px; }
@@ -299,31 +325,74 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .btn .tel-mark { width: 16px; height: 16px; flex-shrink: 0; }
 .btn[href^="tel:"] .tnum { letter-spacing: .06em; }
 .btn-gold {
-  background: var(--gold-grad);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--gold-base);
   background-size: 220% 100%;
   background-position: 30% 0;
   color: var(--on-gold);
   box-shadow: 0 10px 30px -12px rgba(226, 185, 82, .55), inset 0 1px 0 rgba(255, 248, 225, .6), inset 0 -1px 0 rgba(90, 55, 10, .5);
 }
-.btn-gold:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.08) saturate(1.05);
-  box-shadow: 0 18px 40px -14px rgba(226, 185, 82, .75), 0 0 0 1px rgba(248, 221, 152, .35), inset 0 1px 0 rgba(255, 248, 225, .7);
-  background-position: 70% 0;
+/* the bright reflection, on a layer cut to the gradient's own size (220% wide, from -36%), so at rest it sits exactly
+   where it always sat, 78% along the button, under the words. It moves only by transform: with the scroll (below),
+   and toward a mouse (translate) */
+.btn-gold::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -36%;
+  width: 220%;
+  z-index: -1;
+  background: var(--gold-glare);
+  pointer-events: none;
+  transition: translate .25s var(--ease);
 }
-.btn-gold:active { transform: translateY(0) scale(.98); }
+@media (hover: hover) and (pointer: fine) {   /* a mouse only: a tap leaves no lifted, brightened button behind */
+  .btn-gold:hover:not(:disabled, .pressed, .launch) {
+    transform: translateY(-2px);
+    filter: brightness(1.08) saturate(1.05);
+    box-shadow: 0 18px 40px -14px rgba(226, 185, 82, .75), 0 0 0 1px rgba(248, 221, 152, .35), inset 0 1px 0 rgba(255, 248, 225, .7);
+  }
+  /* the reflection leans a little toward the pointer (--mx from app.js), a 250ms glide behind it */
+  .btn-gold.glint:hover::before { translate: calc((var(--mx, 78.4%) - 78.4%) * .2) 0; }
+}
+/* while the page scrolls, the reflection slides along the button, like light along a car door as you walk past it,
+   and it stops when the scrolling stops: it comes in at the right end as the button rises from the foot of the
+   screen and glides to about a third of the way along as it leaves at the top; wherever a button sits a little
+   below the middle of the screen, it is where it always sat. The hero's Book Now follows the page's own scroll
+   instead: at the top of the page, on every screen, it is exactly where it always sat, and it glides along over
+   the first screen of scroll. It rides the
+   browser's own scroll timeline (no script, on the compositor), on the public pages only: booking and the account
+   stay still. Without the timeline, without JavaScript and under reduced motion it rests where it always sat. A
+   frame around a button only clips, so it does not become a scroller of its own (with overflow: hidden it would, and
+   the timeline would read that frame, which never moves) */
+@supports (animation-timeline: view()) and (overflow: clip) {
+  :root :is(.hero, .cta-band, .price-card.featured, .el-panel, .rv-unissued) { overflow: clip; }
+  @media (prefers-reduced-motion: no-preference) {
+    html:not(.no-js) :is([data-view="home"], [data-view="services"], [data-view="gallery"], [data-view="reviews"], [data-view="content"]) .btn-gold { view-timeline: --glare block; }
+    html:not(.no-js) :is([data-view="home"], [data-view="services"], [data-view="gallery"], [data-view="reviews"], [data-view="content"]) .btn-gold::before { animation: glare linear both; animation-timeline: --glare; }
+    html:not(.no-js) [data-view="home"] .hero .btn-gold::before { animation-name: glareHero; animation-timeline: scroll(root); animation-range: 0 100svh; }
+  }
+}
+/* from 108% to 36% of the button's width (78.4%, its resting place, at 41.5% of the way), in the layer's own width
+   (2.2 times the button's); the timeline's view is the screen less the bars (the page's scroll-padding). The hero's
+   starts at rest (78.4%) and ends at the same 36% */
+@keyframes glare { from { transform: translateX(13.6%); } to { transform: translateX(-19.1%); } }
+@keyframes glareHero { from { transform: translateX(0); } to { transform: translateX(-19.1%); } }
 .btn-glass {
   background: rgba(255, 255, 255, .04);
   border-color: var(--line);
   color: var(--ink);
 }
-@media (hover: hover) and (pointer: fine) { .btn-glass:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-hi); transform: translateY(-2px); } }   /* a mouse only: a tap leaves no gold ring behind */
+@media (hover: hover) and (pointer: fine) { .btn-glass:hover:not(:disabled, .pressed) { border-color: var(--gold); color: var(--gold-hi); transform: translateY(-2px); } }   /* a mouse only: a tap leaves no gold ring behind */
 .btn .arrow { transition: transform .35s var(--ease); }
-.btn:hover .arrow { transform: translateX(4px); }
+@media (hover: hover) and (pointer: fine) { .btn:hover .arrow { transform: translateX(4px); } }
 /* disabled: dimmed, flat, no light. A disabled gold button drops to the panel grey, so it never reads as the
    thing to press (after the hovers, so a hover over it changes nothing) */
 .btn:disabled, .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
-.btn:disabled::after, .btn[aria-disabled="true"]::after { display: none; }
+.btn:disabled::after, .btn[aria-disabled="true"]::after, .btn:disabled::before, .btn[aria-disabled="true"]::before { display: none; }
 .btn-gold:disabled, .btn-gold[aria-disabled="true"] { background: var(--panel-2); color: var(--muted); border-color: var(--hair); }
 .btn-glass:disabled, .btn-glass[aria-disabled="true"] { border-color: var(--hair); color: var(--muted); }
 
@@ -371,8 +440,10 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   touch-action: manipulation;
   transition: transform .18s var(--ease), box-shadow .25s var(--ease), color .25s var(--ease);
 }
-.icon-btn:hover { color: var(--gold-hi); }
-.icon-btn:hover:not(:active):not(.pressed) { transform: translateY(-1px); }
+@media (hover: hover) and (pointer: fine) {   /* a mouse only: after a tap the button is not left lifted */
+  .icon-btn:hover { color: var(--gold-hi); }
+  .icon-btn:hover:not(:active):not(.pressed) { transform: translateY(-1px); }
+}
 .icon-btn:active, .icon-btn.pressed {
   transform: translateY(1px) scale(.94);
   transition-duration: .09s;
@@ -409,8 +480,8 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .page-name span.in-start { transform: translateY(110%); opacity: 0; }
 .bar-right { justify-self: end; display: flex; align-items: center; gap: 8px; }
 .bar-left { justify-self: start; }
-.brand-link { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; border: 1px solid transparent; transition: box-shadow .35s var(--ease); }
-.brand-link:hover { box-shadow: 0 0 18px -6px rgba(226, 185, 82, .6); }
+.brand-link { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; border: 1px solid transparent; transition: box-shadow .35s var(--ease), opacity .35s var(--ease); }
+@media (hover: hover) and (pointer: fine) { .brand-link:hover { box-shadow: 0 0 18px -6px rgba(226, 185, 82, .6); } }
 .brand-link svg { width: 34px; height: 34px; filter: drop-shadow(0 0 10px rgba(226, 185, 82, .25)); }
 /* without JavaScript, a note under the bar (the <noscript> block after the header): what still works, and the number to call */
 .nojs-note { position: sticky; top: calc(86px + env(safe-area-inset-top, 0px)); z-index: 59; width: min(100% - 24px, var(--col)); margin: 0 auto; padding: 12px 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--glass-strong); color: var(--ink-2); font-size: var(--fs-md); text-align: center; text-wrap: balance; }
@@ -513,9 +584,13 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   transition: transform .4s var(--ease), opacity .3s var(--ease), box-shadow .4s var(--ease);
 }
 /* pointed at or reached by Tab: gold, the line drawn and lit, a soft glow on the word, a 4px step */
-.menu nav a:is(:hover, :focus-visible, [aria-current="page"]) { color: var(--gold-hi); }
-.menu nav a:is(:hover, :focus-visible) { text-shadow: 0 0 22px rgba(226, 185, 82, .4); translate: 4px 0; }
-.menu nav a:is(:hover, :focus-visible)::before { opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .5); }
+.menu nav a:is(:focus-visible, [aria-current="page"]) { color: var(--gold-hi); }
+.menu nav a:focus-visible { text-shadow: 0 0 22px rgba(226, 185, 82, .4); translate: 4px 0; }
+.menu nav a:focus-visible::before { opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .5); }
+@media (hover: hover) and (pointer: fine) {   /* a mouse only: a tapped item is not still lit when the menu opens again */
+  .menu nav a:hover { color: var(--gold-hi); text-shadow: 0 0 22px rgba(226, 185, 82, .4); translate: 4px 0; }
+  .menu nav a:hover::before { opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .5); }
+}
 .menu nav a[aria-current="page"]::before { width: 34px; opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .6); }
 /* the keyboard ring in the panel's soft shapes, drawn close so it stays inside the short-screen scroller (below) with the 4px step */
 .menu nav a:focus-visible { outline-offset: 2px; border-radius: var(--r-sm); }
@@ -525,7 +600,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .menu-foot .btn { width: 100%; }
 .menu-sub { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .menu-sub .call { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; margin-right: -8px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font: 600 13px/1 var(--font-ui); letter-spacing: .06em; white-space: nowrap; transition: color .3s var(--ease); }
-.menu-sub .call:hover { color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .menu-sub .call:hover { color: var(--gold-hi); } }
 .menu-sub :focus-visible { outline-offset: -2px; }   /* the ring sits just inside the 44px box, 6px clear of the gold button above */
 /* a short screen (a laptop's browser window, a phone with its browser bars showing): a tighter rhythm, and below 710px
    the Book Now item steps aside for the gold Book Now just under it, so the whole menu fits a 664px iPhone screen.
@@ -862,17 +937,25 @@ section { position: relative; }
   transition: opacity .4s var(--ease);
   pointer-events: none;
 }
-.svc-card:hover, .svc-card:focus-visible, .svc-card.lit { border-color: rgba(226, 185, 82, .35); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .95), 0 0 40px -12px rgba(226, 185, 82, .3); }
-.svc-card:hover::after, .svc-card:focus-visible::after, .svc-card.lit::after { opacity: 1; transition-duration: .6s; }
-.svc-card:hover .photo, .svc-card:focus-visible .photo, .svc-card.lit .photo { transform: scale(1.055); filter: brightness(1) saturate(1); }
-.svc-card:hover .art, .svc-card:focus-visible .art, .svc-card.lit .art { transform: scale(1.055); filter: brightness(1) contrast(1.06); }
+.svc-card:focus-visible, .svc-card.lit { border-color: rgba(226, 185, 82, .35); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .95), 0 0 40px -12px rgba(226, 185, 82, .3); }
+.svc-card:focus-visible::after, .svc-card.lit::after { opacity: 1; transition-duration: .6s; }
+.svc-card:focus-visible .photo, .svc-card.lit .photo { transform: scale(1.055); filter: brightness(1) saturate(1); }
+.svc-card:focus-visible .art, .svc-card.lit .art { transform: scale(1.055); filter: brightness(1) contrast(1.06); }
 /* as the row's light crosses after the wash (app.js rowPlay), each picture on the screen brightens to its lit state
    just behind the band and settles back to its satin rest (--au-lit-at: just before the light reaches the card's
    centre); one already lit stays lit. The photo itself stays still */
 .svc-grid.au-run .au-glow :is(.photo, .art) { animation: cardLit 1.2s var(--ease-in-out) var(--au-lit-at, 0s) 1; }
 @keyframes cardLit { 30% { filter: brightness(1) saturate(1); } }
-.svc-card:hover .price, .svc-card:focus-visible .price, .svc-card.lit .price { color: var(--gold-hi); text-shadow: 0 0 18px rgba(248, 221, 152, .35); }
-.svc-card:hover .go .arrow, .svc-card:focus-visible .go .arrow, .svc-card.lit .go .arrow { transform: translateX(5px); }
+.svc-card:focus-visible .price, .svc-card.lit .price { color: var(--gold-hi); text-shadow: 0 0 18px rgba(248, 221, 152, .35); }
+.svc-card:focus-visible .go .arrow, .svc-card.lit .go .arrow { transform: translateX(5px); }
+@media (hover: hover) and (pointer: fine) {   /* the same lit card under a mouse; a finger gets .lit on arrival instead, and a tap leaves nothing behind */
+  .svc-card:hover { border-color: rgba(226, 185, 82, .35); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .95), 0 0 40px -12px rgba(226, 185, 82, .3); }
+  .svc-card:hover::after { opacity: 1; transition-duration: .6s; }
+  .svc-card:hover .photo { transform: scale(1.055); filter: brightness(1) saturate(1); }
+  .svc-card:hover .art { transform: scale(1.055); filter: brightness(1) contrast(1.06); }
+  .svc-card:hover .price { color: var(--gold-hi); text-shadow: 0 0 18px rgba(248, 221, 152, .35); }
+  .svc-card:hover .go .arrow { transform: translateX(5px); }
+}
 /* entrance, scrubbed by the rinse (--r goes 0 -> 1) */
 .svc-card[data-enter="up"] { transform: translateY(calc((1 - var(--r)) * 70px)); opacity: var(--r); }
 .svc-card[data-enter="side"] { transform: translateX(calc((1 - var(--r)) * 60px)); opacity: var(--r); }
@@ -905,7 +988,7 @@ section { position: relative; }
   border: 1px solid rgba(255, 255, 255, .06);
   transition: transform .35s var(--ease), border-color .4s var(--ease);
 }
-.why-item:hover { border-color: var(--line); transform: translateY(-2px); }
+@media (hover: hover) and (pointer: fine) { .why-item:hover { border-color: var(--line); transform: translateY(-2px); } }
 .why-item svg { width: 36px; height: 36px; color: var(--gold); }
 .why-item h3 { margin: 18px 0 8px; font: 700 var(--fs-sm)/1.3 var(--font-ui); letter-spacing: var(--tr-title); text-transform: uppercase; }
 .why-item h3::before { content: ""; display: block; width: 24px; height: 1px; background: var(--hair); margin: 0 0 14px; }   /* a neutral hairline: the icon carries the gold */
@@ -940,7 +1023,7 @@ section { position: relative; }
   color: var(--ink);
   text-decoration: none;
   touch-action: manipulation;
-  transition: transform .35s var(--ease), border-color .4s var(--ease);
+  transition: transform .35s var(--ease), border-color .4s var(--ease), box-shadow .4s var(--ease);
 }
 .door .line { width: 44px; height: 1px; margin: 18px 0 22px; background: linear-gradient(90deg, var(--gold), transparent); transform-origin: left; }
 /* the short gold line draws itself in from the left once its card has risen, as the section rules do; it waits only
@@ -1015,7 +1098,7 @@ section { position: relative; }
 .footer .foot-script { margin: 14px 0 0; font-size: clamp(18px, 1.5vw, 21px); color: var(--gold-ink); }
 .footer h2 { margin: 0 0 12px; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-eyebrow); text-transform: uppercase; color: var(--gold-ink); }
 .footer p, .footer a { margin: 0 0 6px; font-size: var(--fs-md); text-decoration: none; display: block; }
-.footer a:hover { color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .footer a:hover { color: var(--gold-hi); } }
 .footer p { text-wrap: balance; }   /* where a line has to break, it breaks evenly */
 /* every page, in two short lists side by side (five, then four) */
 .foot-links { display: grid; grid-template-rows: repeat(5, auto); grid-auto-flow: column; justify-content: start; column-gap: 32px; }
@@ -1197,7 +1280,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .svc-jump a:last-of-type { margin-right: auto; }
 .svc-jump .no { font-weight: 600; letter-spacing: .08em; color: var(--muted); transition: color .3s var(--ease); }
 :where(:root:not([data-theme="light"])) .svc-jump .no { color: var(--ink-2); }   /* on the bar's glass over the photo the grey falls under 4.5:1 */
-.svc-jump a:hover, .svc-jump a[aria-current] { color: var(--ink); }
+.svc-jump a[aria-current] { color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .svc-jump a:hover { color: var(--ink); } }
 .svc-jump a[aria-current] .no { color: var(--gold-ink); }
 .svc-jump a:focus-visible { outline-offset: -7px; }   /* inside the strip, where an outer ring would be clipped */
 .svc-jump-ink { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; background: var(--gold); transform-origin: 0 50%; transform: translateX(var(--x, 0px)) scaleX(var(--w, 0)); opacity: 0; pointer-events: none; transition: transform .55s var(--ease-unveil), opacity .35s var(--ease); }
@@ -1285,12 +1369,20 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   transition: border-color .4s var(--ease), transform .4s var(--ease), box-shadow .4s var(--ease);
 }
 .price-card.featured { border-color: rgba(226, 185, 82, .3); background: var(--sheen, none), radial-gradient(120% 70% at 100% 0%, rgba(226, 185, 82, .09), transparent 60%), linear-gradient(180deg, #121212, #080808); }
-.price-card:hover { border-color: rgba(226, 185, 82, .45); transform: translateY(-3px); box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .9), 0 0 36px -14px rgba(226, 185, 82, .3); }
-.price-card.featured:hover { border-color: rgba(226, 185, 82, .55); }
-/* pointed at, or its button reached by Tab: the price brightens and the button's arrow moves on, as on the home cards */
-.price-card:focus-within { border-color: rgba(226, 185, 82, .45); }
-.price-card:is(:hover, :focus-within) .amount { color: var(--gold-pale); text-shadow: 0 0 18px rgba(248, 221, 152, .3); }
-.price-card:is(:hover, :focus-within) .btn .arrow { transform: translateX(4px); }
+/* pointed at (a mouse), or its button reached by Tab: the price brightens and the button's arrow moves on, as on the
+   home cards. A tap leaves none of it behind: no hover on a touch screen, and a tapped button is focused but not
+   focus-visible */
+@media (hover: hover) and (pointer: fine) {
+  .price-card:hover { border-color: rgba(226, 185, 82, .45); transform: translateY(-3px); box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .9), 0 0 36px -14px rgba(226, 185, 82, .3); }
+  .price-card.featured:hover { border-color: rgba(226, 185, 82, .55); }
+}
+.price-card:has(:focus-visible) { border-color: rgba(226, 185, 82, .45); }
+.price-card:has(:focus-visible) .amount { color: var(--gold-pale); text-shadow: 0 0 18px rgba(248, 221, 152, .3); }
+.price-card:has(:focus-visible) .btn .arrow { transform: translateX(4px); }
+@media (hover: hover) and (pointer: fine) {
+  .price-card:hover .amount { color: var(--gold-pale); text-shadow: 0 0 18px rgba(248, 221, 152, .3); }
+  .price-card:hover .btn .arrow { transform: translateX(4px); }
+}
 .price-card h3 { margin: 0; font: 600 clamp(17px, 1.7vw, 20px)/1.2 var(--font-display); letter-spacing: var(--tr-title); text-transform: uppercase; }
 .price-card .tag ~ h3 { padding-right: clamp(72px, 26vw, 100px); }
 .price-card .tag { position: absolute; z-index: 1; top: clamp(22px, 3vw, 32px); right: clamp(22px, 3vw, 32px); font: 700 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold-ink); }
@@ -1334,7 +1426,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 /* a part's name is a link of at least 44px (the padding, taken back by the negative margin above it); its line sits
    just under the name (drawn on the content box) and two links never share a pixel */
 .checks.parts a { justify-self: start; margin: -8px -6px 0; padding: 8px 6px 11px; border-radius: 6px; color: var(--ink); text-decoration: none; background: linear-gradient(var(--line), var(--line)) 0 calc(100% + 3px) / 100% 1px no-repeat; background-origin: content-box; transition: color .3s var(--ease), background-image .3s var(--ease); }
-.checks.parts a:hover { color: var(--gold-hi); background-image: linear-gradient(var(--gold), var(--gold)); }
+@media (hover: hover) and (pointer: fine) { .checks.parts a:hover { color: var(--gold-hi); background-image: linear-gradient(var(--gold), var(--gold)); } }
 .checks.parts a:focus-visible { outline-offset: 0; }
 /* what stepping up adds: the difference between the two bundles, worked out by services.js from the cards' own
    lines (a Deluxe part's lines after "Everything in ...", the fees and steam the bigger bundle includes) and the
@@ -1383,7 +1475,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .step-up > h3 + .su-part.folds .su-fold { border-top: 1px solid var(--hair); }
   .su-fold > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
   .su-fold::after { content: "+"; flex: none; color: var(--gold); font: 400 20px/1 var(--font-ui); transition: transform .3s var(--ease), color .3s var(--ease); }
-  .su-fold:hover::after { color: var(--gold-hi); }
+  @media (hover: hover) and (pointer: fine) { .su-fold:hover::after { color: var(--gold-hi); } }
   .su-part.open .su-fold::after { transform: rotate(45deg); }
   .su-part.folds .su-list { padding: 12px 0 16px; border-bottom: 1px solid var(--hair); }
   .su-part.open .su-list { animation: suOpen .45s var(--ease-unveil) both; }
@@ -1405,9 +1497,11 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 /* the quiet action: a text link with the gold arrow (the cards' "Explore" style), the box only for the focus ring */
 :is(.addon-go, .note-link, .el-back) { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; border: 0; border-radius: 8px; background: none; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink); text-decoration: none; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: color .3s var(--ease); }
 :is(.addon-go, .note-link, .el-back) .arrow { color: var(--gold); transition: transform .35s var(--ease); }
-:is(.addon-go, .note-link, .el-back):hover { color: var(--gold-hi); }
-:is(.addon-go, .note-link):hover .arrow { transform: translateX(4px); }
-.el-back:hover .arrow { transform: translateY(-3px); }
+@media (hover: hover) and (pointer: fine) {
+  :is(.addon-go, .note-link, .el-back):hover { color: var(--gold-hi); }
+  :is(.addon-go, .note-link):hover .arrow { transform: translateX(4px); }
+  .el-back:hover .arrow { transform: translateY(-3px); }
+}
 :is(.addon-go, .note-link, .el-back):focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 .svc-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-block: 10px clamp(60px, 10vh, 110px); }
 .svc-notes div { padding: 22px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .06); background: rgba(255, 255, 255, .015); }
@@ -1460,7 +1554,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
-  transition: border-color .35s var(--ease), box-shadow .35s var(--ease), transform .35s var(--ease);
+  transition: border-color .35s var(--ease), box-shadow .35s var(--ease), transform .35s var(--ease), filter .35s var(--ease);
 }
 .el-tile .meta { display: flex; justify-content: space-between; gap: 8px; font: 600 var(--fs-xs)/1 var(--font-ui); color: var(--muted); }
 .el-tile .sym { font: 300 56px/1 var(--font-display); }
@@ -1468,7 +1562,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .el-tile .nm b { font: 600 13px/1.25 var(--font-ui); }
 .el-tile .nm span { font: 700 14px/1 var(--font-ui); color: var(--gold); }
 .el-tile.addon { border-style: dashed; border-color: rgba(226, 185, 82, .28); background: linear-gradient(180deg, #101010, #080808); }
-.el-tile:hover:not(:active):not(.pressed) { border-color: rgba(226, 185, 82, .45); transform: translateY(-2px); }
+@media (hover: hover) and (pointer: fine) { .el-tile:hover:not(:active):not(.pressed) { border-color: rgba(226, 185, 82, .45); transform: translateY(-2px); } }   /* a mouse only: a tapped tile is not left lifted */
 .el-tile[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(226, 185, 82, .45), 0 22px 44px -20px rgba(226, 185, 82, .65); }
 /* Au, the Full Detail Bundle: a solid gold tile with ink text */
 .el-tile.au { background: var(--gold-grad); border-color: rgba(255, 243, 207, .45); color: var(--on-gold); }
@@ -1559,8 +1653,10 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .rit:focus-visible::after { content: ""; position: absolute; inset: 4px; z-index: 3; border: 2px solid #f8dd98; border-radius: 18px; pointer-events: none; }
 /* a closed step under the pointer lifts its veil a little and takes a gold hairline; a press dims it (its size is the
    animation, so the shared scale press is not used here) */
-.rit:hover:not([aria-expanded="true"]) { border-color: rgba(226, 185, 82, .35); }
-.rit:hover:not([aria-expanded="true"]) img { filter: brightness(.65); }
+@media (hover: hover) and (pointer: fine) {   /* a mouse only: a step tapped closed is not left lit */
+  .rit:hover:not([aria-expanded="true"]) { border-color: rgba(226, 185, 82, .35); }
+  .rit:hover:not([aria-expanded="true"]) img { filter: brightness(.65); }
+}
 .rit.pressed { transform: none !important; filter: brightness(.85); transition: filter .09s var(--ease); }
 
 /* the Bead Test: bare paint beside WetGloss, a glowing gold seam between them */
@@ -1910,12 +2006,12 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .bk-note b { color: var(--ink); font-weight: 600; }
 .bk-muted { margin: 0; color: var(--muted); font-size: 14px; }
 .bk-muted a { color: var(--gold-ink); text-decoration: underline; text-underline-offset: 3px; }
-.bk-muted a:hover { color: var(--gold-pale); }
+@media (hover: hover) and (pointer: fine) { .bk-muted a:hover { color: var(--gold-pale); } }
 /* an empty list says what would be there: one quiet dashed slot in the list's place (admin and team) */
 .bk-empty { margin: 0; padding: 18px 16px; border: 1px dashed rgba(255, 255, 255, .12); border-radius: var(--r-md); color: var(--muted); font-size: 14px; text-align: center; }
 /* a text link that is still a 44px target: the hit area grows around the words, the negative margins keep the layout */
 .link { display: inline-flex; align-items: center; min-height: 44px; margin: -10px -8px; padding: 0 8px; border-radius: 8px; background: none; border: 0; color: var(--gold-ink); font: 600 13px/1 var(--font-ui); letter-spacing: .06em; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; touch-action: manipulation; }
-.link:hover { color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .link:hover { color: var(--gold-hi); } }
 .bk-hp { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
 /* several problems at once: a short list under the step's title, each a link to its field (booking.js scrolls it
    into view and focuses it; the margins keep it clear of the floating bar above and the sticky bar below) */
@@ -1954,7 +2050,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .fld-box:has(.fld-input:focus-visible) { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
 .is-ok .fld-msg, .fld-msg.is-ok { color: var(--gold-hi); }
 .fld-ok { display: grid; place-items: center; padding: 0 16px; color: var(--gold-hi); font-weight: 700; }
-.mini-btn { margin: 3px; min-height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--line); background: rgba(226, 185, 82, .08); color: var(--gold-hi); font: 700 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; cursor: pointer; white-space: nowrap; touch-action: manipulation; transition: background-color .3s var(--ease), border-color .3s var(--ease), transform .35s var(--ease); }
+.mini-btn { margin: 3px; min-height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--line); background: rgba(226, 185, 82, .08); color: var(--gold-hi); font: 700 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; cursor: pointer; white-space: nowrap; touch-action: manipulation; transition: background-color .3s var(--ease), border-color .3s var(--ease), box-shadow .3s var(--ease), transform .35s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .mini-btn:hover { background: rgba(226, 185, 82, .16); border-color: var(--gold); } }
 .fld-box .mini-btn { border-radius: calc(var(--r-field) - 4px); }   /* nested in the field: its radius less the field's 1px border and the 3px margin */
 .mini-btn:disabled { opacity: .45; cursor: not-allowed; }
@@ -1966,7 +2062,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk-toggle input::before { content: ""; width: 10px; height: 5px; margin-top: -2px; border-left: 2px solid var(--on-gold); border-bottom: 2px solid var(--on-gold); transform: rotate(-45deg) scale(0); transition: transform .25s var(--ease); }
 .bk-toggle input:checked { background: var(--gold-grad); border-color: var(--gold); box-shadow: 0 0 14px -4px rgba(226, 185, 82, .6); }
 .bk-toggle input:checked::before { transform: rotate(-45deg) scale(1); }
-.bk-toggle:hover input { border-color: var(--gold); }
+@media (hover: hover) and (pointer: fine) { .bk-toggle:hover input { border-color: var(--gold); } }
 
 /* choices: cards and chips */
 .choice { display: grid; gap: 10px; }
@@ -1977,7 +2073,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .choice-list.chips, .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 /* the owner's option tiles (vehicle type, known damage, modifications, §20): compact, slightly squared cards in a grid */
 .choice-list.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
-.choice-item { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; text-align: left; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .025); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: border-color .3s var(--ease), background-color .3s var(--ease), box-shadow .3s var(--ease), transform .3s var(--ease); }
+.choice-item { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; text-align: left; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .025); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: border-color .3s var(--ease), background-color .3s var(--ease), box-shadow .3s var(--ease), transform .3s var(--ease), filter .3s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .choice-item:hover:not(:disabled) { border-color: rgba(226, 185, 82, .5); } }   /* a finger leaves no hover behind: only what is chosen looks gold */
 .choice-item.on { border-color: var(--gold); background: rgba(226, 185, 82, .08); box-shadow: 0 0 26px -10px rgba(226, 185, 82, .6); }   /* the 1px rim is drawn by ::after (the motion system) */
 .choice-item.on .choice-name { color: var(--gold-hi); }
@@ -2166,7 +2262,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 @keyframes glideNext { from { opacity: 0; transform: translateX(var(--glide, 24px)); } }
 @keyframes glidePrev { from { opacity: 0; transform: translateX(calc(-1 * var(--glide, 24px))); } }
 .cal-dow { text-align: center; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-indent: var(--tr-label); color: var(--muted); padding: 6px 0 4px; }
-.cal-day { position: relative; isolation: isolate; justify-self: center; width: 100%; max-width: 56px; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--ink-2); font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; touch-action: manipulation; transition: border-color .25s var(--ease), color .25s var(--ease), background-color .25s var(--ease), box-shadow .25s var(--ease), transform .3s var(--ease); }
+.cal-day { position: relative; isolation: isolate; justify-self: center; width: 100%; max-width: 56px; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--ink-2); font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; touch-action: manipulation; transition: border-color .25s var(--ease), color .25s var(--ease), background-color .25s var(--ease), box-shadow .25s var(--ease), transform .3s var(--ease), filter .25s var(--ease); }
 /* open and full fade in as the days arrive, and cross-fade when the service changes: the full hatch is a layer */
 .cal-day::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 50%; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(226, 185, 82, .14) 6px 8px); opacity: 0; transition: opacity .25s var(--ease); pointer-events: none; }
 .cal-day.full::before { opacity: 1; }
@@ -2369,7 +2465,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .veh.asking { border-color: rgba(212, 106, 90, .45); }
 .veh-ask { color: var(--ink-2); font-size: 14px; margin-right: 8px; }
 .link.danger { color: var(--danger-text); }
-.link.danger:hover { color: #ffb8a8; }
+@media (hover: hover) and (pointer: fine) { .link.danger:hover { color: #ffb8a8; } }
 .veh-form { display: grid; gap: 18px; padding: 18px; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .25); }
 
 /* a text action (Porsche's "button pure"): capitals, a gold arrow that moves 4px, an underline that grows from the
@@ -2463,7 +2559,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .appt { border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, #111111, #080808); overflow: hidden; }
 .appt.open { border-color: var(--line); }
 .appt-head { width: 100%; display: grid; grid-template-columns: 1.2fr 1.4fr auto auto; align-items: center; gap: 14px; padding: 14px 18px; background: none; border: 0; color: var(--ink); text-align: left; cursor: pointer; touch-action: manipulation; transition: background-color .3s var(--ease); }
-.appt-head:hover { background: rgba(226, 185, 82, .04); }
+@media (hover: hover) and (pointer: fine) { .appt-head:hover { background: rgba(226, 185, 82, .04); } }
 .appt-head:focus-visible { outline-offset: -3px; border-radius: inherit; }   /* inside the card, which clips anything outside it */
 .acct .appt.gold:is(.in, .settled) .appt-head:focus-visible { outline-color: #110c02; }   /* a dark ring on the gold face */
 /* the chevron says the head opens; it turns over while the card is open */
@@ -2518,7 +2614,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .acct-fold { border-top: 1px solid rgba(255, 255, 255, .06); }
 .acct-fold summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 6px 2px; list-style: none; cursor: pointer; font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); touch-action: manipulation; }
 .acct-fold summary::-webkit-details-marker { display: none; }
-.acct-fold summary:hover { color: var(--ink-2); }
+@media (hover: hover) and (pointer: fine) { .acct-fold summary:hover { color: var(--ink-2); } }
 .acct-fold[open] > summary .appt-chev { transform: rotate(180deg); }   /* the summary's own chevron, not the cards' */
 .acct-fold-list { display: grid; gap: 10px; padding-bottom: 4px; }
 .acct-fold .appt { background: rgba(255, 255, 255, .015); }
@@ -2655,7 +2751,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: #110c02; --ink-2: #2b1f05; --muted: #4a3a12; --gold: #110c02; --gold-hi: #110c02; --gold-ink: #110c02; }
 [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-status { border-color: rgba(17, 12, 2, .5); }
 [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head .sig:not(.seal) { border-color: rgba(17, 12, 2, .45); }
-[data-theme="light"] .acct .appt.st-completed .appt-head:hover { background-color: #121212; }
+@media (hover: hover) and (pointer: fine) { [data-theme="light"] .acct .appt.st-completed .appt-head:hover { background-color: #121212; } }
 @media (prefers-reduced-motion: reduce) {   /* the lit state is simply there */
   .appt-glow, .appt.gold:not(.in)::before, .appt-au { opacity: 1; }
   .appt.gold:not(.in) { border-color: rgba(226, 185, 82, .45); }
@@ -2737,15 +2833,15 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk.admin { width: min(100%, 1100px); padding-bottom: clamp(22px, 4vw, 44px); }   /* no sticky bar here: the sheet closes with its own room */
 .adm-nav { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .1); color: var(--ink-2); font: 700 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; text-decoration: none; white-space: nowrap; touch-action: manipulation; transition: border-color .3s var(--ease), color .3s var(--ease); }
-.adm-nav a:hover { border-color: var(--gold); color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .adm-nav a:hover { border-color: var(--gold); color: var(--gold-hi); } }
 .adm-nav a.on { border-color: var(--gold); color: var(--on-gold); background: var(--gold-grad); }
 .adm-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .adm-who { display: grid; gap: 4px; justify-items: end; color: var(--ink-2); font-size: 14px; }
 .adm-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 /* the four counts are links to their lists (Today, Needs you, Tomorrow, the Review lane) */
-.adm-tile { display: grid; gap: 4px; padding: 16px 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .025); transition: border-color .3s var(--ease); }
+.adm-tile { display: grid; gap: 4px; padding: 16px 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .025); transition: border-color .3s var(--ease), box-shadow .3s var(--ease); }
 a.adm-tile { text-decoration: none; color: inherit; }
-.adm-tile:hover { border-color: var(--line); }
+@media (hover: hover) and (pointer: fine) { .adm-tile:hover { border-color: var(--line); } }
 .adm-tile b { font: 600 30px/1 var(--font-ui); color: var(--gold-hi); }
 .adm-tile span { font: 700 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); }
 .adm-tile small { color: var(--muted); font-size: 12.5px; }
@@ -2789,7 +2885,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .appt.adm .appt-ref.pending { color: var(--gold-ink); font-weight: 600; }
 /* a copy of a card that opens elsewhere (a request shown under Today or Tomorrow, decided under Needs you): a plain head */
 .appt.adm.compact .appt-head { cursor: default; }
-.appt.adm.compact .appt-head:hover { background: none; }
+@media (hover: hover) and (pointer: fine) { .appt.adm.compact .appt-head:hover { background: none; } }
 .appt.gold { border-color: rgba(226, 185, 82, .45); background: linear-gradient(180deg, #121212, #080808); }
 .appt.adm.gold { background: radial-gradient(120% 80% at 100% 0%, rgba(226, 185, 82, .10), transparent 60%), linear-gradient(180deg, #121212, #080808); }   /* the console's gold rows are simply gold; the customer's light up (see Appointments) */
 .appt.gold .appt-ref { color: var(--gold-hi); }
@@ -2801,7 +2897,8 @@ a.adm-tile { text-decoration: none; color: inherit; }
 /* the button whose panel is open is marked; Cancel booking stands apart at the right, in the danger tint */
 .adm-actions .btn.on { border-color: var(--gold); color: var(--gold-hi); background: rgba(226, 185, 82, .08); }
 .adm-actions .btn.danger { border-color: rgba(212, 106, 90, .35); color: #e39183; margin-left: auto; }
-.adm-actions .btn.danger:hover:not(:disabled), .adm-actions .btn.danger.on { border-color: var(--danger); color: var(--danger-text); background: rgba(212, 106, 90, .08); }
+.adm-actions .btn.danger.on { border-color: var(--danger); color: var(--danger-text); background: rgba(212, 106, 90, .08); }
+@media (hover: hover) and (pointer: fine) { .adm-actions .btn.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger-text); background: rgba(212, 106, 90, .08); } }
 .adm-panel { display: grid; gap: 14px; padding: 16px; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .3); animation: viewIn .4s var(--ease) both; }
 .adm-history summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .adm-history ul { margin: 8px 0 0; padding: 0 0 0 18px; color: var(--ink-2); font-size: 13.5px; display: grid; gap: 4px; }
@@ -2825,8 +2922,8 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .cal-col .bk-h2 { font-size: 12px; }
 .cal-col .bk-h2 small { color: var(--gold-ink); }
 .cal-col .bk-empty { padding: 10px 8px; font-size: 12px; }
-.cal-item { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .3); color: var(--ink); font-size: 12.5px; cursor: pointer; min-width: 0; touch-action: manipulation; transition: border-color .3s var(--ease), transform .2s var(--ease); }
-.cal-item:hover { border-color: rgba(226, 185, 82, .5); }
+.cal-item { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .3); color: var(--ink); font-size: 12.5px; cursor: pointer; min-width: 0; touch-action: manipulation; transition: border-color .3s var(--ease), box-shadow .3s var(--ease), transform .2s var(--ease); }
+@media (hover: hover) and (pointer: fine) { .cal-item:hover { border-color: rgba(226, 185, 82, .5); } }
 .cal-item:active { transform: scale(.99); }
 .cal-item b { color: var(--gold-hi); }
 .cal-item small { color: var(--muted); font-size: 11px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* two lines of the services, the rest in the title */
@@ -3182,19 +3279,69 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   pointer-events: none;
   z-index: 2;
 }
-.btn-gold.glint { background-position: calc(var(--mx) * 0.6 + 20%) 0; }
-
-/* press: one feel for every pressable (.pressed from a delegated pointerdown in app.js, 80ms release); a Book Now
-   that launches swells instead */
+/* press: every touch answers the way its material would in the hand, within 80ms, and springs back in 180ms
+   (.pressed from a delegated pointerdown in app.js, held 80ms after the lift, then .released for the spring back).
+   Nothing shrinks or moves its neighbours: gold goes in, glass darkens against the black, a card presses in, words
+   light as a pointer would light them. The icon buttons keep the owner's press and gold ring (above), the Ritual its
+   dimming; a Book Now that launches swells instead; a disabled control never presses (app.js skips it) */
 .btn:disabled { transform: none !important; }
-.pressed:not(.icon-btn):not(.launch) { transform: translateY(1px) scale(.97) !important; transition-duration: .09s; }
+:root .released:not(.launch):not(.just) { transition-duration: var(--dur-release); transition-timing-function: var(--ease); }   /* over each part's own timing */
+:root .pressed:not(.launch):not(.just) { transition-duration: var(--dur-press); transition-timing-function: var(--ease); }
+/* the thing being chosen (.just, from the click while the press is still held) leaves the press clock: its chosen
+   colours, glow and lift, and the press easing out under them, run on its own timing (a chip .3s, a card .4s). A
+   service card's lift or drop keeps its .4s whenever it is pressed (its transitions: transform, border, shadow) */
+:root .svc-opt.released:not(.just) { transition-duration: .4s, var(--dur-release), var(--dur-release); }
+:root .svc-opt.pressed:not(.just) { transition-duration: .4s, var(--dur-press), var(--dur-press); }
+/* gold: the button goes in 1px and its gold darkens a shade, the glow under it tightening as it nears the page */
+.btn-gold.pressed:not(.launch) {
+  translate: 0 1px;
+  filter: brightness(.93);
+  box-shadow: 0 6px 18px -12px rgba(226, 185, 82, .45), inset 0 1px 0 rgba(255, 248, 225, .5), inset 0 -1px 0 rgba(90, 55, 10, .5);
+}
+:is(.choice-item.time.on, .cal-day.on, .el-tile.au).pressed { filter: brightness(.93); }   /* gold chips and tiles: the same shade, in place */
+/* glass, chips and small tiles: pressed against the black behind them, the hairline warming toward gold */
+:is(.btn-glass, .choice-item:not(.time.on), .mini-btn, .sw-tile, .cal-day:not(.on), .star-pick button, .cal-item).pressed {
+  border-color: var(--press-rim);
+  box-shadow: inset 0 0 0 100vmax var(--press-glass), inset 0 1px 5px var(--press-shade);
+}
+/* a chip, tile, day or star can become chosen under the finger: its press keeps the outer places of a chosen glow
+   (--press-under), so the shade eases into the glow as it springs back */
+:is(.choice-item:not(.time.on), .sw-tile, .cal-day:not(.on), .star-pick button).pressed { box-shadow: var(--press-under), inset 0 0 0 100vmax var(--press-glass), inset 0 1px 5px var(--press-shade); }
+/* cards: the surface presses in (a soft shade from the top edge) and the edge warms; no shrink, so a wide card
+   no longer wobbles and its text never shimmers */
+:is(.svc-opt, .door, .el-tile:not(.au), .adm-tile).pressed {
+  border-color: var(--press-rim);
+  box-shadow: var(--press-under), inset 0 14px 30px -18px var(--press-shade), inset 0 0 0 100vmax var(--press-glass);
+}
+/* photo cards: the shade lies over the photo, on a layer of its own (a home service card's scrim, a quiet layer on a
+   work tile and on a gallery tile, faded in and out by opacity), and the edge warms; the photo itself stays still */
+:is(.svc-card, .work-item, .gal-tile, .tm-thumb).pressed { border-color: var(--press-rim); }
+.svc-card::before { border-radius: inherit; transition: box-shadow var(--dur-release) var(--ease); }
+.svc-card.pressed::before { box-shadow: inset 0 18px 44px -20px var(--press-shade), inset 0 0 0 1px var(--press-rim); transition-duration: var(--dur-press); }
+.work-item::before, .gal-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  box-shadow: inset 0 18px 44px -20px var(--press-shade), inset 0 0 0 1px var(--press-rim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-release) var(--ease);
+}
+.gal-btn::after { border-radius: var(--r-lg); }   /* the button itself is unstyled: the tile's corners (a phone's smaller ones below) */
+.work-item.pressed::before, .gal-tile.pressed .gal-btn::after { opacity: 1; transition-duration: var(--dur-press); }
+/* words and quiet links: lit, as a pointer would light them; the brand marks dim a breath */
+:is(.link, .theme-btn, .note-link, .addon-go, .acct-go, .el-back, .ct-link, .menu-sub .call, .su-fold, .scroll-cue, .menu nav a, .faq-item summary, .svc-jump a, .adm-nav a, .bk-progress button, .footer a:not(.foot-brand), .checks.parts a, .bk-muted a).pressed { color: var(--gold-hi); }
+.checks.parts a.pressed { background-image: linear-gradient(var(--gold), var(--gold)); }   /* its line lights too */
+:is(.faq-item a, .bk-lead a).pressed { border-bottom-color: var(--gold-hi); }   /* already gold words: the line under them lights */
+:is(.brand-link, .menu-brand, .foot-brand).pressed { opacity: .72; }
+.appt-head.pressed { background-color: rgba(226, 185, 82, .06); }
 
-/* chips and cards pop once, the moment they are chosen (.just, dropped by ui.js when the pop ends: a rebuilt
-   step shows a chosen thing still, never popping again) */
-.choice-item.just { animation: pick .35s var(--ease); }
-@keyframes pick { 0% { transform: scale(.97); } 60% { transform: scale(1.02); } 100% { transform: scale(1); } }
-.svc-opt.just { animation: pickLift .4s var(--ease); }
-@keyframes pickLift { 0% { transform: translateY(0) scale(.98); } 60% { transform: translateY(-5px) scale(1.01); } 100% { transform: translateY(-3px) scale(1); } }
+/* chosen: a chip takes its gold in place as its rim lights (250ms, no pop); a service card lifts to its chosen place
+   on its own transition (.just from ui.js and booking.js) */
+.choice-item.just::after { animation: pickRim .25s var(--ease); }
+@keyframes pickRim { from { opacity: 0; } }
 /* the chosen service (owner's move 15): a 1px rim of gold light on its edge, and the moment it is chosen a
    head of light travels the rim once (.glow, from booking.js) and settles; the "Selected" mark lands as the
    light comes round. --ra is the conic start, registered with the reviews' certificate above. */
@@ -3239,20 +3386,21 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* buttons: a soft lift and a light sweep on hover */
 .btn-glass::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(118deg, transparent 40%, rgba(255, 255, 255, .08) 50%, transparent 60%); transform: translateX(-120%); transition: transform .7s var(--ease); pointer-events: none; }
 .btn-glass { position: relative; overflow: hidden; }
-.btn-glass:hover::after { transform: translateX(120%); }
+@media (hover: hover) and (pointer: fine) { .btn-glass:hover::after { transform: translateX(120%); } }   /* the sweep is a mouse's: a tap does not set it off */
 /* taglines in the brand's italic serif */
 .hero .sub { font-family: var(--font-ui-caps); }
 .wash-title p.big { font-weight: 300; }
 /* the light/dark switch in the menu's foot row: icon and label, no box (a 44px target; the padding keeps the focus ring off the letters) */
 .theme-btn { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 8px; margin-left: -8px; border: 0; border-radius: 10px; background: none; color: var(--ink-2); font: 700 11px/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: color .3s var(--ease); }
-.theme-btn:hover { color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .theme-btn:hover { color: var(--gold-hi); } }
 @media (prefers-reduced-motion: reduce) {
   [data-rise]:not(.in) { opacity: 1; transform: none; }
   .rule { transform: scaleX(1); }
   .menu nav a, .menu-foot { transition: none !important; }   /* the items are there the frame the menu opens */
   .hero h1 .l1 { animation: none; --hx: 46%; }
   .hero h1 .l1.split .ch { opacity: 1; transform: none; filter: none; animation: none; }
-  .svc-opt.just, .choice-item.just, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .chips.enter .choice-item { animation: none; }   /* chosen things are simply chosen */
+  .svc-opt.just, .choice-item.just, .choice-item.just::after, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .chips.enter .choice-item { animation: none; }   /* chosen things are simply chosen */
+  .btn-gold.pressed:not(.launch) { translate: none; }   /* a press still darkens and shades, at once; nothing travels */
   .svc-opt.on .svc-opt-check { transition-delay: 0s; }
   .cal-day.on::after { content: none; }
   .au-line::after { animation: none; transform: translateX(75%); }   /* the loading line is still, its light in the middle */
@@ -3269,7 +3417,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .page-head p.bk-lead { max-width: 60ch; }
 .page-head .emblem { margin-bottom: 8px; }
 .faq-item a, .bk-lead a { color: var(--gold-hi); text-decoration: none; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.faq-item a:hover, .bk-lead a:hover { border-bottom-color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .faq-item a:hover, .bk-lead a:hover { border-bottom-color: var(--gold-hi); } }
 /* tips: a numbered journal in one 760px column, an entry per row on hairlines, no boxes. The number is the entry's
    one gold mark (the gutter on the left, on the title's baseline); the title stays in ink and the short line under
    it is a hairline; a tip with a service behind it ends on one quiet link */
@@ -3289,12 +3437,12 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
    content.js; the plus turns into a cross, no overshoot) */
 .faq { display: grid; gap: 0; border-top: 1px solid var(--hair); }
 .faq-item { border-bottom: 1px solid var(--hair); transition: border-color .3s var(--ease); }
-.faq-item:hover { border-bottom-color: var(--line-soft); }
+@media (hover: hover) and (pointer: fine) { .faq-item:hover { border-bottom-color: var(--line-soft); } }
 .faq-item.is-open { border-bottom-color: var(--line); }
 .faq-item summary { cursor: pointer; padding: 22px 0; font: 400 clamp(17px, 1.5vw, 19px)/1.4 var(--font-ui); color: var(--ink); list-style: none; display: flex; align-items: baseline; justify-content: space-between; gap: 18px; touch-action: manipulation; }
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-item summary::after { content: "+"; flex-shrink: 0; color: var(--gold); font-weight: 400; font-size: 20px; line-height: 1; transition: transform .3s var(--ease), color .3s var(--ease); }
-.faq-item summary:hover::after { color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .faq-item summary:hover::after { color: var(--gold-hi); } }
 .faq-item.is-open summary::after { transform: rotate(45deg); }
 .faq-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s var(--ease); }
 .faq-item.is-open .faq-body { grid-template-rows: 1fr; transition-duration: .32s; }
@@ -3346,7 +3494,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .ct-rows dt { font: 700 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
 .ct-rows dd { margin: 0; min-width: 0; }
 .ct-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600; text-decoration: none; transition: color .3s var(--ease); }
-.ct-link:hover { color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { .ct-link:hover { color: var(--gold-hi); } }
 .ct-link .ext { color: var(--gold); }
 .ct-place { margin: 4px 0 0; font: 400 clamp(20px, 2vw, 24px)/1.2 var(--font-display); letter-spacing: var(--tr-title); text-transform: uppercase; color: var(--ink); }
 .ct-text { margin: 0; max-width: 52ch; color: var(--ink-2); line-height: 1.6; }
@@ -3401,7 +3549,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .work-strip.dragging { cursor: grabbing; user-select: none; }
 .work-strip.dragging .work-btn { cursor: grabbing; }
 .work-item { flex: 0 0 min(78vw, 440px); margin: 0; scroll-snap-align: start; position: relative; border-radius: var(--r-lg); overflow: hidden; aspect-ratio: 3 / 4; background: var(--panel); border: 1px solid rgba(255, 255, 255, .07); isolation: isolate; touch-action: manipulation; transition: transform .35s var(--ease), border-color .5s var(--ease); }
-.work-item:hover, .work-item:has(:focus-visible) { transform: translateY(-3px); border-color: rgba(226, 185, 82, .5); }
+.work-item:has(:focus-visible) { transform: translateY(-3px); border-color: rgba(226, 185, 82, .5); }
+@media (hover: hover) and (pointer: fine) { .work-item:hover { transform: translateY(-3px); border-color: rgba(226, 185, 82, .5); } }
 /* the photo is a real button (opens the lightbox); the caption sits over it and lets presses through */
 .work-btn, .gal-btn { all: unset; display: block; cursor: zoom-in; width: 100%; height: 100%; }
 .work-btn:focus-visible, .gal-btn:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: -4px; border-radius: inherit; }
@@ -3413,7 +3562,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 }
 /* the slow zoom lives on the button; the scroll drift on the taller picture inside it is never transitioned */
 .work-item .work-btn { position: relative; transform: scale(1.03); transition: transform 1.1s var(--ease); }
-.work-item:hover .work-btn, .work-item:has(:focus-visible) .work-btn { transform: scale(1.06); }
+.work-item:has(:focus-visible) .work-btn { transform: scale(1.06); }
+@media (hover: hover) and (pointer: fine) { .work-item:hover .work-btn { transform: scale(1.06); } }
 .work-item img { position: absolute; left: 0; right: 0; top: -6%; width: 100%; height: 112%; object-fit: cover; transform: translateY(var(--py, 0px)); filter: brightness(.96); will-change: transform; }
 .work-progress { height: 1px; margin: 0 auto 28px; background: var(--hair); overflow: hidden; }
 .work-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-hi)); transform: scaleX(var(--wp, .35)); transform-origin: 0 50%; }
@@ -3450,22 +3600,25 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* the picture is taller than its tile and drifts with the page (--drift from gallery.js, never transitioned) */
 .gal-media { position: absolute; inset: -20px 0; transform: translateY(var(--drift, 0px)); will-change: transform; }
 .gal-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s var(--ease), filter .6s var(--ease); filter: brightness(.95); }
-.gal-tile:hover .gal-media img, .gal-tile:has(:focus-visible) .gal-media img { transform: scale(1.06); filter: brightness(1); }
+.gal-tile:has(:focus-visible) .gal-media img { transform: scale(1.06); filter: brightness(1); }
+@media (hover: hover) and (pointer: fine) { .gal-tile:hover .gal-media img { transform: scale(1.06); filter: brightness(1); } }
 .gal-tile::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(248, 221, 152, .18), transparent 55%); opacity: 0; transition: opacity .35s var(--ease); z-index: 1; }
 .gal-tile.tilt::after { opacity: 1; }
 /* the caption sits on the photo's own dark scrim in both themes, so its colours are literal; one line, ellipsed (a
    phone lets it wrap instead) */
 .gal-tile figcaption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 44px 16px 14px; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .55) 40%, rgba(0, 0, 0, .85)); color: #f7f7f4; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; transform: translateY(8px); opacity: .85; pointer-events: none; transition: transform .45s var(--ease), opacity .45s var(--ease); }
 .gal-tile figcaption span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gal-tile:hover figcaption, .gal-tile:has(:focus-visible) figcaption { transform: none; opacity: 1; }
+.gal-tile:has(:focus-visible) figcaption { transform: none; opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .gal-tile:hover figcaption { transform: none; opacity: 1; } }
 .gal-tile figcaption i { font-style: normal; color: #f8dd98; opacity: 0; transform: translateX(-6px); transition: opacity .35s var(--ease), transform .35s var(--ease); }
-.gal-tile:hover figcaption i, .gal-tile:has(:focus-visible) figcaption i { opacity: 1; transform: none; }
+.gal-tile:has(:focus-visible) figcaption i { opacity: 1; transform: none; }
+@media (hover: hover) and (pointer: fine) { .gal-tile:hover figcaption i { opacity: 1; transform: none; } }
 @media (hover: none) { .gal-tile figcaption i { display: none; } }   /* a finger cannot hover: no "View" cue to wait for */
 .gal-box img { animation: none; }
 .gal-box img.swap { animation: galSwap .4s var(--ease); }
 @keyframes galSwap { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
 .gal-prev, .gal-next { position: absolute; top: calc(50% - 22px); z-index: 2; transition: transform .45s var(--ease), box-shadow .45s var(--ease), color .3s var(--ease); }
-.gal-prev:hover, .gal-next:hover { transform: none; }
+@media (hover: hover) and (pointer: fine) { .gal-prev:hover, .gal-next:hover { transform: none; } }
 .gal-prev:active, .gal-next:active, .gal-prev.pressed, .gal-next.pressed { transform: translateY(.5px) scale(.985); }
 .gal-prev { left: 16px; } .gal-next { right: 16px; }
 /* the foot, as wide as the 3:4 picture above it: the part and the counter, what the photo shows, the services behind it */
@@ -3477,6 +3630,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (max-width: 720px) {
   .gal-grid { gap: 8px; grid-auto-rows: 150px; }
   .gal-tile { border-radius: var(--r-md); }
+  .gal-btn::after { border-radius: var(--r-md); }   /* the press layer follows the tile's smaller corners */
   .gal-tile figcaption { font-size: 11px; letter-spacing: var(--tr-display); padding: 28px 8px 10px; line-height: 1.25; }
   .gal-tile figcaption span { white-space: normal; text-wrap: balance; }   /* a long caption takes two even lines, never an ellipsis */
   /* the filters on one line, sharing the width; five or more (an Interior chip later) and the narrowest phones
@@ -3560,7 +3714,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .tm-pair.next { color: var(--muted); }
 .tm-thumb { display: block; position: relative; height: 96px; padding: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--hair); background: #0b0b0b; color: inherit; font: inherit; cursor: pointer; touch-action: manipulation; transition: border-color .3s var(--ease), box-shadow .3s var(--ease); }
 .tm-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.tm-thumb:hover { border-color: rgba(226, 185, 82, .5); }
+@media (hover: hover) and (pointer: fine) { .tm-thumb:hover { border-color: rgba(226, 185, 82, .5); } }
 .tm-thumb[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(226, 185, 82, .35); }
 .tm-next { height: 96px; display: grid; place-items: center; border-radius: 12px; border: 1px dashed rgba(255, 255, 255, .16); background: #0b0b0b; font: 700 var(--fs-xs)/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
 :where([data-theme="light"]) .transmute { background: radial-gradient(50% 36% at 50% 26%, rgba(184, 144, 44, .1), transparent 70%); }
@@ -3614,13 +3768,17 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   --gold-ink: #7a5d14;
   --gold-pale: #e9d9a8;
   --gold-deep: #7a5d14;
-  --gold-grad: linear-gradient(105deg, #9a7322 0%, #d9ac3f 22%, #f6dc96 46%, #fffbe8 52%, #efc65c 62%, #c3932c 82%, #9a7322 100%);
+  /* the polished gold (--gold-grad, its stops --gold-s1 to -s6, Book Now's --gold-base and --gold-glare) is the
+     same in the studio: it is written once, at the top */
   --gold-text: linear-gradient(180deg, #9a7322 0%, #a8842a 40%, #7a5d14 70%, #94711d 100%);   /* every stop 3:1 or more on the cream and the band's #f1ede5 */
   --on-gold: #110c02;
   --danger: #b3412f;
   --danger-text: #a63a2a;
   --stone: #eeeae1;   /* the studio's soft grey: what sits inside a panel (notes, static fields, summaries, vehicles) */
   --au-glint: rgba(255, 244, 210, .95);
+  --press-glass: rgba(20, 18, 12, .05);   /* the ivory glass pressed: a breath darker */
+  --press-shade: rgba(40, 30, 10, .2);
+  --press-rim: rgba(184, 144, 44, .7);
 }
 /* ---- the chrome: bar, buttons, menu */
 :where([data-theme="light"]) .bar { background: rgba(255, 255, 255, .72); border-color: rgba(20, 18, 12, .08); box-shadow: 0 18px 50px -24px rgba(40, 30, 10, .25); }
@@ -3634,10 +3792,11 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* the gold for icons and large numerals (3.8:1, the large-text floor); small gold text is --gold-ink */
 [data-theme="light"] :is(.icon-btn, .amount, .adm-tile b, .el-row i, .tip-no) { color: #a37c22; }
 @media (max-width: 720px) { [data-theme="light"] .el-row i { color: var(--gold-ink); } }   /* the Table's row numerals are 22px on a phone, not large text: the deep gold (5.6:1) */
-[data-theme="light"] .icon-btn:hover { color: var(--gold-hi); }
+@media (hover: hover) and (pointer: fine) { [data-theme="light"] .icon-btn:hover { color: var(--gold-hi); } }
 [data-theme="light"] .icon-btn:active, [data-theme="light"] .icon-btn.pressed { box-shadow: inset 0 2px 6px rgba(40, 30, 10, .22), inset 0 0 0 1px rgba(184, 144, 44, .45), 0 0 18px -4px rgba(184, 144, 44, .45); }
 :where([data-theme="light"]) .btn-gold { border-color: rgba(122, 93, 20, .28); box-shadow: 0 12px 28px -14px rgba(122, 93, 20, .55), inset 0 1px 0 rgba(255, 248, 225, .7), inset 0 -1px 0 rgba(90, 55, 10, .4); }
-[data-theme="light"] .btn-gold:hover:not(:disabled) { box-shadow: 0 18px 36px -14px rgba(122, 93, 20, .6), 0 0 0 1px rgba(184, 144, 44, .4), inset 0 1px 0 rgba(255, 248, 225, .8); }
+@media (hover: hover) and (pointer: fine) { [data-theme="light"] .btn-gold:hover:not(:disabled, .pressed, .launch) { box-shadow: 0 18px 36px -14px rgba(122, 93, 20, .6), 0 0 0 1px rgba(184, 144, 44, .4), inset 0 1px 0 rgba(255, 248, 225, .8); } }
+[data-theme="light"] .btn-gold.pressed:not(.launch) { box-shadow: 0 6px 16px -12px rgba(122, 93, 20, .5), inset 0 1px 0 rgba(255, 248, 225, .55), inset 0 -1px 0 rgba(90, 55, 10, .4); }   /* the press: the shadow under it tightens as it goes in */
 /* the glass button: frosted ivory over the page in the bar buttons' bevel (white at the lit top edge, a warm grey
    towards the foot, a faint lower edge, a soft contact shadow), no blur */
 :where([data-theme="light"]) .btn-glass { background: linear-gradient(180deg, rgba(255, 254, 250, .94), rgba(238, 233, 223, .8)); border-color: rgba(20, 18, 12, .14); color: var(--ink); box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(20, 18, 12, .06), 0 8px 18px -12px rgba(40, 30, 10, .35); }
@@ -3651,7 +3810,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .topbar.over-wash ~ .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(184, 144, 44, .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(241, 237, 229, .97)); }   /* over the live wash: no blur (above) */
 :where([data-theme="light"]) .menu nav a { border-bottom-color: rgba(20, 18, 12, .06); }
 :where([data-theme="light"]) .menu nav a::before { background: var(--gold); box-shadow: none; }
-[data-theme="light"] .menu nav a:is(:hover, :focus-visible) { text-shadow: 0 0 18px rgba(184, 144, 44, .3); }
+[data-theme="light"] .menu nav a:focus-visible { text-shadow: 0 0 18px rgba(184, 144, 44, .3); }
+@media (hover: hover) and (pointer: fine) { [data-theme="light"] .menu nav a:hover { text-shadow: 0 0 18px rgba(184, 144, 44, .3); } }
 /* the small AD mark: a deeper gold on ivory, so no stroke or sparkle fades into the page; no glow under it */
 [data-theme="light"] #adGold stop:nth-child(1) { stop-color: #c99a35; }
 [data-theme="light"] #adGold stop:nth-child(2) { stop-color: #a98128; }
@@ -3666,8 +3826,10 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] ::selection { background: rgba(184, 144, 44, .3); color: var(--ink); }
 [data-theme="light"] :focus-visible { outline-color: #7a5d14; }
 [data-theme="light"] .work-btn:focus-visible, [data-theme="light"] .gal-btn:focus-visible { outline-color: #f8dd98; }   /* on the photo itself */
-:where([data-theme="light"]) .bk-muted a:hover { color: var(--gold); }
-:where([data-theme="light"]) .link.danger:hover { color: var(--danger); }
+@media (hover: hover) and (pointer: fine) {
+  :where([data-theme="light"]) .bk-muted a:hover { color: var(--gold); }
+  :where([data-theme="light"]) .link.danger:hover { color: var(--danger); }
+}
 /* ---- the hero stays the black showroom (the hero stays black; §31: not an inversion), as the Services header does: the
    shader keeps its black paint (app.js starts it with studio: false), the hero keeps the dark tokens, so the wordmark
    is gold and the words, buttons and focus ring are the dark theme's, and only its foot fades into the ivory page.
@@ -3743,10 +3905,14 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .veh.asking { border-color: rgba(179, 65, 47, .45); }
 :where([data-theme="light"]) .bk-hp { color: transparent; }
 /* ---- states whose colours differ in the studio (written after the surfaces, so they win) */
-[data-theme="light"] :is(.svc-card, .why-item, .price-card, .work-item, .gal-tile):hover { border-color: rgba(184, 144, 44, .55); }
+@media (hover: hover) and (pointer: fine) { [data-theme="light"] :is(.svc-card, .why-item, .price-card, .work-item, .gal-tile):hover { border-color: rgba(184, 144, 44, .55); } }   /* a mouse only, as in the dark */
 @media (hover: hover) and (pointer: fine) { [data-theme="light"] .svc-opt:hover { border-color: rgba(184, 144, 44, .55); } }   /* the booking's cards: a mouse only, as in the dark */
-[data-theme="light"] .svc-opt.on, [data-theme="light"] .price-card:hover { box-shadow: 0 18px 40px -26px rgba(40, 30, 10, .35), 0 0 0 1px rgba(184, 144, 44, .35), 0 0 30px -12px rgba(184, 144, 44, .35); }
-[data-theme="light"] .price-card:is(:hover, :focus-within) .amount { color: #a37c22; text-shadow: 0 0 16px rgba(184, 144, 44, .22); }   /* the studio keeps the deep gold: only a faint warm glow */
+[data-theme="light"] .svc-opt.on { box-shadow: 0 18px 40px -26px rgba(40, 30, 10, .35), 0 0 0 1px rgba(184, 144, 44, .35), 0 0 30px -12px rgba(184, 144, 44, .35); }
+[data-theme="light"] .price-card:has(:focus-visible) .amount { color: #a37c22; text-shadow: 0 0 16px rgba(184, 144, 44, .22); }   /* the studio keeps the deep gold: only a faint warm glow */
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="light"] .price-card:hover { box-shadow: 0 18px 40px -26px rgba(40, 30, 10, .35), 0 0 0 1px rgba(184, 144, 44, .35), 0 0 30px -12px rgba(184, 144, 44, .35); }
+  [data-theme="light"] .price-card:hover .amount { color: #a37c22; text-shadow: 0 0 16px rgba(184, 144, 44, .22); }
+}
 [data-theme="light"] .svc-opt.on { background: var(--sheen, none), rgba(184, 144, 44, .08); border-color: var(--gold); }
 [data-theme="light"] :is(.choice-item, .sw-tile).on { background: rgba(184, 144, 44, .1); border-color: var(--gold); box-shadow: 0 0 22px -12px rgba(122, 93, 20, .5); }
 [data-theme="light"] :is(.chips, .tiles) .choice-item.on { background: rgba(184, 144, 44, .14); }
@@ -3770,7 +3936,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .bk-empty { border-color: rgba(20, 18, 12, .14); }
 :where([data-theme="light"]) .adm-actions .btn.on { background: rgba(184, 144, 44, .1); }
 :where([data-theme="light"]) .adm-actions .btn.danger { border-color: rgba(179, 65, 47, .4); color: var(--danger-text); }
-:where([data-theme="light"]) .adm-actions .btn.danger:hover:not(:disabled), :where([data-theme="light"]) .adm-actions .btn.danger.on { background: rgba(179, 65, 47, .07); }
+:where([data-theme="light"]) .adm-actions .btn.danger.on { background: rgba(179, 65, 47, .07); }
+@media (hover: hover) and (pointer: fine) { :where([data-theme="light"]) .adm-actions .btn.danger:hover:not(:disabled) { background: rgba(179, 65, 47, .07); } }
 :where([data-theme="light"]) .cal-col.today { background: linear-gradient(rgba(184, 144, 44, .06), rgba(184, 144, 44, .06)), #fff; }
 /* ---- the gold light in the studio: across white things it is a warm gold sheen (a screen blend vanishes on white);
    the photo pieces and the Gold card keep the dark light */
@@ -3810,7 +3977,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (forced-colors: active) {
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
-  .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after, .cta-band::after { display: none; }
+  .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after, .cta-band::after, .btn-gold::before, .work-item::before, .gal-btn::after { display: none; }
+  .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */
   .svc-jump a[aria-current] { text-decoration: underline; text-underline-offset: 6px; }   /* the gold line is painted over: the group on the screen keeps a mark */
 }

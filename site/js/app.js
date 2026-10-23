@@ -648,21 +648,30 @@
     if (e.isIntersecting && e.target.classList.contains('shine')) light.settle(e.target);
   }), { rootMargin: '10% 0px' });
 
-  // Press: one feel for every pressable, from a delegated pointerdown (released 80ms after the pointer lets go).
-  const PRESS = '.btn, .icon-btn, .choice-item, .svc-opt, .cal-day, .mini-btn, .link, .gal-tile, .work-item, .door, .el-tile, .rit, .tm-thumb, .adm-tile, .adm-nav a, .appt-head:not(.static), .svc-jump a, .faq-item summary, .menu nav a, .theme-btn, .cal-item';
+  // Press: each pressable answers by its material (the press section of the CSS), from a delegated pointerdown. It is
+  // held 80ms after the pointer lets go, then springs back on the release clock (.released, 180ms). With the browser's
+  // tap flash off, everything a finger can press is in this list (the quiet links and the brand marks too).
+  const PRESS = '.btn, .icon-btn, .choice-item, .svc-opt, .cal-day, .mini-btn, .link, .gal-tile, .work-item, .door, .el-tile, .rit, .tm-thumb, .adm-tile, .adm-nav a, .appt-head:not(.static), .svc-jump a, .faq-item summary, .menu nav a, .theme-btn, .cal-item, ' +
+    '.svc-card, .star-pick button, .bk-progress button, .note-link, .addon-go, .acct-go, .el-back, .ct-link, .menu-sub .call, .su-fold, .scroll-cue, .footer a, .brand-link, .menu-brand, ' +
+    '.sw-tile, .checks.parts a, .faq-item a, .bk-lead a, .bk-muted a';
   let pressedEl = null;
   function release() {
     const el = pressedEl;
     if (!el) return;
     pressedEl = null;
-    setTimeout(() => el.classList.remove('pressed'), 80);
+    setTimeout(() => {
+      if (pressedEl === el) return;   // pressed again meanwhile
+      el.classList.replace('pressed', 'released');
+      setTimeout(() => { if (pressedEl !== el) el.classList.remove('released'); }, 180);
+    }, 80);
   }
   document.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const el = e.target.closest(PRESS);
-    if (!el || el.disabled) return;
+    if (!el || el.disabled || el.matches('.disabled, [aria-disabled="true"]')) return;   // disabled never presses
     release();
     pressedEl = el;
+    el.classList.remove('released');
     el.classList.add('pressed');
     el.addEventListener('pointerleave', function leave() { if (pressedEl === el) release(); }, { once: true });
   }, { passive: true });
