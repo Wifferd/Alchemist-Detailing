@@ -1417,24 +1417,15 @@
         el('a.btn.btn-glass', { href: 'tel:+1' + phone.replace(/\D/g, '') }, U.telMark(), el('span', 'Call ', el('span.tnum', phone)))),   // the phone mark, as on every call button
       el('button.link.sent-print', { type: 'button', onclick: () => window.print() }, 'Print or save'));
   }
-  // The monogram from the symbol in the page, and one pass of gold light across it as the screen lands (clipped to
-  // the mark's own shape; none under reduced motion)
+  // The monogram from the symbol in the page, and one pass of gold light across it as the screen lands (ui.js
+  // lightMark: clipped to the mark's own shape; none under reduced motion)
   function sentMark() {
     const NS = 'http://www.w3.org/2000/svg';
-    const mk = (tag, attrs) => { const n = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); return n; };
-    const svg = mk('svg', { viewBox: '0 20 570 590', 'aria-hidden': 'true' });
-    svg.appendChild(mk('use', { href: '#ad-mark', x: 0, y: 20, width: 570, height: 590 }));
-    const shape = document.querySelector('#ad-mark path');
-    if (!reduce && shape) {
-      const defs = mk('defs', {}), light = mk('linearGradient', { id: 'sentLight', x1: 0, y1: 0, x2: 1, y2: 0 }), clip = mk('clipPath', { id: 'sentClip' });
-      [[0, 0], [0.5, 0.9], [1, 0]].forEach(([o, a]) => light.appendChild(mk('stop', { offset: o, 'stop-color': '#fffaf0', 'stop-opacity': a })));
-      clip.appendChild(mk('path', { d: shape.getAttribute('d') }));
-      defs.append(light, clip);
-      const band = mk('g', { 'clip-path': 'url(#sentClip)' });
-      band.appendChild(mk('rect', { class: 'sent-pass', x: -260, y: 0, width: 200, height: 640, fill: 'url(#sentLight)' }));
-      svg.append(defs, band);
-    }
-    return svg;
+    const svg = document.createElementNS(NS, 'svg'), use = document.createElementNS(NS, 'use');
+    svg.setAttribute('aria-hidden', 'true');
+    use.setAttribute('href', '#ad-mark');
+    svg.appendChild(use);
+    return U.lightMark(svg, 'sent');
   }
 
   window.AlchemistBooking = { mount, offer, get state() { return st; } };

@@ -331,18 +331,18 @@
     };
   })();
   window.AlchemistLight = light;
-  // Arrivals: the Services header, a brand page's title, the Gold client card, the Exterior and Bundles photo plates
-  // and the closing band on home get their pass once a third of them is on the screen, after their own entrance has
-  // landed. One that scrolled away before its turn gets it when it comes back. (An appointment takes its pass when it
-  // is first opened: account.js.) A brand page's title sets from behind its line first (the heads): its pass, inside
-  // the letters, waits until the heading is whole again.
-  const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish, .cta-band';
+  // Arrivals: the Services header, a brand page's title, the Gold client card and the Exterior and Bundles photo
+  // plates get their pass once a third of them is on the screen, after their own entrance has landed. One that
+  // scrolled away before its turn gets it when it comes back. (An appointment takes its pass when it is first opened:
+  // account.js; home's closing band has a moment of its own: closing().) A brand page's title sets from behind its
+  // line first (the heads): its pass, inside the letters, waits until the heading is whole again.
+  const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish';
   const arriveIo = new IntersectionObserver((es) => es.forEach((e) => {
     if (!e.isIntersecting) return;
     const el = e.target;
     arriveIo.unobserve(el);
     const title = el.matches('h1');
-    const pass = () => light.pass(el, { delay: title ? 200 : el.matches('.svc-top, .cta-band') ? 650 : 450, size: el.matches('.group-plate, .svc-top, .cta-band') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
+    const pass = () => light.pass(el, { delay: title ? 200 : el.matches('.svc-top') ? 650 : 450, size: el.matches('.group-plate, .svc-top') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
     if (title) afterHead(el.closest('[data-head]'), pass); else pass();
   }), { threshold: 0.35 });
 
@@ -451,7 +451,8 @@
   let artQueue = [];
   let artBusy = false;
   let artReady = false;
-  let artHold = false;   // the Bead moment on Services is drawing through the stills' context: they wait for it
+  let artHold = false;   // a bead moment (Services' Protection, home's closing band) is drawing through the stills' context: they wait for it
+  const artRest = new Map();   // a still that is a moment's last picture: its numbers for a W x H picture (the closing band's)
   function paintArt() {
     if (!artReady || artHold || !glOk || !window.AlchemistHero) return;
     artQueue = $$('canvas[data-art]').filter((c) => c.offsetParent !== null || c.closest('.wash-stage'));
@@ -470,7 +471,8 @@
       if (c.width !== W || c.height !== H || !c.dataset.done) {
         try {
           // data-studio="0" keeps black paint in light mode too (the dark photo pieces); otherwise the theme decides
-          const opts = c.dataset.studio != null ? { studio: c.dataset.studio === '1' } : undefined;
+          const rest = artRest.get(c);
+          const opts = rest ? rest(W, H) : c.dataset.studio != null ? { studio: c.dataset.studio === '1' } : undefined;
           const src = window.AlchemistHero.art(c.dataset.art, W, H, +(c.dataset.t || 10), opts);
           if (src) {
             c.width = W; c.height = H;
@@ -1334,37 +1336,97 @@
     const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); fn(); } }, o);
     io.observe(el);
   };
-  // Protection (the owner's §11): at 40% on the screen the paint beads up live. Drops appear and bead up (2.2s), the
-  // gold light passes through them (1.6s) while a few roll down, then the canvas gives way to the real photo of
-  // beading (.8s) and the title rises. It is drawn through the stills' context by their own program (the stills wait
-  // while it is on the screen), at the Interior leather's size, which that canvas already has: nothing to compile,
-  // no resize, nothing in it waits for the GPU process, and nothing to let go afterwards. It draws only while the
-  // plate is on the screen and stops for good once the photo is back. On a page that has only just opened here
-  // (#services-protection), before the stills' context is up, it waits at most 300ms, then the photo fades in and
-  // the title rises. A context lost on the way ends it at once: the photo and the title.
-  (function beading() {
+  // The bead moment (the owner's §11), for Services' Protection plate and home's closing band: on black paint the
+  // drops appear one by one, small at first, and bead up (0.2-2.4s), the gold light comes up (from 0.3s) and passes
+  // through them (1.2-2.8s) while a few of the largest roll down (1.6-3.6s). It is drawn through the stills' context
+  // by their own program (its drops forming and rolling are compiled in; the stills wait while it draws: artHold), at
+  // most at 0.6 of the screen's resolution and within that canvas as it is: nothing to compile, no resize, nothing in
+  // it waits for the GPU process, and nothing to let go afterwards. It draws only while its frame is on the screen (30
+  // fps on a phone, 60 elsewhere) and stops for good when its owner says (stop). host: the frame it lies in (which
+  // clips the canvas); o: { time (the scene's), run (the scene's time runs on with the moment; else it holds, so the
+  // last picture is a still), k (its scale, 0.6 at most), studio (black paint; left out, the theme's), path(W, H) ->
+  // [from, to] (where the light comes up and where it comes to rest: offsets on its way from where it rests
+  // unmoved), before (the node the canvas goes in front of), frame(secs, off) (after each picture; off: the light's
+  // offset then), lost() (the context was lost: it has stopped) }
+  const BEAD = { light: [0.3, 1.9], form: [0.2, 2.4], sweep: [1.2, 2.8], roll: [1.6, 3.6], end: 4 };   // seconds
+  const inOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const span = (secs, [a, b]) => Math.min(1, Math.max(0, (secs - a) / (b - a)));
+  // the light's travel as the shader takes it: from and to as offsets on its way, from v0 to v1 of sweepRange
+  const sweepOf = (from, to) => { const range = 2 * Math.max(Math.abs(from), Math.abs(to), 0.05); return { range, v0: 0.5 + from / range, v1: 0.5 + to / range }; };
+  function beadMoment(host, o) {
+    const small = Math.min(window.innerWidth, window.innerHeight) < 700;
+    let cv = null, raf = 0, t0 = 0, last = 0, seen = true, W = 2, H = 2, way = sweepOf(0, 0);
+    const watch = new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; });
+    const sweep = (secs) => way.v0 + (way.v1 - way.v0) * inOut(span(secs, BEAD.sweep));
+    const at = (secs) => ({ live: true, studio: o.studio, intro: span(secs, BEAD.light), form: 1 - Math.pow(1 - span(secs, BEAD.form), 3), sweep: sweep(secs), sweepRange: way.range, roll: span(secs, BEAD.roll) });
+    const draw = (secs) => window.AlchemistHero.art('beads', W, H, o.time + (o.run ? secs : 0), at(secs)) === cv;
+    function stop() {
+      cancelAnimationFrame(raf);
+      watch.disconnect();
+      if (cv) { cv.remove(); cv.classList.remove('live', 'on', 'settle'); cv.removeAttribute('style'); cv = null; }
+      if (artHold) { artHold = false; paintArt(); }
+    }
+    function frame(now) {
+      raf = requestAnimationFrame(frame);
+      if (!seen || document.hidden || now - last < (small ? 31 : 15)) return;   // 30 fps on a phone, 60 elsewhere
+      last = now;
+      const secs = (now - t0) / 1000;
+      if (!draw(secs)) { stop(); if (o.lost) o.lost(); return; }   // the context was lost
+      if (o.frame) o.frame(secs, (sweep(secs) - 0.5) * way.range);
+    }
+    return {
+      // the stills' context is up and free: its canvas's size (else null)
+      room: () => (artReady && !artBusy && !artHold && host.clientWidth ? window.AlchemistHero.artRoom() : null),
+      // the paint below the screen's resolution, soft and fast (0.6 at most), kept within the stills' canvas as it is
+      // (should the frame have grown since its largest still); false: it could not start
+      play(room) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2), k = Math.min(o.k || 0.6, room[0] / (host.clientWidth * dpr), room[1] / (host.clientHeight * dpr));
+        W = Math.max(2, Math.floor(host.clientWidth * dpr * k));
+        H = Math.max(2, Math.floor(host.clientHeight * dpr * k));
+        way = sweepOf(...o.path(W, H));
+        artHold = true;   // the stills wait while the canvas is on the screen
+        try { cv = window.AlchemistHero.art('beads', W, H, o.time, at(0)); } catch (e) { cv = null; }
+        if (!cv) { stop(); return false; }
+        cv.classList.add('live');
+        cv.setAttribute('aria-hidden', 'true');
+        // the paint is the canvas's lower left W x H corner: sized so that corner fills the frame (which clips the rest)
+        cv.style.width = (100 * cv.width / W) + '%';
+        cv.style.height = (100 * cv.height / H) + '%';
+        host.insertBefore(cv, o.before || null);
+        watch.observe(host);
+        t0 = last = performance.now();
+        raf = requestAnimationFrame(frame);
+        return true;
+      },
+      // its last picture, drawn now whatever was drawn last (a frame that was off the screen at the end draws none)
+      rest: () => !!cv && draw(BEAD.end),
+      stop,
+      get canvas() { return cv; },
+      get size() { return [W, H]; },
+    };
+  }
+  // Protection (the owner's §11): at 40% on the screen the paint beads up live (the bead moment), then the canvas
+  // gives way to the real photo of beading (.8s) and the title rises. Its time runs on with the moment, and the light
+  // comes up in the left third of the paint and passes through the drops to rest right of the middle. On a page that
+  // has only just opened here (#services-protection), before the stills' context is up, it waits at most 300ms, then
+  // the photo fades in and the title rises. A context lost on the way ends it at once: the photo and the title.
+  (function protection() {
     const plate = $('#svc-protection .group-plate');
     if (!plate || calm || !glOk || !window.AlchemistHero) return;
     plate.classList.add('beading');
-    const small = Math.min(window.innerWidth, window.innerHeight) < 700;
     const timers = [];
     const later = (ms, fn) => timers.push(setTimeout(fn, ms));
-    const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-    const span = (secs, a, b) => Math.min(1, Math.max(0, (secs - a) / (b - a)));
-    let cv = null, raf = 0, t0 = 0, last = 0, seen = true, done = false, W = 2, H = 2, range = 0.5, v0 = 0.5, v1 = 0.5;
-    const watch = new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; });
-    function stopFrames() {
-      cancelAnimationFrame(raf);
-      watch.disconnect();
-      if (cv) { cv.remove(); cv.classList.remove('live'); cv.removeAttribute('style'); cv = null; }
-      if (artHold) { artHold = false; paintArt(); }
-    }
+    let done = false;
     const cap = $('figcaption', plate);   // its title sets as the photo is back (headGo)
+    // its travel follows the plate's shape (ext: the paint's half-width along the light's axis in the shader's units;
+    // at this time of the scene the bar's own drift holds it near -0.3)
+    const path = (W, H) => { const ext = 0.675 * (W / H * 0.82 + 0.57); return [-0.55 * ext + 0.3, 0.5 * ext + 0.3]; };
+    const m = beadMoment(plate, { time: 13.7, run: true, studio: false, path, before: cap, lost: end });
     function end() {
       if (done) return;
       done = true;
       timers.forEach(clearTimeout);
-      stopFrames();
+      m.stop();
       plate.classList.remove('beading', 'crossing', 'risen', 'quick');
       headGo(cap);
     }
@@ -1376,54 +1438,220 @@
       headGo(cap);
       later(1000, () => plate.classList.remove('beading', 'crossing', 'risen', 'quick'));
     }
-    const at = (secs) => ({ live: true, studio: false, intro: (secs - 0.3) / 1.6, form: 1 - Math.pow(1 - span(secs, 0.2, 2.4), 3), sweep: v0 + (v1 - v0) * ease(span(secs, 1.2, 2.8)), sweepRange: range, roll: span(secs, 1.6, 3.6) });
-    function frame(now) {
-      raf = requestAnimationFrame(frame);
-      if (!seen || document.hidden || now - last < (small ? 31 : 15)) return;   // 30 fps on a phone, 60 elsewhere
-      last = now;
-      const secs = (now - t0) / 1000;
-      if (window.AlchemistHero.art('beads', W, H, 13.7 + secs, at(secs)) !== cv) end();   // the context was lost
-    }
     function play(room) {
-      // the paint below the screen's resolution, soft and fast: at the Interior leather's scale (its data-k .6; the
-      // plates are the same size), kept within the stills' canvas as it is (should the plate have grown since)
-      const dpr = Math.min(window.devicePixelRatio || 1, 2), k = Math.min(0.6, room[0] / (plate.clientWidth * dpr), room[1] / (plate.clientHeight * dpr));
-      W = Math.max(2, Math.floor(plate.clientWidth * dpr * k));
-      H = Math.max(2, Math.floor(plate.clientHeight * dpr * k));
-      // the light comes up in the left third of the paint, then passes through the drops to rest right of the middle:
-      // its travel follows the plate's shape (ext: the paint's half-width along the light's axis in the shader's units;
-      // at this time of the scene the bar's own drift holds it near -0.3)
-      const ext = 0.675 * (W / H * 0.82 + 0.57), from = -0.55 * ext + 0.3, to = 0.5 * ext + 0.3;
-      range = 2 * Math.max(-from, to);
-      v0 = 0.5 + from / range;
-      v1 = 0.5 + to / range;
-      artHold = true;   // the stills wait while the canvas is on the screen
-      try { cv = window.AlchemistHero.art('beads', W, H, 13.7, at(0)); } catch (e) { cv = null; }
-      if (!cv) { end(); return; }
-      cv.classList.add('live');
-      cv.setAttribute('aria-hidden', 'true');
-      // the paint is the canvas's lower left W x H corner: sized so that corner fills the plate (which clips the rest)
-      cv.style.width = (100 * cv.width / W) + '%';
-      cv.style.height = (100 * cv.height / H) + '%';
-      plate.insertBefore(cv, plate.querySelector('figcaption'));
-      watch.observe(plate);
-      t0 = last = performance.now();
-      raf = requestAnimationFrame(frame);
+      if (!m.play(room)) { end(); return; }
       later(3100, () => plate.classList.add('crossing'));
       later(3600, () => { plate.classList.add('risen'); headGo(cap); });
-      later(4000, stopFrames);
+      later(4000, m.stop);
       later(4800, () => { done = true; plate.classList.remove('beading', 'crossing', 'risen'); });
     }
     onceSeen(plate, { threshold: 0.4 }, () => {
       const t = performance.now();
       (function go() {
         if (done) return;
-        const room = artReady && !artBusy && plate.clientWidth && window.AlchemistHero.artRoom();
+        const room = m.room();
         if (room) play(room);
         else if (performance.now() - t > 300) reveal();
         else later(50, go);
       })();
     });
+  })();
+  // ---------------------------------------------------------------- home's closing band: protect it, then book
+  // The owner's journey ends "protect it", then "book the service" (his §11 and §20). At 40% on the screen, after the
+  // wash's end, the band's paint is black and empty; the drops appear and bead up, the gold light comes up in its left
+  // part and passes through them while a few of the largest roll down (the bead moment), and as the bar reaches SHINE
+  // LIKE GOLD its line of light goes into the gold letters where the bar is, frame by frame, as the hero's light went
+  // into ALCHEMIST: the page opens and closes on one light. From 2.8s the paint settles to its faint texture, and at 4s
+  // it is the band's still, which is the moment's last picture (the still is painted from the same numbers: artRest),
+  // so nothing changes as the canvas goes. Its scene's time is its own and held, and the light takes its own way, so
+  // it is not Services' Protection again. All of it is one turn in the light's queue: Book Now's shine waits until the
+  // light has gone, and the footer's sign-off comes after it (closing.after). Book Now and Call are there and work all
+  // the while. Without WebGL, or with the stills' context not up within 300ms, the letters alone take the light (CSS),
+  // once their heading is whole. None under reduced motion or in forced colours: the still, the heading set.
+  const BAND = { from: 0.16, to: 0.7, at: 0.4 };   // where the bar comes up and rests across the headline's row (at least); how much of the band on the screen
+  const closing = (function closing() {
+    const band = $('.cta-band'), bg = band && $('.bead-bg', band), h2 = band && $('h2', band);
+    let stage = band && h2 && !calm ? 'wait' : 'done', busy = false, gx = null;
+    const enough = () => { const r = band.getBoundingClientRect(), seen = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0); return r.height > 0 && seen >= Math.min(r.height, window.innerHeight) * BAND.at; };
+    // what waits for the band's light (the footer's sign-off): from the band's arrival (or its being due: on the
+    // screen and still to play, as the footer may be seen in the same frame) until its light has gone (6s at most)
+    const waiting = [];
+    const settle = () => { busy = false; waiting.splice(0).forEach((fn) => fn()); };
+    const api = {
+      after(fn) {
+        if (cur !== 'home' || !(busy || (stage === 'wait' && enough()))) { fn(); return; }
+        waiting.push(fn);
+        setTimeout(() => { const k = waiting.indexOf(fn); if (k >= 0) { waiting.splice(k, 1); fn(); } }, 6000);
+      },
+    };
+    if (!band || !h2) return api;
+    // the boxes of a heading's words as laid out (its lines, split or whole; not the copy kept for screen readers)
+    const textRects = (el) => {
+      const out = [], r = document.createRange();
+      (function walk(n) {
+        if (n.nodeType === 3) { r.selectNodeContents(n); out.push(...r.getClientRects()); }
+        else if (n.nodeType === 1 && !n.classList.contains('sr-only')) n.childNodes.forEach(walk);
+      })(el);
+      return out.filter((q) => q.width > 0);
+    };
+    // the headline's letters, in its own pixels: their extent and the width of the light in them (a third of the
+    // longest line, as the wordmark's), and the heading's place in the band
+    function words() {
+      const hb = h2.getBoundingClientRect(), ls = textRects(h2);
+      if (!ls.length) return null;
+      return { left: h2.offsetLeft, from: Math.min(...ls.map((q) => q.left)) - hb.left, to: Math.max(...ls.map((q) => q.right)) - hb.left, w: Math.round(Math.max(96, 0.32 * Math.max(...ls.map((q) => q.width)))) };
+    }
+    // where the light comes up and comes to rest, on the headline's row, for a W x H picture of the band's paint: before
+    // the words, and past them with its light clear of them (as the hero's bar glides on until it has cleared the
+    // word), across a wide band at least from its left part to right of the middle
+    const seed = bg ? +(bg.dataset.t || 10) : 10;
+    const row = () => (h2.offsetTop + h2.offsetHeight / 2) / Math.max(1, band.clientHeight);
+    function path(W, H) {
+      const bar = window.AlchemistHero.artBar('beads', W, H, seed), y = row(), bw = Math.max(1, band.clientWidth), t = words();
+      const a = t ? Math.min(BAND.from, (t.left + t.from - t.w) / bw) : BAND.from, b = t ? Math.max(BAND.to, (t.left + t.to + t.w) / bw) : BAND.to;
+      return [bar.level(a, y) - bar.rest, bar.level(b, y) - bar.rest];
+    }
+    const drawn = bg && glOk && window.AlchemistHero && window.AlchemistHero.artBar;
+    if (drawn) artRest.set(bg, (W, H) => { const way = sweepOf(...path(W, H)); return { live: true, intro: 1, form: 1, roll: 1, sweep: way.v1, sweepRange: way.range }; });
+    if (calm) return api;
+    // (at the still's own scale, so its last picture is the still pixel for pixel, and no larger than the stills drew)
+    const m = drawn ? beadMoment(band, { time: seed, k: +(bg.dataset.k || 0.5), path, before: $('.eyebrow', band), frame: follow, lost: still }) : null;
+    if (m) band.classList.add('bead-arm');   // the paint waits black and empty for its moment
+    const near = new IntersectionObserver((es) => {
+      if (!es.some((e) => e.isIntersecting) || !enough()) return;
+      near.unobserve(band);
+      arrive();
+    }, { threshold: [0, 0.1, 0.2, 0.3, BAND.at, 0.5, 0.6, 0.8, 1] });
+    near.observe(band);
+    function arrive() {
+      if (wash && wash.live()) { washSection.addEventListener('washend', () => near.observe(band), { once: true }); return; }   // after the wash, never over it
+      if (stage === 'done') return;
+      busy = true;
+      if (stage === 'letters') { letters(); return; }
+      if (stage !== 'wait') return;
+      if (!m) { stage = 'letters'; letters(); return; }
+      const t = performance.now();
+      (function ready() {
+        if (m.room()) light.pass(band, { size: 'wide', when: enough, miss: () => near.observe(band), start });
+        else if (performance.now() - t > 300) { still(); stage = 'letters'; letters(); }
+        else setTimeout(ready, 50);
+      })();
+    }
+    // its turn has come: the moment plays (it returns how long the light runs: until the bar has passed the letters)
+    function start() {
+      const room = m.room();
+      if (stage !== 'wait' || !room || !m.play(room)) { still(); stage = 'letters'; setTimeout(letters, 0); return 1; }
+      stage = 'moment';
+      const [W, H] = m.size, cv = m.canvas, t = words();
+      cv.style.setProperty('--band-w', band.clientWidth + 'px');   // the paint's calm round the words is the band's (CSS)
+      cv.style.setProperty('--band-h', band.clientHeight + 'px');
+      requestAnimationFrame(() => requestAnimationFrame(() => { if (cv.isConnected) cv.classList.add('on'); }));   // it comes up from nothing (its first picture is black)
+      if (t) gx = Object.assign(t, { bar: window.AlchemistHero.artBar('beads', W, H, seed), y: row(), bw: band.clientWidth, on: false, gone: false });   // the letters as the bar meets them
+      setTimeout(() => { if (m.canvas) m.canvas.classList.add('settle'); }, BEAD.sweep[1] * 1000);
+      setTimeout(finish, BEAD.end * 1000);
+      return BEAD.sweep[1] * 1000 + 200;
+    }
+    // the bar on the headline's row each picture: its line of light in the letters there (one pass, never joined part
+    // way: a heading still setting as the bar reaches it lets it pass)
+    function follow(secs, off) {
+      if (!gx || gx.gone) return;
+      const x = gx.bar.line(gx.bar.rest + off, gx.y) * gx.bw - gx.left, half = gx.w / 2;
+      if (!gx.on) {
+        if (x + half < gx.from) return;
+        if (h2.classList.contains('hd-lines')) { gx.gone = true; return; }
+        gx.on = true;
+        h2.style.setProperty('--bar-w', gx.w + 'px');
+        h2.classList.add('au-bar');
+      }
+      if (x - half > gx.to) { unbar(); return; }
+      h2.style.setProperty('--bar-x', (x - half).toFixed(1) + 'px');
+    }
+    function unbar() {
+      if (gx) gx.gone = true;
+      h2.classList.remove('au-bar');
+      h2.style.removeProperty('--bar-x');
+      h2.style.removeProperty('--bar-w');
+    }
+    // 4s: the paint rests. The still becomes the last picture itself (drawn into it at its own size, as the stills
+    // are), so it takes the canvas's place in the same frame, unseen
+    function finish() {
+      unbar();
+      if (m.rest() && bg) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2), k = +(bg.dataset.k || 0.85);
+        const w = Math.round(bg.clientWidth * dpr * k), h = Math.round(bg.clientHeight * dpr * k);
+        if (w && h) {
+          try {
+            const [W, H] = m.size, src = m.canvas;
+            if (bg.width !== w || bg.height !== h) { bg.width = w; bg.height = h; }
+            bg.getContext('2d').drawImage(src, 0, src.height - H, W, H, 0, 0, w, h);
+            bg.dataset.done = '1';
+          } catch (e) { /* the still the stills painted stays */ }
+        }
+      }
+      band.classList.remove('bead-arm');
+      m.stop();
+      stage = 'done';
+      settle();
+    }
+    // no moment (the stills' context not up in time, or lost): the still fades in where it is painted
+    function still() {
+      unbar();
+      if (m) m.stop();
+      if (band.classList.contains('bead-arm')) { band.classList.add('bead-fade'); band.classList.remove('bead-arm'); }
+      if (stage === 'moment') { stage = 'done'; settle(); }
+    }
+    // the letters alone take the light, once their heading is whole (none without the gold light: forced colours)
+    function letters() {
+      if (light.off) { stage = 'done'; settle(); return; }
+      afterHead(band, () => light.pass(h2, { when: enough, miss: () => near.observe(band), start: () => { stage = 'done'; setTimeout(settle, AU_MS.el + 200); } }));
+    }
+    return api;
+  })();
+  // ---------------------------------------------------------------- the footer signs off
+  // The page's last gesture (the owner's §6: the logo among the gold light's places). The first time this visit that
+  // the footer comes up the screen, its centre hairline draws out from the middle (1.2s), and once the monogram is
+  // wholly on the screen it takes one pass of gold light inside its own strokes (ui.js lightMark); on home both wait
+  // for the closing band's light to have gone, so they are the page's last movement. Once per visit (the tab's own
+  // storage; should it be blocked, it may come again on a later visit, which is harmless). On the booking, account
+  // and staff pages the hairline is simply drawn and the mark takes no light (the closer to booking, the calmer), and
+  // a footer already on the screen as a page opens takes it only once it has been scrolled away and back. None under
+  // reduced motion, without JavaScript or in print: the hairline drawn, the mark still; in forced colours the
+  // hairline draws and no light passes.
+  let footRoute = () => {};   // the router calls it as a page opens
+  (function signOff() {
+    const mark = footer && $('.foot-brand svg', footer);
+    if (!mark || reduce) return;
+    let signed = false;
+    try { signed = sessionStorage.getItem('ad.signed') === '1'; } catch (e) { /* storage unavailable: it signs off this time */ }
+    if (signed) return;
+    footer.setAttribute('data-sign', '');
+    if (!light.off && window.AlchemistUI && window.AlchemistUI.lightMark) window.AlchemistUI.lightMark(mark, 'foot');
+    const quiet = () => ['book', 'account', 'appointments', 'admin', 'team'].includes(cur);
+    // the mark in the open: below the floating top bar (the page's scroll padding), above the screen's foot
+    const BAR = 90;
+    const shown = () => { const r = mark.getBoundingClientRect(); return r.top >= BAR && r.bottom <= window.innerHeight; };
+    let away = false, lit = false;
+    new IntersectionObserver((es, o) => {
+      if (!es[es.length - 1].isIntersecting) return;
+      o.disconnect();
+      if (quiet()) { footer.classList.add('now', 'in'); return; }
+      closing.after(() => footer.classList.add('in'));
+    }, { rootMargin: '0px 0px -24px 0px' }).observe(footer);
+    const markIo = new IntersectionObserver((es) => {
+      const e = es[es.length - 1];
+      if (!e.isIntersecting) { away = true; return; }
+      if (e.intersectionRatio < 0.99 || !away || lit || quiet()) return;
+      lit = true;
+      markIo.disconnect();
+      // as the hairline draws out; the visit is signed off once the light has played (one that lost its turn, the
+      // mark gone from the open meanwhile, waits for the mark's next arrival)
+      const sign = () => { try { sessionStorage.setItem('ad.signed', '1'); } catch (err) { /* storage unavailable */ } };
+      const again = () => { lit = false; away = true; markIo.observe(mark); };
+      closing.after(() => light.pass(mark, { delay: 400, when: shown, start: sign, miss: again }));
+    }, { threshold: [0, 1], rootMargin: -BAR + 'px 0px 0px 0px' });
+    markIo.observe(mark);
+    // a page opening: the mark counts as reached only once it has been out of the open on this page
+    footRoute = () => requestAnimationFrame(() => { away = !shown(); });
   })();
   // Interior (the owner's §12): the plate starts nearly black; at 35% on the screen, once its leather is painted, a
   // soft warm light crosses the quilting diagonally (1.4s), the cabin comes up to its lit state, then INTERIOR sets
@@ -1663,6 +1891,7 @@
         if (view === 'home') { fitServices(); if (wash) wash.refresh(); }
         paintArt();
       });
+      footRoute();   // (after the page's own scroll, in the next frame)
     }
   }
   window.addEventListener('hashchange', () => render(false));

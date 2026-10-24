@@ -33,7 +33,9 @@
      AlchemistHero.art(scene, width, height, time, { studio?, live?, intro?, form?, sweep?, sweepRange?, roll? })
        -> a canvas to copy from: the picture is its lower left width x height corner (the canvas only grows),
        or to show while a sequence is drawn through it, frame by frame
-     AlchemistHero.artRoom() -> [width, height] of that canvas, or null before the first still */
+     AlchemistHero.artRoom() -> [width, height] of that canvas, or null before the first still
+     AlchemistHero.artBar(scene, width, height, time) -> { rest, level(x, y), line(L, y) }: where the light bar of that
+       picture is, for a page that follows it (x and y are 0..1 across and down the frame; see there) */
 (function () {
   'use strict';
 
@@ -827,6 +829,25 @@ void main(){
     return canvas;
   }
   const artRoom = () => (artGL && !artGL.gl.isContextLost() ? [artGL.canvas.width, artGL.canvas.height] : null);
+  // The stills' light bar in a w x h picture of a scene at a time, for a page that follows it (the closing band's
+  // letters take the light where the bar is): the bar is at rest + (sweep - 0.5) * sweepRange on its way (the shader's
+  // lightPos); level(x, y) is where on its way it is when its centre line passes through the point (x, y), and
+  // line(L, y) where (0..1 across) that line crosses the row y (0..1 down the frame) when the bar is at L. The same
+  // numbers as the shader (its orange peel aside, a pixel or two), as the live hero's lineX.
+  function artBar(scene, w, h, time) {
+    const k = SPAN * ({ gloss: 1.12, split: 1.05 }[scene] || 1), asp = Math.max(2, w) / Math.max(2, h);
+    const qx = (x) => (x - 0.5) * asp * k + time * PAN[0], qy = (y) => (0.5 - y) * k + time * PAN[1];
+    return {
+      rest: drift(time),
+      level(x, y) { const a = qx(x), b = qy(y); return a * LD[0] + b * LD[1] + curve(a, b); },
+      line(L, y) {
+        const b = qy(y);
+        let a = 0;
+        for (let i = 0; i < 3; i++) a = (L - b * LD[1] - curve(a, b)) / LD[0];
+        return (a - time * PAN[0]) / (asp * k) + 0.5;
+      },
+    };
+  }
 
-  window.AlchemistHero = { start, art, artRoom };
+  window.AlchemistHero = { start, art, artRoom, artBar };
 })();

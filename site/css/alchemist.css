@@ -1286,21 +1286,58 @@ section { position: relative; }
 /* its studio light, the warm glow from the top, is a layer of its own so it can come up as the band arrives (a room) */
 .cta-band::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 90% at 50% 0%, rgba(var(--gold-rgb), .14), transparent 60%); pointer-events: none; }
 .cta-band::before { -webkit-mask-image: var(--grain); -webkit-mask-size: 160px 160px; -webkit-mask-composite: source-over; mask-image: var(--grain); mask-size: 160px 160px; mask-composite: add; }   /* the grain only: its light starts at the band's top edge */
-.cta-band h2 { margin-top: var(--s-2); font-size: var(--fs-h2); }   /* the eyebrow's gap, as in a section head */
+.cta-band h2 { width: fit-content; margin: var(--s-2) auto 0; font-size: var(--fs-h2); }   /* the eyebrow's gap, as in a section head; as wide as its words, so a light in them crosses the words */
 .cta-band h2.gold-text { background-size: 100% 1lh; }   /* one run of the metal per line: on a phone both lines are the same gold */
 .cta-band p { margin: 18px auto 0; color: var(--ink-2); max-width: var(--m-centre); text-wrap: pretty; }
 .cta-band p:not(.eyebrow) { font-size: var(--t-4); line-height: var(--lh-4); }
 .cta-band p.eyebrow { color: var(--gold-ink); }   /* the rule above outranks .eyebrow */
 .cta-band .actions { margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
-/* a faint texture of beads behind the band (painted by app.js) and, once the band has risen, its turn in the gold
-   light (app.js): the shared band, softened, screen-blended over the dark glass */
+/* Protect it, then book (app.js closing()): a faint texture of beads behind the band, the still of its moment. At 40%
+   on the screen the paint is black and empty (.bead-arm holds the still back), and a live canvas of it lies in the
+   band (.live, the bead moment): it comes up to its moment's strength (.on) as the drops form and bead up, the light
+   passes through them, and from 2.8s it settles to the still's (.settle); at 4s the still, which is its last picture,
+   takes its place unseen. With no moment in time, the still fades in where it is (.bead-fade). Round the words the
+   paint is held to half its strength (--paint-calm, a soft ellipse; the live canvas takes it at the band's size), so
+   the line, the kicker and the buttons keep their contrast (4.5:1) while the light passes under them, and at rest. */
+.cta-band { --calm-w: 420px; --calm-h: 50%; --paint-calm: radial-gradient(var(--calm-w) var(--calm-h) at 50% 50%, rgba(0, 0, 0, .5) 80%, #000); }
+@media (max-width: 720px) { .cta-band { --calm-w: 64%; --calm-h: 56%; } }   /* a phone's words fill the band (a gradient's size takes no min() of a length and a percentage) */
+.cta-band > :is(.bead-bg, canvas.live) { -webkit-mask-image: var(--paint-calm); mask-image: var(--paint-calm); }
 .bead-bg { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; opacity: .22; pointer-events: none; }
-.cta-band::after { content: ""; position: absolute; inset: -20% -40%; z-index: -1; background: var(--au-band); mix-blend-mode: screen; opacity: .55; transform: translateX(-100%); pointer-events: none; }
-.cta-band.au-run::after { animation: sweep var(--au-dur-wide) var(--au-ease) 1 both; }
+.cta-band.bead-arm > .bead-bg { opacity: 0; }
+.cta-band.bead-fade > .bead-bg { transition: opacity .8s var(--ease-in-out); }
+.cta-band > canvas.live {
+  position: absolute; left: 0; bottom: 0; z-index: -1; max-width: none; pointer-events: none;
+  -webkit-mask-size: var(--band-w, 100%) var(--band-h, 100%); mask-size: var(--band-w, 100%) var(--band-h, 100%);
+  -webkit-mask-position: left bottom; mask-position: left bottom; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  opacity: 0; transition: opacity .6s var(--ease-unveil);
+}
+.cta-band > canvas.live.on { opacity: .5; }
+.cta-band > canvas.live.settle { opacity: .22; transition: opacity 1.2s var(--ease-in-out); }
+/* SHINE LIKE GOLD takes the light inside its letters: where the moment's bar is on its row, picture by picture
+   (.au-bar: --bar-x, the light's left in the heading, and --bar-w, its width, from app.js), or, with no moment, as
+   one pass of the shared light (.au-run). Each line keeps its own run of the metal */
+.cta-band h2:is(.au-bar, .au-run) {
+  background: linear-gradient(var(--au-angle), transparent 34%, var(--au-glint) 50%, transparent 66%) var(--bar-x, -100%) 0 / var(--bar-w, 30%) 100% no-repeat, var(--gold-text) 0 0 / 100% 1lh;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.cta-band h2.au-run {
+  background-position: calc(var(--au-p) * 186% - 43%) 0, 0 0;   /* its light from just before the words to just after them */
+  animation: auPass var(--au-dur) var(--au-ease) 1 both;
+}
 
 /* ---------------------------------------------------------------- footer */
 .footer { position: relative; padding: 70px 0 calc(40px + env(safe-area-inset-bottom, 0px)); color: var(--ink-2); border-top: 1px solid var(--hair); }
-.footer::before { content: ""; position: absolute; left: 50%; top: -1px; width: min(320px, 60vw); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, var(--line), transparent); pointer-events: none; }
+.footer::before { content: ""; position: absolute; inset: -1px 0 auto; margin-inline: auto; width: min(320px, 60vw); height: 1px; background: linear-gradient(90deg, transparent, var(--line), transparent); pointer-events: none; }   /* centred by its margins, so it can draw from its middle on the compositor */
+/* The sign-off (app.js signOff, once per visit): the hairline draws out from the centre as the footer first comes up
+   the screen (at once on the booking and account pages: .now), then the monogram takes one pass of light inside its
+   strokes (ui.js lightMark; its turn in the light's queue, .au-run). Held back only while app.js waits for it: drawn
+   without JavaScript, under reduced motion and in print */
+.footer[data-sign]:not(.in)::before { transform: scaleX(0); }
+.footer[data-sign].in::before { transition: transform 1.2s var(--ease-unveil); }
+.footer[data-sign].in.now::before { transition: none; }
+.foot-brand svg.au-run .mark-pass { animation: markPass var(--au-dur) var(--au-ease) 1 both; }
 /* five columns on a wide screen: the four fact and page columns each as wide as their longest line (so "10 miles"
    stays with its words), the brand in the rest */
 .foot-grid { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, auto); gap: 30px clamp(32px, 3.6vw, 60px); padding-bottom: 36px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
@@ -2623,8 +2660,13 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
    sheet, what happens next as three gold points on a line, and the ways on */
 .bk-sent { text-align: center; justify-items: center; padding-bottom: clamp(26px, 4vw, 44px); }
 .sent-mark svg { width: 74px; height: 74px; overflow: visible; filter: drop-shadow(0 10px 30px rgba(var(--gold-rgb), .35)); animation: heroIn 1s var(--ease) both; }
-.sent-pass { animation: sentPass 1.6s var(--ease-in-out) .9s both; }
-@keyframes sentPass { from { transform: translateX(0) skewX(-18deg); } to { transform: translateX(1100px) skewX(-18deg); } }
+/* the monogram's pass of light (ui.js lightMark; the footer's sign-off takes the same): a band leaning as the 118deg
+   light does, clipped to the mark's strokes, from just before its first stroke to just past its last (in the mark's
+   own units), so all of its time is spent on the mark; at rest it waits outside */
+.mark-light .edge { stop-color: var(--au-50); stop-opacity: 0; }
+.mark-light .core { stop-color: var(--au-50); stop-opacity: .9; }
+.sent-mark .mark-pass { animation: markPass 1.6s var(--ease-in-out) .9s both; }
+@keyframes markPass { from { transform: translateX(320px) skewX(-28deg); } to { transform: translateX(1060px) skewX(-28deg); } }
 .sent-ref { display: grid; justify-items: center; gap: 12px; }
 .sent-code { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .42em; font: 400 clamp(28px, 5vw, 40px)/1.1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: .06em; font-variant-numeric: tabular-nums lining-nums; color: var(--gold-hi); }
 .sent-sheet, .sent-next { width: min(100%, 600px); text-align: left; }
@@ -4219,8 +4261,11 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .bk-nav { background: linear-gradient(180deg, rgba(255, 253, 248, .9), rgba(250, 247, 240, .97)); border-top-color: rgba(17, 17, 17, .08); }
 :where([data-theme="light"]) .cta-band { background: linear-gradient(180deg, #fff, var(--bg-2)); border-color: var(--line-soft); box-shadow: 0 30px 60px -40px rgba(17, 17, 17, .4); }
 :where([data-theme="light"]) .cta-band::before { background: radial-gradient(70% 90% at 50% 0%, rgba(var(--studio-gold-rgb), .16), transparent 60%); }
-:where([data-theme="light"]) .cta-band::after { background: linear-gradient(var(--au-angle), transparent 40%, rgba(var(--studio-gold-rgb), .05) 46%, rgba(217, 167, 81, .16) 50%, rgba(var(--studio-gold-rgb), .05) 54%, transparent 60%); mix-blend-mode: normal; opacity: 1; }   /* on the ivory band the light is a warm sheen, not a screen */
 :where([data-theme="light"]) .bead-bg { opacity: .12; mix-blend-mode: multiply; }
+/* the closing band's moment in the white studio: the cream paint laid on the ivory (multiply), up to .3, resting at the still's .12 */
+:where([data-theme="light"]) .cta-band > canvas.live { mix-blend-mode: multiply; }
+:where([data-theme="light"]) .cta-band > canvas.live.on { opacity: .3; }
+:where([data-theme="light"]) .cta-band > canvas.live.settle { opacity: .12; }
 :where([data-theme="light"]) .footer { border-top-color: rgba(17, 17, 17, .06); }
 :where([data-theme="light"]) :is(.foot-grid, .sum, .acct-sec, .pr-total, .appt-body, .svc-group + .svc-group) { border-color: rgba(17, 17, 17, .08); }
 :where([data-theme="light"]) .work-progress { background: rgba(17, 17, 17, .1); }
@@ -4331,7 +4376,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (forced-colors: active) {
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
-  .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .cta-band::after, .btn-gold::before, .work-item::before, .gal-btn::after, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
+  .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .btn-gold::before, .work-item::before, .gal-btn::after, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
   :is(.why, .work, .how, .svc-group, .cta-band)::before { display: none; }   /* no gold glow in the rooms */
   .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */
@@ -4361,7 +4406,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .acct-soon > * { animation: none !important; }
   html, body { background: #fff !important; color: #111 !important; }
   .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
-  .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
+  .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before { display: none !important; }
   [data-rise], [data-reveal], [data-hd], .ln-w, .standard[data-std] :is(.emblem img, h2.eyebrow, .script, .facts span), .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .why::after, .how::after, .work-item img { animation: none !important; }   /* the foot hairlines drawn and the photos centred, wherever the screen had scrolled */
@@ -4392,7 +4437,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: #ddd; }
   :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid #d8d8d8 !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; }
-  .bk-sent :is(.mini-btn, .link, .bk-actions), .sent-pass { display: none !important; }
+  .bk-sent :is(.mini-btn, .link, .bk-actions), .mark-pass { display: none !important; }
+  .footer::before { transform: none !important; }   /* the hairline drawn, wherever the sign-off had got to */
   /* the receipt on one page, a long booking too: tighter, the mark smaller, the footer left off (the receipt carries
      the phone itself) */
   body:has(.bk-sent) .footer { display: none !important; }

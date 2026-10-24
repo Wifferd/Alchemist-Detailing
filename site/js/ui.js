@@ -68,6 +68,28 @@
     s.appendChild(p);
     return s;
   }
+  // The monogram's pass of light (the sent screen as it lands, the footer as it signs off): one band at the light's
+  // angle, clipped to the mark's own shape (the page's #ad-mark), so the light stays inside its strokes. The mark's
+  // <svg><use> takes the symbol's own units, so the clip and the band line up with it; key names the band's ids (two
+  // marks can be on the page). The CSS moves the band (.mark-pass); at rest it waits outside the mark, unseen. None
+  // under reduced motion.
+  function lightMark(svg, key) {
+    const NS = 'http://www.w3.org/2000/svg', shape = document.querySelector('#ad-mark path');
+    if (!svg || !shape || svg.querySelector('.mark-pass')) return svg;
+    const mk = (tag, attrs) => { const n = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); return n; };
+    svg.setAttribute('viewBox', '0 20 570 590');
+    const use = svg.querySelector('use');
+    if (use) [['x', 0], ['y', 20], ['width', 570], ['height', 590]].forEach(([k, v]) => use.setAttribute(k, v));
+    if (reduce) return svg;
+    const defs = mk('defs', {}), grad = mk('linearGradient', { id: key + 'Light', class: 'mark-light', x1: 0, y1: 0, x2: 1, y2: 0 }), clip = mk('clipPath', { id: key + 'Clip' });
+    ['edge', 'core', 'edge'].forEach((c, i) => grad.appendChild(mk('stop', { offset: i / 2, class: c })));
+    clip.appendChild(mk('path', { d: shape.getAttribute('d') }));
+    defs.append(grad, clip);
+    const band = mk('g', { 'clip-path': 'url(#' + key + 'Clip)' });
+    band.appendChild(mk('rect', { class: 'mark-pass', x: -260, y: 0, width: 200, height: 640, fill: 'url(#' + key + 'Light)' }));
+    svg.append(defs, band);
+    return svg;
+  }
 
   // The loading line: a hairline with the gold light running along it (the CSS's .au-line), then the words; a reader
   // hears them, and hears the screen arrive in its place.
@@ -287,5 +309,5 @@
     }
   }
 
-  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage };
+  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage };
 })();
