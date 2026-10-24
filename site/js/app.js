@@ -331,11 +331,12 @@
     };
   })();
   window.AlchemistLight = light;
-  // Arrivals: the Services header, a brand page's title, the Gold client card and the Exterior and Bundles photo
-  // plates get their pass once a third of them is on the screen, after their own entrance has landed. One that
-  // scrolled away before its turn gets it when it comes back. (An appointment takes its pass when it is first opened:
-  // account.js; home's closing band has a moment of its own: closing().) A brand page's title sets from behind its
-  // line first (the heads): its pass, inside the letters, waits until the heading is whole again.
+  // Arrivals: the Services header, a brand page's title, the Gold client card and the Bundles photo plate get their
+  // pass once a third of them is on the screen, after their own entrance has landed. One that scrolled away before its
+  // turn gets it when it comes back. (An appointment takes its pass when it is first opened: account.js; home's
+  // closing band and the other Services plates have moments of their own: closing(), rinse(), cabin(), protection().)
+  // A brand page's title sets from behind its line first (the heads): its pass, inside the letters, waits until the
+  // heading is whole again.
   const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish';
   const arriveIo = new IntersectionObserver((es) => es.forEach((e) => {
     if (!e.isIntersecting) return;
@@ -743,9 +744,9 @@
     el.classList.add('in');
     if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); el.style.removeProperty('--after'); }, 1000 + after);
   }
-  // a plate's title whose moment sets it (Interior's cabin, Protection's beading: headGo, as the light comes up or the
-  // photo is back), never an arrival, a page opening or a jump to the group
-  const ownMoment = (el) => el.hasAttribute('data-head') && !!el.closest('.cabin, .beading');
+  // a plate's title whose moment sets it (Exterior's rinse, Interior's cabin, Protection's beading: headGo, as the
+  // sheet clears, the cabin comes up or the photo is back), never an arrival, a page opening or a jump to the group
+  const ownMoment = (el) => el.hasAttribute('data-head') && !!el.closest('.wet, .cabin, .beading');
   // the live wash still on its way out: what comes after it on home waits for its end (washend)
   const afterWash = (el) => !!(wash && wash.live() && el.closest('[data-view="home"]') && !washSection.contains(el) && (washSection.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING));
   // a block that the keyboard reaches before it has risen is shown at once, with no fade, so a focus ring is never
@@ -823,9 +824,10 @@
       c.setAttribute('data-head', '');
       h.setAttribute('data-hd', 'h');
       $$(':scope > .eyebrow, :scope > div > .eyebrow', c).forEach((k) => k.setAttribute('data-hd', 'k'));
-      $$(':scope > p:not(.eyebrow), :scope > .actions, :scope > .work-nav', c).forEach((f, i) => { f.setAttribute('data-hd', 'f'); f.style.setProperty('--f', i); });
+      // (a line its plate's moment shows itself, data-own: Interior's, word by word with the cabin's lights, is not one)
+      $$(':scope > p:not(.eyebrow, [data-own]), :scope > .actions, :scope > .work-nav', c).forEach((f, i) => { f.setAttribute('data-hd', 'f'); f.style.setProperty('--f', i); });
       $$('.rule', c).forEach((r) => io.observe(r));
-      if (!c.closest('.cabin, .beading')) io.observe(c);   // a plate with a moment of its own sets its title itself
+      if (!c.closest('.wet, .cabin, .beading')) io.observe(c);   // a plate with a moment of its own sets its title itself
     });
   }
   // a head arrives: it waits for the fonts (1s at most), then sets in the next frame (arrive), or once the head
@@ -1488,13 +1490,38 @@
   // (The services page's photo plates drift the same way, on the browser's own scroll timeline: CSS plateDrift.)
 
   // ---------------------------------------------------------------- the services plates' moments (one each, played once)
-  // Protection beads up live and Interior's cabin lights up, each the first time its plate comes on the screen. Under
-  // reduced motion and in forced colours neither plays: the plates show their still pictures and titles, as before.
+  // Each room has its own: Exterior's sheet of water runs off, Interior's door closes and its cabin lights up,
+  // Protection beads up live and the light hands over to the real photo, each the first time its plate comes on the
+  // screen, and each as one turn in the light's queue, so only one room plays at a time and no gold light crosses with
+  // it. Under reduced motion and in forced colours none plays: the plates show their still pictures and titles.
   const calm = reduce || window.matchMedia('(forced-colors: active)').matches;
   const onceSeen = (el, o, fn) => {
     const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); fn(); } }, o);
     io.observe(el);
   };
+  // A room's turn in the light's queue. When the queue reaches it, it plays only if its plate is still a quarter on
+  // the screen (of the plate, or of the screen for a plate taller than it: roomWhen); one passed by meanwhile waits to
+  // be seen again (its miss). It holds the queue for its run (ms) only while its plate is on the screen: a room left
+  // before its run is over (a fast scroll past, a jump with the chapter bar) gives the queue back at once, so the room
+  // the visitor lands on never waits behind it. Its own layers and timers carry on to its end state off the screen, or
+  // away() takes it there at once.
+  const roomWhen = (plate) => () => {
+    const r = plate.getBoundingClientRect(), seen = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+    return r.height > 0 && seen / Math.min(r.height, window.innerHeight) >= 0.25;
+  };
+  function roomTurn(plate, ms, away) {
+    let t = 0;
+    const io = new IntersectionObserver((es) => {
+      if (es[es.length - 1].isIntersecting) return;
+      io.disconnect();
+      clearTimeout(t);
+      light.stop(plate);
+      if (away) away();
+    });
+    t = setTimeout(() => io.disconnect(), ms);
+    io.observe(plate);
+    return ms;
+  }
   // The bead moment (the owner's §11), for Services' Protection plate and home's closing band: on black paint the
   // drops appear one by one, small at first, and bead up (0.2-2.4s), the gold light comes up (from 0.3s) and passes
   // through them (1.2-2.8s) while a few of the largest roll down (1.6-3.6s). It is drawn through the stills' context
@@ -1505,8 +1532,9 @@
   // clips the canvas); o: { time (the scene's), run (the scene's time runs on with the moment; else it holds, so the
   // last picture is a still), k (its scale, 0.6 at most), studio (black paint; left out, the theme's), path(W, H) ->
   // [from, to] (where the light comes up and where it comes to rest: offsets on its way from where it rests
-  // unmoved), before (the node the canvas goes in front of), frame(secs, off) (after each picture; off: the light's
-  // offset then), lost() (the context was lost: it has stopped) }
+  // unmoved), travel(secs) (how far along that way the light is, 0 to 1; left out, BEAD.sweep's pass), before (the
+  // node the canvas goes in front of), frame(secs, off) (after each picture; off: the light's offset then), lost()
+  // (the context was lost: it has stopped) }
   const BEAD = { light: [0.3, 1.9], form: [0.2, 2.4], sweep: [1.2, 2.8], roll: [1.6, 3.6], end: 4 };   // seconds
   const inOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const span = (secs, [a, b]) => Math.min(1, Math.max(0, (secs - a) / (b - a)));
@@ -1516,7 +1544,7 @@
     const small = Math.min(window.innerWidth, window.innerHeight) < 700;
     let cv = null, raf = 0, t0 = 0, last = 0, seen = true, W = 2, H = 2, way = sweepOf(0, 0);
     const watch = new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; });
-    const sweep = (secs) => way.v0 + (way.v1 - way.v0) * inOut(span(secs, BEAD.sweep));
+    const sweep = (secs) => way.v0 + (way.v1 - way.v0) * (o.travel ? o.travel(secs) : inOut(span(secs, BEAD.sweep)));
     const at = (secs) => ({ live: true, studio: o.studio, intro: span(secs, BEAD.light), form: 1 - Math.pow(1 - span(secs, BEAD.form), 3), sweep: sweep(secs), sweepRange: way.range, roll: span(secs, BEAD.roll) });
     const draw = (secs) => window.AlchemistHero.art('beads', W, H, o.time + (o.run ? secs : 0), at(secs)) === cv;
     function stop() {
@@ -1564,29 +1592,138 @@
       get size() { return [W, H]; },
     };
   }
-  // Protection (the owner's §11): at 40% on the screen the paint beads up live (the bead moment), then the canvas
-  // gives way to the real photo of beading (.8s) and the title rises. Its time runs on with the moment, and the light
-  // comes up in the left third of the paint and passes through the drops to rest right of the middle. On a page that
-  // has only just opened here (#services-protection), before the stills' context is up, it waits at most 300ms, then
-  // the photo fades in and the title rises. A context lost on the way ends it at once: the photo and the title.
+  // Exterior (the owner's §4, §9 and §21: water on paint): the caliper and the wheel wait dim under a thin, cool sheet
+  // of water. Once a third of the plate is on the screen the sheet runs off at the light's angle (1.4s), its trailing
+  // edge one bright cool line, the crest that rinsed the foam off on home; behind it the paint is wet-black and lit.
+  // As the sheet clears, the index and EXTERIOR rise. Clear water only, never a dirty "before". CSS draws it and only
+  // its transform moves; its layer goes once the sheet is off the plate. Not a gold light, so Bundles keeps the plates'
+  // gold pass to itself.
+  (function rinse() {
+    const plate = $('#svc-exterior .group-plate.rinse');
+    if (!plate || calm) return;
+    const cap = $('figcaption', plate), film = document.createElement('span');
+    film.className = 'rinse-film';
+    film.setAttribute('aria-hidden', 'true');
+    plate.insertBefore(film, $('.plate-no', plate));
+    plate.classList.add('wet');
+    // The sheet's frame is turned to the light's angle (--au-angle, 118deg: 28deg off upright), so its own x runs
+    // across the crest (n) and its y along it (t). It is placed from the plate's size before each picture of a new
+    // size (a ResizeObserver: the services page opening, a new width): its crest just left of the plate's top left
+    // corner, the sheet ahead of it covering the plate, and --run its way until the glaze behind it has left the
+    // plate's far corner too.
+    const a = 28 * Math.PI / 180, n = [Math.cos(a), Math.sin(a)], t = [-Math.sin(a), Math.cos(a)];
+    function place() {
+      const W = plate.clientWidth, H = plate.clientHeight;
+      if (!W || !H || !film.isConnected) return;
+      const across = W * n[0] + H * n[1], along = -W * t[0] + H * t[1];   // the plate's extent in the frame's two directions
+      const tail = Math.round(0.14 * across), bloom = 40, m = 24;
+      const s0 = -bloom - tail, y0 = W * t[0] - m;   // the frame's top left corner, in n and t
+      film.style.left = (s0 * n[0] + y0 * t[0]).toFixed(1) + 'px';
+      film.style.top = (s0 * n[1] + y0 * t[1]).toFixed(1) + 'px';
+      film.style.width = Math.ceil(tail + bloom + across + m) + 'px';
+      film.style.height = Math.ceil(along + 2 * m) + 'px';
+      film.style.setProperty('--tail', tail + 'px');
+      film.style.setProperty('--run', Math.ceil(across + tail + 2 * bloom) + 'px');
+    }
+    const sized = window.ResizeObserver ? new ResizeObserver(place) : null;
+    if (sized) sized.observe(plate); else window.addEventListener('resize', place);
+    let done = false;
+    function clear() {
+      if (!film.isConnected) return;
+      film.remove();
+      if (sized) sized.disconnect(); else window.removeEventListener('resize', place);
+    }
+    // its turn has come: the sheet runs off; the index and the title rise as it clears the plate (it has long passed
+    // them, at the top left and the foot's left)
+    function run() {
+      if (done) return 1;
+      done = true;
+      place();
+      plate.classList.add('rinsing');
+      setTimeout(() => { plate.classList.add('risen'); headGo(cap); }, 1150);
+      film.addEventListener('animationend', clear, { once: true });
+      setTimeout(clear, 1700);   // should the end never come (a hidden page)
+      setTimeout(() => plate.classList.remove('wet', 'rinsing', 'risen'), 2600);
+      return roomTurn(plate, 1400);
+    }
+    const arrive = () => light.pass(plate, { delay: 150, start: run, when: roomWhen(plate), miss: () => onceSeen(plate, { threshold: 0.33 }, arrive) });
+    // the photo first: it loads lazily, and on a page opened right here (#services-exterior) or on a slow phone it can
+    // still be on its way, so the sheet waits until it is decoded (1.5s at most), never running off an empty plate
+    const img = $('img', plate);
+    function photo(fn) {
+      let go = false;
+      const once = () => { if (!go) { go = true; fn(); } };
+      const load = () => img.addEventListener('load', once, { once: true });
+      if (!img || !img.decode) { if (img && !(img.complete && img.naturalWidth)) load(); else once(); }
+      else img.decode().then(once, load);
+      setTimeout(once, 1500);
+    }
+    onceSeen(plate, { threshold: 0.33 }, () => photo(arrive));
+  })();
+  // Protection (the owner's §11): at 40% on the screen the paint beads up live (the bead moment): the light comes up in
+  // the left third of the paint while the drops form, then passes through them, and keeps going: it crosses the whole
+  // paint and leaves it at the right (2.1-3.7s), and in its wake the owner's real photo of beading is uncovered by a
+  // soft edge at the light's own angle riding just behind it (the canvas is masked, frame by frame, from where the bar
+  // is: the same numbers as the shader, artBar), the photo coming up from dark. So the gold-lit paint and the daylight
+  // photo read as one light reaching the real car. The title rises as the edge reaches the far side, and the canvas
+  // stops as soon as the edge has cleared the plate (4s at most). Its scene's time runs on with the moment. On a page
+  // that has only just opened here (#services-protection), before the stills' context is up, it waits at most 300ms,
+  // then the photo fades in and the title rises. A context lost on the way ends it at once: the photo and the title.
+  const HAND = { sweep: [2.1, 3.7], close: [2.1, 2.8], soft: 0.14, lag: 0.035 };   // seconds; the edge's softness and its lag behind the bar's line (parts of the plate across the light)
   (function protection() {
     const plate = $('#svc-protection .group-plate');
-    if (!plate || calm || !glOk || !window.AlchemistHero) return;
+    if (!plate || calm || !glOk || !window.AlchemistHero || !window.AlchemistHero.artBar) return;
     plate.classList.add('beading');
+    const shade = document.createElement('span');   // the photo's exposure: under the paint, over the photo
+    shade.className = 'hand-shade';
+    shade.setAttribute('aria-hidden', 'true');
+    plate.insertBefore(shade, $('img', plate).nextSibling);
     const timers = [];
     const later = (ms, fn) => timers.push(setTimeout(fn, ms));
-    let done = false;
+    let done = false, hand = null;
     const cap = $('figcaption', plate);   // its title sets as the photo is back (headGo)
-    // its travel follows the plate's shape (ext: the paint's half-width along the light's axis in the shader's units;
-    // at this time of the scene the bar's own drift holds it near -0.3)
-    const path = (W, H) => { const ext = 0.675 * (W / H * 0.82 + 0.57); return [-0.55 * ext + 0.3, 0.5 * ext + 0.3]; };
-    const m = beadMoment(plate, { time: 13.7, run: true, studio: false, path, before: cap, lost: end });
+    const TIME = 13.7;   // the scene's time as the moment starts
+    // where the light comes up (in the left third: at this time of the scene the bar's own drift holds it near -0.3;
+    // ext: the paint's half-width along the light's axis in the shader's units) and where it leaves the paint: its line
+    // past the plate's far corner by the edge's softness and lag, so the photo is whole when it has gone
+    function path(W, H) {
+      const ext = 0.675 * (W / H * 0.82 + 0.57), bar = window.AlchemistHero.artBar('beads', W, H, TIME + HAND.sweep[1]);
+      const g = geometry(W, H, bar), k = (g.len * (HAND.soft + HAND.lag) + 24) / g.len;   // (the edge's far side, its lag and a margin)
+      return [-0.55 * ext + 0.3, bar.level(1 + k * g.d[0] * g.len / g.pw, 1 + k * g.d[1] * g.len / g.ph) - bar.rest];
+    }
+    // the plate across the light: the bar's direction there (d: across its line, toward where it goes, in the plate's
+    // pixels), the mask's CSS angle and the plate's length along d
+    function geometry(W, H, bar) {
+      const pw = plate.clientWidth, ph = plate.clientHeight, L = bar.rest;
+      const dx = ph, dy = (bar.line(L, 0) - bar.line(L, 1)) * pw, r = Math.hypot(dx, dy) || 1;
+      const d = [dx / r, dy / r];
+      return { pw, ph, d, deg: Math.atan2(d[0], -d[1]) * 180 / Math.PI, len: pw * Math.abs(d[0]) + ph * Math.abs(d[1]) };
+    }
+    // the light's way: up in its place until 2.1s, then across the paint and off it (one pass, --ease-in-out's curve)
+    const travel = (secs) => inOut(span(secs, HAND.sweep));
+    const m = beadMoment(plate, { time: TIME, run: true, studio: false, path, travel, before: cap, frame: follow, lost: end });
+    // the edge each picture, just behind the bar's line on the plate's middle row; it comes in from beyond the plate's
+    // near corner and closes up on the bar as the bar sets off (HAND.close), so it never shows ahead of the light
+    function follow(secs, off) {
+      if (!hand || secs < HAND.close[0]) return;
+      const cv = m.canvas, [W, H] = m.size;
+      if (!cv) return;
+      const bar = window.AlchemistHero.artBar('beads', W, H, TIME + secs), x = bar.line(bar.rest + off, 0.5) * hand.pw;
+      const at = (px, py) => (px - hand.cx) * hand.d[0] + (py - hand.cy) * hand.d[1] + hand.lg / 2;   // a point's place along the mask's gradient
+      const lag = hand.len * (HAND.soft / 2 + HAND.lag), start = at(x, hand.ph / 2) - at(0, 0) + hand.soft / 2;
+      const e = at(x, hand.ph / 2) - (start + (lag - start) * inOut(span(secs, HAND.close)));
+      const mask = 'linear-gradient(' + hand.deg.toFixed(2) + 'deg, transparent ' + (e - hand.soft / 2).toFixed(1) + 'px, #000 ' + (e + hand.soft / 2).toFixed(1) + 'px)';
+      cv.style.webkitMaskImage = mask;
+      cv.style.maskImage = mask;
+      if (e - hand.soft / 2 > at(hand.pw, hand.ph)) m.stop();   // the photo is whole: the canvas has done its work
+    }
     function end() {
       if (done) return;
       done = true;
       timers.forEach(clearTimeout);
       m.stop();
-      plate.classList.remove('beading', 'crossing', 'risen', 'quick');
+      plate.classList.remove('beading', 'crossing', 'handover', 'risen', 'quick');
+      shade.remove();
       headGo(cap);
     }
     // no moment: the photo fades in from the black paint and the title rises
@@ -1595,25 +1732,55 @@
       done = true;
       plate.classList.add('quick', 'crossing', 'risen');
       headGo(cap);
-      later(1000, () => plate.classList.remove('beading', 'crossing', 'risen', 'quick'));
+      later(1000, () => { plate.classList.remove('beading', 'crossing', 'risen', 'quick'); shade.remove(); });
     }
+    // its turn has come (it returns how long the light runs: until the bar has left the paint, and, should it have to
+    // wait for the stills, the 300ms it may wait). The stills can be busy just then (the leather painting, the closing
+    // band's beads holding them): it waits for them up to 300ms, counted from its turn and holding it, and only then
+    // does the photo simply fade in. Left on the way (off the screen), it goes to its end at once (end).
+    function start() {
+      if (done) return 1;
+      const room = m.room();
+      if (room) return play(room) ? roomTurn(plate, HAND.sweep[1] * 1000, end) : 1;
+      const t = performance.now();
+      later(50, function wait() {
+        if (done) return;
+        const r = m.room();
+        if (r) { if (!play(r)) light.stop(plate); }
+        else if (performance.now() - t < 300) later(50, wait);
+        else { reveal(); light.stop(plate); }
+      });
+      return roomTurn(plate, HAND.sweep[1] * 1000 + 350, end);
+    }
+    // the moment itself, in the room the stills have given it (false: it could not start, and it has ended)
     function play(room) {
-      if (!m.play(room)) { end(); return; }
-      later(3100, () => plate.classList.add('crossing'));
-      later(3600, () => { plate.classList.add('risen'); headGo(cap); });
-      later(4000, m.stop);
-      later(4800, () => { done = true; plate.classList.remove('beading', 'crossing', 'risen'); });
+      if (!m.play(room)) { end(); return false; }
+      later(HAND.close[0] * 1000, () => {
+        const cv = m.canvas;
+        if (!cv) return;
+        const [W, H] = m.size, g = geometry(W, H, window.AlchemistHero.artBar('beads', W, H, TIME + HAND.close[0]));
+        // the canvas's own box (its lower left corner fills the plate): the mask's gradient is laid along it
+        const cw = g.pw * cv.width / W, ch = g.ph * cv.height / H;
+        hand = Object.assign(g, { cx: cw / 2, cy: g.ph - ch / 2, lg: cw * Math.abs(g.d[0]) + ch * Math.abs(g.d[1]), soft: HAND.soft * g.len });
+        plate.classList.add('handover');
+      });
+      later(3300, () => { plate.classList.add('risen'); headGo(cap); });
+      later(BEAD.end * 1000, m.stop);
+      later(4800, () => { done = true; plate.classList.remove('beading', 'handover', 'risen'); shade.remove(); });
+      return true;
     }
-    onceSeen(plate, { threshold: 0.4 }, () => {
+    // each sighting (the first, and one after a turn it missed): on a page that has only just opened here, before the
+    // stills' context is up, it waits for it 300ms at most, counted from this sighting
+    function sighted() {
       const t = performance.now();
       (function go() {
         if (done) return;
-        const room = m.room();
-        if (room) play(room);
+        if (m.room()) light.pass(plate, { start, when: roomWhen(plate), miss: () => onceSeen(plate, { threshold: 0.4 }, sighted) });
         else if (performance.now() - t > 300) reveal();
         else later(50, go);
       })();
-    });
+    }
+    onceSeen(plate, { threshold: 0.4 }, sighted);
   })();
   // ---------------------------------------------------------------- home's closing band: protect it, then book
   // The owner's journey ends "protect it", then "book the service" (his §11 and §20). At 40% on the screen, after the
@@ -1812,32 +1979,75 @@
     // a page opening: the mark counts as reached only once it has been out of the open on this page
     footRoute = () => requestAnimationFrame(() => { away = !shown(); });
   })();
-  // Interior (the owner's §12): the plate starts nearly black; at 35% on the screen, once its leather is painted, a
-  // soft warm light crosses the quilting diagonally (1.4s), the cabin comes up to its lit state, then INTERIOR sets
-  // from behind its line and the owner's line follows it. CSS draws it with transforms and opacity.
+  // Interior (the owner's §12: a vehicle door closes, the screen goes dark, the camera goes into the leather, then
+  // individual areas illuminate; the dashboard, carpet and seats wait for a real interior photo): the plate waits black
+  // but for a seam of daylight near its right edge, a door left open. At 35% on the screen, once its leather is
+  // painted, the seam pinches out (350ms: the door closes) and the plate holds black for a beat; then, as the black
+  // lifts, the view moves into the quilting (the leather from 1.14x to its rest, 2.5s from .75s), INTERIOR sets from
+  // behind its line with the owner's line dim under it, and three soft pools of warm light come on over three
+  // cushions, one after another (1.0, 1.6 and 2.2s), each lighting one word of that line: RESTORE, REFRESH, RESET. By
+  // 3.45s the cabin is at its lit state (the plate's still) and the sentence follows; at 4.2s the extra layers go. CSS
+  // draws it. The leather is generated art, never a real car or a result: it stays uncaptioned.
+  // Without WebGL it plays over the leather's still picture (img/art/leather.webp).
   (function cabin() {
     const plate = $('#svc-interior .group-plate');
     if (!plate || calm) return;
-    const leather = $('canvas[data-art]', plate);
-    ['cabin-dark', 'cabin-glow'].forEach((k) => {
-      const s = document.createElement('span');
-      s.className = k;
-      s.setAttribute('aria-hidden', 'true');
-      plate.insertBefore(s, plate.querySelector('figcaption'));
-    });
-    plate.classList.add('cabin');
-    let played = false;
-    const play = () => {
-      if (played) return;
-      played = true;
-      plate.classList.add('on');
-      setTimeout(() => headGo($('figcaption', plate)), 1500);   // INTERIOR sets from behind its line once the cabin has come up
-      setTimeout(() => { $$('.cabin-dark, .cabin-glow', plate).forEach((s) => s.remove()); plate.classList.remove('cabin', 'on'); }, 3000);
+    const leather = $('canvas[data-art]', plate), cap = $('figcaption', plate), motto = $('.motto', plate);
+    const layer = (k) => {
+      const el = document.createElement('span');
+      el.className = k;
+      el.setAttribute('aria-hidden', 'true');
+      plate.insertBefore(el, cap);
+      return el;
     };
+    layer('cabin-dark');
+    // the three pools share one layer that lights the leather under it (one blend for the three, not three)
+    const room = layer('cabin-pools');
+    const pools = [0, 1, 2].map((k) => {
+      const el = document.createElement('i');
+      el.style.setProperty('--d', (1 + 0.6 * k) + 's');
+      room.appendChild(el);
+      return el;
+    });
+    layer('door-seam');
+    if (motto) motto.setAttribute('data-own', '');   // its words come with the lights, not with the head
+    plate.classList.add('cabin');
+    // the pools over three cushions in a row above the title, from the quilting's own lattice (hero-gl.js leather():
+    // a cushion's middle is where both families of stitches are half way, and the still rests at 1.08): the row a
+    // cushion above the middle, the middle cushion and the ones about 29% of the plate to either side
+    function aim() {
+      const W = plate.clientWidth, H = plate.clientHeight;
+      if (!W || !H) return;
+      const step = 1.08 / (6.4 * (W / H) * 1.2), i = 2 * Math.max(1, Math.round(0.29 / step / 2));
+      const y = (50 - 100 * 1.08 / (4.2 * 1.2)).toFixed(2) + '%';
+      pools.forEach((el, k) => { el.style.setProperty('--px', (50 + (k - 1) * i * step * 100).toFixed(2) + '%'); el.style.setProperty('--py', y); });
+    }
+    let played = false;
+    // its turn has come (it returns how long its light runs: until the cabin is lit)
+    function play() {
+      if (played) return 1;
+      played = true;
+      aim();
+      plate.classList.add('on');
+      setTimeout(() => headGo(cap), 700);   // INTERIOR sets from behind its line as the view settles
+      // each layer goes as soon as it has done its part (the seam once the door is shut, the black and the pools at
+      // the lit state), so fewer are drawn over the leather; the classes go once the sentence has risen
+      const drop = (sel) => $$(sel, plate).forEach((el) => el.remove());
+      setTimeout(() => drop('.door-seam'), 600);
+      setTimeout(() => drop('.cabin-dark, .cabin-pools'), 3500);
+      setTimeout(() => {
+        drop('.cabin-dark, .cabin-pools, .door-seam');
+        plate.classList.remove('cabin', 'on');
+      }, 4200);
+      return roomTurn(plate, 3450);
+    }
+    const turn = () => { if (!played) light.pass(plate, { delay: 120, start: play, when: roomWhen(plate), miss: () => onceSeen(plate, { threshold: 0.35 }, turn) }); };
     onceSeen(plate, { threshold: 0.35 }, () => {
-      if (!glOk || !leather || leather.dataset.done) { play(); return; }
-      leather.addEventListener('painted', play, { once: true });
-      setTimeout(play, 2500);   // the stills never came: light it all the same
+      if (!glOk || !leather || leather.dataset.done) { turn(); return; }
+      let go = false;
+      const once = () => { if (!go) { go = true; turn(); } };
+      leather.addEventListener('painted', once, { once: true });
+      setTimeout(once, 2500);   // the stills never came: light it all the same
     });
   })();
 

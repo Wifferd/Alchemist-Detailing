@@ -121,6 +121,15 @@
   --group-pool: 60% 34%;
   --room-glow: radial-gradient(26% 22% at 50% 28%, var(--room-core), transparent 70%), radial-gradient(var(--room-pool) at 50% 28%, var(--room-light), transparent 70%);
   --group-glow: radial-gradient(var(--group-pool) at 50% 76%, var(--group-light), transparent 70%);
+  /* the Services plates' own lights (app.js rinse, cabin, protection): clear water's cool white and the shade under a
+     sheet of it, daylight through a car door (warm-neutral, never gold), a cabin's warm courtesy light, and the black
+     the plates wait in (in both themes) */
+  --water-rgb: 214, 228, 244;
+  --water-crest: rgba(246, 250, 255, .92);
+  --water-shade-rgb: 6, 12, 21;
+  --daylight-rgb: 255, 247, 236;
+  --courtesy-rgb: 204, 197, 186;
+  --room-black: #030303;
   /* grain for the large gold glows, so their long soft ramps never band: about 3% noise, used as a mask (where the glow
      is, it varies its strength by a few percent; where there is no glow it does nothing) */
   --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .12 0 0 0 .9'/></filter><rect width='160' height='160' filter='url(%23g)'/></svg>");
@@ -1565,13 +1574,50 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
    (sizes in index.html allow for the 1.4 zoom) */
 #svc-exterior .group-plate > img { object-position: 50% 30%; transform-origin: 96% 30%; transform: scale(1.4); }
 #svc-bundles .group-plate > img { object-position: 50% 60%; }    /* the front of the car: the roundel above the caption, the grille */
-/* Exterior and Bundles (.polish): the photo comes in dim, one pass of gold light crosses it as a third of the plate is
-   on screen (app.js), and it ends glossy and lit, brightening just behind the band (.au-lit; lit at once under reduced
-   motion and without JavaScript). The scrim's middle is a shade deeper, so the caption holds on the white car */
+/* Bundles (.polish): the photo comes in dim, one pass of gold light crosses it as a third of the plate is on screen
+   (app.js), and it ends glossy and lit, brightening just behind the band (.au-lit; lit at once under reduced motion and
+   without JavaScript). The scrim's middle is a shade deeper, so the caption holds on the white car (and on Exterior's
+   wet tire) */
 .group-plate.polish > img { filter: brightness(.45) saturate(.7); transition: filter 1.4s var(--ease) .3s; }
 .group-plate.polish.au-lit > img, .no-js .group-plate.polish > img { filter: brightness(.92) saturate(1); }
-.group-plate.polish::before { background: var(--plate-corner), linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .3) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
+.group-plate:is(.polish, .rinse)::before { background: var(--plate-corner), linear-gradient(180deg, rgba(5, 5, 5, .42) 0%, rgba(5, 5, 5, .06) 20%, rgba(5, 5, 5, .3) 48%, rgba(5, 5, 5, .9) 82%, #050808 100%); }
+/* Exterior (.rinse): water on paint (the owner's §4 and §21). At rest the photo is lit, as Bundles' ends. While its
+   moment waits (app.js .wet) the caliper and the wheel lie dim and flat under a thin, cool sheet of water
+   (.rinse-film); once a third of the plate is on the screen the sheet runs off at the light's angle (.rinsing, 1.4s).
+   Its trailing edge is the crest that rinsed the foam off on home, a straight meniscus with body: a hot core inside a
+   rounded highlight about 7px wide, a few glints on it, a darker refraction band just inside the water with a soft
+   edge, and a fainter second reflection 12px behind it. Ahead of it the sheet is a cool tint with long sheens, so the
+   water reads before it moves; behind it the paint is wet-black and glossy, a faint glaze fading out over 14% of the
+   run. Clear water, never grime: cool and translucent, no grey haze. The sheet is drawn in a frame of
+   its own turned to the light's angle (app.js places and sizes it from the plate: the crest --tail in from its left
+   edge, --run its way across), and only its transform moves. None under reduced motion, in forced colours, without
+   JavaScript or in print: the photo lit */
+.group-plate.rinse > img { filter: brightness(.92) saturate(1); }
+.rinse-film {
+  position: absolute;
+  z-index: -2;
+  pointer-events: none;
+  transform-origin: 0 0;
+  transform: rotate(calc(var(--au-angle) - 90deg)) translateX(0px);
+  background:
+    radial-gradient(circle at var(--tail) 27%, var(--water-crest) 0, rgba(var(--water-rgb), .55) 3px, rgba(var(--water-rgb), .16) 10px, rgba(var(--water-rgb), 0) 30px),
+    radial-gradient(circle at var(--tail) 43%, var(--water-crest) 0, rgba(var(--water-rgb), .45) 2px, rgba(var(--water-rgb), .12) 8px, rgba(var(--water-rgb), 0) 20px),
+    radial-gradient(circle at var(--tail) 60%, var(--water-crest) 0, rgba(var(--water-rgb), .6) 4px, rgba(var(--water-rgb), .18) 12px, rgba(var(--water-rgb), 0) 36px),
+    radial-gradient(circle at var(--tail) 77%, var(--water-crest) 0, rgba(var(--water-rgb), .45) 2px, rgba(var(--water-rgb), .12) 8px, rgba(var(--water-rgb), 0) 22px),
+    linear-gradient(180deg, rgba(var(--water-rgb), 0) 6%, rgba(var(--water-rgb), .1) 28%, rgba(var(--water-rgb), .03) 44%, rgba(var(--water-rgb), 0) 58%) 100% 0 / calc(100% - var(--tail) - 8px) 100% no-repeat,
+    linear-gradient(180deg, transparent 18%, rgba(var(--water-rgb), .08) 25%, transparent 32%, transparent 50%, rgba(var(--water-rgb), .065) 56%, transparent 62%, transparent 72%, rgba(var(--water-rgb), .09) 78%, transparent 85%) 100% 0 / calc(100% - var(--tail) - 8px) 100% no-repeat,
+    /* the sheet's body ahead of the crest: a cool tint over its shade */
+    linear-gradient(90deg, rgba(var(--water-rgb), 0), rgba(var(--water-rgb), .075) 12px, rgba(var(--water-rgb), .06) 45%, rgba(var(--water-rgb), .07)) 100% 0 / calc(100% - var(--tail) - 7px) 100% no-repeat,
+    /* across the edge, back to front: the glaze, the second reflection, the highlight round its 1px core, the
+       refraction band and its soft edge, the sheet's shade */
+    linear-gradient(90deg, rgba(var(--water-rgb), 0) 0, rgba(var(--water-rgb), .05) calc(var(--tail) - 48px), rgba(var(--water-rgb), .07) calc(var(--tail) - 17px), rgba(var(--water-rgb), .2) calc(var(--tail) - 12px), rgba(var(--water-rgb), .08) calc(var(--tail) - 8px), rgba(var(--water-rgb), .3) calc(var(--tail) - 4px), rgba(var(--water-rgb), .68) calc(var(--tail) - 2px), var(--water-crest) calc(var(--tail) - .5px), var(--water-crest) calc(var(--tail) + .5px), rgba(var(--water-rgb), .62) calc(var(--tail) + 2px), rgba(var(--water-rgb), .22) calc(var(--tail) + 3.5px), rgba(var(--water-shade-rgb), .78) calc(var(--tail) + 5px), rgba(var(--water-shade-rgb), .72) calc(var(--tail) + 7.5px), rgba(var(--water-shade-rgb), .55) calc(var(--tail) + 15px), rgba(var(--water-shade-rgb), .5) calc(var(--tail) + 44px), rgba(var(--water-shade-rgb), .62) calc(var(--tail) + 140px));
+}
+.wet.rinsing .rinse-film { animation: rinseRun 1.4s var(--ease-in-out) both; }
+@keyframes rinseRun { to { transform: rotate(calc(var(--au-angle) - 90deg)) translateX(var(--run)); } }
+/* without WebGL (and without JavaScript) the Interior plate's leather is its still, drawn once from the same scene
+   (img/art/leather.webp); the moment plays over it just the same */
 .no-webgl .group-plate > canvas, .no-js .group-plate > canvas { background: repeating-linear-gradient(45deg, transparent 0 26px, rgba(var(--gold-rgb), .14) 26px 27px), repeating-linear-gradient(-45deg, transparent 0 26px, rgba(var(--gold-rgb), .14) 26px 27px), radial-gradient(90% 70% at 30% 20%, #1e1e1e, #0b0b0b); }
+:is(.no-webgl, .no-js) .group-plate > canvas[data-art="leather"] { background: url(../img/art/leather.webp) 50% 50% / cover no-repeat, var(--room-black); }
 /* the shade under the index: a soft corner wash from the top left, like a photographer's vignette (a shade of its
    own around the index read as a grey smudge on the light mirror photo), so the index holds over the white car's
    bonnet and the light leather without a halo (7.8:1 or more on all four plates). Its curve is --fade-dark's, drawn
@@ -1593,38 +1639,78 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .group-plate .motto i { font-style: normal; color: var(--au-500); }
 /* Protection: the beading moment (the owner's §11; app.js). While .beading the photo and the title wait under black
    paint and a live canvas of the paint lies over the plate (.live): the drops form, a few roll, the gold light passes
-   through them, then the canvas fades to the real photo (.crossing, .8s) and the title rises (.risen). The paint is the
-   lower left corner of the stills' canvas, which app.js sizes so that corner fills the plate. A page opened right at
-   the plate, before the stills' context is up, gets .quick: the photo fades in from the black and the title rises.
-   Reduced motion, forced colours and no WebGL never set .beading: the still photo and its title. */
-.group-plate > canvas.live { inset: auto auto 0 0; max-width: none; transform: none; object-fit: fill; background: #030303; filter: none; transition: opacity .8s var(--ease-in-out); }
-.group-plate.beading { background: #030303; }   /* black paint while it waits, in both themes */
+   through them, and it keeps going (.handover): the owner's real photo is uncovered behind it by a soft edge at the
+   light's angle (app.js masks the canvas, frame by frame, just behind the bar), coming up from dark (.hand-shade, from
+   .5 to nothing), and the title rises (.risen). The paint is the lower left corner of the stills' canvas, which app.js
+   sizes so that corner fills the plate. A page opened right at the plate, before the stills' context is up, gets
+   .quick: the photo fades in from the black and the title rises. Reduced motion, forced colours and no WebGL never set
+   .beading: the still photo and its title. */
+.group-plate > canvas.live { inset: auto auto 0 0; max-width: none; transform: none; object-fit: fill; background: var(--room-black); filter: none; transition: opacity .8s var(--ease-in-out); }
+.group-plate.beading { background: var(--room-black); }   /* black paint while it waits, in both themes */
 .group-plate.beading > img { opacity: 0; }
 .group-plate.beading.quick > img { transition: opacity .8s var(--ease-in-out); }
-.group-plate.beading.crossing > img { opacity: 1; }
+.group-plate.beading:is(.crossing, .handover) > img { opacity: 1; }
 .group-plate.crossing > canvas.live { opacity: 0; }
 .group-plate.beading::before { opacity: .3; transition: opacity .8s var(--ease-in-out); }   /* the caption's shade comes with the photo */
 .group-plate.beading.crossing::before { opacity: 1; }
-/* Interior: the cabin lighting up (the owner's §12; app.js .cabin, then .on). The leather waits in the dark under
-   .cabin-dark, black but for a soft pool of light beyond the top left corner; the pool crosses the quilting
-   diagonally (1.4s) with a warm glow on it (.cabin-glow), the dark lifts to the plate's lit state, then the title
-   rises and the owner's line 200ms after it. Transforms and opacity only; the plate stays dark in both themes. */
-.cabin-dark, .cabin-glow { position: absolute; inset: -100%; z-index: -1; pointer-events: none; transform: translate(-28%, -34%); }
-.cabin-dark { background: radial-gradient(circle var(--pool) at 50% 50%, rgba(3, 3, 3, 0) 0%, rgba(3, 3, 3, .28) 34%, rgba(3, 3, 3, .8) 68%, rgba(3, 3, 3, .97) 100%); }
-.cabin-glow { background: radial-gradient(circle var(--pool) at 50% 50%, rgba(255, 220, 168, .2) 0%, rgba(var(--gold-rgb), .08) 38%, rgba(var(--gold-rgb), 0) 66%); mix-blend-mode: screen; }
-.group-plate { --pool: clamp(170px, 30vw, 440px); }
-.cabin.on :is(.cabin-dark, .cabin-glow) { animation: cabinPool 1.4s var(--ease-in-out) forwards, cabinUp .9s var(--ease) 1.05s forwards; }
-@keyframes cabinPool { to { transform: translate(6%, 8%); } }
-@keyframes cabinUp { to { opacity: 0; } }
-/* the titles of both moments: down until their moment reaches them. A title set as a head (app.js data-head) is
+.group-plate.beading.handover::before { opacity: 1; transition-duration: 1.2s; transition-delay: .3s; }
+.hand-shade { position: absolute; inset: 0; z-index: -2; background: var(--room-black); opacity: 0; pointer-events: none; }
+.handover .hand-shade { animation: handShade 1.1s var(--ease-unveil) .45s both; }
+@keyframes handShade { from { opacity: .5; } to { opacity: 0; } }
+/* Interior: the door closes, the cabin lights up (the owner's §12; app.js .cabin, then .on). While it waits the plate
+   is black (.cabin-dark) but for a seam of daylight near its right edge (.door-seam: a door left open, its light
+   falling a little into the cabin; straight-edged, warm-neutral, never gold). At .on the seam pinches out toward the
+   door's edge (350ms: the door closes) and the plate holds black for a beat; from .75s the black lifts a little while
+   the view moves into the quilting (the leather from 1.14x to its rest, 2.5s on --ease-in-out, so most of the move
+   is seen), and three soft pools of warm light come on over three cushions, one after another (.cabin-pools, at 1.0,
+   1.6 and 2.2s), each lighting one word of the owner's line. The pools are color-dodge, on one layer for the three
+   (one blend, its pools plain inside it): they light the leather and its gold thread under them rather than glow over
+   it. From 2.75s the black and the pools go together, and at 3.45s the cabin is at its lit state, the plate's still.
+   Transforms and opacity only; the plate stays dark in both themes. */
+.cabin-dark, .cabin-pools, .door-seam { position: absolute; z-index: -1; pointer-events: none; }
+.cabin-dark { inset: 0; background: var(--room-black); }
+.cabin.on .cabin-dark { animation: cabinDim .65s var(--ease-unveil) .75s both, cabinLift .7s var(--ease-in-out) 2.75s forwards; }
+@keyframes cabinDim { from { opacity: 1; } to { opacity: .72; } }
+@keyframes cabinLift { from { opacity: .72; } to { opacity: 0; } }
+.group-plate { --pool: clamp(100px, 15vw, 190px); }   /* a pool's radius: about a cushion and a half */
+.cabin-pools { inset: 0; isolation: isolate; mix-blend-mode: color-dodge; }
+.cabin-pools > i { position: absolute; left: var(--px, 50%); top: var(--py, 28.6%); width: calc(2 * var(--pool)); height: calc(2 * var(--pool)); translate: -50% -50%; border-radius: 50%; background: radial-gradient(closest-side, rgb(var(--courtesy-rgb)) 0%, rgba(var(--courtesy-rgb), .62) 42%, rgba(var(--courtesy-rgb), .18) 74%, rgba(var(--courtesy-rgb), 0) 100%); opacity: 0; }
+/* as the black lifts the pools go too, on the same curve in 80% of its time: about the square of the black's own
+   lift, so a pool neither flares nor dips on its way to the lit state */
+.cabin.on .cabin-pools > i { animation: poolOn .6s var(--ease-unveil) var(--d, 1s) both, poolOff .56s var(--ease-in-out) 2.75s forwards; }
+@keyframes poolOn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes poolOff { from { opacity: 1; } to { opacity: 0; } }
+/* the gap: one overexposed line of daylight at the door's edge, its light falling into the cabin to its left */
+.door-seam { top: 0; bottom: 0; right: clamp(26px, 8%, 104px); width: clamp(60px, 10%, 130px); transform-origin: 100% 50%; background: linear-gradient(90deg, rgba(var(--daylight-rgb), 0) 0, rgba(var(--daylight-rgb), .045) 50%, rgba(var(--daylight-rgb), .14) calc(100% - 16px), rgba(var(--daylight-rgb), .55) calc(100% - 6px), rgba(var(--daylight-rgb), .98) calc(100% - 3px), rgba(var(--daylight-rgb), .98) calc(100% - 1px), rgba(var(--daylight-rgb), .25) 100%); -webkit-mask: linear-gradient(180deg, rgba(0, 0, 0, .45), #000 24%, #000 76%, rgba(0, 0, 0, .45)); mask: linear-gradient(180deg, rgba(0, 0, 0, .45), #000 24%, #000 76%, rgba(0, 0, 0, .45)); }
+.cabin.on .door-seam { animation: doorShut .35s var(--ease-in-out) forwards, seamOut .22s var(--ease) .28s forwards; }
+@keyframes doorShut { to { transform: scaleX(.04); } }
+@keyframes seamOut { to { opacity: 0; } }
+/* the camera: the leather's own scale (its drift on the scroll's timeline and its rest of 1.08 are left as they are) */
+.cabin.on > canvas { animation: cabinCam 2.5s var(--ease-in-out) .75s both; }
+@keyframes cabinCam { from { scale: 1.14; } }
+/* the owner's line, a word with each light (app.js leaves it out of the head: it is the moment's). It comes up dim
+   under the title, and each word lights as its pool comes up, the way the gold words do: from about a third of its
+   light to all of it, its full stop turning from the light's own grey to gold */
+.cabin figcaption > .motto { opacity: 0; transform: none; }
+.cabin.on figcaption > .motto { animation: poolOn .6s var(--ease-unveil) .9s both; }
+.cabin .motto > span { opacity: .34; }
+.cabin.on .motto > span { animation: wordLit .5s var(--ease-in-out) var(--w, 1.15s) both; }
+.cabin.on .motto > span:nth-child(2) { --w: 1.75s; }
+.cabin.on .motto > span:nth-child(3) { --w: 2.35s; }
+.cabin.on .motto > span > i { animation: dotLit .5s var(--ease-in-out) var(--w, 1.15s) both; }
+@keyframes wordLit { from { opacity: .34; } to { opacity: 1; } }
+@keyframes dotLit { from { color: rgb(var(--courtesy-rgb)); } }
+/* the titles of the three moments: down until their moment reaches them. A title set as a head (app.js data-head) is
    handed to its moment instead (its lines rise from behind their slot as the moment reaches it); the index waits the
    same way either way */
-:is(.beading, .cabin) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
-:is(.beading.risen, .cabin.on) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 1; transform: none; }
-.beading.risen figcaption:not([data-head]) > p { transition-delay: .12s; }
-.cabin.on :is(figcaption:not([data-head]) > *, .plate-no) { transition-delay: 1.5s; }
-.cabin.on figcaption:not([data-head]) > .motto { transition-delay: 1.7s; }
-.cabin.on figcaption:not([data-head]) > p:last-child { transition-delay: 1.82s; }
+:is(.beading, .cabin, .wet) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
+:is(.beading.risen, .cabin.on, .wet.risen) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 1; transform: none; }
+.beading.risen figcaption:not([data-head]) > p, .wet.risen figcaption:not([data-head]) > p { transition-delay: .12s; }
+/* Interior: INTERIOR and the index as the view settles (.7s), the line word by word (above), the sentence once the
+   cabin is lit */
+.cabin.on :is(figcaption:not([data-head]) > *, .plate-no) { transition-delay: .7s; }
+.cabin.on figcaption:not([data-head]) > p:last-child { transition-delay: 3.2s; }
+.cabin.on figcaption[data-head].in > [data-hd="f"] { transition-delay: 2.5s; }
 /* What moves with the scroll here rides the browser's own scroll timeline (no script, on the compositor): each room's
    glow drifts across it (roomDrift, --room-drift), Why's and How's foot hairlines draw out from the centre as they
    rise up the screen (footDraw), and each plate's picture and Our work's photos drift against the page (plateDrift,
@@ -1639,6 +1725,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
     html:not(.no-js) :is(.why, .how)::after { animation: footDraw linear both; animation-timeline: view(); animation-range: entry 0% cover 45%; }
     html:not(.no-js) .group-plate { view-timeline: --plate block; }
     html:not(.no-js) .group-plate > :is(img, canvas:not(.live)) { animation: plateDrift linear both; animation-timeline: --plate; }
+    html:not(.no-js) .cabin.on > canvas:not(.live) { animation: plateDrift linear both, cabinCam 2.5s var(--ease-in-out) .75s both; animation-timeline: --plate, auto; }
     html:not(.no-js) .work { overflow: clip; }   /* not a scroller of its own, so the strip's timeline is the page's scroll */
     html:not(.no-js) .work-strip { view-timeline: --strip block; }
     html:not(.no-js) .work-item img { animation: plateDrift linear both; animation-timeline: --strip; }
@@ -4485,7 +4572,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .group-plate figcaption { position: static; padding: 0; color: #111; }
   .group-plate h2, .group-plate p, .group-plate .motto { color: #111; }
   .group-plate .motto i, .group-plate svg { color: var(--studio-gold-ink); }
-  .cabin-dark, .cabin-glow { display: none !important; }
+  .cabin-dark, .cabin-pools, .door-seam, .rinse-film, .hand-shade { display: none !important; }
+  .group-plate .motto, .group-plate .motto > span, .group-plate .motto i { opacity: 1 !important; animation: none !important; }
   .group-plate figcaption > * { opacity: 1 !important; transform: none !important; }
   .plate-no, .step-up::before, .step-up::after { display: none !important; }
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: #ddd; }

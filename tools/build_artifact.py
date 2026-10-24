@@ -17,6 +17,7 @@ css = (site / 'css/alchemist.css').read_text()
 mono = 'data:image/webp;base64,' + base64.b64encode((site / 'img/mono-metallic.webp').read_bytes()).decode()
 body = body.replace('img/mono-metallic.webp', mono)
 css = css.replace('../img/mono-metallic.webp', mono)   # the monogram's glint is masked by its picture
+css = css.replace('url(../img/', 'url(img/')   # the other pictures the stylesheet names (the leather still) sit beside the page
 js = ''
 for name in ['hero-gl.js', 'foam.js', 'data.js', 'ui.js', 'booking.js', 'account.js', 'admin.js', 'team.js', 'reviews.js', 'content.js', 'gallery.js', 'services.js', 'app.js']:
     src = (site / 'js' / name).read_text()
