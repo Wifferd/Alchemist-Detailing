@@ -3944,8 +3944,62 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .work-item img { position: absolute; left: 0; right: 0; top: -6%; width: 100%; height: 112%; object-fit: cover; filter: brightness(.96); will-change: transform; }
 .work-progress { height: 1px; margin: 0 auto 28px; background: var(--hair); overflow: hidden; }
 .work-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-hi)); transform: scaleX(var(--wp, .35)); transform-origin: 0 50%; }
-.work-item figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 16px 14px; background: var(--fade-dark); color: #f4f4f4; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; pointer-events: none; }
+.work-item figcaption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: 40px 16px 14px; background: var(--fade-dark); color: #f4f4f4; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; pointer-events: none; }
 .work-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+/* the inspection light (a detailer's hand light held close to the panel; white, never gold): the home strip's photos
+   and the Gallery's first covers. The photos sit a little under their exposure (a shade over the photo, never a filter
+   on it): the Gallery's covers rise in under it (.insp.wait), the strip's photos take it as their light comes on
+   (.fade); then one soft circle of warm white light with a faint gold edge travels once along a shallow arc across
+   them, left to right (.insp.go, app.js inspect), and under it and behind it each photo is at its full exposure, and
+   stays so. The shade is one layer, its strength in its colour: a soft edge on its left (--ie wide), solid to its
+   right end, carried just ahead of the light (--ie0 to --ie1). The light sits on a long arm turning about a point far
+   below the photos (--ia), so the arc is true; all of it transforms on one curve and one clock. Its glow lies on the
+   photo as light would (overlay: the blacks stay black, the finish lifts), and its hot core is the highlight a hand
+   light leaves on gloss, black paint and rims included. A phone draws the core alone, with no blended layer at all.
+   The times and places are set on .insp itself, so the photo under it is never restyled. On a computer, hovering a
+   strip photo brings a fainter light back under the pointer (.insp-lamp, at --mx/--my), trailing it a little. The
+   overlay lets every press and drag through. None under reduced motion or in forced colours (app.js adds none), never
+   on paper. */
+:root {
+  --insp-shade: .34;   /* the shade's strength: the photo at two thirds of its light, never more than .38 */
+  --insp-light: radial-gradient(closest-side, rgba(var(--gold-s4), .62), rgba(var(--gold-s4), .4) 9%, rgba(var(--gold-s4), .17) 26%, rgba(var(--gold-hi-rgb), .07) 50%, rgba(var(--gold-hi-rgb), .02) 72%, rgba(var(--gold-hi-rgb), 0));
+  --insp-hot: radial-gradient(closest-side, rgba(var(--gold-s4), .5), rgba(var(--gold-s4), .24) 28%, rgba(var(--gold-s4), .07) 62%, rgba(var(--gold-s4), 0));
+  --insp-hot-r: .28;   /* the core's size, a share of the glow's */
+  /* a phone's light is its core alone (no blended layer), a little wider and softer, so it still reads as a light */
+  --insp-hot-touch: radial-gradient(closest-side, rgba(var(--gold-s4), .5), rgba(var(--gold-s4), .26) 18%, rgba(var(--gold-s4), .09) 44%, rgba(var(--gold-hi-rgb), .03) 70%, rgba(var(--gold-hi-rgb), 0));
+  --insp-lamp: radial-gradient(34% 25.5% at 50% 50%, rgba(var(--gold-s4), .36), rgba(var(--gold-s4), .24) 14%, rgba(var(--gold-s4), .1) 36%, rgba(var(--gold-hi-rgb), .04) 58%, rgba(var(--gold-hi-rgb), 0));
+}
+/* (no z-index of its own: the light blends with the photo under it, so nothing between them may isolate it; the
+   tile's own rounded clip rounds it) */
+.insp { position: absolute; inset: 0; overflow: hidden; overflow: clip; pointer-events: none; }
+.insp > i { position: absolute; display: none; }
+.insp-shade { top: 0; bottom: 0; left: 0; width: var(--iw, 100%); background: linear-gradient(90deg, rgba(var(--shade-rgb), 0), rgba(var(--shade-rgb), var(--insp-shade)) var(--ie, 0px)); }
+/* the light: its glow and its hot core, each a disc turning on the arm's pivot (--pvx, --pvy, the arm --arm long) */
+.insp-glow, .insp-hot { left: calc(var(--pvx) - var(--r)); top: calc(var(--pvy) - var(--arm) - var(--r)); width: calc(2 * var(--r)); height: calc(2 * var(--r)); transform-origin: var(--r) calc(var(--arm) + var(--r)); }
+.insp-glow { --r: var(--ir); background: var(--insp-light); mix-blend-mode: overlay; }
+.insp-hot { --r: calc(var(--ir) * var(--insp-hot-r)); background: var(--insp-hot); }   /* white laid over the photo: the same as a screen of white, without a blended layer */
+.insp:is(.wait, .go) > .insp-shade, .insp.go > :is(.insp-glow, .insp-hot) { display: block; }
+.insp.go > .insp-shade { animation: inspShade var(--idur) var(--ease-in-out) both; }
+.insp.go.fade > .insp-shade { animation: inspShade var(--idur) var(--ease-in-out) both, inspFade var(--dur-release) var(--ease) both; }
+.insp.go > :is(.insp-glow, .insp-hot) { animation: inspArm var(--idur) var(--ease-in-out) both; }
+@keyframes inspShade { from { transform: translateX(var(--ie0)); } to { transform: translateX(var(--ie1)); } }
+@keyframes inspFade { from { opacity: 0; } }
+@keyframes inspArm { from { transform: rotate(calc(-1 * var(--ia))); } to { transform: rotate(var(--ia)); } }
+/* a cover whose light will not come (it left the screen before its turn): its shade simply lifts, in place */
+.insp.wait.lift > .insp-shade { opacity: 0; transition: opacity var(--dur-rise) var(--ease); }
+@media (hover: none), (pointer: coarse) {
+  .insp.go > .insp-glow { display: none; }
+  .insp-hot { --insp-hot-r: .5; background: var(--insp-hot-touch); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .work-item > .insp > .insp-lamp { display: block; inset: 0; background: var(--insp-lamp); mix-blend-mode: overlay; opacity: 0; transform: translate(calc(var(--mx, 50%) - 50%), calc(var(--my, 50%) - 50%)); transition: opacity calc(var(--dur-release) * .6) var(--ease); }
+  .glint > .insp > .insp-lamp { opacity: 1; transition: opacity var(--dur-release) var(--ease); }
+  /* from the pointer's second move on (.lamp, a frame after it came in), the light follows it a breath behind */
+  .glint.lamp > .insp > .insp-lamp { transition: opacity var(--dur-release) var(--ease), transform var(--dur-release) var(--ease); }
+  .glint > .insp.go > .insp-lamp { opacity: 0; }   /* while the pass crosses, its light is the one light */
+}
+[data-theme="light"] { --insp-shade: .3; }   /* in the white studio the shaded photos sit a touch less deep against the cream */
+@media (prefers-reduced-motion: reduce) { .insp { display: none; } }   /* the photos simply at their exposure */
 .lightbox { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 14px; padding: 24px; background: rgba(0, 0, 0, .96); opacity: 0; transition: opacity .3s var(--ease); outline: none; }
 .lightbox.on { opacity: 1; }
 /* the picture's height leaves room for its caption and link, and never drops under half the screen; --lb-vh is the
@@ -4376,7 +4430,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (forced-colors: active) {
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
-  .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .btn-gold::before, .work-item::before, .gal-btn::after, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
+  .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .btn-gold::before, .work-item::before, .gal-btn::after, .insp, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
   :is(.why, .work, .how, .svc-group, .cta-band)::before { display: none; }   /* no gold glow in the rooms */
   .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */
@@ -4402,7 +4456,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .svc-card, [data-theme="light"] :is(.svc-card, .gold-card) { --ink: #111; --ink-2: #333; --muted: #555; --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); }
   /* the account's dark pieces print as ink on paper: no gold face, no drawing's light */
   .appt-next, .car-card, .acct .appt .appt-head, [data-theme="light"] .appt-next, [data-theme="light"] .acct .appt.st-completed .appt-head, .acct .appt.gold:is(.in, .settled) .appt-head, [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: #111; --ink-2: #333; --muted: #555; --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); color: #111; background: #fff !important; box-shadow: none !important; }
-  .appt-au, .trk::after, .acct-soon .soon-mark { display: none !important; }
+  .appt-au, .trk::after, .acct-soon .soon-mark, .insp { display: none !important; }
   .acct-soon > * { animation: none !important; }
   html, body { background: #fff !important; color: #111 !important; }
   .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,

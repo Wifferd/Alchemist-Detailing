@@ -1177,7 +1177,8 @@
   document.addEventListener('pointercancel', release, { passive: true });
 
   // A rim of gold light follows the pointer over cards (--mx/--my), and the hero wordmark's
-  // reflection (--hx) follows it across the screen, like light on polished paint.
+  // reflection (--hx) follows it across the screen, like light on polished paint. Over a strip photo the inspection
+  // light comes with it (CSS .insp-lamp): it lands under the pointer, then trails it from the next frame on (.lamp).
   const heroEl = $('.hero');
   if (!reduce && window.matchMedia('(hover: hover)').matches) {
     let px = 0, py = 0, hxTick = false;
@@ -1188,6 +1189,7 @@
         const r = t.getBoundingClientRect();
         t.style.setProperty('--mx', ((px - r.left) / r.width * 100).toFixed(1) + '%');
         t.style.setProperty('--my', ((py - r.top) / r.height * 100).toFixed(1) + '%');
+        if (!t.classList.contains('glint') && t.matches('.work-item')) requestAnimationFrame(() => requestAnimationFrame(() => { if (t.classList.contains('glint')) t.classList.add('lamp'); }));
         t.classList.add('glint');
       }
       if (cur === 'home' && heroEl && !hxTick) {
@@ -1200,7 +1202,7 @@
         });
       }
     }, { passive: true });
-    document.addEventListener('pointerout', (e) => { const t = e.target.closest && e.target.closest('.glint'); if (t && !t.contains(e.relatedTarget)) t.classList.remove('glint'); }, { passive: true });
+    document.addEventListener('pointerout', (e) => { const t = e.target.closest && e.target.closest('.glint'); if (t && !t.contains(e.relatedTarget)) t.classList.remove('glint', 'lamp'); }, { passive: true });
   }
   // The hero text drifts up slower than the page (a light parallax).
   const heroInner = $('.hero-inner');
@@ -1321,6 +1323,163 @@
     }
     // (the pictures' drift against the page rides the browser's own scroll timeline: CSS plateDrift, as the plates')
   })();
+  // ---------------------------------------------------------------- the inspection light (the owner's photos)
+  // The detailer's hand light, held close to the panel (CSS .insp): when their turn in the light's queue comes, one
+  // light crosses the photos left to right on a shallow arc (cross), lifting each one's exposure as it passes, and
+  // they stay lit. The Gallery's first covers (gallery.js) rise in a little under their exposure and wait for it
+  // (wait); the home strip's photos take the shade as their light comes on (fade). Laid out as it starts, from the
+  // photos' places on the screen: one path, so each photo's light and shade (all transforms, one curve and one clock)
+  // read as one light crossing them, a row or a few rows at once. Everything is measured when the pass's turn comes
+  // and written in the next frame, on each photo's own .insp layer, so nothing else is restyled. Nothing under reduced
+  // motion or in forced colours: the photos are simply there.
+  const inspect = (() => {
+    const on = !light.off;
+    const VARS = ['--ir', '--ie', '--iw', '--pvx', '--pvy', '--arm', '--ia', '--idur', '--ie0', '--ie1'];
+    const boxOf = (tile) => (tile ? tile.querySelector(':scope > .insp') : null);
+    // the light's parts in a photo (once): its shade, the light's glow and hot core, the pointer's light
+    function prep(tile) {
+      if (!on || !tile || boxOf(tile)) return;
+      const box = document.createElement('span');
+      box.className = 'insp';
+      box.setAttribute('aria-hidden', 'true');
+      box.innerHTML = '<i class="insp-shade"></i><i class="insp-glow"></i><i class="insp-hot"></i><i class="insp-lamp"></i>';
+      tile.insertBefore(box, tile.querySelector(':scope > figcaption'));
+    }
+    const wait = (tiles) => { if (on) tiles.forEach((t) => { prep(t); boxOf(t).classList.add('wait'); }); };
+    // photos whose light will not come (they left the screen before their turn): their shade lifts quietly
+    function lift(tiles) {
+      const boxes = tiles.map(boxOf).filter((b) => b && b.classList.contains('wait') && !b.classList.contains('lift'));
+      if (!boxes.length) return;
+      requestAnimationFrame(() => boxes.forEach((b) => {
+        b.classList.add('lift');
+        setTimeout(() => b.classList.remove('wait', 'lift'), 640);   // the lift's --dur-rise (600ms), and a frame
+      }));
+    }
+    // the light crosses these photos (o.pick: those whose box it passes), from just outside the first one on the
+    // screen to just past the last, on an arc through the part of them on the screen; returns how long it runs.
+    // o.fade: their shade comes on with the light; o.max: the longest it may run; o.done: called once it has crossed
+    // them all.
+    function cross(tiles, o) {
+      o = o || {};
+      if (!on) return 0;
+      // every read first, on the page as it is
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const box = tiles.filter((t) => t.isConnected).map((t) => ({ t, b: boxOf(t), r: t.getBoundingClientRect(), w: t.offsetWidth, h: t.offsetHeight }))
+        .filter((x) => x.b && x.w && (!o.pick || o.pick(x.r)));
+      if (!box.length) return 0;
+      const w = Math.min(...box.map((x) => x.w));
+      const top = Math.min(...box.map((x) => x.r.top)), bottom = Math.max(...box.map((x) => x.r.top + x.h));
+      // the arc's band: the part of the first row's photos on the screen (all of it, or a strip's upper part just come
+      // on); in at 54% of it, up to 38% halfway across, out at 54%, on an arm turning about a point far below (its
+      // length from the span and the arc's rise). Over a few rows (a screen of covers) the light keeps to the first
+      // row, clear of the captions and the gaps, and its glow widens to reach into the row under it, whose shade
+      // lifts with the same edge.
+      const h = Math.min(...box.filter((x) => x.r.top - top < 8).map((x) => x.h));
+      const seen = Math.max(0, -top), band = Math.max(h * 0.3, Math.min(h, vh - top) - seen), rows = Math.min(bottom, vh) - Math.max(top, 0);
+      // the light's reach (its glow fades out at R); the shade starts just past its core and is whole where its glow ends
+      const R = Math.round(Math.min(260, Math.max(w * 0.42, rows > band + 8 ? rows * 0.36 : 0))), lead = Math.round(R * 0.9), soft = Math.round(R * 0.8);
+      const xs = Math.max(0, Math.min(...box.map((x) => x.r.left))) - R, xe = Math.min(vw, Math.max(...box.map((x) => x.r.left + x.w))) + R;
+      const peak = seen + band * 0.38, rise = band * 0.16, half = (xe - xs) / 2;
+      const arm = (half * half + rise * rise) / (2 * rise), ang = Math.asin(Math.min(1, half / arm)) * 180 / Math.PI;
+      // about a hand's pace, on the light's own times: 1.2s across a phone, 1.4s, 1.8s across a wide screen
+      const pace = (xe - xs) * 1.15, times = [AU_MS.el, AU_MS.card, AU_MS.wide].filter((t, i) => !i || !o.max || t <= o.max);
+      const ms = times.reduce((a, b) => (Math.abs(b - pace) < Math.abs(a - pace) ? b : a));
+      // then every write, in the next frame, on each photo's own light layer
+      requestAnimationFrame(() => {
+        let left = box.length;
+        box.forEach((x) => {
+          const x0 = xs - x.r.left, x1 = xe - x.r.left, s = x.b.style, px = (n) => n.toFixed(1) + 'px';
+          s.setProperty('--ir', R + 'px');
+          s.setProperty('--ie', soft + 'px');
+          s.setProperty('--iw', px(Math.max(x.w, x.w - (x0 + lead - soft)) + 2));   // solid to the photo's right edge from its first place on
+          s.setProperty('--pvx', px((xs + xe) / 2 - x.r.left));
+          s.setProperty('--pvy', px(top - x.r.top + peak + arm));
+          s.setProperty('--arm', px(arm));
+          s.setProperty('--ia', ang.toFixed(3) + 'deg');
+          s.setProperty('--idur', ms + 'ms');
+          s.setProperty('--ie0', px(x0 + lead - soft));
+          s.setProperty('--ie1', px(x1 + lead - soft));
+          x.b.classList.add('go');
+          if (o.fade && !x.b.classList.contains('wait')) x.b.classList.add('fade');
+          x.b.classList.remove('wait', 'lift');
+          // the pass ends with its layers, on the shade's own last frame (or, should that never come, a little later):
+          // the photo at rest, at its exposure
+          const shade = x.b.firstElementChild;
+          let t = 0;
+          const end = (e) => {
+            if (e && (e.target !== shade || e.animationName !== 'inspShade')) return;
+            shade.removeEventListener('animationend', end);
+            clearTimeout(t);
+            x.b.classList.remove('go', 'fade');
+            VARS.forEach((k) => s.removeProperty(k));
+            if (--left === 0 && o.done) o.done();
+          };
+          shade.addEventListener('animationend', end);
+          t = setTimeout(end, ms + 600);
+        });
+      });
+      return ms;
+    }
+    // the photos' pictures decoded (or a second and a half gone), so the light never crosses an empty frame
+    const decoded = (tiles) => Promise.race([
+      Promise.all(tiles.map((t) => { const i = t.querySelector('img'); return i && i.decode ? i.decode().catch(() => {}) : null; })),
+      new Promise((res) => setTimeout(res, 1500)),
+    ]);
+    // (a page's photos wait for its title to set first: their light comes after the title's own, in reading order)
+    return { on, prep, box: boxOf, wait, lift, cross, decoded, afterHead: (c, fn) => afterHead(c, fn) };
+  })();
+  window.AlchemistInspect = inspect;
+  // Home's strip: after the wash (washend), once 40% of it is on the screen (or a visitor has stopped short of that
+  // for 2.5s), its head has set and its pictures are decoded, the photos in view take the shade and the light crosses
+  // them, once per visit. Until then they are simply at their exposure, so they never sit waiting in the shade. A strip
+  // that has left the screen before the light's turn gets it when it comes back; one whose turn has not come 6s on
+  // simply stays as it is.
+  const workStrip = $('#workStrip');
+  let stripArmed = false, stripLit = false, stripEarly = false;
+  if (workStrip) $$('.work-item', workStrip).forEach(inspect.prep);   // the pointer's light, from the start
+  function stripArm() {
+    if (stripArmed) return;
+    stripArmed = true;
+    if (!workStrip || !inspect.on) return;
+    if (wash && wash.live()) washSection.addEventListener('washend', stripWatch, { once: true });
+    else stripWatch();
+  }
+  // the strip's photos on the screen (a sliver at its edge counts once it is 24px wide)
+  const stripShows = (r) => Math.min(r.right, innerWidth) - Math.max(r.left, 0) >= 24;
+  const stripInView = () => $$('.work-item', workStrip).filter((t) => stripShows(t.getBoundingClientRect()));
+  const stripSeen = (f) => { const r = workStrip.getBoundingClientRect(), v = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0); return r.height > 0 && v >= Math.min(r.height, innerHeight) * f; };
+  let stripStall = 0;
+  const stripOn = () => { stripIo.disconnect(); clearTimeout(stripStall); stripStall = 0; stripGo(); };
+  const stripIo = new IntersectionObserver(() => {
+    if (!stripSeen(0.001)) return;
+    if (!stripEarly) { stripEarly = true; inspect.decoded(stripInView()); }   // the pictures start decoding as the strip comes on
+    if (stripSeen(0.4)) stripOn();
+    else if (!stripStall) stripStall = setTimeout(() => { stripStall = 0; if (stripSeen(0.15)) stripOn(); }, 2500);
+  }, { threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5] });
+  function stripWatch() { if (!stripLit) stripIo.observe(workStrip); }
+  function stripGo() {
+    let started = false, el = null;
+    const safe = setTimeout(() => { if (!started) { stripLit = true; light.stop(el); } }, 6000);
+    // (each step from the next frame on, where the page is laid out anyway: no read forces a restyle of its own)
+    afterHead($('#work [data-head]') || $('#work .section-head'), () => requestAnimationFrame(() => {
+      const tiles = stripInView();
+      inspect.decoded(tiles).then(() => requestAnimationFrame(() => {
+        if (stripLit) return;
+        // its turn in the queue is held by the first photo's light layer (a small box: its marks restyle nothing else)
+        el = inspect.box(tiles[0]) || workStrip;
+        light.pass(el, {
+          size: 'wide', when: () => stripSeen(0.12),
+          miss: () => { clearTimeout(safe); stripWatch(); },
+          start: () => {
+            started = true;
+            clearTimeout(safe);
+            stripLit = true;
+            return inspect.cross($$('.work-item', workStrip), { pick: stripShows, fade: true });
+          },
+        });
+      }));
+    }));
+  }
   // ---------------------------------------------------------------- home, after Our work: the featured review and two doorways
   // The doorways quote the approved Tips and About words (content.js); the review slot stays empty until the owner
   // has approved a real review (reviews.js asks once, as the visitor nears Why Alchemist).
@@ -2001,6 +2160,7 @@
     heavy = true;
     startWash();
     rowArm();   // the row's light after the wash (no wash: the first time the row is half on the screen; no light: none)
+    stripArm();   // the strip's inspection light, after the wash too
     artReady = true;
     paintArt();
   }

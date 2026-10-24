@@ -223,19 +223,99 @@
     };
   }
 
+  // The inspection light (app.js AlchemistInspect) over the first screen of covers, the first time they arrive: when
+  // one of the first six rises in, it and the covers rising with it rise a little under their exposure, and once they
+  // have landed and the page's title has set, one light crosses them all: one crossing over the screen's covers, or,
+  // where they stand four rows deep (a phone), two, two rows each, the second straight after the first, all within
+  // 4s. A cover that rises in once the light has been laid out simply arrives at its exposure, as do the covers past
+  // those rows; one that has left the screen before its turn is simply lit. Once per cover per visit. The tilt toward
+  // the pointer stays as it is (the owner kept it): the light comes on arrival.
+  const FIRST = new Set(PHOTOS.slice(0, 6).map((p) => p.key));
+  const lit = new Set();
+  let sess = null, inspGen = 0;
+  const overlap = (r) => Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+  const seen = (t) => t.isConnected && overlap(t.getBoundingClientRect()) >= 24;
+  const shown = (t) => { const r = t.getBoundingClientRect(); return overlap(r) >= Math.min(r.height, innerHeight) * 0.3; };
+  function inspReset() {
+    inspGen++;
+    if (sess) { clearTimeout(sess.planT); clearTimeout(sess.safeT); }
+    sess = null;
+  }
+  // a cover rises in: until the light is laid out it rises under the shade and joins it (only one of the first six
+  // calls the light)
+  function inspRise(t) {
+    const I = window.AlchemistInspect;
+    if (!I || !I.on || lit.has(t.dataset.key) || (!sess && !FIRST.has(t.dataset.key))) return;
+    if (!sess) sess = { g: inspGen, covers: [], planned: false, planT: 0, safeT: 0, s0: 0 };
+    if (sess.planned) { lit.add(t.dataset.key); return; }
+    sess.covers.push(t);
+    I.wait([t]);
+  }
+  // the light is laid out a moment after the first of them lands (a batch rises 60ms apart)
+  function inspLand(t) {
+    if (sess && !sess.planned && !sess.planT && sess.covers.includes(t)) sess.planT = setTimeout(inspPlan, 220);
+  }
+  function inspPlan() {
+    const I = window.AlchemistInspect, L = window.AlchemistLight, s = sess;
+    if (!s || s.planned || !I || !L || !root) return;
+    s.planned = true;
+    const drop = (ts) => { ts.forEach((t) => lit.add(t.dataset.key)); I.lift(ts); };
+    const here = s.covers.filter(seen);
+    drop(s.covers.filter((t) => !here.includes(t)));
+    if (!here.length) { sess = null; return; }
+    // their rows by where they start, two to a crossing; a second crossing only for covers that are well on the
+    // screen (under a third shown, they join the first, the light passing just above them)
+    const tops = [];
+    here.forEach((t) => { const y = t.getBoundingClientRect().top; if (!tops.some((v) => Math.abs(v - y) < 8)) tops.push(y); });
+    tops.sort((a, b) => a - b);
+    const bands = [[], []], past = [];
+    here.forEach((t) => {
+      const y = t.getBoundingClientRect().top, k = Math.floor(tops.findIndex((v) => Math.abs(v - y) < 8) / 2);
+      (k < 2 ? bands[k] : past).push(t);
+    });
+    if (!bands[1].some(shown)) { bands[0].push(...bands[1]); bands[1] = []; }
+    drop(past);
+    const g = s.g, end = () => { if (sess === s) sess = null; };
+    const run = (k) => {
+      const band = (bands[k] || []).filter((t) => t.isConnected);
+      if (g !== inspGen || !band.length) { end(); return; }
+      const el = I.box(band[0]);
+      s.safeT = setTimeout(() => { L.stop(el); drop(bands[0].concat(bands[1])); end(); }, 9000);   // should its turn never come
+      I.afterHead(root.querySelector('.page-head'), () => I.decoded(band).then(() => requestAnimationFrame(() => {
+        if (g !== inspGen) return;
+        L.pass(el, {
+          size: 'card',
+          // the second crossing only while it can end within 4s of the first one's start
+          when: () => g === inspGen && band.some(seen) && (!k || performance.now() - s.s0 <= 4000 - 1200),
+          miss: () => { if (g !== inspGen) return; clearTimeout(s.safeT); drop(bands[k].concat(bands[k + 1] || [])); end(); },
+          start: () => {
+            clearTimeout(s.safeT);
+            if (!k) s.s0 = performance.now();
+            const now = band.filter(seen);
+            drop(band.filter((t) => !now.includes(t)));
+            now.forEach((t) => lit.add(t.dataset.key));
+            return I.cross(now, { max: k ? 4000 - (performance.now() - s.s0) : 0, done: () => run(k + 1) });
+          },
+        });
+      })));
+    };
+    run(0);
+  }
+
   // Tiles rise in as they enter and are marked settled once they land (so the tilt is quick after
   // that); on a fine pointer they tilt toward the cursor; alternating tiles drift on scroll.
   function arm() {
     if (io) io.disconnect();
     const tiles = Array.from(root.querySelectorAll('.gal-tile'));
     if (reduce) { tiles.forEach((t) => t.classList.add('in', 'settled')); return; }
+    inspReset();
     const settle = (t) => {
       let done = false;
-      const fin = () => { if (done) return; done = true; t.classList.add('settled'); };
+      const fin = () => { if (done) return; done = true; t.classList.add('settled'); inspLand(t); };
       t.addEventListener('transitionend', (e) => { if (e.target === t && e.propertyName === 'transform') fin(); });
       setTimeout(fin, 1400);
     };
-    io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); settle(e.target); io.unobserve(e.target); } }), { threshold: 0.15 });
+    io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); inspRise(e.target); settle(e.target); io.unobserve(e.target); } }), { threshold: 0.15 });
     tiles.forEach((t) => io.observe(t));
     if (fine) tiles.forEach((t) => {
       t.addEventListener('pointermove', (e) => {
@@ -252,11 +332,9 @@
       if (ticking) return; ticking = true;
       requestAnimationFrame(() => {
         const vh = window.innerHeight;
-        tiles.forEach((t, i) => {
-          const r = t.getBoundingClientRect();
-          const p = (r.top + r.height / 2 - vh / 2) / vh;   // -1 above centre … +1 below
-          t.style.setProperty('--drift', ((i % 3 === 1 ? -1 : 0.5) * p * 18).toFixed(1) + 'px');
-        });
+        // every tile's place first, then every write (a write between reads would restyle the grid once per tile)
+        const at = tiles.map((t) => { const r = t.getBoundingClientRect(); return (r.top + r.height / 2 - vh / 2) / vh; });   // -1 above centre … +1 below
+        tiles.forEach((t, i) => t.style.setProperty('--drift', ((i % 3 === 1 ? -1 : 0.5) * at[i] * 18).toFixed(1) + 'px'));
         ticking = false;
       });
     };
@@ -269,6 +347,7 @@
     if (window.__galDrift) window.removeEventListener('scroll', window.__galDrift);
     window.__galDrift = null;
     if (io) { io.disconnect(); io = null; }
+    inspReset();   // a light still to come waits for the next visit (its covers were never lit)
     body = null;
   }
 
