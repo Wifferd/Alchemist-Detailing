@@ -33,85 +33,129 @@
       let scene = scenes[Math.random() < 0.5 ? 0 : 1];
       if (scene === last) scene = scenes.find((s) => s !== last);
       try { localStorage.setItem('ad.hero', scene); } catch (e) { /* storage unavailable */ }
+      // The studio light's entrance needs to know where the words are. They are read now, in page pixels, while the
+      // page is being laid out for its first picture anyway (revealAbove reads it next), so no frame of the intro
+      // has to lay it out again; the hero reads its canvas with them (hero-gl.js), and the glass bar its own box.
+      const plays = !late && !light.off;
+      if (plays && heroWord && heroMono) spots = { w: pageBox(heroWord), m: pageBox(heroMono) };
+      if (glassLight && glassBar) glassBox = glassBar.getBoundingClientRect();
       // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
-      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce, studio: false, entrance: !late && !light.off, onFrame: glass, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
+      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce, studio: false, entrance: plays, onFrame: glass, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
     }
+    // The studio light's path is worked out now too, with the page laid out (arithmetic only: no frame carries it).
+    const p = hero && hero.enter && spots ? plan() : null;
     // The intro waits for the shader: two frames after the hero starts, the compile is behind us,
     // so the first letters are never swallowed by it. (CSS pauses the hero animations until html.ready.)
-    // The studio light's path is worked out in the first of them, so the intro's own frame carries nothing more.
-    requestAnimationFrame(() => {
-      const p = hero && hero.enter ? plan() : null;
-      requestAnimationFrame(() => {
-        const held = p ? lightOn(p) : 0;
-        root.classList.add('ready');
-        light.hold(held || 1450 + 1600 + 240);   // Book Now's shine crosses after the wordmark's light has (letterSweep: 1.45s, then 1.6s)
-        if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
-      });
-    });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const held = p ? lightOn(p) : 0;
+      root.classList.add('ready');
+      light.hold(held || 1450 + 1600 + 240);   // Book Now's shine crosses after the wordmark's light has (letterSweep: 1.45s, then 1.6s)
+      if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
+    }));
   }
   // The studio light comes on (hero-gl.js enter()): the bar glides in across the paint, behind the monogram and the
   // wordmark, and each takes the light as the bar's centre reaches it, as one light: the monogram one glint (the
   // shared 1.2s pass, its middle on the mark's centre: --glint-at), the wordmark the line of light inside its letters
   // (letterSweep, its middle on the word's centre and its pace the bar's across the word: --sweep-at, --sweep-dur),
-  // and a soft shade under each while the bar's core is behind them (--shade-in, --shade-out). plan() works out those
-  // times (ms after enter()); lightOn() sets them as the intro starts, counted from then, and returns how long Book
-  // Now's shine waits: until the bar has slowed past the word and the letters' light has gone.
-  const heroWord = $('.hero h1 .l1'), heroMono = $('.hero-mono');
-  let glideEnd = 0, skipped = false;
+  // and a soft shade under each while the bar's core is near them (--shade-in, --shade-out): from just before it
+  // reaches them until it is past, or, where it comes back over them within the entrance (a phone's narrow paint),
+  // until it is past them on its way back. plan() works out those times (ms after enter()); lightOn() sets them as the
+  // intro starts, counted from then, and returns how long Book Now's shine waits: until the bar has slowed past the
+  // word and the letters' light has gone.
+  const heroWord = $('.hero h1 .l1'), heroMono = $('.hero-mono'), heroH1 = $('.hero h1');
+  let glideEnd = 0, skipped = false, spots = null, lightT = 0;
+  // an element's box in page pixels where it is laid out (its place at rest: not the rise its intro starts from)
+  const pageBox = (el) => {
+    let left = 0, top = 0;
+    for (let e = el; e; e = e.offsetParent) { left += e.offsetLeft; top += e.offsetTop; }
+    return { left, top, width: el.offsetWidth, height: el.offsetHeight };
+  };
   function plan() {
-    if (!heroWord || !heroMono) return null;
-    const w = heroWord.getBoundingClientRect(), m = heroMono.getBoundingClientRect(), y = w.top + w.height / 2;
-    const at = performance.now(), p = hero.enter(y, w.right + window.innerWidth * 0.05);   // the bar slows just past the word's end
+    const sx = window.scrollX, sy = window.scrollY, w = spots.w, m = spots.m;
+    const wl = w.left - sx, wr = wl + w.width, y = w.top - sy + w.height / 2, mx = m.left - sx + m.width / 2, my = m.top - sy + m.height / 2;
+    const at = performance.now(), p = hero.enter(y, wr);   // the bar slows once its body has cleared the word's end
     if (!p) return null;
     glideEnd = at + p.turn + 200;
-    const a = p.when(w.left, y), b = p.when(w.right, y), c = p.when(w.left + w.width / 2, y), g = p.when(m.left + m.width / 2, m.top + m.height / 2);
+    const a = p.when(wl, y), b = p.when(wr, y), c = p.when(wl + w.width / 2, y), g = p.when(mx, my);
     if (a == null || b == null || c == null || g == null) return { at, held: p.turn + 240 };   // beyond the bar's turn: the letters' light keeps its own time
     // the sweep's band crosses the letters in the middle 39% of its run (letterSweep: --sx -15% to 115%, --ease-in-out)
     const dur = Math.round(Math.min(2400, Math.max(1600, (b - a) / 0.39)));
-    return { at, end: p.end, dur, sweep: c - dur / 2, glint: g - AU_MS.el / 2, shadeIn: Math.min(a, g) - 650, shadeOut: Math.max(b, g) + 150, held: Math.max(p.turn, c + dur / 2) + 240 };
+    // where the bar comes back over the word within the entrance (a phone), the shade stays until it has cleared them
+    // on its way back, its centre a tenth of the screen past their left edges (its bright core is about that wide), or,
+    // where its drift turns before that, until the entrance's reckoning ends (until)
+    const k = window.innerWidth * 0.1, r = p.back(wr, y), clear = (x, yy) => { const t = p.back(x, yy, r); return t == null ? p.until : t; };
+    const out = r == null ? Math.max(b, g) : Math.max(clear(wl - k, y), clear(m.left - sx - k, my));
+    return { at, end: p.end, dur, sweep: c - dur / 2, glint: g - AU_MS.el / 2, shadeIn: Math.min(a, g) - 650, shadeOut: out + 150, held: Math.max(p.turn, c + dur / 2) + 240 };
   }
+  // Each time is set on the element whose light it times (set on .hero, it would restyle all of the hero). The
+  // letters' light starts with the intro; the glint and the shade, which come later, are put in place on their own
+  // about halfway there, so the intro's frame carries only the letters' times.
+  const since = (p) => performance.now() - p.at, ms = (t) => Math.round(t) + 'ms';
   function lightOn(p) {
     if (skipped) return 0;
-    const lag = performance.now() - p.at, ms = (t) => Math.round(t - lag) + 'ms';
+    const lag = since(p);
     if (p.dur) {
-      const el = $('.hero');
-      heroWord.style.setProperty('--sweep-at', ms(p.sweep));
+      heroWord.style.setProperty('--sweep-at', ms(p.sweep - lag));
       heroWord.style.setProperty('--sweep-dur', p.dur + 'ms');
-      heroMono.style.setProperty('--glint-at', ms(p.glint));
-      el.style.setProperty('--shade-in', ms(p.shadeIn));
-      el.style.setProperty('--shade-out', ms(p.shadeOut));
-      el.classList.add('enter');
-      // once the shade has gone (its second run, the fade out), the glint and the shade leave with their layers
-      const done = () => { el.classList.remove('enter'); el.removeEventListener('animationend', gone); };
-      const gone = (e) => { if (e.animationName === 'heroShade' && e.elapsedTime > 1) done(); };
-      el.addEventListener('animationend', gone);
-      setTimeout(done, p.end + 30000);   // should that event never come
+      lightT = setTimeout(() => lightIn(p), Math.max(0, (Math.min(p.shadeIn, p.glint) - lag) / 2));
     }
     return Math.round(p.held - lag);
   }
-  // a stalled first picture cancelled the entrance: the letters' light keeps its own time and the monogram none
+  function lightIn(p) {
+    if (skipped) return;
+    const lag = since(p);
+    // a page that stalled until the bar had nearly passed them: no glint and no shade (they would only flash)
+    if (p.shadeOut - lag < 500) { lightT = setTimeout(lightDone, Math.max(0, p.end - lag)); return; }
+    // a glint already under way is not joined part way (it would appear in the middle of the mark): it is left at its
+    // end, unseen; the shade always fades in, from now if its time has passed
+    const g = p.glint - lag;
+    heroMono.style.setProperty('--glint-at', ms(g < -150 ? -AU_MS.el : g));
+    [heroH1, heroMono].forEach((el) => { el.style.setProperty('--shade-in', ms(Math.max(0, p.shadeIn - lag))); el.style.setProperty('--shade-out', ms(p.shadeOut - lag)); });
+    heroEl.classList.add('enter');
+    // once the shade has gone (its second run, the fade out), the glint and the shade leave with their layers
+    heroEl.addEventListener('animationend', lightGone);
+    heroEl.addEventListener('animationcancel', lightGone);
+    lightT = setTimeout(lightDone, p.end + 30000);   // should that event never come
+  }
+  function lightGone(e) { if (e.animationName === 'heroShade' && (e.type === 'animationcancel' || e.elapsedTime > 1)) lightDone(); }
+  // the entrance's lights leave (also when home is left part way through: a hidden page cancels its animations, and
+  // coming back, the words' light keeps its own time, as it always has)
+  function lightDone() {
+    clearTimeout(lightT);
+    heroEl.removeEventListener('animationend', lightGone);
+    heroEl.removeEventListener('animationcancel', lightGone);
+    heroEl.classList.remove('enter');
+    heroWord.style.removeProperty('--sweep-at');
+    heroWord.style.removeProperty('--sweep-dur');
+  }
+  // a stalled first picture cancelled the entrance (or home was left): the letters' light keeps its own time and the
+  // monogram none
   function unplan() {
     glideEnd = 0;
     skipped = true;
-    heroWord.style.removeProperty('--sweep-at');
-    heroWord.style.removeProperty('--sweep-dur');
-    $('.hero').classList.remove('enter');   // before the shade or the glint has begun
+    lightDone();   // the shade and the glint go with it, begun or not
   }
   // The glass catches the studio light: the floating bar's top edge is brightest right above where the light bar is
   // on the paint under it (.bar-light, placed after each of the hero's pictures, so it holds still when the hero
-  // does). It fades out toward the bar's ends, and wherever the hero is not under the bar (.over-hero, CSS).
+  // does). It fades out toward the bar's ends, and wherever the hero is not under the bar (.over-hero, CSS). The bar's
+  // box is read with the hero's start and after a new size, from the next layout (never inside a picture).
   const glassBar = $('.bar'), glassLight = $('.bar-light i');
   let glassBox = null, glassAt = null, glassA = null;
   function glass(h) {
-    if (!glassLight || root.dataset.theme === 'light') return;   // the white studio's bar is solid over the hero: no light in it
-    const b = glassBox || (glassBox = glassBar.getBoundingClientRect());
-    const x = h.lineX(b.top + b.height / 2) - b.left;
+    if (!glassBox || root.dataset.theme === 'light') return;   // the white studio's bar is solid over the hero: no light in it
+    const b = glassBox, lx = h.lineX(b.top + b.height / 2);
+    if (lx == null) return;
+    const x = lx - b.left;
     const a = Math.max(0, Math.min(1, (Math.min(x, b.width - x) - 30) / 90)).toFixed(2);
     const at = (Math.round(Math.max(-b.width, Math.min(b.width, x - b.width / 2)) * 2) / 2) + 'px';
     if (at !== glassAt) { glassAt = at; glassLight.style.transform = 'translate3d(' + at + ', 0, 0)'; }
     if (a !== glassA) { glassA = a; glassLight.style.opacity = a; }
   }
-  window.addEventListener('resize', () => { glassBox = null; });
+  window.addEventListener('resize', () => {
+    if (!glassBox) return;
+    const io = new IntersectionObserver((es) => { io.disconnect(); glassBox = es[0].boundingClientRect; if (hero) glass(hero); });
+    io.observe(glassBar);
+  });
   function splitHeadline() {
     const l1 = $('.hero h1 .l1');
     if (!l1 || reduce) return null;
@@ -287,11 +331,12 @@
     };
   })();
   window.AlchemistLight = light;
-  // Arrivals: the Services header, a brand page's title, the Gold client card, the Exterior and Bundles photo plates
-  // and the closing band on home get their pass once a third of them is on the screen, after their own entrance has
-  // landed. One that scrolled away before its turn gets it when it comes back. (An appointment takes its pass when it
-  // is first opened: account.js.)
-  const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish, .cta-band';
+  // Arrivals: the Services header, the Gold client card, the Exterior and Bundles photo plates and the closing band on
+  // home get their pass once a third of them is on the screen, after their own entrance has landed. One that scrolled
+  // away before its turn gets it when it comes back. (An appointment takes its pass when it is first opened:
+  // account.js.) The other brand pages' titles have none: they set from behind their line (the heads), and the pass
+  // inside the letters stays the Services header's event.
+  const ARRIVE = '.svc-top, .gold-card, .group-plate.polish, .cta-band';
   const arriveIo = new IntersectionObserver((es) => es.forEach((e) => {
     if (!e.isIntersecting) return;
     const el = e.target;
@@ -610,18 +655,68 @@
   });
 
   // ---------------------------------------------------------------- the motion system
-  // Sections rise in as they enter the screen, children staggered 60ms (capped at 3) within
-  // their parent; hairlines draw. Once an element is in, data-rise is dropped so its own hover
-  // transitions take over. A block rises when 15% of it is in, or 24px of it for a tall one (a price card on a short
-  // phone, landed on by a jump, shows only its top and would otherwise wait for a scroll that never comes).
+  // Sections rise in as they enter the screen, children staggered (capped at the fourth) within their parent;
+  // hairlines draw. Once an element is in, data-rise is dropped so its own hover transitions take over. A block rises
+  // when 15% of it is in, or 24px of it for a tall one (a price card on a short phone, landed on by a jump, shows only
+  // its top and would otherwise wait for a scroll that never comes). A head (below) sets in its own way; a block that
+  // arrives with the head above it waits for the head's lead (--after), so a section reads in order.
   const io = new IntersectionObserver((es) => {
     es.forEach((e) => { if (e.isIntersecting && (e.intersectionRatio >= 0.15 || e.intersectionRect.height >= 24)) { reveal(e.target); io.unobserve(e.target); } });
   }, { threshold: [0, 0.02, 0.05, 0.1, 0.15], rootMargin: '0px 0px -8% 0px' });
-  function reveal(el) {
-    if (el.classList.contains('in')) return;
-    el.classList.add('in');
-    if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); }, 1000);
+  const held = new WeakSet();   // a room or a head after the wash, waiting for washend
+  // An arrival is only noted where it is found (the observer, a page opening, washend). In the next frame what has to
+  // be read is read (the heads' lines as laid out, whether the head before is still on the screen), and nothing is
+  // written; the writes (the lines, the classes, the delays) come all together in the frame after it, so neither frame
+  // lays the page out twice. With no head to read, the writes are made at once, in the first frame.
+  const due = new Set();
+  let dueFrame = 0;
+  function reveal(el, late) {
+    if (el.classList.contains('in') || held.has(el)) return;
+    if (!late && el.matches('[data-room], [data-head]') && afterWash(el)) {
+      held.add(el);
+      const go = () => { if (held.delete(el)) reveal(el, true); };
+      washSection.addEventListener('washend', go, { once: true });
+      setTimeout(go, 2500);   // should it not come: never an empty head on the screen
+      return;
+    }
+    due.add(el);
+    if (!dueFrame) dueFrame = requestAnimationFrame(arrive);
   }
+  function arrive() {
+    const els = [...due].filter((el) => !el.classList.contains('in'));
+    due.clear();
+    els.forEach((el) => { if (el.hasAttribute('data-head')) headGo(el); });   // a head whose fonts are in joins this frame
+    dueFrame = 0;
+    // read: which heads set now (one at a time on the screen) and their lines
+    const t = performance.now(), go = [];
+    let last = headLast, on = turn.size > 0 && !!last && seenOn(last), free = headFree;
+    [...turn].sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)).forEach((c) => {
+      turn.delete(c);
+      if (c.classList.contains('in')) return;
+      if (last && last !== c && on && free - t > 16) { setTimeout(() => headTurn(c), free - t); return; }
+      const h = $('[data-hd="h"]', c);
+      let cut = null;
+      try { cut = h && lineCut(h); } catch (e) { cut = null; }   // whatever happens, the head shows
+      go.push([c, h, cut]);
+      last = c; on = true; free = t + LINE.at + ((cut ? cut.length : 1) - 1) * LINE.gap + 520;
+    });
+    // write: the heads, then the blocks and rooms after them
+    const write = () => {
+      go.forEach(([c, h, cut]) => setHead(c, false, h, cut));
+      els.forEach((el) => { if (!el.hasAttribute('data-head')) rise(el); });
+    };
+    if (go.length) requestAnimationFrame(write); else write();
+  }
+  // a block or a room goes in, after the head above it has led
+  function rise(el) {
+    if (el.classList.contains('in')) return;
+    const after = followHead(el);
+    if (after) el.style.setProperty('--after', after + 'ms');
+    el.classList.add('in');
+    if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); el.style.removeProperty('--after'); }, 1000 + after);
+  }
+  // the live wash still on its way out: what comes after it on home waits for its end (washend)
+  const afterWash = (el) => !!(wash && wash.live() && el.closest('[data-view="home"]') && (washSection.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING));
   // a block that the keyboard reaches before it has risen is shown at once, with no fade, so a focus ring is never
   // unseen (a click's or a page change's focus is not :focus-visible: those blocks still rise as they enter)
   document.addEventListener('focusin', (e) => {
@@ -630,12 +725,17 @@
     if (!kb) return;
     for (let r = e.target.closest('[data-rise]:not(.in)'); r; r = r.parentElement && r.parentElement.closest('[data-rise]:not(.in)')) {
       r.style.transition = 'none';
-      reveal(r); io.unobserve(r);
+      due.delete(r); rise(r); io.unobserve(r);
       getComputedStyle(r).opacity;   // the shown state lands now, so the transition can come back without playing
       r.style.removeProperty('transition');
     }
+    const hd = e.target.closest('[data-head]');   // a head, waiting or still setting: there at once
+    if (hd && !hd.classList.contains('in')) { io.unobserve(hd); setHead(hd, true); } else if (hd) hd.classList.add('hd-now');
   });
-  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.section-head', '.cta-band', '.svc-notes > div', '.group-head', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.svc-top', '.el-main', '.el-panel', '.show-head', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
+  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.svc-notes > div', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.el-main', '.el-panel', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
+  // The rooms: each section after the wash, the closing band and each Services group lights up as it arrives (CSS: its
+  // studio glow comes up, then drifts with the scroll). The Services header settles its photo (.in) the same way.
+  const ROOMS = '.why, .work, .how, .cta-band, .svc-group';
   function armReveals(scope) {
     $$('[data-reveal]', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     desyncShine(scope);
@@ -643,6 +743,9 @@
     if (reduce) return;
     $$(ARRIVE, scope).forEach((el) => { if (!el.classList.contains('au-lit')) arriveIo.observe(el); });
     $$(COUNT, scope).forEach((el) => { if (!el.dataset.counted) countIo.observe(el); });
+    $$(ROOMS, scope).forEach((el) => { if (!el.classList.contains('in') && !el.hasAttribute('data-room')) { el.setAttribute('data-room', ''); io.observe(el); } });
+    $$('.svc-top', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
+    armHeads(scope);
     const counts = new Map();   // stagger index per parent, so a page is not one long queue
     RISE.forEach((sel) => {
       $$(sel, scope).forEach((el) => {
@@ -656,6 +759,154 @@
       });
     });
   }
+
+  // ---------------------------------------------------------------- the heads: each headline sets from behind its line
+  // Every display heading outside the hero, the wash and booking (the section heads on home and Services, the brand
+  // pages' heads, the Ritual's and the Bead Test's, the Services plates' titles, the closing band) arrives in reading
+  // order once 15% of its head is on the screen: the kicker fades where it sits; from 80ms the heading rises line by
+  // line out of a slot just below its own baseline (CSS lineUp: 800ms, 90ms apart); the lead and what follows it rise
+  // 12px after the last line has started; the rule draws last. The lines are the ones the browser has laid out,
+  // measured once the fonts are in, at the moment the head arrives, so a later font or a new size still splits right.
+  // The heading keeps one readable copy for screen readers and gets its own text back as soon as its last line has
+  // landed, at once on a new width, and at once if a translator rewrites it. One head sets at a time on the screen;
+  // after the wash, only once it has ended. A page already seen this session shows its heads set. Not under reduced
+  // motion (armReveals stops first): the heads are simply there, as without JavaScript and in print.
+  const HEADS = '.section-head, .page-head, .show-head, .group-plate figcaption, .cta-band';
+  const LINE = { at: 80, gap: 90, dur: 800, lead: 360 };   // the first line's start, --line-gap, --dur-line; the lead's wait after the last line starts
+  const heads = new Map();   // a head that has started setting: { at, lead } (when, and when its lead follows)
+  let headLast = null, headFree = 0;   // the last head set, and when the next one on the screen may start
+  function armHeads(scope) {
+    if (reduce) return;
+    const all = $$(HEADS, scope);
+    if (scope.matches && scope.matches(HEADS)) all.unshift(scope);
+    const seen = routeSeen(scope);
+    all.forEach((c) => {
+      if (c.hasAttribute('data-head') || c.classList.contains('in') || c.closest('#adminApp, #teamApp')) return;
+      const h = $(':scope > h1, :scope > h2, :scope > div > h2', c);
+      if (!h) return;
+      if (seen) { $$('.rule', c).forEach((r) => { r.classList.add('in', 'settled'); io.unobserve(r); }); return; }   // already set
+      c.setAttribute('data-head', '');
+      h.setAttribute('data-hd', 'h');
+      $$(':scope > .eyebrow, :scope > div > .eyebrow', c).forEach((k) => k.setAttribute('data-hd', 'k'));
+      $$(':scope > p:not(.eyebrow), :scope > .actions, :scope > .work-nav', c).forEach((f, i) => { f.setAttribute('data-hd', 'f'); f.style.setProperty('--f', i); });
+      $$('.rule', c).forEach((r) => io.observe(r));
+      if (!c.closest('.cabin, .beading')) io.observe(c);   // a plate with a moment of its own sets its title itself
+    });
+  }
+  // a head arrives: it waits for the fonts (1s at most), then sets in the next frame (arrive), or once the head
+  // setting on the screen before it has all but landed
+  function headGo(c) {
+    if (!c || !c.hasAttribute('data-head') || heads.has(c) || c.classList.contains('in')) return;
+    heads.set(c, { at: performance.now(), lead: LINE.at + LINE.lead });
+    const f = document.fonts;
+    if (f && f.status !== 'loaded') Promise.race([f.ready, new Promise((res) => setTimeout(res, 1000))]).then(() => headTurn(c));
+    else headTurn(c);
+  }
+  const turn = new Set();   // the heads to set in the next frame
+  function headTurn(c) {
+    turn.add(c);
+    if (!dueFrame) dueFrame = requestAnimationFrame(arrive);
+  }
+  const seenOn = (el) => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < window.innerHeight && r.height > 0; };
+  // the head sets now, in its lines as read (cut), or at once with no lines (now: reached by the keyboard first)
+  function setHead(c, now, h, cut) {
+    if (c.classList.contains('in')) return;
+    let n = 0;
+    const t0 = h && h.firstChild;
+    if (cut && (h.childNodes.length !== 1 || t0.nodeType !== 3 || t0.data !== cut.text || window.innerWidth !== cut.w)) cut = null;   // changed since it was read
+    if (!now && cut) { try { n = splitLines(h, cut); } catch (e) { n = 0; } }   // whatever happens, the head shows
+    const lines = Math.max(1, n), t = performance.now(), lead = LINE.at + (lines - 1) * LINE.gap + LINE.lead;
+    c.style.setProperty('--hd-lead', lead + 'ms');
+    c.style.setProperty('--hd-rule', (500 + (lines - 1) * LINE.gap) + 'ms');
+    if (now) c.classList.add('hd-now');
+    c.classList.add('in');
+    heads.set(c, { at: t, lead });
+    headLast = c;
+    headFree = t + LINE.at + (lines - 1) * LINE.gap + 520;   // its last line has all but landed
+    markRoute(c);
+  }
+  // The heading's lines as the browser has laid them out (balanced, in whatever face and size it has now), read
+  // before anything is written in the frame: the words on each line, as [from, to] in its text. Only a heading of
+  // plain text, on a page no translator has rewritten; null otherwise (it then fades in).
+  function lineCut(h) {
+    const t = h.firstChild;
+    if (h.childNodes.length !== 1 || !t || t.nodeType !== 3 || /\btranslated-/.test(root.className)) return null;
+    const text = t.data, range = document.createRange(), lines = [], re = /\S+/g;
+    let m, top = null;
+    while ((m = re.exec(text))) {
+      range.setStart(t, m.index);
+      range.setEnd(t, m.index + m[0].length);
+      const rs = range.getClientRects();
+      if (!rs.length || Math.abs(rs[rs.length - 1].top - rs[0].top) > 2) return null;   // unseen, or a word broken across two lines
+      if (top == null || Math.abs(rs[0].top - top) > rs[0].height / 2) { lines.push([m.index, m.index + m[0].length]); top = rs[0].top; }
+      else lines[lines.length - 1][1] = m.index + m[0].length;
+    }
+    if (!lines.length) return null;
+    lines.text = text;
+    lines.w = window.innerWidth;
+    return lines;
+  }
+  // Each line becomes a slot of its own (.ln) around the words on it; a copy of the whole stays for screen readers.
+  // Returns how many lines.
+  const splits = new Set();
+  function splitLines(h, lines) {
+    const t = h.firstChild, text = t.data;
+    const sr = document.createElement('span');
+    sr.className = 'sr-only';
+    sr.textContent = text;
+    const ls = lines.map(([a, b], i) => {
+      const ln = document.createElement('span'), inner = document.createElement('span');
+      ln.className = 'ln';
+      ln.setAttribute('aria-hidden', 'true');
+      ln.style.setProperty('--i', i);
+      inner.textContent = text.slice(a, b);
+      ln.appendChild(inner);
+      return ln;
+    });
+    h.classList.add('hd-lines');
+    h.replaceChildren(sr, ...ls);
+    let done = false, mo = null, timer = 0, tries = 0;
+    const last = ls[ls.length - 1].firstChild;
+    const whole = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (mo) mo.disconnect();
+      splits.delete(whole);
+      h.replaceChildren(t);
+      h.classList.remove('hd-lines');
+    };
+    // should animationend never come: whole once the last line's rise is over (on a busy page its clock starts with the
+    // first frame drawn, so it may still be rising when the time is up: then it is looked at again)
+    const late = () => {
+      let a = null;
+      try { a = last.getAnimations()[0]; } catch (e) { /* no animations API: whole now */ }
+      if (a && a.playState === 'running' && ++tries < 10) timer = setTimeout(late, 300);
+      else whole();
+    };
+    timer = setTimeout(late, LINE.at + (ls.length - 1) * LINE.gap + LINE.dur + 400);
+    last.addEventListener('animationend', whole, { once: true });
+    try { mo = new MutationObserver(whole); mo.observe(h, { childList: true, characterData: true, subtree: true }); } catch (e) { /* no translator watch */ }
+    splits.add(whole);
+    return ls.length;
+  }
+  // a new width (not a phone's bar coming and going) would leave the lines where they were: they are whole at once
+  let splitW = window.innerWidth;
+  window.addEventListener('resize', () => { if (window.innerWidth === splitW) return; splitW = window.innerWidth; splits.forEach((f) => f()); });
+  // the block arriving with (or just after) the head above it in its section waits for that head's lead: how long
+  const SCOPE = '.section, .svc-group, .table-sec, .content-page, .rv-page, .gal';
+  function followHead(el) {
+    const s = el.closest(SCOPE);
+    if (!s) return 0;
+    let c = null;
+    $$('[data-head]', s).forEach((x) => { if (x !== el && !x.contains(el) && (x.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) c = x; });
+    const at = c && heads.get(c);
+    return at ? Math.round(Math.min(900, Math.max(0, at.at + at.lead + LINE.gap - performance.now()))) : 0;
+  }
+  // A page whose heads have set once this session (per route, in the tab's own storage) shows them set the next time.
+  const routeOf = (el) => { const v = el.closest && el.closest('.view'), n = v ? v.dataset.view : cur; return n === 'content' ? cur : n; };
+  function routeSeen(el) { try { return sessionStorage.getItem('ad.set.' + routeOf(el)) === '1'; } catch (e) { return false; } }
+  function markRoute(el) { try { sessionStorage.setItem('ad.set.' + routeOf(el), '1'); } catch (e) { /* storage unavailable: the heads set again */ } }
   // Numbers count upward (animation §19): a time, a mobile charge or the History count runs up from 0 once, over
   // 600ms, when it is fully on screen. The real figure is in the page from the start (the layout and a screen reader
   // read it; it is only unseen meanwhile) and an aria-hidden copy counts over it, from the figure as it stands then
@@ -700,7 +951,7 @@
   // What is already on screen when a page opens shows at once, in its stagger, without waiting for the observer.
   function revealAbove(scope) {
     const vh = window.innerHeight;
-    $$('[data-rise], [data-reveal]', scope).forEach((el) => {
+    $$('[data-rise], [data-reveal], [data-room], [data-head]', scope).forEach((el) => {
       if (el.classList.contains('in')) return;
       const r = el.getBoundingClientRect();
       if (r.top < vh && r.bottom > 0) { reveal(el); io.unobserve(el); }
@@ -909,25 +1160,7 @@
   // has approved a real review (reviews.js asks once, as the visitor nears Why Alchemist).
   if (window.AlchemistContent && window.AlchemistContent.mountDoors) window.AlchemistContent.mountDoors($('#doors'));
   if (window.AlchemistReviews && window.AlchemistReviews.mountFeatured) window.AlchemistReviews.mountFeatured($('#featured'), $('#why'));
-  // The services page's photo plates drift the same way (-14..14px) while they are on screen.
-  (function plates() {
-    const plates = $$('.group-plate');
-    if (!plates.length || reduce) return;
-    let tick = false;
-    window.addEventListener('scroll', () => {
-      if (tick || cur !== 'services') return;
-      tick = true;
-      requestAnimationFrame(() => {
-        tick = false;
-        plates.forEach((pl) => {
-          const r = pl.getBoundingClientRect();
-          if (r.bottom < 0 || r.top > window.innerHeight) return;
-          const p = (r.top + r.height / 2 - window.innerHeight / 2) / window.innerHeight;
-          pl.style.setProperty('--py', (p * -14).toFixed(1) + 'px');
-        });
-      });
-    }, { passive: true });
-  })();
+  // (The services page's photo plates drift the same way, on the browser's own scroll timeline: CSS plateDrift.)
 
   // ---------------------------------------------------------------- the services plates' moments (one each, played once)
   // Protection beads up live and Interior's cabin lights up, each the first time its plate comes on the screen. Under
@@ -962,18 +1195,21 @@
       if (cv) { cv.remove(); cv.classList.remove('live'); cv.removeAttribute('style'); cv = null; }
       if (artHold) { artHold = false; paintArt(); }
     }
+    const cap = $('figcaption', plate);   // its title sets as the photo is back (headGo)
     function end() {
       if (done) return;
       done = true;
       timers.forEach(clearTimeout);
       stopFrames();
       plate.classList.remove('beading', 'crossing', 'risen', 'quick');
+      headGo(cap);
     }
     // no moment: the photo fades in from the black paint and the title rises
     function reveal() {
       if (done) return;
       done = true;
       plate.classList.add('quick', 'crossing', 'risen');
+      headGo(cap);
       later(1000, () => plate.classList.remove('beading', 'crossing', 'risen', 'quick'));
     }
     const at = (secs) => ({ live: true, studio: false, intro: (secs - 0.3) / 1.6, form: 1 - Math.pow(1 - span(secs, 0.2, 2.4), 3), sweep: v0 + (v1 - v0) * ease(span(secs, 1.2, 2.8)), sweepRange: range, roll: span(secs, 1.6, 3.6) });
@@ -1010,7 +1246,7 @@
       t0 = last = performance.now();
       raf = requestAnimationFrame(frame);
       later(3100, () => plate.classList.add('crossing'));
-      later(3600, () => plate.classList.add('risen'));
+      later(3600, () => { plate.classList.add('risen'); headGo(cap); });
       later(4000, stopFrames);
       later(4800, () => { done = true; plate.classList.remove('beading', 'crossing', 'risen'); });
     }
@@ -1026,8 +1262,8 @@
     });
   })();
   // Interior (the owner's §12): the plate starts nearly black; at 35% on the screen, once its leather is painted, a
-  // soft warm light crosses the quilting diagonally (1.4s), the cabin comes up to its lit state, then INTERIOR rises
-  // and, 200ms later, the owner's line. CSS draws it with transforms and opacity.
+  // soft warm light crosses the quilting diagonally (1.4s), the cabin comes up to its lit state, then INTERIOR sets
+  // from behind its line and the owner's line follows it. CSS draws it with transforms and opacity.
   (function cabin() {
     const plate = $('#svc-interior .group-plate');
     if (!plate || calm) return;
@@ -1044,6 +1280,7 @@
       if (played) return;
       played = true;
       plate.classList.add('on');
+      setTimeout(() => headGo($('figcaption', plate)), 1500);   // INTERIOR sets from behind its line once the cabin has come up
       setTimeout(() => { $$('.cabin-dark, .cabin-glow', plate).forEach((s) => s.remove()); plate.classList.remove('cabin', 'on'); }, 3000);
     };
     onceSeen(plate, { threshold: 0.35 }, () => {
@@ -1195,6 +1432,7 @@
     const changed = r !== cur;
     if (changed) {
       closeMenu(false);
+      if (cur === 'home') unplan();   // the studio light's entrance, if it is still to come or playing, ends with the page
       if (cur === 'gallery' && window.AlchemistGallery && window.AlchemistGallery.unmount) window.AlchemistGallery.unmount();   // its scroll drift stops with the page
       $$('.view').forEach((v) => {
         const on = v.dataset.view === view;
@@ -1316,7 +1554,8 @@
   // acts. Their gold buttons are desynced as they appear. The first content with something to reveal that lands
   // in a view is armed like a page open (rises, reveals, rims); a rebuild (a card expanded, a list refreshed)
   // shows whatever it added in its final state at once, so a page's entrance never replays.
-  const ARM = '[data-reveal], ' + RISE.join(', ');
+  // A new head in it (the featured review's on home) still sets as it arrives; a page seen before shows it set.
+  const ARM = '[data-reveal], ' + HEADS + ', ' + RISE.join(', ');
   let armT = 0, landed = [];
   new MutationObserver((muts) => {
     muts.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) landed.push(n); }));
@@ -1334,7 +1573,8 @@
       nodes.forEach((n) => (n.matches('.bk-progress') ? [n] : $$('.bk-progress', n)).forEach((ol) => { const li = $('li.current.fresh', ol); if (li) light.pass(li, { delay: 200, now: true }); }));
       if (!nodes.some((n) => n.matches(ARM) || n.querySelector(ARM))) return;
       if (view.dataset.armed) {
-        nodes.forEach((n) => (n.matches('[data-reveal]') ? [n] : []).concat($$('[data-reveal]', n)).forEach((el) => { el.classList.add('in', 'settled'); io.unobserve(el); }));
+        nodes.forEach((n) => armHeads(n));
+        nodes.forEach((n) => (n.matches('[data-reveal]') ? [n] : []).concat($$('[data-reveal]', n)).forEach((el) => { if (el.closest('[data-head]')) return; el.classList.add('in', 'settled'); io.unobserve(el); }));
         return;
       }
       view.dataset.armed = '1';

@@ -70,7 +70,7 @@
   --danger-text: #f0a090;
   --border-strong: rgba(255, 255, 255, .38);  /* inputs and checkboxes: 3.4:1 */
   --floor: #000;                              /* the studio floor the hero and the wash stand on */
-  --shade-rgb: 3, 3, 3;                       /* the black showroom's shade under the hero's words (the hero stays black in both themes) */
+  --shade-rgb: 10, 7, 3;                      /* the black showroom's shade under the hero's words (the hero stays black in both themes): warm, so over the bar's core it reads as deeper gold, not grey */
   /* the type: Archivo for everything but the logo's italic tagline (Cormorant Garamond). Each family token carries
      the metric fallback of its width (below), so nothing moves when the font arrives. The widths are tokens because
      the font shorthand resets font-stretch: a rule that sets font: also sets font-stretch: var(--wdth-...) */
@@ -100,6 +100,22 @@
   /* the press: it lands under the finger within 80ms and springs back in 180ms (app.js holds it 80ms after the lift) */
   --dur-press: 80ms;
   --dur-release: 180ms;
+  /* the arrivals: a heading's line rises over --dur-line, the next one --line-gap after it (app.js LINE keeps the same
+     numbers), the blocks after a head follow --stagger apart (60ms; 90ms on the public pages), a room's studio light
+     comes up over --dur-room and drifts --drift either way with the scroll (less on a phone) */
+  --dur-line: 800ms;
+  --line-gap: 90ms;
+  --stagger: 60ms;
+  --dur-room: 1.4s;
+  --drift: 4%;
+  /* a room's studio light: a warm pool on the black (--room-light; the Services groups' lower one --group-light), and
+     in the white studio a softbox, a white pool in a faint warm falloff (--room-fall, nothing on the black) */
+  --room-light: rgba(var(--gold-rgb), .11);
+  --group-light: rgba(var(--gold-rgb), .085);
+  --room-fall: transparent;
+  /* grain for the large gold glows, so their long soft ramps never band: about 3% noise, used as a mask (where the glow
+     is, it varies its strength by a few percent; where there is no glow it does nothing) */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .12 0 0 0 .9'/></filter><rect width='160' height='160' filter='url(%23g)'/></svg>");
   --press-glass: rgba(0, 0, 0, .34);     /* glass pressed against the black */
   --press-shade: rgba(0, 0, 0, .6);      /* a card's inner shade as it goes in */
   --press-rim: rgba(var(--gold-rgb), .55);  /* a hairline warmed toward gold */
@@ -301,9 +317,9 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   --au-glint: rgba(255, 249, 240, .95);   /* the light inside letters */
   --au-band: linear-gradient(var(--au-angle), transparent 40%, rgba(var(--gold-rgb), .18) 47%, rgba(var(--gold-pale-rgb), .5) 50%, rgba(var(--gold-rgb), .18) 53%, transparent 60%);
 }
-/* in letters: a brand page's title as it arrives, the current page in the menu as the menu opens (its words' span,
-   so the light crosses the word, not the row) */
-.book-page .page-head h1.au-run, .menu nav a.au-run > span {
+/* in letters: the current page in the menu as the menu opens (its words' span, so the light crosses the word, not
+   the row) */
+.menu nav a.au-run > span {
   background: linear-gradient(var(--au-angle), transparent 25%, var(--au-glint) 50%, transparent 75%) calc(var(--au-p) * 200% - 50%) 0 / 40% 100% no-repeat, var(--au-ink);
   -webkit-background-clip: text;
   background-clip: text;
@@ -311,7 +327,6 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   text-shadow: none;
   animation: auPass var(--au-dur) var(--au-ease) 1 both;
 }
-.book-page .page-head h1.au-run { --au-ink: var(--gold-text); }
 .menu nav a.au-run > span { --au-ink: linear-gradient(var(--gold-hi), var(--gold-hi)); }
 /* across a photo or a dark card: the Gold client card, a completed appointment (on its glow layer, so the card's
    own rims keep ::before and ::after), a services photo plate */
@@ -1091,11 +1106,31 @@ section { position: relative; }
 .wash.static :is(.svc-card, .svc-head, .svc-note) { --r: 1 !important; }
 
 /* ---------------------------------------------------------------- why Alchemist */
-/* Why and How share one quiet backdrop: a faint gold glow near the top, a centred hairline at the foot. The glow's
-   brightest point sits inside the section and the mask fades it in from the top edge, so no lit edge shows on the black */
-.why, .how { isolation: isolate; }
-.why::before, .how::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(50% 45% at 50% 24%, rgba(var(--gold-rgb), .05), transparent 70%); -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 140px); mask-image: linear-gradient(180deg, transparent 0, #000 140px); pointer-events: none; }
+/* Why, Our work and How share one quiet backdrop: a soft warm glow behind the head (--room-light; Why and How a
+   centred hairline at the foot too). The glow's brightest point sits inside the section and the mask fades it in from the top edge, so no
+   lit edge shows on the black; the mask's grain keeps its long ramp from banding.
+   The rooms (app.js data-room, .in): the section sits in near-black until it arrives, then its studio light comes up
+   over --dur-room, like a light switched on in the next room; while the visitor scrolls through it the glow slides a
+   few percent across, as walking past a lamp, and the hairline at its foot draws out from the centre as it is left
+   (both on the browser's own scroll timeline: below, with the plates' drift). Without JavaScript, under reduced
+   motion the glows are simply on and still, the hairlines drawn (in print, no glow). In the white studio the light is
+   a softbox, a white pool on the cream in a faint warm falloff (--room-fall), not gold */
+.why, .work, .how { isolation: isolate; }
+.why::before, .work::before, .how::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(60% 55% at 50% 28%, var(--room-light), transparent 70%), radial-gradient(90% 80% at 50% 28%, var(--room-fall), transparent 72%); -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 140px); mask-image: linear-gradient(180deg, transparent 0, #000 140px); pointer-events: none; }
+:is(.why, .work, .how, .svc-group, .cta-band)::before {
+  -webkit-mask-image: var(--grain), linear-gradient(180deg, transparent 0, #000 140px);
+  -webkit-mask-size: 160px 160px, 100% 100%;
+  -webkit-mask-composite: source-in;
+  mask-image: var(--grain), linear-gradient(180deg, transparent 0, #000 140px);
+  mask-size: 160px 160px, 100% 100%;
+  mask-composite: intersect;
+  transition: opacity var(--dur-room) var(--ease-in-out);
+}
+[data-room]:not(.in)::before { opacity: 0; }
 .why::after, .how::after { content: ""; position: absolute; left: 50%; bottom: 0; width: min(320px, 60vw); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, var(--line), transparent); pointer-events: none; }
+@media (max-width: 640px) { :root { --drift: 3%; } }   /* a phone's narrow glow needs a little more of its width to be seen to move */
+@keyframes roomDrift { from { translate: calc(-1 * var(--drift)) 0; } to { translate: var(--drift) 0; } }
+@keyframes footDraw { from { transform: translateX(-50%) scaleX(0); } }
 .why-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: stretch; }   /* the four cards end on one line */
 .why-item {
   padding: 26px 22px 24px;
@@ -1112,7 +1147,7 @@ section { position: relative; }
    the card waits to rise, so without motion, without JavaScript and in print it is simply drawn */
 .why-item svg path { stroke-dasharray: 1 2; stroke-dashoffset: 0; }
 .why-item[data-rise]:not(.in) svg path { stroke-dashoffset: 1.01; }
-.why-item.in svg path { transition: stroke-dashoffset .9s var(--ease-in-out) calc(var(--k, 0) * 120ms + .35s); }   /* drawn in, never drawn out */
+.why-item.in svg path { transition: stroke-dashoffset .9s var(--ease-in-out) calc(var(--after, .35s) + var(--k, 0) * var(--stagger)); }   /* drawn in, never drawn out; after the head's lead (--after) with their card, else .35s after it */
 .why-item p { margin: 0; color: var(--ink-2); font-size: var(--t-3); text-wrap: pretty; }   /* no word left alone on a card's last line */
 
 /* ---------------------------------------------------------------- after Our work: the featured review and the doorways
@@ -1145,7 +1180,7 @@ section { position: relative; }
 /* the short gold line draws itself in from the left once its card has risen, as the section rules do; it waits only
    while the card waits to rise, so without motion, without JavaScript and in print it is simply drawn */
 .door[data-rise]:not(.in) .line { transform: scaleX(0); }
-.door.in .line { transition: transform 1.1s var(--ease) calc(var(--k, 0) * 120ms + .35s); }
+.door.in .line { transition: transform 1.1s var(--ease) calc(var(--after, 0ms) + var(--k, 0) * 120ms + .35s); }
 .door-line { max-width: 28ch; font: 400 var(--t-5)/1.35 var(--font-ui); letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }
 .door-nobr { white-space: nowrap; }
 .door-text { margin-top: 12px; max-width: var(--m-read); font-size: var(--t-3); line-height: 1.6; color: var(--ink-2); text-wrap: pretty; }
@@ -1161,7 +1196,7 @@ section { position: relative; }
 /* ---------------------------------------------------------------- how booking works */
 .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; position: relative; }
 /* the connector draws itself left to right once the list is in view, and the numbers light up one after another */
-.steps::before { content: ""; position: absolute; top: 23px; left: 12%; right: 12%; height: 1px; background: linear-gradient(90deg, transparent, var(--line), var(--line), transparent); transform: scaleX(0); transform-origin: 0 50%; transition: transform 1.4s var(--ease) .25s; }
+.steps::before { content: ""; position: absolute; top: 23px; left: 12%; right: 12%; height: 1px; background: linear-gradient(90deg, transparent, var(--line), var(--line), transparent); transform: scaleX(0); transform-origin: 0 50%; transition: transform 1.4s var(--ease) calc(var(--after, 0ms) + .25s); }
 .steps.in::before { transform: scaleX(1); }
 .step { text-align: center; padding: 0 14px; position: relative; }
 .step:nth-child(2) { --k: 1; } .step:nth-child(3) { --k: 2; } .step:nth-child(4) { --k: 3; }
@@ -1172,7 +1207,7 @@ section { position: relative; }
   box-shadow: 0 0 0 6px var(--bg);
   transition: border-color .5s var(--ease), color .5s var(--ease);
 }
-.steps.in .step .n { border-color: var(--line); color: var(--gold-hi); transition-delay: calc(var(--k, 0) * 220ms + .3s); }
+.steps.in .step .n { border-color: var(--line); color: var(--gold-hi); transition-delay: calc(var(--after, 0ms) + var(--k, 0) * 220ms + .3s); }
 .step h3 { margin: 0 0 6px; font: 600 var(--t-3)/1.3 var(--font-ui); letter-spacing: 0; }
 .step p { margin: 0 auto; color: var(--ink-2); font-size: var(--t-3); max-width: 26ch; text-wrap: pretty; }
 
@@ -1187,8 +1222,11 @@ section { position: relative; }
   padding: clamp(56px, 9vw, 110px) var(--gutter);
   text-align: center;
   border: 1px solid var(--line-soft);
-  background: radial-gradient(70% 90% at 50% 0%, rgba(var(--gold-rgb), .14), transparent 60%), linear-gradient(180deg, #0d0d0d, #030303);
+  background: linear-gradient(180deg, #0d0d0d, #030303);
 }
+/* its studio light, the warm glow from the top, is a layer of its own so it can come up as the band arrives (a room) */
+.cta-band::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 90% at 50% 0%, rgba(var(--gold-rgb), .14), transparent 60%); pointer-events: none; }
+.cta-band::before { -webkit-mask-image: var(--grain); -webkit-mask-size: 160px 160px; -webkit-mask-composite: source-over; mask-image: var(--grain); mask-size: 160px 160px; mask-composite: add; }   /* the grain only: its light starts at the band's top edge */
 .cta-band h2 { margin-top: var(--s-2); font-size: var(--fs-h2); }   /* the eyebrow's gap, as in a section head */
 .cta-band h2.gold-text { background-size: 100% 1lh; }   /* one run of the metal per line: on a phone both lines are the same gold */
 .cta-band p { margin: 18px auto 0; color: var(--ink-2); max-width: var(--m-centre); text-wrap: pretty; }
@@ -1414,17 +1452,22 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .svc-jump.marked .svc-jump-ink { opacity: 1; }
 .svc-group { padding-block: clamp(40px, 7vh, 72px); scroll-margin-top: calc(4px - clamp(40px, 7vh, 72px)); }   /* opened (#services-exterior, a chapter link), a group lands with its plate 16px under the chapter bar: html's scroll-padding clears the bars, the margin takes back the group's top padding */
 .svc-group + .svc-group { border-top: 1px solid rgba(255, 255, 255, .05); }
+/* each group is a room (app.js data-room): a warm light low in it (--group-light), behind the tiers, comes up as the group arrives
+   and drifts with the scroll (the rooms, under Why Alchemist). It is narrower than the group, so its drift never
+   reaches past the group's sides */
+.svc-group { isolation: isolate; }
+.svc-group::before { content: ""; position: absolute; inset: 0 4%; z-index: -1; background: radial-gradient(60% 34% at 50% 76%, var(--group-light), transparent 70%), radial-gradient(86% 50% at 50% 76%, var(--room-fall), transparent 72%); pointer-events: none; }
 /* each group opens on a photo plate with its title inside (bottom left, over the card scrim); the picture
-   drifts a little with the page (--py from app.js) and keeps dark tokens in both themes */
+   drifts a little with the page (plateDrift, on the browser's own scroll timeline) and keeps dark tokens in both themes */
 .group-head { display: grid; }
 /* each group opens like a car maker's model page: a tall photo plate (62% of the screen; 48% on a phone), its place in
    the menu at the top left (01 / 04), the title at headline size at the foot */
 .group-plate { grid-column: 1 / -1; position: relative; margin: 0 0 32px; height: clamp(380px, 62vh, 640px); height: clamp(380px, 62svh, 640px); border-radius: var(--r-lg); overflow: hidden; isolation: isolate; background: var(--panel); border: 1px solid var(--hair); }
-.group-plate > img, .group-plate > canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; z-index: -2; filter: brightness(.7); transform: translateY(var(--py, 0px)) scale(1.08); will-change: transform; }
+.group-plate > img, .group-plate > canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; z-index: -2; filter: brightness(.7); transform: scale(1.08); will-change: transform; }
 .group-plate > canvas { background: radial-gradient(90% 70% at 30% 20%, #1e1e1e, #0b0b0b); }
 /* the caliper, the disc and the tire: closer in and to the right, so it isn't the Ritual's wheel-hub frame again
    (sizes in index.html allow for the 1.4 zoom) */
-#svc-exterior .group-plate > img { object-position: 50% 30%; transform-origin: 96% 30%; transform: translateY(var(--py, 0px)) scale(1.4); }
+#svc-exterior .group-plate > img { object-position: 50% 30%; transform-origin: 96% 30%; transform: scale(1.4); }
 #svc-bundles .group-plate > img { object-position: 50% 60%; }    /* the front of the car: the roundel above the caption, the grille */
 /* Exterior and Bundles (.polish): the photo comes in dim, one pass of gold light crosses it as a third of the plate is
    on screen (app.js), and it ends glossy and lit, brightening just behind the band (.au-lit; lit at once under reduced
@@ -1477,13 +1520,32 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .cabin.on :is(.cabin-dark, .cabin-glow) { animation: cabinPool 1.4s var(--ease-in-out) forwards, cabinUp .9s var(--ease) 1.05s forwards; }
 @keyframes cabinPool { to { transform: translate(6%, 8%); } }
 @keyframes cabinUp { to { opacity: 0; } }
-/* the titles of both moments: down until their moment reaches them */
-:is(.beading, .cabin) :is(figcaption > *, .plate-no) { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
-:is(.beading.risen, .cabin.on) :is(figcaption > *, .plate-no) { opacity: 1; transform: none; }
-.beading.risen figcaption > p { transition-delay: .12s; }
-.cabin.on :is(figcaption > *, .plate-no) { transition-delay: 1.5s; }
-.cabin.on figcaption > .motto { transition-delay: 1.7s; }
-.cabin.on figcaption > p:last-child { transition-delay: 1.82s; }
+/* the titles of both moments: down until their moment reaches them. A title set as a head (app.js data-head) is
+   handed to its moment instead (its lines rise from behind their slot as the moment reaches it); the index waits the
+   same way either way */
+:is(.beading, .cabin) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
+:is(.beading.risen, .cabin.on) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 1; transform: none; }
+.beading.risen figcaption:not([data-head]) > p { transition-delay: .12s; }
+.cabin.on :is(figcaption:not([data-head]) > *, .plate-no) { transition-delay: 1.5s; }
+.cabin.on figcaption:not([data-head]) > .motto { transition-delay: 1.7s; }
+.cabin.on figcaption:not([data-head]) > p:last-child { transition-delay: 1.82s; }
+/* What moves with the scroll here rides the browser's own scroll timeline (no script, on the compositor): each room's
+   glow drifts across it (roomDrift, --drift), Why's and How's foot hairlines draw out from the centre as they rise up
+   the screen (footDraw), and each plate's picture drifts against the page (plateDrift, 24px over its way across the
+   screen). The home rooms clip their sides, so a glow drifting past them never widens the page. Without the timeline
+   (iPhones before iOS 26, older browsers), without JavaScript and under reduced motion: the still picture, glows on,
+   hairlines drawn, pictures centred */
+@supports (animation-timeline: view()) and (overflow: clip) {
+  @media (prefers-reduced-motion: no-preference) {
+    html:not(.no-js) :is(.why, .work, .how) { overflow-x: clip; }
+    html:not(.no-js) :is(.why, .work, .how, .svc-group, .cta-band) { view-timeline: --room block; }
+    html:not(.no-js) :is(.why, .work, .how, .svc-group, .cta-band)::before { animation: roomDrift linear both; animation-timeline: --room; }
+    html:not(.no-js) :is(.why, .how)::after { animation: footDraw linear both; animation-timeline: view(); animation-range: entry 0% cover 45%; }
+    html:not(.no-js) .group-plate { view-timeline: --plate block; }
+    html:not(.no-js) .group-plate > :is(img, canvas:not(.live)) { animation: plateDrift linear both; animation-timeline: --plate; }
+  }
+}
+@keyframes plateDrift { from { translate: 0 -12px; } to { translate: 0 12px; } }
 .price-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .price-card {
   position: relative;
@@ -1953,7 +2015,6 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 @media (prefers-reduced-motion: reduce) {
   .top-photo { transform: none; filter: brightness(.7) saturate(1); }   /* lit, as the pass would leave it */
   .svc-top.in::before { animation: none; transform: translateX(0); }   /* the pass of light shows as a still */
-  .group-plate > img, .group-plate > canvas { --py: 0px; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }
   .step-up::before { transform: none; }
   .step-up::after { opacity: 1; }
@@ -3383,41 +3444,63 @@ html.ready .hero.offscreen h1 .l1 { animation-play-state: paused; }
 html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.split .ch { animation-play-state: running; }
 /* the monogram takes one glint as the studio light's bar passes behind it (the owner's gold reflection on the logo):
    the shared pass of light inside the letters (auPass, --au-dur), masked by the monogram's own picture. Its middle is on
-   the mark's centre when the bar's is (--glint-at, app.js); .enter only while the light comes on */
-.hero.enter .hero-mono::after {
-  content: "";
-  position: absolute;
+   the mark's centre when the bar's is (--glint-at, app.js); .enter only while the light comes on. The glint and the
+   shades below are in place from the start, unseen (opacity 0 is never painted), the glint's mask looked up with the
+   page's first style, so the light's coming on only starts their animations and never lays the hero out again */
+.hero-mono::after, .hero h1::before, .hero-mono::before { content: ""; position: absolute; pointer-events: none; opacity: 0; }
+.hero-mono::after {
   inset: 0;
-  pointer-events: none;
-  background: linear-gradient(var(--au-angle), transparent 25%, rgba(var(--gold-hi-rgb), .38) 41%, rgba(var(--gold-pale-rgb), .68) 50%, rgba(var(--gold-hi-rgb), .38) 59%, transparent 75%) calc(var(--au-p) * 200% - 50%) 0 / 40% 100% no-repeat;   /* warm: light on gold, not on chrome */
+  background: linear-gradient(var(--au-angle), transparent 25%, rgba(var(--gold-hi-rgb), .38) 41%, rgba(var(--gold-pale-rgb), .68) 50%, rgba(var(--gold-hi-rgb), .38) 59%, transparent 75%) calc(var(--au-p) * 250% - 75%) 0 / 40% 100% no-repeat;   /* warm: light on gold, not on chrome; from -45% to 105% of the mark, so it starts and ends wholly outside it (its end is the mark at rest) */
   -webkit-mask: url(../img/mono-metallic.webp) center / 100% 100% no-repeat;
   mask: url(../img/mono-metallic.webp) center / 100% 100% no-repeat;
-  animation: auPass var(--au-dur) var(--au-ease) var(--glint-at, 0s) 1 both;
 }
+.hero.enter .hero-mono::after { opacity: 1; animation: auPass var(--au-dur) var(--au-ease) var(--glint-at, 0s) 1 both; }
 /* while the bar's core crosses the monogram and the wordmark, a soft shade under each (the mark's deeper: thin
    metal needs the most) keeps the gold clear of it: it comes in just before the bar reaches them and goes once the bar
-   is past, on opacity alone (--shade-in, --shade-out: app.js) */
-.hero.enter h1::before, .hero.enter .hero-mono::before {
-  content: "";
-  position: absolute;
+   is past (on a phone, past them on its way back too), on opacity alone (--shade-in, --shade-out: app.js) */
+.hero h1::before, .hero-mono::before {
   z-index: -1;
-  inset: -30% -12% -18%;
-  background: radial-gradient(closest-side, rgba(var(--shade-rgb), .55), rgba(var(--shade-rgb), .3) 62%, rgba(var(--shade-rgb), 0));
-  pointer-events: none;
-  opacity: 0;
+  inset: -20% -8% -12%;
+  background: radial-gradient(closest-side, rgba(var(--shade-rgb), .45), rgba(var(--shade-rgb), .26) 62%, rgba(var(--shade-rgb), 0));
+}
+.hero-mono::before { inset: calc(-.65 * var(--mono-w)); background: radial-gradient(closest-side, rgba(var(--shade-rgb), .55), rgba(var(--shade-rgb), .28) 50%, rgba(var(--shade-rgb), 0)); }
+.hero.enter h1::before, .hero.enter .hero-mono::before {
   animation: heroShade .5s var(--ease-in-out) var(--shade-in, 0s) 1 both, heroShade 1.4s var(--ease-in-out) var(--shade-out, 0s) 1 reverse forwards;
 }
-.hero.enter .hero-mono::before { inset: calc(-.65 * var(--mono-w)); background: radial-gradient(closest-side, rgba(var(--shade-rgb), .62), rgba(var(--shade-rgb), .3) 50%, rgba(var(--shade-rgb), 0)); }
 @keyframes heroShade { from { opacity: 0; } to { opacity: 1; } }
-/* the menu opened over the hero holds the studio light where it is (hero-gl.js), and the lights that ride on it with it */
-.menu.on ~ #main .hero.enter .hero-mono::after, .menu.on ~ #main .hero.enter .hero-mono::before, .menu.on ~ #main .hero.enter h1::before, .menu.on ~ #main .hero.enter h1 .l1 { animation-play-state: paused; }
+/* the menu opened over the hero holds the studio light where it is (hero-gl.js), and the lights that ride on it with it
+   (the letters' light always: so its time keeps to the bar's from the intro's first frame) */
+.menu.on ~ #main .hero.enter .hero-mono::after, .menu.on ~ #main .hero.enter .hero-mono::before, .menu.on ~ #main .hero.enter h1::before, .menu.on ~ #main .hero h1 .l1 { animation-play-state: paused; }
 
-/* sections rise in as they enter; children staggered 60ms, capped at 3 (--k, set per parent by app.js).
-   The hidden state lives on :not(.in) so hover transforms win once an element is in; app.js then drops
-   data-rise, so the element's own transitions take over. */
-[data-rise] { transition: opacity .55s var(--ease), transform .65s var(--ease); transition-delay: calc(var(--k, 0) * 60ms); }
+/* sections rise in as they enter; children staggered --stagger apart, capped at the fourth (--k, set per parent by
+   app.js), after the head above them has led (--after). The hidden state lives on :not(.in) so hover transforms win
+   once an element is in; app.js then drops data-rise, so the element's own transitions take over. */
+[data-rise] { transition: opacity .55s var(--ease), transform .65s var(--ease); transition-delay: calc(var(--after, 0ms) + var(--k, 0) * var(--stagger)); }
 [data-rise]:not(.in) { opacity: 0; transform: translateY(18px); }
-.section-head[data-rise] .rule { transition-delay: .5s; }
+:is([data-view="home"], [data-view="services"], [data-view="gallery"], [data-view="reviews"], [data-view="content"]) { --stagger: 90ms; }
+/* The heads (app.js HEADS, data-head): a section's head arrives in reading order (.in). The kicker fades where it
+   sits; from 80ms the heading's lines (.hd-lines > .ln, one per line the browser laid out) rise out of a slot just
+   below their own baseline, --line-gap apart, cut off at the slot's edge like type raised into a window (no blur, no
+   tilt, nothing past its place); the lead and what follows it rise 12px from --hd-lead, --line-gap apart; the rule
+   draws last (--hd-rule). The slot's padding (with a matching negative margin, so the layout is the heading's own)
+   keeps the tops and the descenders whole at rest. A gold heading carries its metal on each line. Hidden only while
+   app.js holds a head: never without JavaScript, under reduced motion or in print */
+[data-head]:not(.in) :is([data-hd="k"], [data-hd="h"]) { opacity: 0; }
+[data-head]:not(.in) [data-hd="f"] { opacity: 0; transform: translateY(12px); }
+[data-head]:not(.in) .rule { transform: scaleX(0); }
+[data-head].in [data-hd="k"] { transition: opacity var(--dur-line) var(--ease-unveil); }
+[data-head].in [data-hd="h"]:not(.hd-lines) { transition: opacity var(--dur-line) var(--ease-unveil) 80ms; }   /* a heading that could not be split fades in */
+[data-head].in [data-hd="f"] { transition: opacity var(--dur-line) var(--ease-unveil), transform var(--dur-line) var(--ease-unveil); transition-delay: calc(var(--hd-lead, 440ms) + var(--f, 0) * var(--line-gap)); }
+[data-head].in .rule { transition-delay: var(--hd-rule, .5s); }
+[data-head].in.hd-now :is([data-hd="k"], [data-hd="h"], [data-hd="f"], .rule) { transition: none; }   /* reached by the keyboard first: there at once */
+.hd-lines { display: grid; }   /* the slots' margins never collapse in a grid: the heading keeps its own height, split or whole */
+.hd-lines > .ln { display: block; overflow: clip; padding: .08em 0 .16em; margin: -.08em 0 -.16em; }
+.hd-lines > .ln ~ .ln { text-indent: 0; }   /* the heading's indent is its first line's, as when it is whole */
+@supports not (overflow: clip) { .hd-lines > .ln { overflow: hidden; } }
+.hd-lines > .ln > span { display: block; white-space: nowrap; animation: lineUp var(--dur-line) var(--ease-unveil) calc(80ms + var(--i, 0) * var(--line-gap)) both; }
+@keyframes lineUp { from { transform: translateY(112%); } }
+.gold-text.hd-lines { background: none; }
+.gold-text.hd-lines > .ln > span { background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
 /* a number counting up (app.js countUp): the real figure keeps its place, unseen, under the aria-hidden copy */
 .counting { position: relative; }
 .count-fig { position: absolute; inset: 0; white-space: nowrap; pointer-events: none; }
@@ -3579,6 +3662,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (prefers-reduced-motion: reduce) {
   [data-rise]:not(.in) { opacity: 1; transform: none; }
   .rule { transform: scaleX(1); }
+  [data-head]:not(.in) :is([data-hd], .rule) { opacity: 1; transform: none; }   /* the heads are simply there (app.js never holds one) */
+  [data-room]:not(.in)::before { opacity: 1; }   /* the rooms' light is on and still */
   .menu nav a, .menu-foot { transition: none !important; }   /* the items are there the frame the menu opens */
   .hero h1 .l1 { animation: none; --hx: 46%; }
   .hero h1 .l1.split .ch { opacity: 1; transform: none; filter: none; animation: none; }
@@ -3966,6 +4051,11 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   --press-glass: rgba(17, 17, 17, .05);   /* the ivory glass pressed: a breath darker */
   --press-shade: rgba(27, 27, 27, .2);
   --press-rim: rgba(var(--studio-gold-rgb), .7);
+  /* the rooms' light in the white studio: a softbox, a white pool on the cream in a faint warm falloff (app.js data-room:
+     it comes up as in the dark) */
+  --room-light: rgba(255, 255, 255, .92);
+  --group-light: rgba(255, 255, 255, .92);
+  --room-fall: rgba(var(--studio-gold-rgb), .05);
 }
 /* ---- the chrome: bar, buttons, menu */
 :where([data-theme="light"]) .bar { background: rgba(255, 255, 255, .72); border-color: rgba(17, 17, 17, .08); box-shadow: 0 18px 50px -24px rgba(27, 27, 27, .25); }
@@ -4056,7 +4146,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .bk-suggest, :where([data-theme="light"]) .bk-notice { background: radial-gradient(100% 120% at 0% 0%, rgba(var(--studio-gold-rgb), .12), transparent 60%), var(--stone); border-color: var(--line); }
 :where([data-theme="light"]) .bk-preview { background: rgba(var(--studio-gold-rgb), .08); }
 :where([data-theme="light"]) .bk-nav { background: linear-gradient(180deg, rgba(255, 253, 248, .9), rgba(250, 247, 240, .97)); border-top-color: rgba(17, 17, 17, .08); }
-:where([data-theme="light"]) .cta-band { background: radial-gradient(70% 90% at 50% 0%, rgba(var(--studio-gold-rgb), .16), transparent 60%), linear-gradient(180deg, #fff, var(--bg-2)); border-color: var(--line-soft); box-shadow: 0 30px 60px -40px rgba(17, 17, 17, .4); }
+:where([data-theme="light"]) .cta-band { background: linear-gradient(180deg, #fff, var(--bg-2)); border-color: var(--line-soft); box-shadow: 0 30px 60px -40px rgba(17, 17, 17, .4); }
+:where([data-theme="light"]) .cta-band::before { background: radial-gradient(70% 90% at 50% 0%, rgba(var(--studio-gold-rgb), .16), transparent 60%); }
 :where([data-theme="light"]) .cta-band::after { background: linear-gradient(var(--au-angle), transparent 40%, rgba(var(--studio-gold-rgb), .05) 46%, rgba(217, 167, 81, .16) 50%, rgba(var(--studio-gold-rgb), .05) 54%, transparent 60%); mix-blend-mode: normal; opacity: 1; }   /* on the ivory band the light is a warm sheen, not a screen */
 :where([data-theme="light"]) .bead-bg { opacity: .12; mix-blend-mode: multiply; }
 :where([data-theme="light"]) .footer { border-top-color: rgba(17, 17, 17, .06); }
@@ -4166,6 +4257,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
   .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after, .cta-band::after, .btn-gold::before, .work-item::before, .gal-btn::after, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
+  :is(.why, .work, .how, .svc-group, .cta-band)::before { display: none; }   /* no gold glow in the rooms */
   .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */
   .svc-jump a[aria-current] { text-decoration: underline; text-underline-offset: 6px; }   /* the gold line is painted over: the group on the screen keeps a mark */
@@ -4194,12 +4286,13 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .acct-soon > * { animation: none !important; }
   html, body { background: #fff !important; color: #111 !important; }
   .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
-  .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .how::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
-  [data-rise], [data-reveal], .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
+  .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
+  [data-rise], [data-reveal], [data-hd], .hd-lines > .ln > span, .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
+  .why::after, .how::after { animation: none !important; }   /* the foot hairlines drawn, wherever the screen had scrolled */
   .emblem svg.circle circle { stroke-dashoffset: 0; }
   .why-item svg path { stroke-dashoffset: 0 !important; }   /* the Why icons on paper, drawn or not on the screen */
-  .gold-text, .hero h1 .l1 { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }
+  .gold-text, .gold-text.hd-lines > .ln > span, .hero h1 .l1 { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }
   .amount, .price-card .tag, .svc-card .price, .eyebrow { color: var(--studio-gold-ink) !important; text-shadow: none !important; }
   .svc-card .price { background: none !important; -webkit-text-fill-color: currentColor !important; }   /* the row's glint, mid-pass, never prints */
   .au-band { display: none !important; }

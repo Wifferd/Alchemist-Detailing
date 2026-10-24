@@ -46,6 +46,7 @@
   const DRIFT = [0.1, 0.5, 0.3, 0.05, 0.11];   // 0.1 + 0.5 sin(0.3 t) + 0.05 sin(0.11 t)
   const CURVE = [0.05, 1.8, 0.4, 0.02, 3.1];   // 0.05 sin(1.8 y + 0.4) + 0.02 sin(3.1 x)
   const SPAN = 1.35, PAN = [0.006, 0.0025];
+  const BODY = [60, 30];   // the bar's body across its axis: exp(-d*d*BODY), from BODY[0] on a wide frame to BODY[1] on a tall one
   const drift = (t) => DRIFT[0] + DRIFT[1] * Math.sin(t * DRIFT[2]) + DRIFT[3] * Math.sin(t * DRIFT[4]);
   const curve = (x, y) => CURVE[0] * Math.sin(y * CURVE[1] + CURVE[2]) + CURVE[3] * Math.sin(x * CURVE[4]);
   const glf = (v) => (Number.isInteger(v) ? v.toFixed(1) : String(v));   // as a GLSL float
@@ -124,7 +125,7 @@ vec3 envAt(float d, float sharp){
   base = mix(base, vec3(0.985, 0.98, 0.97), smoothstep(0.30, 0.22, abs(ds))*0.95*uStudio);
   float k = mix(80.0, 420.0, sharp)*mix(1.0, 0.6, portrait);
   float core = exp(-d*d*k)*sqrt(k/420.0);
-  float body = exp(-d*d*mix(60.0, 30.0, portrait));
+  float body = exp(-d*d*mix(${glf(BODY[0])}, ${glf(BODY[1])}, portrait));
   // the halo: a wide, dim amber spill that keeps the whole panel warm, so the drops have light to bend
   float halo = exp(-d*d*1.8);
   vec3 bar = (CORE*core*2.4 + GOLD*body*1.2 + AMBER*halo*0.26)*mix(1.0, 0.35, uStudio);
@@ -521,9 +522,9 @@ void main(){
     return (x) => {
       if (!(x > 0)) return 0;
       if (x >= 1) return 1;
-      // Newton's method: the site's curves are nowhere flat along x, so five steps are exact far below a pixel
+      // Newton's method: the site's curves are nowhere flat along x, so four steps are exact far below a pixel
       let t = x;
-      for (let i = 0; i < 5; i++) { const d = dB(x1, x2, t); if (d < 1e-6) break; t = Math.min(1, Math.max(0, t - (B(x1, x2, t) - x) / d)); }
+      for (let i = 0; i < 4; i++) { const d = dB(x1, x2, t); if (d < 1e-6) break; t = Math.min(1, Math.max(0, t - (B(x1, x2, t) - x) / d)); }
       return B(y1, y2, t);
     };
   }
@@ -587,15 +588,15 @@ void main(){
     // The studio light comes on (opts.entrance, from enter(rowY, endX) on, which the page calls as the hero's intro
     // starts). Until then the bar rests where it always has, unseen (the light fades up from 0.3 s). From enter() it
     // waits at the left edge on the wordmark's row (rowY), its centre just beyond it, while the light comes up; it glides
-    // across the paint to just past the word's end (endX, at least IN.to of the width) in IN.glide on --ease-in-out, so
-    // the crossing itself takes about IN.glide, and slows there, where its own drift takes it on (over
-    // IN.back the two blend), and from then on the hero is as it always was. The path is measured on the wordmark's
-    // row in widths of the screen, so a phone sees the light cross at the same pace as a desk. Its clock stops while
-    // the hero is paused (the menu over it) and runs on, unseen, off the screen or in a hidden tab. enter() later
-    // than 0.35 s after the shader was built (the light already up) plays nothing; a first picture that comes only
-    // once the glide is under way (a stalled start, IN.at + 0.3 s after enter()) cancels it (onSkip), so the bar never
-    // pops in part way across: it is at rest, as before.
-    const IN = { at: 0.5, glide: 3.6, back: 5, tail: 1, from: -0.05, to: 0.86 };
+    // across the paint until its body has cleared the word's end (endX; at least IN.to, at most IN.over of the width)
+    // in IN.glide on --ease-in-out, so the crossing itself takes about IN.glide, and slows there, where its own drift
+    // takes it on (over IN.back the two blend), and from then on the hero is as it always was. The path is measured
+    // on the wordmark's row in widths of the screen, so a phone sees the light cross at the same pace as a desk. Its
+    // clock stops while the hero is paused (the menu over it) and runs on, unseen, off the screen or in a hidden tab.
+    // enter() later than 0.35 s after the shader was built (the light already up) plays nothing; a first picture that
+    // comes only once the glide is under way (a stalled start, IN.at + 0.3 s after enter()) cancels it (onSkip), so the
+    // bar never pops in part way across: it is at rest, as before.
+    const IN = { at: 0.5, glide: 3.6, back: 5, tail: 1, from: -0.05, to: 0.86, over: 1.05 };
     let armed = !!opts.entrance && !opts.still, entry = null;
     function entryAt(s, rest) {
       const g = (s - IN.at) / IN.glide, x = entry.from + (entry.to - entry.from) * inOut(g);
@@ -607,23 +608,27 @@ void main(){
       const now = performance.now();
       if (now - t0 > 350) return null;
       const r = box(true), turn = IN.at + IN.glide, end = turn + IN.back;
-      const toX = r.left + Math.min(0.95, Math.max(IN.to, ((endX || 0) - r.left) / r.w)) * r.w;
+      // it slows with its body (where it is brighter than half its middle, as envAt draws it) just clear of endX on the
+      // row: on a phone, where the word runs nearly to the edge, just beyond the edge
+      const portrait = 1 - Math.min(r.w / r.h, 1);
+      const reach = Math.sqrt(Math.LN2 / (BODY[0] + (BODY[1] - BODY[0]) * portrait)) * r.h / (SPAN * zoom * LD[0]);
+      const toX = r.left + Math.min(IN.over, Math.max(IN.to, ((endX || 0) + reach - r.left) / r.w)) * r.w;
       const tAt = (s) => timeOffset + (now - t0) / 1000 + s;   // paint time s seconds into the entrance
       // the drift takes the bar on where it slows: the paint's clock is set now (unseen, the light still dark) so the
       // drift is there at that moment and on its way back, and from the turn the bar simply drifts on with it
       // (where the turn is beyond the drift's reach, as near as it comes: its own turn). The clock is scanned in
-      // quarter seconds, one of the nearly best is taken at random (each visit sees the paint at another moment),
+      // half seconds, one of the nearly best is taken at random (each visit sees the paint at another moment),
       // and the best fit is found around it
       if (opts.time == null) {
         const base = (now - t0) / 1000 + turn;
-        const miss = (o) => { const T = o + base; return drift(T + 0.05) <= drift(T) ? Math.abs(drift(T) - axisAt(toX, rowY, T, r)) : Infinity; };
+        const miss = (o) => { const T = o + base, d = drift(T); return drift(T + 0.05) <= d ? Math.abs(d - axisAt(toX, rowY, T, r)) : Infinity; };
         const fits = [];
         let best = Infinity;
-        for (let o = 4; o <= 34; o += 0.25) { const m = miss(o); fits.push(m); if (m < best) best = m; }
+        for (let o = 4; o <= 34; o += 0.5) { const m = miss(o); fits.push(m); if (m < best) best = m; }
         const near = [];
-        fits.forEach((m, i) => { if (m < best + 0.03) near.push(4 + i * 0.25); });
+        fits.forEach((m, i) => { if (m < best + 0.06) near.push(4 + i * 0.5); });
         let pick = near[Math.floor(Math.random() * near.length)], pm = miss(pick);
-        for (let o = pick - 0.2, k = 0; k <= 8; k++, o += 0.05) { const m = miss(o); if (m < pm) { pm = m; pick = o; } }
+        for (let o = pick - 0.2, k = 0; k <= 4; k++, o += 0.1) { const m = miss(o); if (m < pm) { pm = m; pick = o; } }
         timeOffset = pick;
       }
       entry = { at: now, held: 0, pausedAt: 0, seen: !wanted(), from: axisAt(r.left + IN.from * r.w, rowY, tAt(IN.at), r), to: axisAt(toX, rowY, tAt(turn), r) };
@@ -639,15 +644,19 @@ void main(){
       // beyond its turn
       function when(x, y) {
         if (past(x, y, turn) < 0) return null;
-        return past(x, y, IN.at) >= 0 ? IN.at * 1000 : halve(x, y, IN.at, turn, 14);
+        return past(x, y, IN.at) >= 0 ? IN.at * 1000 : halve(x, y, IN.at, turn, 9);
       }
-      // when it has gone back past that point on its way back, within the entrance or IN.tail after it; null if not
-      function back(x, y) {
+      // when it has gone back past that point on its way back (looked for from `after` ms, when it is known not to be
+      // back yet), by `until` (the entrance and IN.tail after it); null if not
+      function back(x, y, after) {
         if (past(x, y, turn) < 0) return null;
-        for (let s = turn + 0.25; s <= end + IN.tail; s += 0.25) if (past(x, y, s) < 0) return halve(x, y, s - 0.25, s, 8);
+        for (let s = Math.max(turn, (after || 0) / 1000) + 0.5; s <= end + IN.tail + 0.5; s += 0.5) {
+          const t = Math.min(s, end + IN.tail);
+          if (past(x, y, t) < 0) return halve(x, y, s - 0.5, t, 6);
+        }
         return null;
       }
-      return { when, back, turn: turn * 1000, end: end * 1000 };
+      return { when, back, turn: turn * 1000, end: end * 1000, until: (end + IN.tail) * 1000 };
     }
     function setup() {
       // the moving drops are compiled in only when they move
@@ -740,6 +749,7 @@ void main(){
     });
     setup();
     t0 = performance.now();
+    if (armed) box(true);   // the entrance needs the canvas's place: read now, while the page is laid out (app.js)
 
     const api = {
       stop() { stopped = true; halt(); if (io) io.disconnect(); document.removeEventListener('visibilitychange', follow); if (themeWatch) themeWatch.disconnect(); window.removeEventListener('resize', onResize); },
