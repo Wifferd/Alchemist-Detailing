@@ -764,7 +764,7 @@
     if (!hd || e.target.matches('[data-hd="h"]')) return;
     if (!hd.classList.contains('in')) { io.unobserve(hd); setHead(hd, true); } else hd.classList.add('hd-now');
   });
-  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.svc-notes > div', '.standard .emblem', '.standard .statement', '.standard .facts', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.el-main', '.el-panel', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
+  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.svc-notes > div', '.rv', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.el-main', '.el-panel', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
   // The rooms: each section after the wash, the closing band and each Services group lights up as it arrives (CSS: its
   // studio glow comes up, then drifts with the scroll). The Services header settles its photo (.in) the same way.
   const ROOMS = '.why, .work, .how, .cta-band, .svc-group';
@@ -778,6 +778,7 @@
     $$(ROOMS, scope).forEach((el) => { if (!el.classList.contains('in') && !el.hasAttribute('data-room')) { el.setAttribute('data-room', ''); io.observe(el); } });
     $$('.svc-top', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     armHeads(scope);
+    armStandard(scope);
     const counts = new Map();   // stagger index per parent, so a page is not one long queue
     RISE.forEach((sel) => {
       $$(sel, scope).forEach((el) => {
@@ -884,15 +885,26 @@
   }
   // The heading's lines as the browser has laid them out (balanced, in whatever face and size it has now), read
   // before anything is written in the frame: the words on each line, as [from, to] in its text. Only a heading of
-  // plain text, on a page no translator has rewritten; null otherwise (it then fades in).
+  // plain text, or of text and plain-text <em>s (the Standard's statement), on a page no translator has rewritten;
+  // null otherwise (it then fades in). Its runs (lines.parts) say which words were in an <em>, so each line keeps it.
   function lineCut(h) {
-    const t = h.firstChild;
-    if (h.childNodes.length !== 1 || !t || t.nodeType !== 3 || /\btranslated-/.test(root.className)) return null;
-    const text = t.data, range = document.createRange(), lines = [], re = /\S+/g;
+    if (!h.firstChild || /\btranslated-/.test(root.className)) return null;
+    const parts = [];
+    let text = '';
+    for (const n of h.childNodes) {
+      const em = n.nodeType === 1 && n.matches('em') && n.childNodes.length === 1 && n.firstChild.nodeType === 3 ? n : null;
+      const t = n.nodeType === 3 ? n : em ? n.firstChild : null;
+      if (!t) return null;
+      parts.push({ t, em, at: text.length });
+      text += t.data;
+    }
+    // a place in the text as a place in its runs (a word's end on a run's end stays in that run)
+    const pos = (i, end) => { let p = parts[0]; parts.forEach((q) => { if (end ? q.at < i : q.at <= i) p = q; }); return [p.t, i - p.at]; };
+    const range = document.createRange(), lines = [], re = /\S+/g;
     let m, top = null;
     while ((m = re.exec(text))) {
-      range.setStart(t, m.index);
-      range.setEnd(t, m.index + m[0].length);
+      range.setStart(...pos(m.index, false));
+      range.setEnd(...pos(m.index + m[0].length, true));
       const rs = range.getClientRects();
       if (!rs.length || Math.abs(rs[rs.length - 1].top - rs[0].top) > 2) return null;   // unseen, or a word broken across two lines
       if (top == null || Math.abs(rs[0].top - top) > rs[0].height / 2) { lines.push([m.index, m.index + m[0].length]); top = rs[0].top; }
@@ -900,10 +912,12 @@
     }
     if (!lines.length) return null;
     lines.text = text;
+    lines.parts = parts;
     return lines;
   }
-  // Each line becomes a slot of its own (.ln) around the words on it; a copy of the whole stays for screen readers.
-  // splitLines swaps them in and returns how many lines (splits: each split heading's way back to whole).
+  // Each line becomes a slot of its own (.ln) around the words on it (an <em>'s words in a copy of it); a copy of the
+  // whole stays for screen readers. splitLines swaps them in and returns how many lines (splits: each split heading's
+  // way back to whole, its own nodes again). at: when its first line rises (--std-lines for the Standard's statement)
   function makeLines(lines) {
     const text = lines.text, sr = document.createElement('span');
     sr.className = 'sr-only';
@@ -914,14 +928,22 @@
       ln.setAttribute('aria-hidden', 'true');
       ln.style.setProperty('--i', i);
       inner.className = 'ln-w';   // its words (a class of their own: a rule keyed to a tag would restyle every one)
-      inner.textContent = text.slice(a, b);
+      lines.parts.forEach((p) => {
+        const from = Math.max(a, p.at), to = Math.min(b, p.at + p.t.data.length);
+        if (from >= to) return;
+        const words = text.slice(from, to);
+        if (!p.em) { inner.append(words); return; }
+        const em = p.em.cloneNode(false);
+        em.textContent = words;
+        inner.appendChild(em);
+      });
       ln.appendChild(inner);
       return ln;
     }));
   }
   const splits = new Map();
-  function splitLines(h, lines, onWhole) {
-    const t = h.firstChild, made = makeLines(lines), ls = made.slice(1);
+  function splitLines(h, lines, onWhole, at) {
+    const own = [...h.childNodes], made = makeLines(lines), ls = made.slice(1);
     h.classList.add('hd-lines');
     h.replaceChildren(...made);
     let done = false, mo = null, timer = 0, tries = 0;
@@ -932,7 +954,7 @@
       clearTimeout(timer);
       if (mo) mo.disconnect();
       splits.delete(h);
-      h.replaceChildren(t);
+      h.replaceChildren(...own);
       h.classList.remove('hd-lines');
       if (onWhole) onWhole();
     };
@@ -944,7 +966,7 @@
       if (a && a.playState === 'running' && ++tries < 10) timer = setTimeout(late, 300);
       else whole();
     };
-    timer = setTimeout(late, LINE.at + (ls.length - 1) * LINE.gap + LINE.dur + 400);
+    timer = setTimeout(late, (at == null ? LINE.at : at) + (ls.length - 1) * LINE.gap + LINE.dur + 400);
     last.addEventListener('animationend', whole, { once: true });
     try { mo = new MutationObserver(whole); mo.observe(h, { childList: true, characterData: true, subtree: true }); } catch (e) { /* no translator watch */ }
     splits.set(h, whole);
@@ -981,6 +1003,82 @@
       const s = seenHeads(c);
       if (!s.has(key)) { s.add(key); sessionStorage.setItem('ad.set.' + routeOf(c), JSON.stringify([...s])); }
     } catch (e) { /* storage unavailable: the heads set again */ }
+  }
+  // ---------------------------------------------------------------- the Alchemist Standard: the opening title card
+  // The first words after the hero arrive once, like a film's opening title, as they come on the screen: the ring
+  // draws round the monogram (its own 2s) as the mark fades up; the label fades in from 250ms; from 450ms the
+  // statement sets line by line from behind its baseline (the heads' lines, its <em> kept), all of it in white. Once
+  // it is whole and wholly on the screen, the gold light crosses "attention to every surface." (its turn in the
+  // light's queue; .au-run on the <em>) and the words turn gold behind it, and stay gold. The script fades up at
+  // 2.3s, the facts at 2.5s, a line's gap apart (CSS); by about 3s nothing moves. The light needs a calm page: the
+  // pictures' compile (startHeavy) behind us and a few frames in a row with no stall (the wash below waking up, a slow
+  // phone); a page that is not calm within a moment and a half, or a phrase scrolled past, is simply gold, with no
+  // light. Not under reduced motion, for a second visit this session (the heads' note), without JavaScript or in
+  // print: the card is set.
+  const STD = { lines: 450, settle: 1500, calm: 3, stall: 100 };   // the first line's start (--std-lines); how long the light waits for a calm page; how many frames, each under stall ms, make one
+  let stdArmed = false;
+  function armStandard(scope) {
+    const s = !stdArmed && scope.querySelector ? scope.querySelector('#standard') : null;
+    if (!s) return;
+    stdArmed = true;
+    const mark = $('.emblem', s), st = $('.statement', s), key = headKey(st);
+    if (seenHeads(s).has(key)) { mark.classList.add('in', 'settled'); io.unobserve(mark); return; }   // the ring drawn, as it was left
+    io.unobserve(mark);
+    mark.removeAttribute('data-reveal');   // its ring draws with the card
+    st.setAttribute('data-hd', 'h');   // its lines, swapped in and out, are not new content (the observer at the end)
+    s.setAttribute('data-std', '');
+    const near = new IntersectionObserver((es) => {
+      if (!es.some((e) => e.isIntersecting && e.intersectionRatio >= 0.3)) return;
+      near.disconnect();
+      stdGo(s, key);
+    }, { threshold: [0, 0.3], rootMargin: '0px 0px -8% 0px' });
+    near.observe($('.wrap', s));
+  }
+  // the card sets: the statement's lines read and swapped in (once the fonts are in), still unseen; in the next frame
+  // the classes alone start it
+  function stdGo(s, key) {
+    const st = $('.statement', s), f = document.fonts;
+    const go = () => requestAnimationFrame(() => {
+      let n = 0;
+      // (lines whole before the card has set, at a new width: it fades in, and its light comes after)
+      const whole = () => { if (s.classList.contains('in')) stdLight(s); else setTimeout(() => stdLight(s), STD.lines + LINE.dur); };
+      try { const cut = lineCut(st); n = cut ? splitLines(st, cut, whole, STD.lines) : 0; } catch (e) { n = 0; }   // whatever happens, it shows
+      requestAnimationFrame(() => {
+        s.classList.add('in');
+        $('.emblem', s).classList.add('in');
+        if (!n) setTimeout(() => stdLight(s), STD.lines + LINE.dur);   // faded in whole: its light once it has
+        setTimeout(() => markSeen(s, key), 0);
+      });
+    });
+    if (f && f.status !== 'loaded') Promise.race([f.ready, new Promise((res) => setTimeout(res, 1000))]).then(go); else go();
+  }
+  // the gold light through the promise, once the phrase is wholly on the screen and the page is calm
+  function stdLight(s) {
+    const em = $('.statement em', s);
+    if (!em || em.classList.contains('au-lit')) return;
+    const gold = () => em.classList.add('std-fade', 'au-lit');   // no light: the words simply turn gold
+    if (light.off) { gold(); return; }
+    const ready = (t0) => {
+      if (!heavy || artBusy) { if (performance.now() - t0 < STD.settle) setTimeout(() => ready(t0), 100); else gold(); return; }
+      let last = performance.now(), calm = 0;
+      requestAnimationFrame(function frame(now) {
+        calm = now - last < STD.stall ? calm + 1 : 0;
+        last = now;
+        // (on a screen so narrow that the phrase wraps, the band round the words stays off: the letters take the light)
+        if (calm >= STD.calm) {
+          light.pass(em, { size: 'card', when: () => !em.classList.contains('au-lit'), miss: () => view.observe(em),
+            start: () => { em.classList.toggle('std-wrap', em.getClientRects().length > 1); } });
+        } else if (now - t0 > STD.settle) gold();
+        else requestAnimationFrame(frame);
+      });
+    };
+    // (scrolled past, or home left: gold; still below: it waits)
+    const view = new IntersectionObserver((es) => {
+      const e = es[es.length - 1];
+      if (e.intersectionRatio > 0.99) { view.disconnect(); ready(performance.now()); }
+      else if (!e.isIntersecting && e.boundingClientRect.bottom <= 0) { view.disconnect(); gold(); }
+    }, { threshold: [0, 1], rootMargin: '0px 0px -8% 0px' });
+    view.observe(em);
   }
   // Numbers count upward (animation §19): a time, a mobile charge or the History count runs up from 0 once, over
   // 600ms, when it is fully on screen. The real figure is in the page from the start (the layout and a screen reader
@@ -1642,7 +1740,7 @@
   let armT = 0, landed = [];
   new MutationObserver((muts) => {
     // (a heading's own lines, swapped in and out as it sets, are not new content)
-    muts.forEach((m) => { if (m.target.classList && m.target.classList.contains('hd-lines')) return; m.addedNodes.forEach((n) => { if (n.nodeType === 1) landed.push(n); }); });
+    muts.forEach((m) => { if (m.target.classList && (m.target.classList.contains('hd-lines') || m.target.matches('[data-hd="h"]'))) return; m.addedNodes.forEach((n) => { if (n.nodeType === 1) landed.push(n); }); });
     if (!landed.length) return;
     cancelAnimationFrame(armT);
     armT = requestAnimationFrame(() => {

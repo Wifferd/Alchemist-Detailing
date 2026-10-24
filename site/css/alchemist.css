@@ -894,6 +894,7 @@ section { position: relative; }
 .emblem svg.circle { position: absolute; inset: 0; width: 100%; height: 100%; }
 .emblem svg.circle circle { fill: none; stroke: url(#ringGrad); stroke-width: 1.2; stroke-dasharray: 402; stroke-dashoffset: 402; transition: stroke-dashoffset 2s var(--ease); }
 .emblem.in svg.circle circle { stroke-dashoffset: 0; }
+.standard .emblem.settled svg.circle circle { transition: none; }   /* drawn already this session (app.js): there as it was left */
 .emblem img { width: 62px; position: relative; filter: drop-shadow(0 6px 18px rgba(var(--gold-rgb), .25)); }
 .standard .statement {
   margin: 24px auto 0;
@@ -909,6 +910,55 @@ section { position: relative; }
 .facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 34px; margin-top: 46px; color: var(--ink-2); font: 600 var(--fs-xs)/1.4 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; }
 .facts span { display: inline-flex; align-items: center; gap: 12px; }
 .facts span::before { content: ""; width: 5px; height: 5px; transform: rotate(45deg); background: var(--gold); }
+/* The opening title card (app.js armStandard, data-std; .in sets it, once): the ring draws (its 2s) as the monogram
+   fades up; the label fades in at --std-kicker; the statement's lines rise from behind their baseline from
+   --std-lines, --line-gap apart, all in the statement's ink; then the gold light (the light's queue, .au-run) crosses
+   the phrase and the words turn gold behind its edge (the gold behind, a soft bright edge, the ink ahead, on --au-p:
+   at 0 all ink, at 1 all gold), and stay gold (.au-lit); a phrase that gets no light simply turns gold (.std-fade).
+   The script fades up at --std-tail, the facts after it, a line's gap apart. Hidden only while app.js holds the card:
+   never without JavaScript, under reduced motion or in print, where it is set and the phrase gold */
+.standard[data-std] { --std-kicker: 250ms; --std-lines: 450ms; --std-tail: 2300ms; }
+.standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement) { opacity: 0; }
+.standard[data-std]:not(.in) .emblem img { transform: translateY(10px); }
+.standard[data-std]:not(.in) :is(.script, .facts span) { opacity: 0; transform: translateY(12px); }
+.standard[data-std].in .emblem img { transition: opacity 1.2s var(--ease-unveil), transform 1.2s var(--ease-unveil); }
+.standard[data-std].in h2.eyebrow { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-kicker); }
+.standard[data-std].in .statement:not(.hd-lines) { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-lines); }   /* one that could not be split fades in */
+.standard[data-std].in .statement .ln-w { animation: lineUp var(--dur-line) var(--ease-unveil) calc(var(--std-lines) + var(--i, 0) * var(--line-gap)) both; }
+.standard[data-std].in .script { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-tail), transform var(--dur-line) var(--ease-unveil) var(--std-tail); }
+.standard[data-std].in .facts span { transition: opacity var(--dur-rise) var(--ease-unveil), transform var(--dur-rise) var(--ease-unveil); transition-delay: calc(var(--std-tail) + 200ms + var(--k, 0) * var(--line-gap)); }
+.standard .facts span:nth-child(2) { --k: 1; }
+.standard .facts span:nth-child(3) { --k: 2; }
+.standard[data-std] .statement em { color: var(--ink); }
+.standard[data-std] .statement em.au-lit { color: var(--gold-hi); }
+.standard .statement em.std-fade { transition: color .45s var(--ease-in-out); }
+/* the light's edge goes from 20% before the phrase to 20% past it: inside the letters, the gold behind it, a bright
+   edge, the ink ahead; on the black round them, the shared band of light (--au-band) travels with the edge, on a layer
+   a little wider and taller than the words that fades out at its sides, so the band comes in and leaves softly and
+   never shows a box */
+.standard .statement em.au-run {
+  position: relative;
+  background: linear-gradient(var(--au-angle), var(--gold-hi) calc(var(--au-p) * 140% - 26%), var(--std-edge, var(--au-glint)) calc(var(--au-p) * 140% - 20%), var(--ink) calc(var(--au-p) * 140% - 14%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: auPass var(--au-dur-card) var(--au-ease) 1 both;
+}
+.standard .statement em.au-run::after {
+  content: "";
+  position: absolute;
+  inset: -.3em -1.5em;
+  background: var(--au-band) calc(var(--au-p) * 183% - 42%) 0 / 40% 100% no-repeat;
+  -webkit-mask: linear-gradient(transparent, #000 35%, #000 65%, transparent), linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-composite: source-in;
+  mask: linear-gradient(transparent, #000 35%, #000 65%, transparent), linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-composite: intersect;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: auPass var(--au-dur-card) var(--au-ease) 1 both;
+}
+.standard .statement em.std-wrap::after { content: none; }   /* a phrase wrapped onto two lines (under 340px): the letters alone take the light */
 
 /* ---------------------------------------------------------------- the wash (scroll-driven, plays once) */
 /* --wash-h is the section's height: the stage's screen plus the pinned length (the owner's "4 scrolls"). The pin lets
@@ -3677,6 +3727,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   [data-rise]:not(.in) { opacity: 1; transform: none; }
   .rule { transform: scaleX(1); }
   [data-head]:not(.in) :is([data-hd], .rule) { opacity: 1; transform: none; }   /* the heads are simply there (app.js never holds one) */
+  .standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement, .script, .facts span) { opacity: 1; transform: none; }   /* the card is set */
+  .standard[data-std] .statement em { color: var(--gold-hi); }
   [data-room]:not(.in)::before { opacity: 1; }   /* the rooms' light is on and still */
   .menu nav a, .menu-foot { transition: none !important; }   /* the items are there the frame the menu opens */
   .hero h1 .l1 { animation: none; --hx: 46%; }
@@ -4241,6 +4293,10 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
    the photo pieces and the Gold card keep the dark light */
 [data-theme="light"] .appt.au-run .appt-glow::after { opacity: 1; background: linear-gradient(var(--au-angle), transparent 40%, rgba(217, 167, 81, .05) 46%, rgba(217, 167, 81, .16) 50%, rgba(217, 167, 81, .05) 54%, transparent 60%); }
 [data-theme="light"] .svc-opt.au-run::before { --au-core: rgba(217, 167, 81, .2); mix-blend-mode: normal; }
+/* the promise's light on the cream: its edge in the studio's brighter gold (a pale one would cut the letters out of
+   the cream), and no band round the words (a gold haze reads as a smudge on the paper, a white one adds nothing) */
+[data-theme="light"] .standard .statement em.au-run { --std-edge: var(--gold); }
+[data-theme="light"] .standard .statement em.au-run::after { content: none; }
 [data-theme="light"] .bk-progress li.au-run:not(:first-child)::after { --au-line: var(--gold); --au-line-core: #f4bf5c; }
 :where([data-theme="light"]) .au-line { background: rgba(17, 17, 17, .1); }
 /* ---- the toggle: one 420ms cross-fade of the whole page (a view transition where the browser has one, else
@@ -4275,7 +4331,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (forced-colors: active) {
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
-  .shine::after, .glint::after, [class*="rim"], .au-line::after, .au-band, .appt-au, .trk::after, .cta-band::after, .btn-gold::before, .work-item::before, .gal-btn::after, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
+  .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .cta-band::after, .btn-gold::before, .work-item::before, .gal-btn::after, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
   :is(.why, .work, .how, .svc-group, .cta-band)::before { display: none; }   /* no gold glow in the rooms */
   .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */
@@ -4306,12 +4362,14 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   html, body { background: #fff !important; color: #111 !important; }
   .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
   .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before, .cta-band::after { display: none !important; }
-  [data-rise], [data-reveal], [data-hd], .ln-w, .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
+  [data-rise], [data-reveal], [data-hd], .ln-w, .standard[data-std] :is(.emblem img, h2.eyebrow, .script, .facts span), .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .why::after, .how::after, .work-item img { animation: none !important; }   /* the foot hairlines drawn and the photos centred, wherever the screen had scrolled */
   .emblem svg.circle circle { stroke-dashoffset: 0; }
   .why-item svg path { stroke-dashoffset: 0 !important; }   /* the Why icons on paper, drawn or not on the screen */
   .gold-text, .gold-text.hd-lines .ln-w, .hero h1 .l1 { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }
+  .standard .statement em { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }   /* the promise in gold, lit or not */
+  .standard .statement em::after { content: none !important; }
   .amount, .price-card .tag, .svc-card .price, .eyebrow { color: var(--studio-gold-ink) !important; text-shadow: none !important; }
   .svc-card .price { background: none !important; -webkit-text-fill-color: currentColor !important; }   /* the row's glint, mid-pass, never prints */
   .au-band { display: none !important; }
