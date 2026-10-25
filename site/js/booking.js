@@ -708,7 +708,7 @@
     // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
     const more = el('div.bk-more-body',
       v.vehicleId ? null : choices({ id: 'modifications', label: 'Modifications', hint: 'For preparation only. Never a fee.', size: 'tile', multi: true, value: v.modifications, items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (vals) => { v.modifications = vals; } }),
-      guest() ? el('p.bk-note', 'Photos: you can text them to us after you book.') : el('div.bk-photos', { dataset: { field: 'photos' } },
+      guest() ? el('p.bk-note', 'Photos are optional and not needed to book.') : el('div.bk-photos', { dataset: { field: 'photos' } },
         el('p.choice-label', 'Photos', el('small', ' optional · up to 6')),
         el('div.bk-photo-grid', { id: 'bk-photo-grid' },
           v.photos.map((p) => el('figure.bk-photo', el('img', { src: p.url, alt: '', width: 96, height: 96 }), el('button.bk-photo-x', { type: 'button', 'aria-label': 'Remove photo', onclick: async () => { await D.removePhoto(p.name).catch(() => {}); v.photos = v.photos.filter((x) => x !== p); render(); } }, '×'))),
