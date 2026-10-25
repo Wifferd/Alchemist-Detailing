@@ -1790,6 +1790,58 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .figs .where dd { display: flex; flex-wrap: wrap; column-gap: 6px; }
   .figs .where dd > span + span::before { content: "·"; margin-right: 6px; color: var(--muted); }
 }
+/* A price card arriving with its figure confirmed by the database (app.js .pc-set, with the card's own rise, from
+   --pc-at): the name fades in; 120ms later the figure rises from behind its own baseline (its digits, .pc-fig, move
+   up inside the figure's box, which is cut off at its foot and holds still, like an engraved number raised into its
+   slot: .pc-slot); the saving, then the time, mobile and where cells follow 80ms apart; the short line under them
+   draws. Figures never count. A Deluxe's and the Full Detail Bundle's figure lands in a softer ink (.pc-ink,
+   --pc-ink) and the gold light turns it gold behind its edge (.au-run: at --au-p 0 all ink, at 1 all gold), and it
+   stays gold (.au-lit); scrolled away before its turn, it simply turns gold. The figure's box hugs its digits, so the
+   light spends its time on them. Only on a screen with motion: without JavaScript, under reduced motion and in print
+   the cards are set */
+.price-card .amount { width: fit-content; --pc-ink: var(--ink-2); }   /* 11:1 on the card: the light earns the gold */
+@media screen and (prefers-reduced-motion: no-preference) {
+  .price-card.pc-set { --pc-at: calc(var(--after, 0ms) + var(--k, 0) * var(--stagger)); }
+  .price-card.pc-set h3 { animation: pcFade var(--dur-rise) var(--ease-unveil) var(--pc-at) both; }
+  .price-card.pc-set .amount.pc-slot { clip-path: inset(-.25em -.1em 0 -.1em); }
+  .price-card.pc-set .pc-slot .pc-fig { animation: pcUp var(--dur-line) var(--ease-unveil) calc(var(--pc-at) + 120ms) both; }
+  .price-card.pc-set .saving { animation: pcFade var(--dur-rise) var(--ease-unveil) calc(var(--pc-at) + 280ms) both; }
+  .price-card.pc-set .figs > div { animation: pcCell var(--dur-rise) var(--ease-unveil) calc(var(--pc-at) + 360ms + var(--c, 0) * 80ms) both; }
+  .price-card.pc-set .figs > div:nth-child(2) { --c: 1; }
+  .price-card.pc-set .figs > div:nth-child(3) { --c: 2; }
+  .price-card.pc-set .line { transform-origin: 0 50%; animation: pcLine var(--dur-rise) var(--ease-in-out) calc(var(--pc-at) + 600ms) both; }
+  .price-card .amount.pc-ink:not(.au-lit) { color: var(--pc-ink); transition: none; }   /* in its ink from the start (the turn to gold keeps the figure's own .4s) */
+  .price-card .amount.pc-ink.au-run {
+    background: linear-gradient(var(--au-angle), var(--pc-gold, var(--gold-hi)) calc(var(--au-p) * 140% - 26%), var(--pc-edge, var(--au-glint)) calc(var(--au-p) * 140% - 20%), var(--pc-ink) calc(var(--au-p) * 140% - 14%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    animation: auPass var(--au-dur) var(--au-ease) 1 both;
+  }
+  /* on the black over the figure, the shared band of light travels with its edge, softly in and out (as the
+     Standard's promise takes it), seen only over the digits (its box reaches .2em past them; its mask fades out
+     before their edges) */
+  .price-card .amount.pc-ink.au-run::after {
+    content: "";
+    position: absolute;
+    inset: -.3em -.2em;
+    background: var(--au-band) calc(var(--au-p) * 183% - 42%) 0 / 40% 100% no-repeat;
+    -webkit-mask: linear-gradient(transparent, #000 35%, #000 65%, transparent), linear-gradient(90deg, transparent 5%, #000 20%, #000 80%, transparent 95%);
+    -webkit-mask-composite: source-in;
+    mask: linear-gradient(transparent, #000 35%, #000 65%, transparent), linear-gradient(90deg, transparent 5%, #000 20%, #000 80%, transparent 95%);
+    mask-composite: intersect;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    animation: auPass var(--au-dur) var(--au-ease) 1 both;
+  }
+  [data-theme="light"] .price-card .amount.pc-ink.au-run::after { content: none; }   /* on the white card the letters take the light alone */
+  @media (max-width: 720px) { .price-card .amount.pc-ink.au-run::after { content: none; } }   /* and on a phone, where the figure is small */
+}
+@keyframes pcFade { from { opacity: 0; } }
+@keyframes pcUp { from { transform: translateY(100%); } }
+@keyframes pcCell { from { opacity: 0; transform: translateY(8px); } }
+@keyframes pcLine { from { transform: scaleX(0); } }
 /* the bundles as a trim lineup: Signature Combo, what stepping up adds, then the Full Detail Bundle. Each carries its
    element from the Table (an off-white frame for Sc, the solid gold tile with a gold rim for Au) and names its parts
    as links to their groups above. Without JavaScript the step-up stays hidden and the two cards sit side by side. */
@@ -1994,6 +2046,88 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 /* a new pick fades the panel's text in (app.js's reduce guard skips the class) */
 .el-panel.swap > :not(.el-actions) { animation: elSwap .35s var(--ease) both; }
 @keyframes elSwap { from { opacity: 0; transform: translateY(6px); } }
+/* The transmutation, Ed + Id → Au (services.js transmute): the Table's one moment, once a visit. Armed (data-tm on
+   the grid) the case is unlit: the tiles dimmed (on the studio's ivory only their symbols and names, so no tile
+   reads as switched off). Au (its own data-tm) is charcoal, its letters unlit but legible (muted, 5.9:1; 6.5:1 in
+   the studio) and its picked ring down to a hairline. .tm-lit brings the tiles up to full light, all but Ed and Id;
+   .tm-go is Ed and Id's turn of the gold light (it crosses Ed's letters, then Id's, 300ms apart, each tile coming up
+   under it); .tm-rest lights them without it. .tm-au is Au's spread, from --tm-at: a point of warm gold (.tm-fill,
+   the tile's own gold laid exactly where the tile's is, shown through a circle) gathers for its first 30%, then
+   floods the tile until the circle is past its farthest corner (--tm-end); a soft ring travels on its edge
+   (.tm-edge). One number, --tm-k (the circle's radius over --tm-end, from --tm-s0 to --tm-s1 to 1), sizes both, so
+   the ring never runs ahead of the gold on a busy page (a ring scaled by its own transform would play apart from the
+   circle); a warm light breathes at its heart (.tm-bloom), and the letters go dark as the gold reaches them.
+   .tm-fade is Au's gold fading in without the spread (its turn did not come). The tile at rest then takes over
+   unchanged, its ring coming up on its own transition. In the panel (data-tm, then .tm-panel) the large Au, faint
+   and a little low, rises into the light from --tm-panel and the equation draws left to right from --tm-eq; the
+   panel's Book Now shine waits meanwhile. The specks (.tm-specks) are a canvas services.js adds and removes. Clicks
+   always work. Only on a screen with motion: never without JavaScript, under reduced motion, in forced colours or in
+   print, where the Table is at rest */
+@property --tm-k { syntax: "<number>"; inherits: true; initial-value: 0; }
+@keyframes tmSpread { 0% { --tm-k: var(--tm-s0, .1); } 30% { --tm-k: var(--tm-s1, .3); } 100% { --tm-k: 1; } }
+@keyframes tmEdge { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes tmBloom { 0% { opacity: 1; transform: scale(.5); } 30% { opacity: 1; transform: scale(.9); } 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes tmFade { to { opacity: 1; } }
+.el-main { position: relative; }
+.el-eq { align-self: flex-start; }   /* its box hugs the equation, so it draws across the words */
+.tm-specks { position: absolute; z-index: 2; pointer-events: none; }
+.tm-gold { display: none; }
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* the case: dimmed, then lit (only opacity, the border and the hover lift move meanwhile) */
+  .el-grid[data-tm] .el-tile { opacity: .45; }
+  .el-grid[data-tm]:is(.tm-lit, .tm-rest) .el-tile:not([data-key="ed"], [data-key="id"]), .el-grid[data-tm].tm-rest .el-tile { opacity: 1; transition: opacity .5s var(--ease-unveil), border-color .35s var(--ease), transform .35s var(--ease); }
+  .el-grid[data-tm].tm-go .el-tile:is([data-key="ed"], [data-key="id"]) { opacity: 1; transition: opacity .6s var(--ease-in-out) calc(var(--tm-pass) + 250ms), border-color .35s var(--ease), transform .35s var(--ease); }
+  .el-grid[data-tm] .el-tile[data-key="ed"] { --tm-pass: 100ms; }
+  .el-grid[data-tm] .el-tile[data-key="id"] { --tm-pass: 400ms; }
+  [data-theme="light"] .el-grid[data-tm] .el-tile { opacity: 1; }
+  [data-theme="light"] .el-grid[data-tm] .el-tile :is(.sym, .nm b) { opacity: .6; }
+  [data-theme="light"] .el-grid[data-tm]:is(.tm-lit, .tm-rest) .el-tile:not([data-key="ed"], [data-key="id"]) :is(.sym, .nm b), [data-theme="light"] .el-grid[data-tm].tm-rest .el-tile :is(.sym, .nm b) { opacity: 1; transition: opacity .5s var(--ease-unveil); }
+  [data-theme="light"] .el-grid[data-tm].tm-go .el-tile:is([data-key="ed"], [data-key="id"]) :is(.sym, .nm b) { opacity: 1; transition: opacity .6s var(--ease-in-out) calc(var(--tm-pass) + 250ms); }
+  .el-grid.tm-go .el-tile:is([data-key="ed"], [data-key="id"]) .sym {
+    background: linear-gradient(var(--au-angle), transparent 25%, var(--au-glint) 50%, transparent 75%) calc(var(--au-p) * 200% - 50%) 0 / 40% 100% no-repeat, var(--gold-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: auPass var(--au-dur) var(--au-ease) var(--tm-pass) 1 both;
+  }
+  /* Au armed: the tiles' charcoal (the studio's ivory), its letters unlit but legible, its picked ring a hairline */
+  .el-tile.au[data-tm] { background: linear-gradient(180deg, var(--panel), var(--bg-2)); border-color: var(--hair); }
+  .el-tile.au[data-tm][aria-pressed="true"] { border-color: rgba(var(--gold-rgb), .5); box-shadow: none; }
+  :where([data-theme="light"]) .el-tile.au[data-tm] { background: var(--panel); }
+  :where([data-theme="light"]) .el-tile.au[data-tm][aria-pressed="true"] { border-color: rgba(var(--studio-gold-rgb), .55); box-shadow: 0 0 0 1px rgba(var(--studio-gold-rgb), .2); }
+  .el-grid[data-tm]:is(.tm-lit, .tm-rest) .el-tile.au { transition: opacity .5s var(--ease-unveil), border-color .35s var(--ease), box-shadow .35s var(--ease), transform .35s var(--ease); }
+  .el-tile.au[data-tm]:not(.tm-au, .tm-fade) :is(.meta, .sym, .nm b, .nm span) { color: var(--muted); }
+  .el-tile.au[data-tm] > :not(.tm-gold) { position: relative; }   /* the letters over the gold and its light */
+  .el-tile.au[data-tm] .tm-gold { display: block; position: absolute; inset: -1px; border-radius: inherit; overflow: hidden; pointer-events: none; }
+  .tm-fill { position: absolute; inset: 0; background: var(--gold-grad) 1px 1px / calc(100% - 2px) calc(100% - 2px); clip-path: circle(calc(var(--tm-k) * var(--tm-end, 160px)) at 50% 55%); }   /* the tile's own: over its padding box, repeated */
+  .tm-edge {
+    position: absolute;
+    left: 50%;
+    top: 55%;
+    width: calc(2 * var(--tm-end, 160px) + 80px);
+    aspect-ratio: 1;
+    margin: calc(-1 * var(--tm-end, 160px) - 40px) 0 0 calc(-1 * var(--tm-end, 160px) - 40px);
+    border-radius: 50%;
+    background: radial-gradient(circle closest-side, rgba(var(--gold-hi-rgb), 0) calc(var(--tm-end, 160px) - 14px), rgba(var(--gold-hi-rgb), .3) var(--tm-end, 160px), rgba(var(--gold-rgb), .1) calc(var(--tm-end, 160px) + 14px), rgba(var(--gold-rgb), 0) calc(var(--tm-end, 160px) + 40px));
+    transform: scale(var(--tm-k));
+    opacity: 0;
+  }
+  .tm-bloom { position: absolute; left: 50%; top: 55%; width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%; background: radial-gradient(closest-side, rgba(var(--gold-rgb), .5), rgba(var(--gold-rgb), .36) 35%, rgba(var(--gold-rgb), .1) 70%, rgba(var(--gold-rgb), 0)); opacity: 0; }   /* a warm light: it keeps the point gold, not the metal's white hot spot */
+  .el-tile.au.tm-au .tm-gold { animation: tmSpread 1.6s var(--ease-in-out) var(--tm-at, 0ms) forwards; }
+  .el-tile.au.tm-au .tm-edge { will-change: transform; animation: tmEdge 1.6s var(--ease-in-out) var(--tm-at, 0ms) forwards; }
+  .el-tile.au.tm-au .tm-bloom { animation: tmBloom 1.6s var(--ease-in-out) var(--tm-at, 0ms) forwards; }
+  /* its letters go dark as the gold reaches them: the symbol at its heart first, the name and price, then the corners */
+  .el-tile.au.tm-au .sym { transition: color .35s var(--ease-in-out) calc(var(--tm-at, 0ms) + 150ms); }
+  .el-tile.au.tm-au .nm :is(b, span) { transition: color .45s var(--ease-in-out) calc(var(--tm-at, 0ms) + 600ms); }
+  .el-tile.au.tm-au .meta { transition: color .4s var(--ease-in-out) calc(var(--tm-at, 0ms) + 850ms); }
+  .el-tile.au.tm-fade .tm-fill { clip-path: none; opacity: 0; animation: tmFade .6s var(--ease-in-out) forwards; }
+  .el-tile.au.tm-fade :is(.meta, .sym, .nm b, .nm span) { transition: color .6s var(--ease-in-out); }
+  /* the panel */
+  .el-panel[data-tm] .shine::after { animation-play-state: paused; }
+  .el-panel[data-tm] .sym { opacity: .16; transform: translateY(.1em); }
+  .el-panel[data-tm] .el-eq { clip-path: inset(-.2em 100% -.2em -.1em); }
+  .el-panel[data-tm].tm-panel .sym { opacity: 1; transform: none; transition: opacity var(--dur-line) var(--ease-unveil) var(--tm-panel, 0ms), transform var(--dur-line) var(--ease-unveil) var(--tm-panel, 0ms); }
+  .el-panel[data-tm].tm-panel .el-eq { clip-path: inset(-.2em -.1em -.2em -.1em); transition: clip-path var(--dur-line) var(--ease-in-out) var(--tm-eq, 400ms); }
+}
 /* the legend, and the mobile note (the menu's own sentence) */
 .el-legend { display: flex; align-items: center; gap: 22px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--hair); }
 .el-mini { flex: none; display: flex; flex-direction: column; justify-content: space-between; width: 84px; height: 100px; padding: 8px 9px 9px; border-radius: 10px; border: 1px solid rgba(var(--gold-rgb), .35); background: #0b0b0b; }
@@ -3694,9 +3828,6 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @keyframes lineUp { from { transform: translateY(112%); } }
 .gold-text.hd-lines { background: none; }
 .gold-text.hd-lines .ln-w { background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
-/* a number counting up (app.js countUp): the real figure keeps its place, unseen, under the aria-hidden copy */
-.counting { position: relative; }
-.count-fig { position: absolute; inset: 0; white-space: nowrap; pointer-events: none; }
 /* a rebuilt app page (a card expanded, a list refreshed) lands in its final state: app.js adds .settled with .in,
    so the one-time reveals (a drawn rule, lit stars, the gold pill, the rim light) never replay */
 .settled, .appt.gold.settled::before, .rv:is(.cert, .is-featured).settled .stars i.on, .rv:is(.cert, .is-featured).settled .rv-who, .appt.settled .appt-glow, .appt.settled .appt-status, .appt.settled .appt-status::before { transition: none; }
@@ -4482,6 +4613,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* the promise's light on the cream: its edge in the studio's brighter gold (a pale one would cut the letters out of
    the cream), and no band round the words (a gold haze reads as a smudge on the paper, a white one adds nothing) */
 [data-theme="light"] .standard .statement em.au-run { --std-edge: var(--gold); }
+[data-theme="light"] .price-card .amount { --pc-gold: var(--gold); --pc-edge: var(--au-600); --pc-ink: var(--ink); }   /* the price's light in the studio: ink to the studio's gold, a brighter gold at its edge */
 [data-theme="light"] .standard .statement em.au-run::after { content: none; }
 [data-theme="light"] .bk-progress li.au-run:not(:first-child)::after { --au-line: var(--gold); --au-line-core: #f4bf5c; }
 :where([data-theme="light"]) .au-line { background: rgba(17, 17, 17, .1); }

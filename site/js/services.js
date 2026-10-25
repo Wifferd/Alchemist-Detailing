@@ -170,11 +170,13 @@
       el('div.el-key',
         el('span', el('b', 'Top left'), ' · its place on the menu'), el('span', el('b', 'Top right'), ' · time on the job'),
         el('span', el('b', 'Centre'), ' · the element'), el('span', el('b', 'Bottom'), ' · price, standard-size vehicle')));
+    const main = el('div.el-main', el('div.el-scroll', grid), legend), box = el('div.el-table', main, panel);
     container.replaceChildren(
       el('div.section-head', el('p.eyebrow', 'At a glance'), el('h2.display', { id: 'tableTitle' }, 'The Alchemist’s Table'),
         el('p', 'Every service is an element. Pick one to see what goes into it.'), el('span.rule', { 'data-reveal': '' })),
-      el('div.el-table', el('div.el-main', el('div.el-scroll', grid), legend), panel),
+      box,
       el('p.el-note', 'Prices are for standard-size vehicles. Mobile service adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.'));
+    transmute(box, main, grid, tiles, panel);
     table = {
       refresh() {
         ELEMENTS.forEach((e) => { const t = tiles.get(e.key); put(t.querySelector('.meta span:last-child'), e.time); put(t.querySelector('.nm .tnum'), e.price); });
@@ -182,6 +184,305 @@
         pick(picked, false);   // the panel as it stands, with the new figures
       },
     };
+  }
+
+  // ---------------------------------------------------------------- the transmutation: Ed + Id → Au
+  // The Table's one moment (the owner's §18, given to the menu's top service: the Full Detail Bundle is Exterior Deluxe
+  // and Interior Deluxe together). The case arrives unlit (data-tm): the tiles dimmed; Au charcoal, its letters unlit
+  // but legible; the panel's Au faint and a little low, its equation undrawn. The first time the grid is 35% on the
+  // screen its tiles come up to full light in .5s, all but Ed and Id (.tm-lit). Then a turn of the gold light
+  // (window.AlchemistLight: one at a time, the shines on the screen waiting): Ed's letters take it, then Id's 300ms
+  // later, each tile coming up to full light under it (.tm-go); 1s in, a point of warm gold appears in Au, gathers, then
+  // floods the tile, its letters going dark as the gold reaches them (.tm-au). On a desk, where the three share a row,
+  // that is one turn of 2.6s; on a phone, where Au's row comes later, Au joins the pair's turn while it is still
+  // playing, or has a turn of its own. A tile's turn comes when it is half on the screen, or a third on it after a rest
+  // of 1.2s; at that rest Ed and Id, if they are only partly on the screen, are simply lit (.tm-rest). The panel's Au
+  // rises into the light with the turn and its equation draws as Au floods (beside the grid), or as soon as the panel is
+  // on the screen (under it, on a phone); its own Book Now shine waits meanwhile (CSS). Au's figure is the database's:
+  // its gold waits for the menu's answer (600ms at most), and without one Au is simply gold. Au is never left unlit:
+  // 2.5s after a fifth of it first comes on the screen, a turn that has not begun gives way to its gold fading in
+  // (.tm-fade). A click or a key ends it all at once (clicks always pick), and so does the grid leaving the screen. Once
+  // a visit (the tab's storage). Not under reduced motion, in forced colours or without JavaScript: the Table is at
+  // rest, lit, Au gold.
+  // ms: the pair's turn (until Id's light has gone), Au's point after the turn's start, Au's spread and its fade, a
+  // rest, Au's longest wait once a fifth of it is on the screen, the wait for the menu, the specks' start after Au's
+  // point, their fall
+  const TM = { pair: 1600, gap: 1000, spread: 1600, fade: 600, rest: 1200, cap: 2500, menu: 600, specks: 800, fall: 1600 };
+  // the specks (the owner's "gold particles settle like dust/light"): off until the owner approves a recorded take;
+  // ?specks previews them
+  const SPECKS = /[?&]specks\b/.test(location.search);
+  const seenTm = () => { try { return sessionStorage.getItem('ad.tm') === '1'; } catch (e) { return false; } };
+  const markTm = () => { try { sessionStorage.setItem('ad.tm', '1'); } catch (e) { /* storage unavailable: it plays again */ } };
+  // fn once a block has started its rise (app.js .in), or now if it has none
+  function whenIn(node, fn) {
+    if (node.classList.contains('in') || !node.hasAttribute('data-rise')) { fn(); return null; }
+    const mo = new MutationObserver(() => { if (node.classList.contains('in')) { mo.disconnect(); fn(); } });
+    mo.observe(node, { attributes: true, attributeFilter: ['class'] });
+    return mo;
+  }
+  // how much of a node is on the screen, as a share of it (or of the screen, when it is taller)
+  function seen(node) {
+    const r = node.getBoundingClientRect(), vh = window.innerHeight, s = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    return r.height > 0 ? Math.max(0, s) / Math.min(r.height, vh) : 0;
+  }
+  const STEPS_IO = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.75, 0.9, 1];
+  function transmute(box, main, grid, tiles, panel) {
+    const L = window.AlchemistLight, au = tiles.get('au'), ed = tiles.get('ed'), id = tiles.get('id');
+    if (reduce || !L || L.off || !au || !ed || !id || !window.IntersectionObserver || !window.MutationObserver || seenTm()) return;
+    const gold = el('span.tm-gold', { 'aria-hidden': 'true' }, el('span.tm-fill'), el('span.tm-edge'), el('span.tm-bloom'));
+    au.prepend(gold);
+    au.setAttribute('data-tm', '');
+    grid.setAttribute('data-tm', '');
+    panel.setAttribute('data-tm', '');
+    // pairWait, auWait: Ed and Id, and Au, still to take their light; auGoing: Au's spread is set to play; asked: a
+    // turn is in the light's queue or playing; menu: the database's answer (null until it comes)
+    let lit = false, playing = false, ended = false, pairWait = true, auWait = true, pairOver = false, auOver = false;
+    let auGoing = false, auSeen = false, asked = false, menu = null, panelSet = false, panelOver = false;
+    let restT = 0, panelT = 0, turnAt = 0, turnEnd = 0, auAt = 0, cv = null;
+    const timers = [], obs = [];
+    const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
+    const pairSeen = () => Math.min(seen(ed), seen(id));
+    // the tiles at rest (their part over, or cut short): Au gold, the case lit
+    function tilesDone() {
+      if (ended) return;
+      ended = true;
+      timers.forEach(clearTimeout);
+      obs.forEach((o) => o.disconnect());
+      document.removeEventListener('keydown', all, true);
+      L.stop(grid);
+      auDone();
+      grid.removeAttribute('data-tm');
+      grid.classList.remove('tm-lit', 'tm-go', 'tm-rest');
+      if (!panelSet && seen(panel) >= 0.3) setPanel(0, 400);   // with the panel in view: it sets now
+    }
+    function settle() { if (pairOver && auOver) tilesDone(); }
+    // Au at rest: its own gold, the layer gone
+    function auDone() {
+      if (auOver) return;
+      auWait = false;
+      auOver = true;
+      au.removeAttribute('data-tm');
+      au.classList.remove('tm-au', 'tm-fade');
+      au.style.removeProperty('--tm-at');
+      gold.remove();
+      if (cv) { cv.stop(); cv = null; }
+      settle();
+    }
+    // Au simply gold, without the spread: fading in where it is on the screen, at once where it is not
+    function gild() {
+      if (!auWait || auGoing) return;
+      auWait = false;
+      if (seen(au) > 0) { au.classList.add('tm-fade'); later(auDone, TM.fade + 100); } else auDone();
+    }
+    // the menu's answer (services.js priced): Au's gold needs the database's figure
+    function menuIs(ok) {
+      if (menu !== null) return;
+      menu = ok === true;
+      if (!menu) gild();
+    }
+    function panelDone() {
+      panelSet = panelOver = true;
+      clearTimeout(panelT);
+      panelIo.disconnect();
+      panel.removeAttribute('data-tm');
+      panel.classList.remove('tm-panel');
+      panel.style.removeProperty('--tm-panel');
+      panel.style.removeProperty('--tm-eq');
+    }
+    // a click or a key: everything at rest at once
+    function all() {
+      markTm();
+      tilesDone();
+      panelDone();
+      box.removeEventListener('click', all, true);
+      box.removeEventListener('focusin', all);
+    }
+    box.addEventListener('click', all, true);
+    box.addEventListener('focusin', all);
+    // the panel's Au rises into the light from sym (ms) and its equation draws from eq (on its own clock: the tiles'
+    // end does not cut it short)
+    function setPanel(sym, eq) {
+      if (panelSet) return;
+      panelSet = true;
+      whenIn(panel, () => {
+        if (panelOver) return;
+        panel.style.setProperty('--tm-panel', sym + 'ms');
+        panel.style.setProperty('--tm-eq', eq + 'ms');
+        panel.classList.add('tm-panel');
+        setTimeout(panelDone, Math.max(sym, eq) + 900);
+      });
+    }
+    // under way: a key ends it, and so does the grid leaving the screen
+    function play() {
+      if (playing) return;
+      playing = true;
+      markTm();
+      document.addEventListener('keydown', all, true);
+      const away = new IntersectionObserver((es) => { if (!es[es.length - 1].isIntersecting) tilesDone(); });
+      obs.push(away);
+      away.observe(grid);
+    }
+    // Au's spread, from at (ms): its circle's last radius is past the farthest corner from its light point (the
+    // middle, 55% down), and the ring on its edge is scaled in step with it (CSS)
+    function spread(at) {
+      auGoing = true;
+      auAt = performance.now() + at;
+      const end = Math.ceil(Math.hypot(0.5 * (au.offsetWidth + 2), 0.55 * (au.offsetHeight + 2))) + 2;
+      gold.style.setProperty('--tm-end', end + 'px');
+      gold.style.setProperty('--tm-s0', (18 / end).toFixed(3));
+      gold.style.setProperty('--tm-s1', (52 / end).toFixed(3));
+      au.style.setProperty('--tm-at', at + 'ms');
+      au.classList.add('tm-au');
+      if (SPECKS) later(() => { cv = specks(au, main); }, at + TM.specks);
+      later(auDone, at + Math.max(TM.spread, SPECKS ? TM.specks + TM.fall : 0) + 100);
+    }
+    // the turn has come (it plays now): what still waits and is on the screen takes it, the pair first; it says how
+    // long it holds the light (the whole of it, so nothing else crosses in between)
+    function turn() {
+      const p = pairWait && pairSeen() >= 0.2, a = auWait && menu === true && seen(au) >= 0.2;
+      let ms = 1;
+      if (p || a) play();
+      if (p) {
+        pairWait = false;
+        turnAt = performance.now();
+        grid.classList.add('tm-go');
+        later(() => { pairOver = true; settle(); }, TM.pair + 50);
+        ms = TM.pair;
+      }
+      if (a) {
+        spread(p ? TM.gap : 0);
+        ms = (p ? TM.gap : 0) + TM.spread;
+      }
+      // beside the grid, the panel rises into the light with the turn and its equation draws as Au floods
+      if ((p || a) && !panelSet && !stacked.matches && seen(panel) >= 0.3) setPanel(p ? 150 : 0, a ? (p ? TM.gap : 0) + 480 : 600);
+      turnEnd = performance.now() + ms;
+      later(() => { asked = false; check(); }, ms + 200);   // then whatever is still to come asks again
+      return ms;
+    }
+    const wanted = () => !ended && ((pairWait && pairSeen() >= 0.2) || (auWait && menu === true && seen(au) >= 0.2));
+    // Au due while the pair's turn is still playing (a phone, scrolling on to Au's row): its spread joins that turn,
+    // 1s after the turn's start at the soonest, and the turn holds the light until it has gone
+    function join() {
+      if (!turnAt || pairOver || !auWait || auGoing || menu !== true || seen(au) < 0.35) return false;
+      const at = Math.max(0, Math.round(turnAt + TM.gap - performance.now()));
+      if (!L.extend(grid, at + TM.spread)) return false;
+      spread(at);
+      turnEnd = Math.max(turnEnd, auAt + TM.spread);
+      return true;
+    }
+    // a turn in the light's queue (what it lights is decided as it starts); one that would light Au first waits for
+    // the menu's answer, 600ms at most
+    function ask() {
+      if (asked || ended) return;
+      if (auWait && menu === null && seen(au) >= 0.35) {
+        asked = true;
+        let once = false;
+        const go = (ok) => { if (once) return; once = true; menuIs(ok); asked = false; ask(); };
+        priced().then(go, () => go(false));
+        later(() => go(false), TM.menu);
+        return;
+      }
+      if (!wanted()) return;
+      asked = true;
+      L.pass(grid, { size: 'card', start: turn, when: wanted, miss: () => { asked = false; } });
+    }
+    function light() {
+      lit = true;
+      grid.classList.add('tm-lit');
+      play();
+    }
+    // a rest: the case lights if any of its tiles is on the screen, a tile a third on the screen takes its turn, and
+    // Ed and Id, if they are only partly on it, are simply lit (off it, they wait for their turn)
+    function rested() {
+      if (ended) return;
+      if (!lit && [...tiles.values()].some((t) => seen(t) > 0)) light();
+      if (!lit) return;
+      const p = pairWait && pairSeen() >= 0.35;
+      if (p || (auWait && seen(au) >= 0.35 && !join())) ask();
+      if (pairWait && !p && Math.max(seen(ed), seen(id)) > 0) {
+        pairWait = false;
+        grid.classList.add('tm-rest');
+        pairOver = true;
+        settle();
+      }
+    }
+    // whatever is on the screen has changed
+    function check() {
+      if (ended) return;
+      if (auWait && !auSeen && seen(au) >= 0.2) { auSeen = true; later(gild, TM.cap); }
+      clearTimeout(restT);
+      restT = later(rested, TM.rest);
+      if (!lit && seen(grid) >= 0.35) light();
+      if (lit && ((pairWait && pairSeen() >= 0.5) || (auWait && seen(au) >= 0.5 && !join()))) ask();
+    }
+    const io = new IntersectionObserver(check, { threshold: STEPS_IO });
+    obs.push(io);
+    // the panel: under the grid (a phone) as soon as it is on the screen; beside it, with the tiles' turn (coming on
+    // the screen while a turn plays, at once, its equation drawing as Au floods), or after a rest; with the tiles at
+    // rest, at once
+    const panelIo = new IntersectionObserver(() => {
+      if (panelSet) return;
+      clearTimeout(panelT);
+      if (seen(panel) < 0.3) return;
+      if (stacked.matches || ended) setPanel(0, 400);
+      else if (performance.now() < turnEnd) setPanel(0, Math.max(400, Math.round(auAt + 480 - performance.now())));
+      else panelT = setTimeout(() => { if (!panelSet && seen(panel) >= 0.3) setPanel(0, 400); }, TM.rest);
+    }, { threshold: STEPS_IO });
+    // all of them once the grid's rise has begun (from the next task: app.js arms it just after the page is built, and
+    // asks the database for the menu)
+    setTimeout(() => whenIn(main, () => {
+      if (ended) return;
+      priced().then(menuIs, () => menuIs(false));
+      [grid, ed, id, au].forEach((n) => io.observe(n));
+      panelIo.observe(panel);
+    }), 0);
+  }
+  // A few soft, out-of-focus discs of gold (wide, flat and faint, like light out of focus) drift down round the Au
+  // tile and settle, then fade: never a burst, a spin or a twinkle. One canvas 2D over the tile and a margin (the device's pixels, two at most), 1.6s, then removed.
+  function specks(tile, host) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), n = stacked.matches ? 14 : 24, m = 70;
+    const r = tile.getBoundingClientRect(), h = host.getBoundingClientRect(), W = Math.round(r.width + 2 * m), H = Math.round(r.height + 2 * m);
+    const cv = el('canvas.tm-specks', { 'aria-hidden': 'true', width: W * dpr, height: H * dpr,
+      style: { left: Math.round(r.left - h.left - m) + 'px', top: Math.round(r.top - h.top - m) + 'px', width: W + 'px', height: H + 'px' } });
+    const c = cv.getContext('2d');
+    if (!c) return { stop() {} };
+    const cs = getComputedStyle(document.documentElement), rgb = (k) => cs.getPropertyValue(k).trim();
+    // one soft disc, drawn once: a warm pale core falling off into the gold
+    const disc = document.createElement('canvas');
+    disc.width = disc.height = 64;
+    const d = disc.getContext('2d'), g = d.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, 'rgba(' + rgb('--gold-pale-rgb') + ', .55)');
+    g.addColorStop(0.55, 'rgba(' + rgb('--gold-hi-rgb') + ', .32)');
+    g.addColorStop(0.85, 'rgba(' + rgb('--gold-rgb') + ', .1)');
+    g.addColorStop(1, 'rgba(' + rgb('--gold-rgb') + ', 0)');
+    d.fillStyle = g;
+    d.fillRect(0, 0, 64, 64);
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const ps = Array.from({ length: n }, () => ({
+      x: rnd(m * 0.4, W - m * 0.4), y: rnd(0, H * 0.55), fall: rnd(18, 46), sway: rnd(2, 6), ph: rnd(0, 6.28),
+      s: rnd(6, 16), a: rnd(0.18, 0.42), at: rnd(0, 0.35),
+    }));
+    host.appendChild(cv);
+    c.scale(dpr, dpr);
+    const t0 = performance.now();
+    let raf = 0, gone = false;
+    const stop = () => { if (gone) return; gone = true; cancelAnimationFrame(raf); cv.remove(); };
+    (function frame(now) {
+      if (gone) return;
+      const t = Math.min(1, (now - t0) / TM.fall);
+      c.clearRect(0, 0, W, H);
+      ps.forEach((p) => {
+        const u = Math.min(1, Math.max(0, (t - p.at) / (1 - p.at)));   // its own life
+        if (u <= 0) return;
+        const settle = 1 - Math.pow(1 - u, 2);   // it slows as it settles
+        const env = Math.min(1, u / 0.3) * (u > 0.6 ? 1 - (u - 0.6) / 0.4 : 1);
+        c.globalAlpha = p.a * env;
+        const x = p.x + Math.sin(p.ph + u * 2.2) * p.sway, y = p.y + p.fall * settle, s = p.s * 2.4;
+        c.drawImage(disc, x - s / 2, y - s / 2, s, s);
+      });
+      if (t < 1) raf = requestAnimationFrame(frame); else stop();
+    })(t0);
+    return { stop };
   }
 
   // ---------------------------------------------------------------- the Ritual
@@ -372,8 +673,9 @@
     if (!menuP) menuP = D.init().then(() => D.menu()).catch((e) => { menuP = null; throw e; });
     return menuP;
   }
+  let synced = null;   // the latest answer: true once the page's figures are the database's
   function syncMenu() {
-    return loadMenu().then((m) => {
+    synced = loadMenu().then((m) => {
       const all = (sel) => document.querySelectorAll(sel);
       all('[data-price]').forEach((n) => {
         const v = n.dataset.price.split(' ').map((c) => priceOf(m, c)).filter((x) => x != null);
@@ -391,7 +693,10 @@
       if (lineup) syncLineup(m);
       return window.AlchemistData.isLive;   // true: the figures on the page are the database's (the home row's light glints in them)
     }).catch(() => false);   // the menu couldn't load: the page keeps the menu as seeded
+    return synced;
   }
+  // whether the figures on the page are the database's (a price card arrives with its figure once they are: app.js)
+  const priced = () => synced || Promise.resolve(false);
 
   // ---------------------------------------------------------------- the bundle lineup: what stepping up adds
   // Built when the page first opens, from the two bundle cards as they stand (their parts' links and the part cards'
@@ -474,5 +779,5 @@
     buildStep(m);
   }
 
-  window.AlchemistServices = { mountTable, mountRitual, mountBead, mountLineup, syncMenu, signs: SIGNS };
+  window.AlchemistServices = { mountTable, mountRitual, mountBead, mountLineup, syncMenu, priced, signs: SIGNS };
 })();

@@ -276,7 +276,7 @@
       // its turn has come: a pass made of several lights (the service cards' row) lays them out now and says how long
       // they run in all
       if (it.start) it.ms = it.start() || it.ms;
-      busyUntil = performance.now() + it.ms + 60;
+      busyUntil = it.until = performance.now() + it.ms + 60;
       if (it.now) yieldShines();
       holdShines(it.ms + 240);
       // a band that slides (sweep) starts and ends just outside its frame however tall the frame is (a phone's
@@ -286,7 +286,12 @@
       el.classList.remove('au-run');
       void el.offsetWidth;
       el.classList.add('au-run', 'au-lit');
-      it.end = setTimeout(() => { el.classList.remove('au-run'); cur = null; setTimeout(next, 120); }, it.ms + 60);
+      it.end = setTimeout(() => ended(it), it.ms + 60);
+    }
+    function ended(it) {
+      it.el.classList.remove('au-run');
+      cur = null;
+      setTimeout(next, 120);
     }
     function next() {
       clearTimeout(timer);
@@ -324,6 +329,17 @@
       },
       // a CSS light of its own is about to cross for ms (the hero's wordmark): the shines on the screen wait for it
       hold(ms) { if (!off) holdShines(ms); },
+      // the pass playing on el takes in more (the Table's turn, joined by Au's gold): it holds the light until ms from
+      // now at least, and the shines on the screen wait for that too; false if el's pass is not the one playing
+      extend(el, ms) {
+        if (off || !cur || cur.el !== el) return false;
+        const it = cur, until = Math.max(it.until, performance.now() + ms + 60);
+        clearTimeout(it.end);
+        busyUntil = it.until = until;
+        holdShines(until - performance.now() + 180);
+        it.end = setTimeout(() => ended(it), until - performance.now());
+        return true;
+      },
       // a shine back on the screen (its pause lifted): one caught part way across waits its turn
       settle(el) { if (!off) settle(el, true); },
       // no light here at all (reduced motion, forced colours): what would wait for one is simply there
@@ -690,6 +706,7 @@
       setTimeout(go, 2500);   // should it not come: never an empty head on the screen
       return;
     }
+    if (priceGate(el)) return;   // a price card: once its figure is confirmed (or 600ms)
     due.add(el);
     if (!dueFrame) dueFrame = requestAnimationFrame(arrive);
   }
@@ -741,8 +758,10 @@
     }
     const after = followHead(c);
     if (after) el.style.setProperty('--after', after + 'ms');
+    const pc = !now && pcLive.has(el) && el.hasAttribute('data-rise');   // a price card whose figure is the database's
+    if (pc) priceSet(el);
     el.classList.add('in');
-    if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); el.style.removeProperty('--after'); }, 1000 + after);
+    if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); el.style.removeProperty('--after'); if (pc) el.classList.remove('pc-set'); }, (pc ? PC.end : 1000) + after);
   }
   // a plate's title whose moment sets it (Exterior's rinse, Interior's cabin, Protection's beading: headGo, as the
   // sheet clears, the cabin comes up or the photo is back), never an arrival, a page opening or a jump to the group
@@ -777,7 +796,6 @@
     $$('.shine, .scroll-cue', scope).forEach((el) => ioAway.observe(el));
     if (reduce) return;
     $$(ARRIVE, scope).forEach((el) => { if (!el.classList.contains('au-lit')) arriveIo.observe(el); });
-    $$(COUNT, scope).forEach((el) => { if (!el.dataset.counted) countIo.observe(el); });
     $$(ROOMS, scope).forEach((el) => { if (!el.classList.contains('in') && !el.hasAttribute('data-room')) { el.setAttribute('data-room', ''); io.observe(el); } });
     $$('.svc-top', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     armHeads(scope);
@@ -1084,46 +1102,53 @@
     }, { threshold: [0, 1], rootMargin: '0px 0px -8% 0px' });
     view.observe(em);
   }
-  // Numbers count upward (animation §19): a time, a mobile charge or the History count runs up from 0 once, over
-  // 600ms, when it is fully on screen. The real figure is in the page from the start (the layout and a screen reader
-  // read it; it is only unseen meanwhile) and an aria-hidden copy counts over it, from the figure as it stands then
-  // (the database's once the menu has answered); should the figure change meanwhile, the copy goes at once. Prices
-  // never count. Not under reduced motion (armReveals stops before this).
-  const COUNT = '.figs dd[data-time], .figs dd[data-mobile], .el-facts b:not(.price), .hist-fig b';
-  const countIo = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { countIo.unobserve(e.target); countUp(e.target); } }), { threshold: 1, rootMargin: '0px 0px -8% 0px' });
-  // the figure at p (0 to 1) of the way up: minutes, hours in halves (½ h, 1 h, 1½ h), a percentage with its own
-  // decimals, a count; anything else (2 h 15 min, a dash) doesn't count
-  function counter(t) {
-    let m;
-    if ((m = /^(\+?)(\d+)(½)? h$/.exec(t))) {
-      const n = +m[2] * 2 + (m[3] ? 1 : 0);
-      return (p) => { const k = Math.round(n * p), h = Math.floor(k / 2); return m[1] + (h || k % 2 ? (h || '') + (k % 2 ? '½' : '') : '0') + ' h'; };
-    }
-    if ((m = /^(\+?)(\d+) min$/.exec(t))) return (p) => m[1] + Math.round(+m[2] * p) + ' min';
-    if ((m = /^(\+?)(\d+)(?:\.(\d+))?%$/.exec(t))) { const v = parseFloat(m[2] + '.' + (m[3] || '0')), d = (m[3] || '').length; return (p) => m[1] + (v * p).toFixed(d) + '%'; }
-    if ((m = /^(\d+)$/.exec(t))) return (p) => String(Math.round(+m[1] * p));
-    return null;
+  // The figures arrive set (the owner, Oct 23: no number counts up). A price card waits for the database to confirm
+  // its figure (services.js priced(), 600ms at most from its arrival), then arrives with it (CSS .pc-set): its name
+  // fades in, its figure rises from behind its own baseline 120ms later (its digits in a span, .pc-fig, that moves
+  // inside the figure's still box, .pc-slot, until they have landed), the time, mobile and where cells follow 80ms apart and the
+  // short line under them draws. A Deluxe's or the Full Detail Bundle's figure lands in a softer ink (.pc-ink) and,
+  // once it has landed, its turn in the light's queue turns it gold behind the light's edge, where it stays; the
+  // Basic figures land gold. A figure the database has not
+  // confirmed by then (a preview, a slow answer) arrives with its card, gold, as it always has, and one the menu
+  // writes again later is simply shown (services.js put). Not under reduced motion (armReveals stops first), without
+  // JavaScript or in print: the cards are set.
+  const PC = { cap: 600, end: 1800, late: 2400 };   // the wait for the database; the arrival's end; the light's latest start
+  const pcAsked = new WeakSet(), pcLive = new WeakSet();
+  function priceGate(el) {
+    if (pcAsked.has(el) || !el.matches('.price-card') || !$('.amount', el)) return false;
+    pcAsked.add(el);
+    const S = window.AlchemistServices, asked = S && S.priced ? S.priced() : Promise.resolve(false);
+    Promise.race([asked, new Promise((res) => setTimeout(res, PC.cap, false))]).then((ok) => {
+      if (ok === true) pcLive.add(el);
+      reveal(el, true);
+    });
+    return true;
   }
-  function countUp(n) {
-    if (n.dataset.counted) return;
-    n.dataset.counted = '1';
-    const f = counter(n.textContent.trim());
-    if (!f) return;
-    const copy = document.createElement('span');
-    copy.className = 'count-fig';
-    copy.setAttribute('aria-hidden', 'true');
-    copy.style.color = getComputedStyle(n).color;
-    n.classList.add('counting');
-    n.style.color = 'transparent';
-    n.appendChild(copy);
-    const t0 = performance.now(), ease = (x) => 1 - Math.pow(1 - x, 3);   // a calm ease-out, like --ease
-    const done = () => { copy.remove(); n.classList.remove('counting'); n.style.removeProperty('color'); };
-    (function frame(now) {
-      if (!copy.isConnected) return done();   // the figure was written again (the menu answered): it shows as it is
-      const p = Math.min(1, Math.max(0, (now - t0) / 600));
-      copy.textContent = f(ease(p));
-      if (p < 1) requestAnimationFrame(frame); else done();
-    })(t0);
+  function priceSet(el) {
+    el.classList.add('pc-set');
+    const a = $('.amount', el), lead = el.classList.contains('featured') && !light.off;
+    if (!a.children.length) {
+      const fig = document.createElement('span');
+      fig.className = 'pc-fig';
+      fig.textContent = a.textContent;
+      a.replaceChildren(fig);
+      a.classList.add('pc-slot');
+    }
+    if (lead) a.classList.add('pc-ink');
+    let landed = false, t = 0;
+    const land = (e) => {
+      if (landed || (e && e.animationName !== 'pcUp')) return;
+      landed = true;
+      clearTimeout(t);
+      a.removeEventListener('animationend', land);
+      // the slot goes (a change of style only: the digits stay in their span, still and in place), and the light is
+      // asked for from a task of its own, outside the frame that reported the landing; scrolled away before its
+      // turn, the figure simply turns gold
+      a.classList.remove('pc-slot');
+      if (lead) setTimeout(() => { if (!a.classList.contains('au-lit')) light.pass(a, { when: () => !a.classList.contains('au-lit'), miss: () => a.classList.add('au-lit') }); }, 0);
+    };
+    a.addEventListener('animationend', land);
+    t = setTimeout(land, PC.late);   // should the landing never be reported
   }
   // What is already on screen when a page opens shows at once, in its stagger, without waiting for the observer.
   function revealAbove(scope) {
