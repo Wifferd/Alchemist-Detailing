@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
-  const { el, money, minutesText, clock, longDate, phonePretty, tel, loading, star, field, choices, flash, priceLines, miniBtn, showError, clearError, toast, refGroups, copyRef } = U;
+  const { el, money, minutesText, clock, longDate, phonePretty, tel, loading, star, field, choices, flash, priceLines, miniBtn, showError, clearError, toast, refGroups, copyRef, tick } = U;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // the optional email and its code show only once the site can email codes (config.js)
   const emailCodes = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.emailCodes);
@@ -256,7 +256,16 @@
   // (a code sent, a photo added) lands in place.
   function render() {
     root.innerHTML = '';
-    if (st.receipt) { root.appendChild(renderSent()); renderedStep = 0; focusTitle(); return; }
+    if (st.receipt) {
+      // the receipt is a lot to draw at once on a slow phone: its styles are worked out now and its layout with the
+      // next frame, so neither task is long; the title takes the focus once it is drawn, and the moment, if it plays,
+      // starts then (playSent)
+      const sent = renderSent();
+      root.appendChild(sent); renderedStep = 0;
+      void getComputedStyle(sent).opacity;
+      afterFrame(() => { if (!sent.isConnected) return; focusTitle(); if (sent.classList.contains('wait-draw')) playSent(sent); });
+      return;
+    }
     const moved = step !== renderedStep;
     const shell = el('div.bk',
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is sent.' + (guest() ? '' : ' Any 6-digit code works.'))
@@ -333,9 +342,28 @@
     const last = step === 6;
     return el('div.bk-nav',
       step > 1 ? el('button.btn.btn-glass', { type: 'button', onclick: () => go(step - 1) }, '← Back') : el('a.btn.btn-glass', { href: '#home' }, 'Cancel'),
-      el('div.bk-nav-mid', st.quote && step >= 4 && step < 6 ? el('span.bk-nav-total.tnum', st.quote.total_cents == null ? 'Price confirmed before your appointment' : 'Total ' + money(st.quote.total_cents)) : null),
+      el('div.bk-nav-mid', { 'aria-live': 'polite', 'aria-atomic': 'true' }, navTotal(null)),
       el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, onclick: () => (last ? send() : next()) },
         last ? 'Send Request' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
+  }
+  // The running total (steps 04 and 05): the database's quote. A changed total turns from the figure it was to the new
+  // one in one step (ui.js rollFigure); "Price confirmed before your appointment" simply appears.
+  function navTotal(mid) {
+    const q = st.quote;
+    if (!q || step < 4 || step >= 6) return [];
+    if (q.total_cents == null) return [el('span.bk-nav-total.tnum', 'Price confirmed before your appointment')];
+    const was = mid && mid.querySelector('.bk-nav-total[data-cents]'), from = was ? Number(was.dataset.cents) : null;
+    return [el('span.bk-nav-total.tnum', { dataset: { cents: q.total_cents } }, 'Total ', U.rollFigure(money(q.total_cents), from == null ? null : money(from), q.total_cents > from))];
+  }
+  // The bar after a change on the same step: the total in place (its line is a live region, so a reader hears the new
+  // total once) and Continue following busy; a new step draws the bar afresh (render)
+  function updateNav() {
+    const nav = root.querySelector('.bk-nav');
+    if (!nav) return;
+    const mid = nav.querySelector('.bk-nav-mid'), btn = nav.querySelector('#bk-next');
+    const next = navTotal(mid), was = mid && mid.textContent, now = el('div', next).textContent;
+    if (mid && now !== was) mid.replaceChildren(...next);   // the same total is not announced again
+    if (btn) btn.disabled = busy;
   }
 
   function heading(i) {
@@ -511,7 +539,7 @@
         // a number edited after a code went out: that code no longer applies, in place
         if (c.phoneSent) { c.phoneSent = false; const code = root.querySelector('[data-field="phone_code"]'); if (code) code.remove(); const b = root.querySelector('#bk-send-code'); if (b) b.textContent = 'Send code'; }
       },
-      trailing: c.phoneConfirmed ? el('span.fld-ok', '✓') : miniBtn(c.phoneSent ? 'Resend' : 'Send code', sendPhone, { id: 'bk-send-code' }),
+      trailing: c.phoneConfirmed ? el('span.fld-ok', tick()) : miniBtn(c.phoneSent ? 'Resend' : 'Send code', sendPhone, { id: 'bk-send-code' }),
     });
     if (c.phoneConfirmed) phoneField.input.readOnly = true;
     box.appendChild(phoneField);
@@ -531,7 +559,7 @@
         id: 'email', label: 'Email', optional: true, type: 'email', inputmode: 'email', autocomplete: 'email', value: c.email,
         hint: emailHint(),
         oninput: (e) => { c.email = e.target.value; clearError(root, 'email'); emailChanged(emailField); },
-        trailing: c.emailState === 'confirmed' ? el('span.fld-ok', '✓') : (c.email.trim() && c.emailState === 'none' ? miniBtn('Send code', sendEmail) : null),
+        trailing: c.emailState === 'confirmed' ? el('span.fld-ok', tick()) : (c.email.trim() && c.emailState === 'none' ? miniBtn('Send code', sendEmail) : null),
       });
       box.appendChild(emailField);
       if (c.emailState === 'sent') {
@@ -589,9 +617,11 @@
       c.phoneConfirmed = true;
       if (session && session.firstName && !c.first) c.first = session.firstName;
       try { st.vehicle.saved = await D.myVehicles(); } catch (e) { /* none */ }
-      render(); toast('Phone confirmed');
+      render(); drawTick('phone'); toast('Phone confirmed');
     } catch (e) { showError(root, e.hint || 'phone_code', e.message); }
   }
+  // The tick of a field the database just confirmed draws itself once (a later drawing of the step shows it set)
+  function drawTick(hint) { const t = root.querySelector('[data-field="' + hint + '"] .fld-ok'); if (t) flash(t, 'draw', 700); }
   async function sendEmail() {
     const c = st.contact;
     if (!D.helpers.isValidEmail(c.email)) return showError(root, 'email', 'Enter a valid email, or leave it empty.');
@@ -601,7 +631,7 @@
     catch (e) { c.emailState = 'skipped'; render(); toast(e.message); }
   }
   async function confirmEmail(code) {
-    try { await D.verifyEmailCode(st.contact.email, code); st.contact.emailState = 'confirmed'; render(); toast('Email confirmed'); }
+    try { await D.verifyEmailCode(st.contact.email, code); st.contact.emailState = 'confirmed'; render(); drawTick('email'); toast('Email confirmed'); }
     catch (e) { showError(root, e.hint || 'email_code', e.message); }
   }
 
@@ -722,21 +752,29 @@
     if (l.type === 'mobile') {
       box.appendChild(el('p.bk-note', settings.mobile_note));
       // the ZIP's message runs the width of the row (its own column is too narrow for a sentence)
+      // a ZIP in the service area (the database's own list) takes the tick at the end of its field
       const zip = field({ id: 'address_zip', label: 'ZIP', required: true, inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5, value: l.zip,
-        oninput: (e) => { l.zip = e.target.value.replace(/\D/g, '').slice(0, 5); e.target.value = l.zip; clearError(root, 'address_zip'); paintZip(root.querySelector('#address_zip-msg')); } });
+        trailing: el('span.fld-ok.zip-ok', tick()),
+        oninput: (e) => { l.zip = e.target.value.replace(/\D/g, '').slice(0, 5); e.target.value = l.zip; clearError(root, 'address_zip'); paintZip(root.querySelector('#address_zip-msg'), true); } });
       const zipMsg = zip.querySelector('.fld-msg');
       zipMsg.classList.add('addr-msg');
       box.appendChild(el('div.bk-row.addr',
         field({ id: 'address', label: 'Street address', required: true, autocomplete: 'street-address', value: l.address, maxlength: 300, oninput: (e) => { l.address = e.target.value; clearError(root, 'address'); } }),
         zip, zipMsg));
-      paintZip(zipMsg);
+      paintZip(zipMsg, false, zip);
     }
     return box;
   }
-  function paintZip(m) {
+  function paintZip(m, typed, f) {
     if (!m) return;
+    const ok = menu.zips.has(st.location.zip);
+    f = f || root.querySelector('[data-field="address_zip"]');
     m.replaceChildren(); U.append(m, [zipHint()]);
-    m.classList.toggle('is-ok', menu.zips.has(st.location.zip));
+    m.classList.toggle('is-ok', ok);
+    if (!f) return;
+    const was = f.classList.contains('is-ok');
+    f.classList.toggle('is-ok', ok);
+    if (ok && !was && typed) drawTick('address_zip');
   }
   function zipHint() {
     const z = st.location.zip;
@@ -763,7 +801,7 @@
           el('span.svc-opt-price.tnum', { id: 'price-' + x.code }, priceNodes(x.code)),
           el('span.svc-opt-desc', x.description),
           el('span.svc-opt-meta', 'About ' + minutesText(x.duration_min)),
-          el('span.svc-opt-check', { 'aria-hidden': 'true' }, '✓ Selected'));
+          el('span.svc-opt-check', { 'aria-hidden': 'true' }, tick(), 'Selected'));
         list.appendChild(card);
       });
       wrap.appendChild(el('section.svc-group-pick', el('h2.bk-h2', title, el('small', sub)), list));
@@ -775,17 +813,45 @@
     box.appendChild(addonsBlock());
     box.appendChild(el('div.bk-summary-card', { id: 'bk-price' }));
     setTimeout(updatePrices, 0);
+    wave();
     // the service brought from the Services page lights up once, as the step lands, where it can be seen; below the
     // fold (a phone) its note offers "See it", and the light plays once the card is in sight
     if (s.glow) { s.glow = false; setTimeout(litOnce, 380); }
     return box;
   }
   const carriedCard = () => st.service.carried && root.querySelector('.svc-opt.on[data-code="' + st.service.carried + '"]');
-  // A chosen card's moment: the head of light runs its rim once (.glow) and the gold light crosses it once (app.js);
-  // the customer's own pick (now) is lit at once, and a card let go of before its turn is never lit
+  // A chosen card's moment, one line of light: the head of light runs its rim once (.glow), and as it comes round the
+  // same light crosses once inside the price's figures (app.js's queue; the customer's own pick, now, waits for no
+  // shine). One card at a time: a second pick cuts the first card's light short. A card let go of before its turn, or
+  // a price still loading, takes no light.
+  let lit = null;   // the card whose moment is playing: { card, fig, off }
   function glowOnce(b, now) {
+    cancelGlow();
     flash(b, 'glow', 1400, '::after');
-    if (window.AlchemistLight) window.AlchemistLight.pass(b, { now, when: () => b.classList.contains('on') });
+    const L = window.AlchemistLight;
+    if (!L || L.off) return;
+    const it = { card: b, fig: null };
+    const onEnd = (e) => { if (e.target === b && e.pseudoElement === '::after') go(); };
+    const t = setTimeout(go, 1150);
+    it.off = () => { clearTimeout(t); b.removeEventListener('animationend', onEnd); };
+    function go() {
+      if (lit !== it) return;
+      it.off();
+      const fig = b.isConnected && b.classList.contains('on') && b.querySelector('.svc-fig');
+      if (!fig) { lit = null; return; }
+      it.fig = fig;
+      L.pass(fig, { now: !!now, when: () => b.classList.contains('on') && fig.isConnected, miss: () => { if (lit === it) lit = null; } });
+    }
+    b.addEventListener('animationend', onEnd);
+    lit = it;
+  }
+  function cancelGlow(only) {
+    const it = lit;
+    if (!it || (only && it.card !== only)) return;
+    lit = null;
+    it.off();
+    it.card.classList.remove('glow');
+    if (it.fig && window.AlchemistLight) window.AlchemistLight.stop(it.fig);
   }
   // Most of it (two thirds) between the floating top bar and the sticky bar
   function inSight(n) { const r = n.getBoundingClientRect(), s = sight(); return Math.min(r.bottom, s.bottom + 16) - Math.max(r.top, s.top - 16) >= r.height * 2 / 3; }
@@ -847,7 +913,7 @@
     const p = st.prices[code];
     if (!p) return null;
     if (p.base == null) return '—';   // that service could not be quoted (the database said why in the breakdown)
-    return [money(p.base),
+    return [el('span.svc-fig', money(p.base)),
       p.conds ? el('small', '+ ' + money(p.conds) + ' conditions') : (p.condsIncluded ? el('small.inc', 'conditions included') : null),
       p.mobile ? el('small', '+ ' + money(p.mobile) + ' mobile') : null];
   }
@@ -872,7 +938,7 @@
       const was = b.classList.contains('on');
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
       if (on && !was) { flash(b, 'just', 700); glowOnce(b, true); }
-      else if (was && !on && window.AlchemistLight) window.AlchemistLight.stop(b);   // its light goes with it
+      else if (was && !on) cancelGlow(b);   // its light goes with it
     });
     const old = root.querySelector('[data-field="addons"]'); if (old) old.replaceWith(addonsBlock());
     updatePrices();
@@ -900,12 +966,16 @@
   }
   async function updatePrices() {
     const s = st.service;
-    await mainPrices((code) => { const elp = root.querySelector('#price-' + code); if (elp) { elp.replaceChildren(); U.append(elp, [priceNodes(code)]); } });
+    // a card's price is drawn again only when it changed, so a figure taking the light is never swapped under it
+    await mainPrices((code) => {
+      const elp = root.querySelector('#price-' + code), next = el('span', priceNodes(code));
+      if (elp && !(elp.firstChild && elp.textContent === next.textContent)) elp.replaceChildren(...next.childNodes);
+    });
     const wrap = root.querySelector('.bk-services'); if (wrap) wrap.removeAttribute('aria-busy');
     const q = await refreshQuote();
     if (q === STALE) return;   // a newer pick paints when its quote lands
     const box = root.querySelector('#bk-price'); const sug = root.querySelector('#bk-suggest');
-    const nav = root.querySelector('.bk-nav'); if (nav) nav.replaceWith(renderNav());
+    updateNav();
     if (!box) return;
     // the bundle note appearing after a pick (not as the step lands with it) is brought into view, once: on a phone
     // it would open under the sticky bar, below the cards
@@ -979,13 +1049,6 @@
       }
       loadCalendar();
     }
-    // the gold fills a chosen day outward from where the finger (or pointer) landed
-    grid.addEventListener('pointerdown', (e) => {
-      const d = e.target.closest('.cal-day'); if (!d) return;
-      const r = d.getBoundingClientRect();
-      d.style.setProperty('--px', Math.round((e.clientX - r.left) / r.width * 100) + '%');
-      d.style.setProperty('--py', Math.round((e.clientY - r.top) / r.height * 100) + '%');
-    }, { passive: true });
     cal.appendChild(el('div.cal-head', prevBtn, title, nextBtn));
     cal.appendChild(grid);
     cal.appendChild(el('div.cal-keys', el('span.cal-key.open', 'Available'), el('span.cal-key.full', 'Full')));
@@ -994,6 +1057,7 @@
     box.appendChild(el('div.times', { id: 'bk-times', dataset: { field: 'start_min' } }, timesBlock(false)));
     paintMonth();
     if (w.date && w.times == null) refit(w.date, held);
+    wave();
     return box;
   }
   // The job's length or its place changed since the days and times were loaded (a service, an add-on or the location):
@@ -1097,7 +1161,7 @@
     const hint = root.querySelector('#bk-sw-hint'); if (hint) hint.textContent = swHint();
     const price = (code) => { const n = root.querySelector('#sw-price-' + code), p = st.prices[code]; if (n) n.textContent = !p ? '' : p.base == null ? '—' : money(p.base); };
     if (Object.keys(st.prices).length) Object.keys(st.prices).forEach(price);
-    else mainPrices(price);
+    else { mainPrices(price); wave(); }
     const notes = root.querySelector('#bk-sw-notes');
     if (notes) notes.replaceChildren(...st.service.addons.filter((a) => !canHaveAddon(a))
       .map((a) => el('p.bk-quiet', svc(a).name + ' goes with ' + waitsFor(a) + ', so it is left off for now.')));
@@ -1129,7 +1193,7 @@
       toast(q && q.error ? q.error.message : "Couldn't load that service's price. Try again.");
       return;
     }
-    const nav = root.querySelector('.bk-nav'); if (nav) nav.replaceWith(renderNav());
+    updateNav();
     const n = root.querySelector('#bk-chosen-name'), m = root.querySelector('#bk-chosen-meta');
     if (n) n.textContent = chosenNames();
     if (m) m.textContent = chosenMeta();
@@ -1155,7 +1219,7 @@
       const inWindow = date >= first && date <= last;
       const avail = w.calendar[iso];
       const cls = !inWindow ? 'out' : avail === false ? 'full' : avail === true ? 'open' : 'unknown';
-      out.push(el('button.cal-day', { type: 'button', class: cls + (w.date === iso ? ' on' : ''), disabled: !inWindow || avail === false, dataset: { iso }, 'aria-pressed': w.date === iso ? 'true' : 'false', 'aria-label': longDate(iso) + (avail === false ? ', full' : ''), onclick: () => pickDay(iso) }, el('span', d)));
+      out.push(el('button.cal-day', { type: 'button', class: cls + (w.date === iso ? ' on' : ''), disabled: !inWindow || avail === false, dataset: { iso, l: d }, 'aria-pressed': w.date === iso ? 'true' : 'false', 'aria-label': longDate(iso) + (avail === false ? ', full' : ''), onclick: () => pickDay(iso) }, el('span', d)));
     }
     // the rest of the last week from the next month, and a sixth week of it when the month fills only five: the grid
     // is always six weeks tall, so it never changes height between months
@@ -1188,11 +1252,49 @@
       if (daysWait && step === 5) revealDays(false);
     } catch (e) { toast(e.message); }
   }
-  // The chosen day is marked (the gold circle), or none is
-  function markDay(iso) {
-    root.querySelectorAll('.cal-day').forEach((b) => { const on = b.dataset.iso === iso; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  // The chosen day is marked (the gold circle), or none is; the customer's own pick pours (poured)
+  function markDay(iso, poured) {
+    root.querySelectorAll('.cal-day').forEach((b) => setChosen(b, b.dataset.iso === iso, poured));
   }
-  function paintTimes(fresh) { const t = root.querySelector('#bk-times'); if (t) t.replaceChildren(...timesBlock(fresh).filter(Boolean)); }
+  // A chosen day or start time changing hands: the new one's gold pours from the touch (.pour), the one let go of
+  // drains (.drain; the CSS). Only the cells that change are touched
+  function setChosen(b, on, poured) {
+    if (b.classList.contains('on') === on) return;
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.remove(on ? 'drain' : 'pour');
+    if (reduce) return;
+    if (on && poured) holdClass(b, 'pour', 450);
+    else if (!on) holdClass(b, 'drain', 220);
+  }
+  // A class held for a moment, set without a forced reflow (it is new on the node, so its animation starts); holding
+  // it again restarts its clock
+  const moments = new WeakMap();
+  function holdClass(n, cls, ms) {
+    const t = moments.get(n) || {};
+    clearTimeout(t[cls]);
+    n.classList.add(cls);
+    t[cls] = setTimeout(() => n.classList.remove(cls), ms);
+    moments.set(n, t);
+  }
+  function paintTimes(fresh) { const t = root.querySelector('#bk-times'); if (t) { t.replaceChildren(...timesBlock(fresh).filter(Boolean)); if (st.when.date && st.when.times == null) wave(); } }
+  // The slots still waiting for their figures (the cards' prices, the tiles' prices, the start times' places) share one
+  // light: each is told where it sits across the card (--x) and how wide the card is (--w), and their runs keep one
+  // beat, so a single band crosses them all (the CSS)
+  const WAITING = '.svc-opt-price:empty, .sw-price:empty, .time-ph';
+  function wave() {
+    if (reduce || !root || !root.querySelector(WAITING)) return;
+    requestAnimationFrame(() => {
+      const card = root.querySelector('.bk'), slots = Array.from(root.querySelectorAll(WAITING));
+      if (!card || !slots.length) return;   // the answers landed first
+      const r = card.getBoundingClientRect();
+      slots.forEach((n) => { n.style.setProperty('--x', Math.round(n.getBoundingClientRect().left - r.left) + 'px'); n.style.setProperty('--w', Math.round(r.width) + 'px'); });
+      let runs = [];
+      try { runs = slots.flatMap((n) => n.getAnimations().filter((a) => a.animationName === 'auWave' && a.startTime != null)); } catch (e) { return; }
+      if (!runs.length) return;
+      const t0 = Math.min(...runs.map((a) => a.startTime));
+      runs.forEach((a) => { a.startTime = t0 + Math.floor((a.startTime - t0) / 1800) * 1800; });
+    });
+  }
   // A chosen day that no longer fits the booking is let go, with one quiet line in the times' place saying so
   function dropDay(text) {
     Object.assign(st.when, { date: null, start: null, times: [], lost: text });
@@ -1204,7 +1306,7 @@
     if (!st.quote) return;
     const tap = watchTap();
     w.date = iso; w.start = null; w.times = null; w.lost = null;
-    markDay(iso);
+    markDay(iso, true);
     clearError(root, 'service_date');
     paintTimes(false);
     let times;
@@ -1265,7 +1367,7 @@
   }
   // The times' place: the chosen day's start times, or what to do first. The quiet line (w.lost) sits under the
   // times when a chosen time was let go, and in their place when the day was. The times fade in once, as they
-  // arrive (fresh): .enter goes when the last one has landed, so a chosen time's pop never restarts the fade.
+  // arrive (fresh): .enter goes when the last one has landed, so a chosen time's pour never restarts the fade.
   function timesBlock(fresh) {
     const w = st.when;
     const lost = w.lost ? el('p.bk-lost', { role: 'status' }, w.lost) : null;
@@ -1273,21 +1375,21 @@
     const head = el('h2.bk-h2', longDate(w.date));
     // while they load: the places of the first few start times, the size of real ones, under the gold light's slow
     // pass (the CSS), and the line that says so where "Can't find a time?" will be
-    if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map((i) => el('span.time-ph', { style: { '--t': i } }))), el('p.choice-msg', { role: 'status' }, 'Checking times…')];
+    if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map(() => el('span.time-ph'))), el('p.choice-msg', { role: 'status' }, 'Checking times…')];
     if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.')];
     const row = el('div.chips', { class: fresh ? 'enter' : null }, w.times.map((m, i) => el('button.choice-item.time', {
-      type: 'button', class: w.start === m ? 'on' : '', 'aria-pressed': w.start === m ? 'true' : 'false', dataset: { m }, style: { '--t': i },
+      type: 'button', class: w.start === m ? 'on' : '', 'aria-pressed': w.start === m ? 'true' : 'false', 'aria-label': clock(m), dataset: { m, l: clock(m) }, style: { '--t': i },
       onclick: (e) => {
         w.start = m; clearError(root, 'start_min');
         if (w.lost) { w.lost = null; root.querySelectorAll('.bk-lost').forEach((x) => x.remove()); }
-        root.querySelectorAll('.time').forEach((b) => { const on = +b.dataset.m === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-        flash(e.currentTarget, 'just', 600);
+        root.querySelectorAll('.time').forEach((b) => setChosen(b, +b.dataset.m === m, true));
+        holdClass(e.currentTarget, 'just', 600);
       },
     }, clock(m))));
     if (fresh) {
       const off = () => row.classList.remove('enter');
       row.lastChild.addEventListener('animationend', off, { once: true });
-      setTimeout(off, 450 + w.times.length * 25);
+      setTimeout(off, 450 + Math.min(w.times.length, 6) * 25);
     }
     return [head, row, lost, el('p.choice-msg', { role: 'status' }, "Can't find a time? Call ", tel(phone), '.')];
   }
@@ -1351,7 +1453,13 @@
     if (busy) return;
     for (const n of [1, 2, 3, 4, 5]) { if (!(await validate(n))) return; }
     busy = true;
-    const btn = root.querySelector('#bk-next'); if (btn) { btn.disabled = true; btn.firstChild.textContent = 'Sending… '; }
+    // while the request is on its way: "Sending…" and, after 300ms, a fine light along the button's lower edge (the CSS;
+    // twelve runs at most, no percentage: the progress isn't known)
+    const btn = root.querySelector('#bk-next');
+    if (btn) {
+      btn.disabled = true; btn.firstChild.textContent = 'Sending… '; btn.classList.add('sending');
+      setTimeout(() => { if (btn.isConnected && busy) btn.appendChild(el('span.au-line.send-line', { 'aria-hidden': 'true' })); }, 300);
+    }
     const veil = document.getElementById('veil');
     if (veil && !reduce) { veil.classList.remove('run'); void veil.offsetWidth; veil.classList.add('run'); }
     try {
@@ -1389,21 +1497,27 @@
     const ref = String(r.ref || '');
     // grouped for reading aloud (AD- then fours); Copy takes the reference exactly as written
     const groups = refGroups(ref);
-    return el('div.bk.bk-sent',
+    // the screen sets itself once (the CSS): the seal pressed and foiled, the title and the reference from behind their
+    // lines, the sheet's rows in reading order. Drawn again for the same request, or under reduced motion, it is simply
+    // there
+    const play = sentDrawn !== r && !reduce;
+    sentDrawn = r;
+    const sheet = el('section.sheet.sent-sheet', { 'aria-label': 'Your booking' },
+      el('dl.sum-list',
+        el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min), minutes ? [' · ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
+        el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? 'We come to you · ' + r.address + ', ' + r.address_zip : 'Come to us · ' + settings.public_area + ' — we send the address with your confirmation')),   // in the summary's words
+        vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
+      rec ? priceLines(rec, { mark: sigMark }) : el('p.bk-muted', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents)));
+    const sent = el('div.bk.bk-sent', { class: play ? SENT_PARTS.map((x) => 'wait-' + x).join(' ') : null },
       el('div.sent-mark', sentMark()),
       el('p.eyebrow', 'Request received'),
-      el('h1.display.bk-title', 'Thank you'),
+      el('h1.display.bk-title', el('span.sent-line', el('span.sent-line-in', 'Thank you'))),
       el('div.sent-ref',
         el('span.sent-ref-k', 'Reference'),
-        el('p.sent-code.tnum', groups.map((g) => el('span', g))),
+        el('p.sent-code.tnum', el('span.sent-code-in', groups.map((g) => el('span', g)))),
         miniBtn('Copy', () => copyRef(ref), { 'aria-label': 'Copy the reference ' + ref })),
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing was sent. The reference is made up.') : null,
-      el('section.sheet.sent-sheet', { 'aria-label': 'Your booking' },
-        el('dl.sum-list',
-          el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min), minutes ? [' · ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
-          el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? 'We come to you · ' + r.address + ', ' + r.address_zip : 'Come to us · ' + settings.public_area + ' — we send the address with your confirmation')),   // in the summary's words
-          vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
-        rec ? priceLines(rec, { mark: sigMark }) : el('p.bk-muted', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents))),
+      sheet,
       el('section.sent-next', { 'aria-labelledby': 'sent-next-h' },
         el('h2.bk-h2', { id: 'sent-next-h' }, 'What happens next'),
         el('ol.sent-steps',
@@ -1415,17 +1529,57 @@
         el('a.btn.btn-gold.shine', { href: '#home' }, 'Back to home'),
         el('button.btn.btn-glass', { type: 'button', onclick: () => { reset(true); window.scrollTo({ top: cardTop(), behavior: 'auto' }); render(); focusTitle(); } }, 'Book another detail'),
         el('a.btn.btn-glass', { href: 'tel:+1' + phone.replace(/\D/g, '') }, U.telMark(), el('span', 'Call ', el('span.tnum', phone)))),   // the phone mark, as on every call button
-      el('button.link.sent-print', { type: 'button', onclick: () => window.print() }, 'Print or save'));
+      el('button.link.sent-print', { type: 'button', onclick: () => { settle(); window.print(); } }, 'Print or save'));
+    return sent;
   }
-  // The monogram from the symbol in the page, and one pass of gold light across it as the screen lands (ui.js
-  // lightMark: clipped to the mark's own shape; none under reduced motion)
+  // The moment in parts, each started in a task of its own so no one frame carries it all (the CSS): the receipt is
+  // built with every part waiting; once it is drawn the seal's marks are drawn unseen, and a frame later the seal
+  // starts, and the shines wait for its light; the sheet's rows and drawn hairlines are put in order while it is still
+  // hidden; then the head, the sheet's summary, its price lines and what happens next, each at its time in the moment.
+  // Nothing changes when it is over (each part's animation lets go of it as it ends)
+  const SENT_PARTS = ['draw', 'seal', 'head', 'sheet', 'lines', 'next'];
+  const SENT_AT = { head: 300, sheet: 600, lines: 800, next: 1100 };
+  const afterFrame = (f) => requestAnimationFrame(() => setTimeout(f, 0));
+  function playSent(n) {
+    const waiting = (part) => n.isConnected && n.classList.contains('wait-' + part);   // not printed or left since
+    const start = (part) => { if (waiting(part)) n.classList.replace('wait-' + part, 'play-' + part); };
+    n.classList.remove('wait-draw');
+    afterFrame(() => {
+      if (!waiting('seal')) return;
+      if (window.AlchemistLight) window.AlchemistLight.hold(2900);
+      start('seal');
+      setTimeout(() => { if (waiting('sheet')) orderSheet(n); }, 150);
+      Object.entries(SENT_AT).forEach(([part, ms]) => setTimeout(() => start(part), ms));
+    });
+  }
+  // The sheet's rows (.sr) set in reading order, 60ms apart (from the sixth on together), the total last; its
+  // hairlines become drawn lines (.sr-h) and draw in order
+  function orderSheet(n) {
+    let k = 0, h = 0, last = 0;
+    n.querySelectorAll('.sent-sheet .sum-list > div, .sent-sheet .pr > *').forEach((x) => {
+      if (x.matches('.pr-total')) last = Math.min(k, 5) + 1;
+      x.classList.add('sr');
+      x.style.setProperty('--k', last || Math.min(k++, 5));
+    });
+    n.querySelectorAll('.sent-sheet > .sum-list, .sent-sheet .pr > .pr-line:not(:first-child), .sent-sheet .pr > .pr-total').forEach((x) => { x.classList.add('sr-h'); x.style.setProperty('--h', h++); });
+  }
+  // A print (the browser's own, Print or save, or a page printed by a tool) shows the receipt set: the moment stops
+  // where it is, and back on the screen it never plays again
+  function settle() { const n = root && root.querySelector('.bk-sent'); if (n) n.classList.remove(...SENT_PARTS.flatMap((x) => ['wait-' + x, 'play-' + x])); }
+  window.addEventListener('beforeprint', settle);
+  const printing = window.matchMedia && window.matchMedia('print');
+  if (printing) { const onPrint = (e) => { if (e.matches) settle(); }; if (printing.addEventListener) printing.addEventListener('change', onPrint); else if (printing.addListener) printing.addListener(onPrint); }
+  // The seal: the monogram's shape blind-embossed in the panel's own black (lit only along its edges), and over it the
+  // gold mark from the symbol in the page, laid in like foil, then one pass of gold light across it (ui.js lightMark:
+  // clipped to the mark's own shape; none under reduced motion). The CSS presses and foils it.
+  let sentDrawn = null;   // the receipt whose screen has played
   function sentMark() {
-    const NS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(NS, 'svg'), use = document.createElementNS(NS, 'use');
-    svg.setAttribute('aria-hidden', 'true');
-    use.setAttribute('href', '#ad-mark');
-    svg.appendChild(use);
-    return U.lightMark(svg, 'sent');
+    const shape = document.querySelector('#ad-mark path');
+    const blind = U.svgEl('svg', { class: 'seal-blind', viewBox: '0 20 570 590', 'aria-hidden': 'true' });
+    if (shape) blind.appendChild(U.svgEl('path', { d: shape.getAttribute('d') }));
+    const foil = U.svgEl('svg', { class: 'seal-foil', 'aria-hidden': 'true' });
+    foil.appendChild(U.svgEl('use', { href: '#ad-mark' }));
+    return [blind, U.lightMark(foil, 'sent')];
   }
 
   window.AlchemistBooking = { mount, offer, get state() { return st; } };

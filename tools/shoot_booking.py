@@ -91,6 +91,9 @@ async def main():
         await shot(pg, '06-summary', full=True)
         await pg.click('#bk-next')
         await pg.wait_for_selector('.bk-sent', timeout=10000)
+        # the receipt's moment (about 2.8s) has played: each of its parts has started and its animations are over
+        await pg.wait_for_function("""() => { const n = document.querySelector('.bk-sent');
+          return !!n && !/\\bwait-/.test(n.className) && n.getAnimations({ subtree: true }).every((a) => a.playState !== 'running' || a.effect.getComputedTiming().endTime === Infinity); }""", timeout=8000)
         await shot(pg, '07-sent', full=True)
         state = await pg.evaluate('JSON.stringify({mode: window.AlchemistData.mode, ref: window.AlchemistBooking.state.receipt.ref, total: window.AlchemistBooking.state.receipt.total_cents})')
         print(state)

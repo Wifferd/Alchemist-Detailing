@@ -384,10 +384,20 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   -webkit-text-fill-color: transparent;
   animation: auPass var(--au-dur) var(--au-ease) var(--au-gdelay, 0s) 1 both;
 }
-/* across a small part: the service just chosen, the booking step just reached (the light runs the line from the
-   step before, then crosses the gold number) */
-.svc-opt.au-run { isolation: isolate; }
-.svc-opt.au-run::before, .bk-progress li.au-run .num::after {
+/* inside the figures of the service just chosen (booking.js glowOnce: the light carries on from the card's rim into its
+   price). The figures are already pale gold, so the light is wide enough to be seen at their size: a broad white core
+   with a soft pale fringe (a dark shoulder would read as a shadow crossing them); around it the figures keep their
+   colour. In the studio the light is the bright gold over the deep gold figures (below), never cream */
+.svc-fig.au-run {
+  background: linear-gradient(var(--au-angle), transparent 18%, rgba(var(--gold-pale-rgb), .55) 36%, var(--au-glint) 44%, var(--au-glint) 56%, rgba(var(--gold-pale-rgb), .55) 64%, transparent 82%) calc(var(--au-p) * 233% - 67%) 0 / 56% 100% no-repeat, linear-gradient(currentColor, currentColor);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: auPass var(--au-dur) var(--au-ease) 1 both;
+}
+/* across a small part: the booking step just reached (the light runs the line from the step before, then crosses the
+   gold number) */
+.bk-progress li.au-run .num::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -411,8 +421,8 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   pointer-events: none;
   animation: auPass calc(var(--au-dur) * .6) var(--au-ease) 1 both;
 }
-/* the loading line (ui.js loading(), every app page's "Loading…"): a 2px charcoal hairline with the same light
-   running along it while the page waits; at most twenty runs, then it rests */
+/* a light running along a hairline while something waits (Send Request's lower edge as the request goes: .send-line,
+   in the booking's bottom bar): a 2px charcoal hairline with the same light; at most twenty runs, then it rests */
 .au-line { position: relative; display: block; flex-shrink: 0; width: 160px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .1); }
 .au-line::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--gold) 35%, var(--gold-hi) 50%, var(--gold) 65%, transparent); transform: translateX(-100%); animation: auLine 1.6s var(--au-ease) 20 forwards; }
 @keyframes auLine { 0% { transform: translateX(-100%); } 75%, 100% { transform: translateX(250%); } }
@@ -2470,7 +2480,26 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
    ===================================================================== */
 .book-page { min-height: 100vh; min-height: 100svh; padding: calc(104px + env(safe-area-inset-top, 0px)) var(--gutter) 60px; background: radial-gradient(60% 40% at 50% 0%, rgba(var(--gold-rgb), .08), transparent 70%); }
 .bk { width: min(100%, 920px); margin-inline: auto; display: grid; gap: 26px; padding: clamp(22px, 4vw, 44px) clamp(18px, 4vw, 48px) 0; border-radius: var(--r-xl); background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .012)); border: 1px solid rgba(255, 255, 255, .07); box-shadow: 0 40px 90px -50px rgba(0, 0, 0, .9); }
-.bk-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 40vh; color: var(--ink-2); font-size: var(--fs-md); text-align: center; }   /* the loading line over its words (.au-line, the gold light) */
+.bk-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 40vh; color: var(--ink-2); font-size: var(--fs-md); text-align: center; }
+/* the wait (ui.js loading()): nothing for the first 300ms, where most waits end; then the small AD mark, and round it the
+   Standard's fine gold ring draws itself once at a pen's pace (1.2s); a head of light then laps the finished ring every
+   1.6s, twelve times at most, and it rests lit. Still under reduced motion (the ring drawn, the mark and the words); the
+   staff consoles keep still: the words alone, at once */
+.ld-mark { position: relative; display: grid; place-items: center; width: 64px; height: 64px; }
+.ld-ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }   /* drawn from the top */
+.ld-ring circle { fill: none; stroke: url(#ringGrad); stroke-width: 1; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.ld-ad { width: 26px; height: 27px; }
+.ld-lap { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from var(--ra), transparent 0 76%, var(--ld-head, rgba(var(--gold-pale-rgb), .95)) 98%, transparent 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px) calc(100% - .5px), transparent 100%); mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px) calc(100% - .5px), transparent 100%); opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .ld-mark, .ld-text { animation: ldShow .2s var(--ease) .3s both; }
+  .ld-ring circle { animation: ldRing 1.2s var(--ease-unveil) .3s both; }
+  .ld-lap { animation: ldLap 1.6s var(--ease-in-out) 1.5s 12; }
+}
+@keyframes ldShow { from { opacity: 0; } }
+@keyframes ldRing { from { stroke-dashoffset: 1; } }
+@keyframes ldLap { from { --ra: 0deg; opacity: 1; } to { --ra: 360deg; opacity: 1; } }
+:is(#adminApp, #teamApp) .ld-mark { display: none; }
+:is(#adminApp, #teamApp) .ld-text { animation: none; }
 .bk-preview { padding: 10px 14px; border-radius: var(--r-sm); border: 1px dashed var(--line); background: rgba(var(--gold-rgb), .06); color: var(--ink-2); font-size: 13.5px; }
 .bk-preview b { color: var(--gold-ink); }
 /* the staff note on a draft page: a quiet pill under the title (the words are content.js's) */
@@ -2552,12 +2581,44 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 
 /* fields */
 .fld { display: grid; gap: 7px; min-width: 0; align-content: start; }   /* beside a field with a message, the label and box keep their places */
-.fld-label { font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); }
+.fld-label { font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); transition: color .2s var(--ease); }
 .fld-label i { font-style: normal; color: var(--gold-ink); }
 .fld-label small { font-size: inherit; font-weight: 500; letter-spacing: .08em; text-transform: none; color: var(--muted); }
 .fld-box { position: relative; display: flex; align-items: stretch; border-radius: var(--r-field); border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .35); transition: border-color .3s var(--ease), box-shadow .3s var(--ease); }
-.fld-box:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .14); }
-.fld-input { flex: 1; min-width: 0; width: 100%; height: 50px; padding: 0 18px; border: 0; background: transparent; color: var(--ink); font: 500 16px/1.3 var(--font-ui); outline: none; border-radius: calc(var(--r-field) - 1px); }
+/* focus is light on glass: the label warms to gold, and the field's 1px rim lights from where the finger touched (--a,
+   ui.js), two arcs running round to meet on the far side (--rim-sweep, 450ms), then rests as one gold hairline with a
+   faint glow (there at once: a growing blur would be redrawn every frame as the keyboard opens); the caret is gold.
+   Leaving, the rim fades back to the hairline (200ms). The rim is a 1px border under one conic mask, the cheapest way
+   to draw it. A keyboard (html.kbd) draws it from the top and also gets the ring every control has (below); a field
+   with an error lights in the danger colour, and nothing shakes */
+@property --rim-sweep { syntax: "<angle>"; inherits: false; initial-value: 360deg; }
+@keyframes rimDraw { from { --rim-sweep: 0deg; } }
+.fld:focus-within > .fld-label { color: var(--gold-hi); }
+.fld-box::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid var(--fld-rim, var(--gold));
+  -webkit-mask: conic-gradient(from calc(var(--a, 0deg) - var(--rim-sweep) / 2), #000 0 var(--rim-sweep), transparent 0);
+  mask: conic-gradient(from calc(var(--a, 0deg) - var(--rim-sweep) / 2), #000 0 var(--rim-sweep), transparent 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s var(--ease);
+}
+.fld-box:focus-within { box-shadow: 0 0 20px -8px rgba(var(--gold-rgb), .5); transition: border-color .3s var(--ease); }
+.fld-box:focus-within::after { opacity: 1; transition-duration: 0s; animation: rimDraw .45s var(--ease-unveil) both; }   /* lit at once: the drawing is the arrival */
+.kbd .fld-box::after { --a: 0deg; }
+/* on a touch screen the rim opens from the finger instead: a clip widening from the touch along the field's long edges
+   until it closes round its ends (the same 450ms). An angle's sweep is redrawn on every frame, which a slow phone shows
+   in steps; a widening clip is only moved */
+@media (pointer: coarse) {
+  .fld-box::after { -webkit-mask: none; mask: none; }
+  .fld-box:focus-within::after { animation: rimOpen .45s var(--ease-unveil) backwards; }
+}
+@keyframes rimOpen { from { clip-path: inset(0 calc(100% - var(--px, 50%)) 0 var(--px, 50%)); } to { clip-path: inset(0); } }
+:is(#adminApp, #teamApp) .fld-box:focus-within::after { animation: none; }   /* the staff consoles keep still: lit at once */
+.fld-input { flex: 1; min-width: 0; width: 100%; height: 50px; padding: 0 18px; border: 0; background: transparent; color: var(--ink); caret-color: var(--gold-hi); font: 500 16px/1.3 var(--font-ui); outline: none; border-radius: calc(var(--r-field) - 1px); }
 textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-height: 1.5; }
 .fld-box.multi { border-radius: 20px; }   /* a text area: a little less round, so the corners never crowd its lines */
 .fld-box.multi .fld-input { border-radius: 19px; }
@@ -2573,13 +2634,25 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
    its row and gap go too */
 #bookApp .fld-msg:empty { display: none; }
 #bookApp .choice-msg:empty { display: block; position: absolute; min-height: 0; }
-.has-error .fld-box { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(212, 106, 90, .14); }
+.has-error .fld-box { --fld-rim: var(--danger); border-color: var(--danger); box-shadow: 0 0 0 3px rgba(212, 106, 90, .14); }
 .has-error .fld-msg, .has-error .choice-msg, .fld-msg.has-error { color: var(--danger-text); }
-/* the field being typed in carries the focus ring every other control has, outside its box: it shows over an
-   error's red too, and on ivory it is the deep gold (6:1), not only a change of hue */
-.fld-box:has(.fld-input:focus-visible) { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
+/* the field reached from the keyboard carries the focus ring every other control has, outside its box: it shows over
+   an error's red too, and on ivory it is the deep gold (6:1), not only a change of hue. A finger or a pointer gets the
+   lit rim alone (html.kbd from ui.js: set by Tab, gone at the next press) */
+.kbd .fld-box:has(.fld-input:focus-visible) { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
 .is-ok .fld-msg, .fld-msg.is-ok { color: var(--gold-hi); }
-.fld-ok { display: grid; place-items: center; padding: 0 16px; color: var(--gold-hi); font-weight: 700; }
+/* the tick at the end of a field the database confirmed (a verified code, a ZIP in the area): one fine stroke, drawn
+   once as it is confirmed (.draw), set when the step is drawn again; a ZIP's waits hidden until the ZIP is in */
+.fld-ok { display: grid; place-items: center; padding: 0 16px; color: var(--gold-hi); }
+.tick { width: 16px; height: 16px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tick path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+.fld-ok.draw .tick path { animation: tickDraw .3s var(--ease-unveil) both; }
+@keyframes tickDraw { from { stroke-dashoffset: 1; } }
+.fld:not(.is-ok) .fld-ok.zip-ok { display: none; }
+/* a ZIP's tick sits over the end of its field, and the field always keeps that room, so on a phone's narrow ZIP column
+   all five digits show beside it and nothing moves when it appears */
+.fld-ok.zip-ok { position: absolute; top: 50%; right: 12px; padding: 0; translate: 0 -50%; pointer-events: none; }
+:is(#address_zip, #contact_zip) { padding-right: 34px; }
 .mini-btn { margin: 3px; min-height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--line); background: rgba(var(--gold-rgb), .08); color: var(--gold-hi); font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; cursor: pointer; white-space: nowrap; touch-action: manipulation; transition: background-color .3s var(--ease), border-color .3s var(--ease), box-shadow .3s var(--ease), transform .35s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .mini-btn:hover { background: rgba(var(--gold-rgb), .16); border-color: var(--gold); } }
 .fld-box .mini-btn { border-radius: calc(var(--r-field) - 4px); }   /* nested in the field: its radius less the field's 1px border and the 3px margin */
@@ -2628,8 +2701,9 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .tiles .choice-item { min-height: 48px; padding: 10px 14px; border-radius: 10px; gap: 8px; }
 .tiles .choice-name { font-size: 14px; line-height: 1.25; }
 .tiles .choice-item.on { background: rgba(var(--gold-rgb), .12); }
-.choice-item.time { min-width: 92px; justify-content: center; font-variant-numeric: tabular-nums; }
-.choice-item.time.on { border-color: var(--gold); background: var(--gold-grad); color: var(--on-gold); font-weight: 600; box-shadow: 0 0 22px -4px rgba(var(--gold-rgb), .75); }   /* the chosen time is filled, like the chosen day */
+.choice-item.time { isolation: isolate; min-width: 92px; justify-content: center; font-variant-numeric: tabular-nums; }
+/* the chosen time is filled, like the chosen day (the pour, below); its rim and glow settle as the gold reaches them */
+.choice-item.time.on { border-color: var(--gold); font-weight: 600; box-shadow: 0 0 22px -4px rgba(var(--gold-rgb), .75); transition-duration: .2s, .3s, .2s, .3s, .3s; transition-delay: .28s, 0s, .28s, 0s, 0s; }
 /* focus on a selectable thing is the ink ring (the selection is the gold one), each keeping its own corners */
 .bk :is(.choice-item, .svc-opt, .sw-tile, .cal-day, .star-pick button):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .bk .choice-item:focus-visible { border-radius: var(--r-sm); }
@@ -2680,9 +2754,9 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk-services { display: grid; gap: 22px; }
 .svc-group-pick { display: grid; gap: 12px; }
 .svc-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.svc-opt { position: relative; display: grid; grid-template-columns: 34px 1fr auto; grid-template-areas: "icon name price" "icon desc desc" "icon meta meta"; column-gap: 14px; row-gap: 6px; align-items: start; text-align: left; padding: 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .09); background: var(--sheen, none), linear-gradient(180deg, #111111, #0b0b0b); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: transform .4s var(--ease), border-color .4s var(--ease), box-shadow .4s var(--ease); }
+.svc-opt { position: relative; display: grid; grid-template-columns: 34px 1fr auto; grid-template-areas: "icon name price" "icon desc desc" "icon meta meta"; column-gap: 14px; row-gap: 6px; align-items: start; text-align: left; padding: 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .09); background: var(--sheen, none), linear-gradient(180deg, #111111, #0b0b0b); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: transform .4s var(--ease-unveil), border-color .4s var(--ease), box-shadow .4s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .svc-opt:hover { border-color: rgba(var(--gold-rgb), .45); } }
-.svc-opt.on { border-color: var(--gold); transform: translateY(-3px); box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .9), 0 0 36px -12px rgba(var(--gold-rgb), .45); }   /* the 1px rim, and the light that runs it once, are ::after (the motion system) */
+.svc-opt.on { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .9), 0 0 36px -12px rgba(var(--gold-rgb), .45); }   /* the 1px rim, and the light that runs it once, are ::after (the motion system) */
 .svc-opt-icon { grid-area: icon; width: 30px; height: 30px; color: var(--gold); }
 .svc-opt-icon svg { width: 100%; height: 100%; }
 .svc-opt-name { grid-area: name; font: 500 var(--t-3)/1.25 var(--font-ui-caps); font-stretch: var(--wdth-label); letter-spacing: .04em; text-transform: uppercase; }
@@ -2693,8 +2767,13 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 #bk-suggest:empty { display: none; }
 .svc-opt-desc { grid-area: desc; font-size: var(--fs-hint); line-height: 1.45; color: var(--ink-2); }
 .svc-opt-meta { grid-area: meta; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
-.svc-opt-check { position: absolute; top: 12px; right: 14px; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold-hi); opacity: 0; transform: translateY(-4px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+/* "Selected": its tick draws itself as a fine gold stroke as the rim's light comes round (260ms, from .5s) and the word
+   rises 4px into place; let go of, it simply fades */
+.svc-opt-check { position: absolute; top: 12px; right: 14px; display: inline-flex; align-items: center; gap: 6px; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold-hi); opacity: 0; transform: translateY(4px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+.svc-opt-check .tick { width: 12px; height: 12px; margin-top: -2px; stroke-width: 1.8; }
+.svc-opt-check .tick path { stroke-dashoffset: 1; transition: stroke-dashoffset .2s var(--ease); }
 .svc-opt.on .svc-opt-check { opacity: 1; transform: none; }
+.svc-opt.on .svc-opt-check .tick path { stroke-dashoffset: 0; transition: stroke-dashoffset .26s var(--ease-unveil) .5s; }
 /* the add-ons under them are set as the service cards are: the name in the display face's tracked capitals, the
    price at the cards' size (type only: what is chosen and what it costs come from the quote as before) */
 [data-field="addons"] .choice-name { font: 500 var(--t-3)/1.25 var(--font-ui-caps); font-stretch: var(--wdth-label); letter-spacing: .04em; text-transform: uppercase; }
@@ -2739,16 +2818,16 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sw-price { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }   /* gold is kept for the chosen tile */
 .sw-price:empty { width: 48px; height: 12px; margin-top: 2px; border-radius: 3px; }   /* the slot until the price is known */
 /* waiting for prices and start times (booking-m2): each slot, and each place of a start time (.time-ph, the size of a
-   real one), keeps its shape while one slow pass of champagne light crosses it, the places a step apart so the light
-   runs along the row; it ends as the answer lands (the slot fills, the chips replace the places) and stops after a
-   dozen passes in any case. Still under reduced motion */
+   real one), keeps its shape while one slow pass of champagne light crosses them all as one wave: each slot shows its
+   part of a single band crossing the card (booking.js wave(): its place across the card, --x, and the card's width,
+   --w, and one beat for all). It ends as the answer lands (the slot fills, the chips replace the places) and stops
+   after a dozen passes in any case. Still under reduced motion */
 .svc-opt-price:empty, .sw-price:empty, .time-ph {
   --au-slot: rgba(255, 255, 255, .07);
-  background: linear-gradient(var(--au-angle), transparent 30%, var(--au-wait, rgba(var(--gold-hi-rgb), .26)) 50%, transparent 70%) -110% 0 / 60% 100% no-repeat, linear-gradient(var(--au-slot), var(--au-slot));
-  animation: auWait 1.8s var(--au-ease) 12 both;
-  animation-delay: calc(var(--t, 0) * 90ms);
+  background: linear-gradient(var(--au-angle), transparent 30%, var(--au-wait, rgba(var(--gold-hi-rgb), .26)) 50%, transparent 70%) calc(var(--au-p) * (var(--w, 120px) + 180px) - 180px - var(--x, 0px)) 0 / 180px 100% no-repeat, linear-gradient(var(--au-slot), var(--au-slot));
+  animation: auWave 1.8s var(--au-ease) 12 both;
 }
-@keyframes auWait { 0% { background-position: -110% 0, 0 0; } 70%, 100% { background-position: 210% 0, 0 0; } }
+@keyframes auWave { 0% { --au-p: 0; } 70%, 100% { --au-p: 1; } }
 .times-wait { display: flex; flex-wrap: wrap; gap: 8px; }
 .time-ph { min-width: 92px; height: 44px; border-radius: 999px; border: 1px solid var(--hair); }
 @media (hover: hover) and (pointer: fine) { .sw-tile:hover { border-color: rgba(var(--gold-rgb), .5); } }
@@ -2785,7 +2864,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 /* a new month's days glide in 24px from the side it was asked for while the weekday row stays put, and its name
    follows 12px (booking.js; none under reduced motion). Each lands on its own opacity (a grey day stays grey, a past
-   day stays faint), and the chosen day keeps its own pop */
+   day stays faint), and the chosen day stays where it is */
 :is(.cal-grid.glide-next > :not(.cal-dow, .on), .cal-head .glide-next) { animation: glideNext .4s var(--ease) backwards; }
 :is(.cal-grid.glide-prev > :not(.cal-dow, .on), .cal-head .glide-prev) { animation: glidePrev .4s var(--ease) backwards; }
 .cal-head :is(.glide-next, .glide-prev) { --glide: 12px; }
@@ -2804,19 +2883,50 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 /* a day of the month before or after that shares a week with this one: grey, its month in small capitals under the number */
 .cal-other { justify-self: center; width: 100%; max-width: 56px; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); opacity: .6; font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; user-select: none; }
 .cal-other small { font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-indent: var(--tr-label); text-transform: uppercase; }
-/* a chosen day settles in softly, and the gold spreads out from where the finger landed (--px/--py from booking.js; the centre for a key press) */
-.cal-day.on { border-color: var(--gold); background: var(--gold-grad); color: var(--on-gold); font-weight: 600; box-shadow: 0 0 22px -4px rgba(var(--gold-rgb), .75); animation: dayPop .45s var(--ease); }
-.cal-day.on::after { content: ""; position: absolute; inset: -2px; z-index: -1; border-radius: 50%; background: radial-gradient(circle at var(--px, 50%) var(--py, 50%), var(--gold-hi), transparent 70%); animation: ring .6s var(--ease) forwards; pointer-events: none; }
-@keyframes dayPop { 0% { transform: scale(.78); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }
+/* a chosen day, and a chosen start time: gold poured from exactly where the finger landed (--px, --py, and the reach to
+   the farthest edge, --cr: ui.js; the centre for a key press). It flows out and fills the shape in 380ms (the curve
+   of the light, so the flow is seen and then settles) and stays, opaque, inside the shape (never spreading past it,
+   never fading as a ripple would). The gold carries the figures in their dark ink (data-l, the cell's own words), so
+   they darken exactly where it has reached; the rim and the soft glow settle round it as it arrives. Nothing changes
+   size. The one let go of drains back to its centre in 200ms (.drain). Only the chosen cell and the one draining have
+   the layer; the customer's pick pours (.pour, booking.js), a cell drawn chosen is simply gold, as it is under reduced
+   motion. A staff console's chosen time is plain gold */
+.cal-day.on { border-color: var(--gold); font-weight: 600; box-shadow: 0 0 22px -4px rgba(var(--gold-rgb), .75); transition-duration: .2s, .25s, .25s, .2s, .3s, .25s; transition-delay: .28s, 0s, 0s, .28s, 0s, 0s; }
+:is(.cal-day, .choice-item.time).on:not([data-l]) { background: var(--gold-grad); color: var(--on-gold); }
+.choice-item.time.on:not([data-l])::after { content: none; }   /* the filled time needs no rim */
+:is(.cal-day, .choice-item.time)[data-l]:is(.on, .drain)::after {
+  content: attr(data-l);
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: inherit;
+  background: var(--gold-grad);
+  color: var(--on-gold);
+  clip-path: circle(var(--cr, 72%) at var(--px, 50%) var(--py, 50%));
+  -webkit-mask: none;
+  mask: none;
+  opacity: 1;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :is(.cal-day, .choice-item.time).on.pour::after { animation: pourIn .38s var(--ease-in-out) both; }
+  :is(.cal-day, .choice-item.time).drain:not(.on)::after { animation: pourOut .2s var(--ease) both; }
+}
+@keyframes pourIn { from { clip-path: circle(0px at var(--px, 50%) var(--py, 50%)); } }
+@keyframes pourOut { to { clip-path: circle(0px at 50% 50%); } }
 .cal-keys { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
 .cal-key { display: inline-flex; align-items: center; gap: 6px; }
 .cal-key::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .2); }
 .cal-key.full::before { background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(var(--gold-rgb), .4) 3px 4px); }
 .cal .choice-msg:empty { display: none; }
-/* the start times fade in once, each a little after the last, as they arrive (.enter from booking.js, gone once the
-   last has landed, so a chosen time's pop never restarts the fade); "Checking times…" stands still */
+/* the start times fade up 8px once, as they arrive: the first six 25ms apart, the rest with the sixth (.enter from
+   booking.js, gone once the last has landed, so a chosen time's pour never restarts the fade); "Checking times…" stands still */
 .times { display: grid; gap: 12px; }
-.times .chips.enter .choice-item { animation: viewIn .4s var(--ease) both; animation-delay: calc(var(--t, 0) * 25ms); }
+.times .chips.enter .choice-item { animation: timesIn .4s var(--ease-unveil) both; animation-delay: calc(min(var(--t, 0), 5) * 25ms); }
+@keyframes timesIn { from { opacity: 0; transform: translateY(8px); } }
 /* a chosen day or time let go because it no longer fits the booking (a service, an add-on or the place changed): one quiet line */
 :is(.bk-lost, .bk-quiet) { margin: 0; display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
 .bk-carried { display: grid; gap: 8px; }
@@ -2874,25 +2984,106 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk-nav { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 calc(-1 * clamp(18px, 4vw, 48px)); padding: 14px clamp(18px, 4vw, 48px) calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(255, 255, 255, .07); border-radius: 0 0 var(--r-xl) var(--r-xl); background: linear-gradient(180deg, rgba(10, 10, 10, .86), rgba(3, 3, 3, .95)); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .bk-nav-mid { flex: 1; text-align: center; color: var(--ink-2); font-size: 14px; }
 .bk-nav-total { color: var(--gold-hi); font-weight: 600; }
+/* the total turns like a watch's date wheel (ui.js rollFigure): each changed digit slides out of its own fine window and
+   the new one rises into it (360ms, the right-most first, 30ms apart; the other way when the price goes down); a new
+   character fades in; the digits that stay, the $ and the point never move. Plain text again once it has turned */
+.roll .rd { position: relative; display: inline-block; line-height: 1.2; clip-path: inset(0 -.1em); }   /* a window just taller than the figure */
+.roll .rd-n { display: inline-block; }
+.roll .rd-o { position: absolute; inset: 0; }
+.roll.up .rd-n, .roll.down .rd-n { animation: rdIn .36s var(--ease-unveil) calc(var(--k, 0) * 30ms) both; }
+.roll.up .rd-o, .roll.down .rd-o { animation: rdOut .36s var(--ease-unveil) calc(var(--k, 0) * 30ms) both; }
+.roll.down { --rd: -100%; }
+.roll .rd-f { display: inline-block; animation: rdFade .36s var(--ease-unveil) calc(var(--k, 0) * 30ms) both; }
+@keyframes rdIn { from { transform: translateY(var(--rd, 100%)); } }
+@keyframes rdOut { to { transform: translateY(calc(-1 * var(--rd, 100%))); } }
+@keyframes rdFade { from { opacity: 0; } }
+/* sending: a fine light runs along Send Request's lower edge while the request is on its way, from 300ms (booking.js
+   adds the line then: most sends end before), twelve runs at most; the button keeps more of its face meanwhile, so the
+   light reads */
+.bk-nav .btn-gold.sending:disabled { opacity: .72; }
+.send-line { position: absolute; left: 14%; right: 14%; bottom: 0; width: auto; height: 1px; background: transparent; pointer-events: none; }
+.send-line::after { width: 40%; animation: auLine 1.6s var(--au-ease) 12 both; }
 .bk-nav .btn { --h: 48px; padding: 0 22px; }
 .bk-nav .btn:disabled { transform: none; }
 
-/* request sent: the mark (one pass of gold light across it as it lands), the reference set large, the booking as a
-   sheet, what happens next as three gold points on a line, and the ways on */
+/* request sent: the seal, the reference set large, the booking as a sheet, what happens next as three gold points on a
+   line, and the ways on. These rules are its still frame: drawn again for the same request, under reduced motion, in
+   print and in forced colours it is simply there. The one celebration of the journey plays once on the screen
+   (booking.js renderSent), about 2.8s, then rests:
+   0-420ms the AD seal appears blind-embossed, black on black, lit only along its edges, and presses in from 104% like a
+   die into card stock (no rebound); 450-1150ms gold foil is laid into it from the bottom up behind a soft edge, its glow
+   with it; from 1150ms the one pass of light crosses the gold. From 700ms "Request received" fades in, "Thank you" and
+   the reference (as one line) rise from behind their lines; from 1000ms Copy fades in and the sheet arrives with its
+   first row, the rows setting in reading order, the total last, as its hairlines draw left to right. The preview note,
+   the buttons and every link are there (and work) from the first frame. */
 .bk-sent { text-align: center; justify-items: center; padding-bottom: clamp(26px, 4vw, 44px); }
-.sent-mark svg { width: 74px; height: 74px; overflow: visible; filter: drop-shadow(0 10px 30px rgba(var(--gold-rgb), .35)); animation: heroIn 1s var(--ease) both; }
+.sent-mark { position: relative; display: grid; width: 74px; height: 74px; }
+.sent-mark > svg { grid-area: 1 / 1; width: 74px; height: 74px; overflow: visible; }
+.sent-mark::before { content: ""; position: absolute; inset: -26px -40px -46px; background: radial-gradient(closest-side, rgba(var(--gold-rgb), .2), rgba(var(--gold-rgb), .07) 55%, transparent); pointer-events: none; }   /* the gold's glow under the seal */
+.seal-blind { filter: drop-shadow(-1px -1px 0 rgba(var(--gold-pale-rgb), .2)) drop-shadow(1px 1px 0 rgba(var(--shade-rgb), .9)); }
+.seal-blind path { fill: var(--panel); }
+.seal-foil { position: relative; z-index: 1; }   /* the gold always over the blind seal (whose filter would otherwise lift it above) */
+.sent-line { display: block; overflow: clip; padding: .08em 0 .16em; margin: -.08em 0 -.16em; }
+.sent-line-in { display: block; }
+/* the moment, on the screen only, in parts that each start in a task of their own (booking.js playSent), so no one
+   frame carries it all. The receipt is built with every part waiting (.wait-*: simply not there yet); once it is drawn
+   the seal's two marks are drawn unseen (.wait-draw goes), and a frame later the seal starts (.play-seal), the head
+   300ms into the moment, the sheet 600ms in with its summary, its price lines 800ms in and what happens next 1100ms
+   in, each part's delays counted from its own start. The sheet's rows (.sr) and drawn hairlines (.sr-h, below) and
+   their order (--k, --h) are set while it is still hidden. Each animation lets go once it has played (its end is the
+   still frame), so nothing changes when the moment is over */
+@property --foil-top { syntax: "<percentage>"; inherits: false; initial-value: 112%; }
+@media screen and (prefers-reduced-motion: no-preference) {
+  .bk-sent.wait-draw .sent-mark > svg { display: none; }
+  .bk-sent.wait-seal > .sent-mark { opacity: 0; }
+  .bk-sent.wait-head > .eyebrow, .bk-sent.wait-head > .bk-title, .bk-sent.wait-head > .sent-ref { opacity: 0; }
+  .bk-sent.wait-sheet > .sent-sheet, .bk-sent.wait-lines .pr > .sr, .bk-sent.wait-next > .sent-next { opacity: 0; }
+  /* the seal, from 0ms */
+  .bk-sent.play-seal .seal-blind { animation: sealPress .42s var(--ease-unveil) backwards; }
+  .bk-sent.play-seal .seal-foil { -webkit-mask-image: linear-gradient(to top, #000 calc(var(--foil-top) - 12%), transparent var(--foil-top)); mask-image: linear-gradient(to top, #000 calc(var(--foil-top) - 12%), transparent var(--foil-top)); animation: sealFoil .7s var(--ease-in-out) .45s backwards; }   /* at an even press, so it is seen rising */
+  .bk-sent.play-seal > .sent-mark::before { animation: sentFade .7s var(--ease-unveil) .45s backwards; }
+  .bk-sent.play-seal .mark-pass { animation: markPass 1.6s var(--ease-in-out) 1.15s backwards; }
+  /* the head, started at 300ms: from 700ms */
+  .bk-sent.play-head > .eyebrow { animation: sentFade var(--dur-line) var(--ease-unveil) 400ms backwards; }
+  .bk-sent.play-head .sent-line-in { animation: lineUp var(--dur-line) var(--ease-unveil) 480ms backwards; }
+  .bk-sent.play-head .sent-ref-k { animation: sentFade var(--dur-line) var(--ease-unveil) 570ms backwards; }
+  .bk-sent.play-head .sent-code-in { animation: lineUp var(--dur-line) var(--ease-unveil) 570ms backwards; }
+  .bk-sent.play-head .sent-ref > .mini-btn { animation: sentFade var(--dur-rise) var(--ease-unveil) 700ms backwards; }   /* it works from the first frame */
+  /* the sheet, started at 600ms: from 1000ms, the panel with its first row (never empty), then the summary's rows */
+  .bk-sent.play-sheet > .sent-sheet { animation: sentFade var(--dur-rise) var(--ease-unveil) 400ms backwards; }
+  .bk-sent.play-sheet .sum-list > .sr { animation: sentRow var(--dur-rise) var(--ease-unveil) calc(400ms + var(--k, 0) * 60ms) backwards; }
+  .bk-sent.play-sheet .sum-list.sr-h::before { animation: hairDraw var(--dur-line) var(--ease-unveil) 400ms backwards; }
+  /* its price lines, started at 800ms: in order after the summary, the total last */
+  .bk-sent.play-lines .pr > .sr { animation: sentRow var(--dur-rise) var(--ease-unveil) calc(200ms + var(--k, 0) * 60ms) backwards; }
+  .bk-sent.play-lines .pr > .sr-h::before { animation: hairDraw var(--dur-line) var(--ease-unveil) calc(200ms + min(var(--h, 0), 3) * 60ms) backwards; }
+  /* what happens next, started at 1100ms: from 1500ms */
+  .bk-sent.play-next > .sent-next { animation: sentFade var(--dur-line) var(--ease-unveil) 400ms backwards; }
+}
+@keyframes sealPress { from { opacity: 0; transform: scale(1.04); } }
+@keyframes sealFoil { from { --foil-top: 0%; } to { --foil-top: 112%; } }
+@keyframes sentFade { from { opacity: 0; } }
+@keyframes sentRow { from { opacity: 0; transform: translateY(6px); } }
+@keyframes hairDraw { from { transform: scaleX(0); } }
 /* the monogram's pass of light (ui.js lightMark; the footer's sign-off takes the same): a band leaning as the 118deg
    light does, clipped to the mark's strokes, from just before its first stroke to just past its last (in the mark's
    own units), so all of its time is spent on the mark; at rest it waits outside */
 .mark-light .edge { stop-color: var(--au-50); stop-opacity: 0; }
 .mark-light .core { stop-color: var(--au-50); stop-opacity: .9; }
-.sent-mark .mark-pass { animation: markPass 1.6s var(--ease-in-out) .9s both; }
 @keyframes markPass { from { transform: translateX(320px) skewX(-28deg); } to { transform: translateX(1060px) skewX(-28deg); } }
 .sent-ref { display: grid; justify-items: center; gap: 12px; }
-.sent-code { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .42em; font: 400 clamp(28px, 5vw, 40px)/1.1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: .06em; font-variant-numeric: tabular-nums lining-nums; color: var(--gold-hi); }
+.sent-code { overflow: clip; margin: -.08em 0 -.16em; padding: .08em .1em .16em; font: 400 clamp(28px, 5vw, 40px)/1.1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: .06em; font-variant-numeric: tabular-nums lining-nums; color: var(--gold-hi); }   /* its line's window */
+.sent-code-in { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .42em; }
+@supports not (overflow: clip) { .sent-line, .sent-code { overflow: hidden; } }
 .sent-sheet, .sent-next { width: min(100%, 600px); text-align: left; }
 .sent-sheet { gap: 6px; padding: 20px 24px 22px; }
 .sent-sheet > .sum-list { padding-bottom: 16px; margin-bottom: 4px; border-bottom: 1px solid var(--hair); }
+/* on the screen the sheet's hairlines are drawn lines (so they can draw themselves), in the borders' places (.sr-h:
+   the summary's foot and each price line's top, booking.js) */
+@media screen {
+  .sent-sheet .sr-h { position: relative; border-color: transparent; }
+  .sent-sheet .sr-h::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: var(--hair); transform-origin: 0 50%; pointer-events: none; }
+  .sent-sheet > .sum-list.sr-h::before { top: auto; bottom: -1px; }
+}
 .sent-next { display: grid; gap: 16px; padding: 4px 4px 0; }
 .sent-steps { margin: 0; padding: 0; list-style: none; display: grid; }
 .sent-steps li { position: relative; display: grid; align-content: start; gap: 4px; padding: 0 0 20px 32px; }   /* on paper the three sit side by side: each keeps its lines together at the top */
@@ -3929,10 +4120,32 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :is(.brand-link, .menu-brand, .foot-brand).pressed { opacity: .72; }
 .appt-head.pressed { background-color: rgba(var(--gold-rgb), .06); }
 
-/* chosen: a chip takes its gold in place as its rim lights (250ms, no pop); a service card lifts to its chosen place
-   on its own transition (.just from ui.js and booking.js) */
-.choice-item.just::after { animation: pickRim .25s var(--ease); }
-@keyframes pickRim { from { opacity: 0; } }
+/* chosen: a chip, tile or card (Sedan, Pet hair, We come to you) has its fine gold rim drawn round it from the point
+   touched, two arcs running round to meet on the far side (420ms; --a from ui.js, the top for a key press; --rim-sweep
+   with the fields' rim), as its gold tint fades in under it; nothing changes size. The chosen state is set at once, the
+   drawing is only its light (.just from ui.js). While it draws, the chip's own border keeps its resting hairline, so
+   the gold seen is the line being drawn; once it has met, the border warms to gold under it. A service card settles to
+   its chosen place on its own transition */
+.choice-item.on.just:not(.time)::after {
+  -webkit-mask: conic-gradient(from calc(var(--a, 0deg) - var(--rim-sweep) / 2), #000 0 var(--rim-sweep), transparent 0), linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: source-in, xor;
+  mask: conic-gradient(from calc(var(--a, 0deg) - var(--rim-sweep) / 2), #000 0 var(--rim-sweep), transparent 0), linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: intersect, exclude;
+  animation: rimDraw .42s var(--ease-unveil) both;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .choice-item.on.just:not(.time) { border-color: var(--hair); }
+  :where([data-theme="light"]) .choice-item.on.just:not(.time) { border-color: var(--border-strong); }
+  :is(#adminApp, #teamApp) .choice-item.on.just { border-color: var(--gold); }
+}
+:is(#adminApp, #teamApp) .choice-item.on.just:not(.time)::after { animation: none; }   /* the staff consoles keep still */
+/* in the studio the chosen rim is the deep gold, drawn and resting alike (a pale one barely reads on ivory: the
+   fields' rim does the same), and while it draws the tint waits until the arcs have met, so the line is what reads
+   first; the staff consoles keep their own */
+[data-theme="light"] .choice-item.on:not(.time):where(:not(:is(#adminApp, #teamApp) *))::after { background: linear-gradient(135deg, var(--gold-deep), var(--gold) 45%, var(--gold-deep)); }
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme="light"] .choice-item.on.just:not(.time):where(:not(:is(#adminApp, #teamApp) *)) { transition-delay: 0s, .25s, 0s, 0s, 0s; }
+}
 /* the chosen service (owner's move 15): a 1px rim of gold light on its edge, and the moment it is chosen a
    head of light travels the rim once (.glow, from booking.js) and settles; the "Selected" mark lands as the
    light comes round. --ra is the conic start, registered with the reviews' certificate above. */
@@ -3970,7 +4183,6 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   opacity: .9;
   pointer-events: none;
 }
-.choice-item.time.on::after { content: none; }   /* the filled time needs no rim */
 /* the current booking step breathes once, when the step changes (.fresh), not on a rebuild of the same step */
 .bk-progress li.current.fresh .num { animation: stepIn2 .6s var(--ease); }
 @keyframes stepIn2 { 0% { transform: scale(.7); box-shadow: 0 0 0 0 rgba(var(--gold-rgb), .6); } 100% { transform: scale(1); box-shadow: 0 0 18px -2px rgba(var(--gold-rgb), .7); } }
@@ -3993,11 +4205,13 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .menu nav a, .menu-foot { transition: none !important; }   /* the items are there the frame the menu opens */
   .hero h1 .l1 { animation: none; --hx: 46%; }
   .hero h1 .l1.split .ch { opacity: 1; transform: none; filter: none; animation: none; }
-  .svc-opt.just, .choice-item.just, .choice-item.just::after, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .chips.enter .choice-item { animation: none; }   /* chosen things are simply chosen */
+  .svc-opt.just, .choice-item.just, .choice-item.just::after, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .chips.enter .choice-item, .fld-box:focus-within::after, .fld-ok.draw .tick path { animation: none; }   /* chosen things are simply chosen, a focused field simply lit, a tick drawn */
   .btn-gold.pressed:not(.launch) { translate: none; }   /* a press still darkens and shades, at once; nothing travels */
-  .svc-opt.on .svc-opt-check { transition-delay: 0s; }
-  .cal-day.on::after { content: none; }
-  .au-line::after { animation: none; transform: translateX(75%); }   /* the loading line is still, its light in the middle */
+  .svc-opt.on .svc-opt-check, .svc-opt.on .svc-opt-check .tick path, .cal-day.on, .choice-item.time.on { transition-delay: 0s; }
+  .drain:not(.on)::after { content: none !important; }   /* the chosen day and time are simply gold, the one let go of simply not */
+  .choice-item.on.just:not(.time)::after { animation: none; }
+  .au-line::after { animation: none; transform: translateX(75%); }   /* a waiting line is still, its light in the middle */
+  .roll .rd-o { display: none; }
 }
 
 /* ---------------------------------------------------------------- content pages (Tips, FAQ, About, Contact; content.js)
@@ -4545,7 +4759,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .step .n { background: #fff; border-color: rgba(17, 17, 17, .14); box-shadow: 0 0 0 6px var(--bg); }
 /* ---- controls: inputs with a 3:1 border, chips and cards on a hairline, the ink focus ring kept */
 :where([data-theme="light"]) .fld-box { background: #fff; border-color: var(--border-strong); box-shadow: inset 0 1px 2px rgba(27, 27, 27, .06); }
-[data-theme="light"] .fld-box:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(var(--studio-gold-rgb), .18); }
+:where([data-theme="light"]) .fld-box { --fld-rim: var(--gold-deep); }   /* the focused rim in the deep gold, 3:1 and more on white (an error's danger still wins) */
+[data-theme="light"] .fld-box:focus-within { box-shadow: 0 0 18px -8px rgba(var(--studio-gold-rgb), .45); }
 :where([data-theme="light"]) .bk-toggle input { background: #fff; border-color: var(--border-strong); }
 :where([data-theme="light"]) .star-pick button { background: #fff; border-color: var(--border-strong); }
 :where([data-theme="light"]) :is(.choice-item, .cal-day.open) { background: #fff; border-color: var(--border-strong); }
@@ -4583,8 +4798,9 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .svc-opt.on { background: var(--sheen, none), rgba(var(--studio-gold-rgb), .08); border-color: var(--gold); }
 [data-theme="light"] :is(.choice-item, .sw-tile).on { background: rgba(var(--studio-gold-rgb), .1); border-color: var(--gold); box-shadow: 0 0 22px -12px rgba(124, 88, 24, .5); }
 [data-theme="light"] :is(.chips, .tiles) .choice-item.on { background: rgba(var(--studio-gold-rgb), .14); }
-[data-theme="light"] .choice-item.time.on { background: var(--gold-grad); color: var(--on-gold); box-shadow: 0 10px 22px -8px rgba(124, 88, 24, .45); }
-[data-theme="light"] .cal-day.on { background: var(--gold-grad); color: var(--on-gold); border-color: var(--gold); box-shadow: 0 0 0 3px var(--panel), 0 10px 22px -8px rgba(124, 88, 24, .45); }
+[data-theme="light"] .choice-item.time.on { box-shadow: 0 10px 22px -8px rgba(124, 88, 24, .45); }   /* the gold, and its dark figures, are the pour */
+[data-theme="light"] .cal-day.on { border-color: var(--gold); box-shadow: 0 0 0 3px var(--panel), 0 10px 22px -8px rgba(124, 88, 24, .45); }
+[data-theme="light"] .choice-item.time.on:not([data-l]) { background: var(--gold-grad); color: var(--on-gold); }   /* a staff console's chosen time: plain gold */
 [data-theme="light"] .adm-nav a.on { background: var(--gold-grad); color: var(--on-gold); border-color: var(--gold); }
 [data-theme="light"] .bk-progress li.current .num { box-shadow: 0 6px 18px -6px rgba(124, 88, 24, .55); }
 [data-theme="light"] .st-confirmed .appt-status, [data-theme="light"] .st-in_progress .appt-status { border-color: var(--gold); background: rgba(var(--studio-gold-rgb), .12); }
@@ -4609,7 +4825,6 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* ---- the gold light in the studio: across white things it is a warm gold sheen (a screen blend vanishes on white);
    the photo pieces and the Gold card keep the dark light */
 [data-theme="light"] .appt.au-run .appt-glow::after { opacity: 1; background: linear-gradient(var(--au-angle), transparent 40%, rgba(217, 167, 81, .05) 46%, rgba(217, 167, 81, .16) 50%, rgba(217, 167, 81, .05) 54%, transparent 60%); }
-[data-theme="light"] .svc-opt.au-run::before { --au-core: rgba(217, 167, 81, .2); mix-blend-mode: normal; }
 /* the promise's light on the cream: its edge in the studio's brighter gold (a pale one would cut the letters out of
    the cream), and no band round the words (a gold haze reads as a smudge on the paper, a white one adds nothing) */
 [data-theme="light"] .standard .statement em.au-run { --std-edge: var(--gold); }
@@ -4617,6 +4832,9 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .standard .statement em.au-run::after { content: none; }
 [data-theme="light"] .bk-progress li.au-run:not(:first-child)::after { --au-line: var(--gold); --au-line-core: #f4bf5c; }
 :where([data-theme="light"]) .au-line { background: rgba(17, 17, 17, .1); }
+[data-theme="light"] .svc-fig.au-run { background-image: linear-gradient(var(--au-angle), transparent 16%, var(--gold) 34%, rgb(var(--gold-rgb)) 46%, rgb(var(--gold-rgb)) 54%, var(--gold) 66%, transparent 84%), linear-gradient(currentColor, currentColor); }
+[data-theme="light"] .ld-lap { --ld-head: var(--gold); }   /* the loader's head of light in the studio's gold (a pale one vanishes on cream) */
+[data-theme="light"] .seal-blind { filter: drop-shadow(-1px -1px 0 rgba(var(--gold-s4), .95)) drop-shadow(1px 1px 0 var(--press-shade)); }   /* the blind seal on ivory: a white edge to the light, a soft shade away from it */
 /* ---- the toggle: one 420ms cross-fade of the whole page (a view transition where the browser has one, else
    every colour transitions under html.theming for the same time); the sun becomes a moon in the menu's button */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .42s; animation-timing-function: var(--ease-in-out); }
@@ -4648,6 +4866,9 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
    ===================================================================== */
 @media (forced-colors: active) {
   .choice-item.on, .svc-opt.on, .sw-tile.on, .cal-day.on, .adm-nav a.on { outline: 3px solid Highlight; outline-offset: 2px; }
+  :is(.cal-day, .choice-item.time)[data-l]:is(.on, .drain)::after, .fld-box::after, .ld-lap, .sent-mark::before, .seal-blind, .mark-pass { display: none; }   /* no pour, no lit rim, no foil or light: the system's own marks */
+  .fld-box:focus-within { outline: 2px solid Highlight; outline-offset: 2px; }
+  .bk-sent .seal-foil { -webkit-mask-image: none !important; mask-image: none !important; animation: none !important; }
   .btn-gold, .btn-glass, .fld-box { border: 2px solid ButtonText; }
   .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .btn-gold::before, .work-item::before, .gal-btn::after, .insp, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
   :is(.why, .work, .how, .svc-group, .cta-band)::before { display: none; }   /* no gold glow in the rooms */
@@ -4719,7 +4940,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .book-page:has(.bk-sent) { padding-block: 0 !important; }
   .bk.bk-sent { gap: 8px; padding: 4mm 8mm !important; }
   .sig { border-color: #bbb; }
-  .sent-mark svg { width: 34px; height: 34px; filter: none; animation: none; }
+  .sent-mark, .sent-mark > svg { width: 34px; height: 34px; }
+  .sent-mark::before, .seal-blind { display: none !important; }   /* the seal prints flat gold: no emboss, no glow */
   .bk-sent .eyebrow { margin-block: 4px; }
   .bk-sent .bk-title { font-size: 22px; }
   .sent-code { font-size: 22px; }

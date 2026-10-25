@@ -178,7 +178,7 @@
   function zipCheck() {
     let zips = null, area = 'Parker, Texas', miles = 10, phone = PHONE;
     const f = U.field({ id: 'contact_zip', label: 'Your ZIP', inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5,
-      hint: 'We check it against our service area as you type.',
+      hint: 'We check it against our service area as you type.', trailing: U.el('span.fld-ok.zip-ok', U.tick()),
       oninput: (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 5); paint(); } });
     const msg = f.querySelector('.fld-msg');
     function paint() {
@@ -187,6 +187,9 @@
       U.append(msg, [z.length < 5 || !zips ? 'We check it against our service area as you type.'
         : ok ? 'In our mobile area ✓' : ['We come to you within about ' + miles + ' miles of ' + area + '. For other areas, call ', U.tel(phone), '.']]);
       msg.classList.toggle('is-ok', ok);
+      // a ZIP in the area takes the tick at the end of its field, drawn once as it is typed
+      if (ok && !f.classList.contains('is-ok')) U.flash(f.querySelector('.fld-ok'), 'draw', 700);
+      f.classList.toggle('is-ok', ok);
     }
     if (D) Promise.all([D.settings(), D.menu()]).then(([s, m]) => {
       zips = m.zips;

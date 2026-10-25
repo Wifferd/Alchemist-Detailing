@@ -91,9 +91,75 @@
     return svg;
   }
 
-  // The loading line: a hairline with the gold light running along it (the CSS's .au-line), then the words; a reader
-  // hears them, and hears the screen arrive in its place.
-  const loading = (text) => el('div.bk-loading', { role: 'status', 'aria-live': 'polite' }, el('span.au-line', { 'aria-hidden': 'true' }), text);
+  // A small SVG part (an SVG needs its own namespace, which el() does not make)
+  function svgEl(tag, attrs) {
+    const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => n.setAttribute(k, v));
+    return n;
+  }
+  // A tick drawn as one fine stroke (the CSS draws it where .draw is set, or as its card is chosen): only where the
+  // database has said yes (a code it verified, a ZIP in its service area) or the customer chose (a service card)
+  function tick() {
+    const s = svgEl('svg', { class: 'tick', viewBox: '0 0 16 16', 'aria-hidden': 'true', focusable: 'false' });
+    s.appendChild(svgEl('path', { d: 'M3.2 8.7l3.1 3 6.5-7.2', pathLength: 1 }));
+    return s;
+  }
+
+  // The wait (every app page's "Loading…"): nothing for the first 300ms, where most waits end; then the small AD mark,
+  // the Standard's fine gold ring drawing itself round it once and a head of light lapping it, twelve times at most (the
+  // CSS). A reader hears the words, and hears the screen arrive in their place.
+  function loading(text) {
+    const ring = svgEl('svg', { class: 'ld-ring', viewBox: '0 0 64 64' }), mark = svgEl('svg', { class: 'ld-ad', viewBox: '0 20 570 590' });
+    ring.appendChild(svgEl('circle', { cx: 32, cy: 32, r: 31, pathLength: 1 }));
+    mark.appendChild(svgEl('use', { href: '#ad-mark' }));
+    return el('div.bk-loading', { role: 'status', 'aria-live': 'polite' }, el('span.ld-mark', { 'aria-hidden': 'true' }, ring, el('span.ld-lap'), mark), el('span.ld-text', text));
+  }
+
+  // A figure that changes (the booking's running total) turns like a watch's date wheel: only the characters that
+  // differ move, one step, the right-most first and the others 30ms after each other, a lower figure the other way, a
+  // new character fading in where the figure grows. It never passes through a value in between. A reader hears the
+  // figure once, at once (the hidden copy); the turning copy is hidden from readers and is plain text again after.
+  function rollFigure(text, prev, up) {
+    const shown = el('span.roll', { 'aria-hidden': 'true' });
+    const out = el('span.fig', el('span.sr-only', text), shown);
+    if (reduce || prev == null || prev === text) { shown.textContent = text; return out; }
+    // the sign ahead of the figures ($) keeps its place: the figures after it are lined up from the right
+    const lead = (/^\D*/.exec(text) || [''])[0];
+    const keep = String(prev).startsWith(lead) ? lead : '';
+    const a = String(prev).slice(keep.length), b = String(text).slice(keep.length), cells = [];
+    let k = 0;
+    for (let i = 1; i <= b.length; i++) {
+      const o = a[a.length - i], c = b[b.length - i];
+      if (o === c) cells.unshift(document.createTextNode(c));
+      else if (o != null && /\d/.test(o) && /\d/.test(c)) cells.unshift(el('span.rd', { style: { '--k': k++ } }, el('span.rd-o', o), el('span.rd-n', c)));
+      else cells.unshift(el('span.rd-f', c));   // a new place fades in at once, so the figure never shows a gap for long
+    }
+    shown.classList.add(up ? 'up' : 'down');
+    append(shown, [keep, cells]);
+    setTimeout(() => { shown.classList.remove('up', 'down'); shown.textContent = text; }, 360 + k * 30 + 80);
+    return out;
+  }
+
+  // Where a finger (or the pointer) landed on a control that answers from that point: a chosen day's or time's gold
+  // pours out from it (--px, --py, and --cr, its reach to the farthest corner), a chip's or a field's rim draws round
+  // from it (--a, its angle from the centre, clockwise from the top). A key press (a click with no detail) starts them
+  // from the centre and the top. html.kbd while the keyboard moves the focus (Tab): only then is a field ringed.
+  const TOUCHED = '.choice-item, .cal-day, .fld-box';
+  document.addEventListener('pointerdown', (e) => {
+    document.documentElement.classList.remove('kbd');
+    const t = e.target.closest && e.target.closest(TOUCHED);
+    if (!t) return;
+    const r = t.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, s = t.style;
+    s.setProperty('--px', (x / r.width * 100).toFixed(1) + '%');
+    s.setProperty('--py', (y / r.height * 100).toFixed(1) + '%');
+    s.setProperty('--cr', Math.ceil(Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y)) + 1) + 'px');
+    s.setProperty('--a', Math.round(Math.atan2(x - r.width / 2, r.height / 2 - y) * 180 / Math.PI) + 'deg');
+  }, { passive: true, capture: true });
+  document.addEventListener('click', (e) => {
+    const t = !e.detail && e.target.closest && e.target.closest(TOUCHED);
+    if (t) ['--px', '--py', '--cr', '--a'].forEach((p) => t.style.removeProperty(p));
+  }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Tab') document.documentElement.classList.add('kbd'); }, true);
   // The required star is drawn; the reader hears "required" (and the input carries aria-required).
   const star = () => [el('i', { 'aria-hidden': 'true' }, ' *'), el('span.sr-only', ' required')];
 
@@ -212,7 +278,7 @@
             }
           } else { selected.clear(); selected.add(it.code); }
           paint();
-          if (selected.has(it.code)) flash(btn, 'just', 600);   // the pop plays once, on the item just chosen
+          if (selected.has(it.code)) flash(btn, 'just', 600);   // its rim draws round once, from the touch, on the item just chosen
           wrap.classList.remove('has-error');
           const msg = wrap.querySelector('.choice-msg'); if (msg) { msg.classList.remove('has-error'); msg.textContent = msg.dataset.hint || ''; }
           opts.onchange && opts.onchange(multi ? Array.from(selected) : it.code, it);
@@ -309,5 +375,5 @@
     }
   }
 
-  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage };
+  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage };
 })();
