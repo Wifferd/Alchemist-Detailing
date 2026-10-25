@@ -654,8 +654,10 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .scrim.on { opacity: 1; pointer-events: auto; }
 /* dark tinted glass in the bar's language: a hairline all round, a lit top edge, the page blurred behind it.
    Flush to the screen's top and bottom on phones and short screens; floating on tall ones (below). It slides
-   in over .6s and leaves over .4s. Flush, the 20px top puts the head row on the bar's centre line (1 + 20 + 22 = 43). */
+   in over .6s and leaves over .4s. Flush, the 20px top puts the head row on the bar's centre line (1 + 20 + 22 = 43).
+   --menu-solid: the panel nearly solid, where it can't be glass (no blur in the browser, and over the live wash) */
 .menu {
+  --menu-solid: radial-gradient(120% 60% at 0% 0%, rgba(var(--gold-rgb), .08), transparent 60%), linear-gradient(180deg, rgba(14, 14, 14, .95), rgba(4, 4, 4, .96));
   position: fixed;
   z-index: 80;
   top: 0;
@@ -680,6 +682,24 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   visibility: hidden;
 }
 .menu.on { transform: none; visibility: visible; transition: transform .6s var(--ease), visibility 0s; }
+/* a page chosen in it (app.js .chose): the panel holds a breath (160ms) so the gold line under the finger is seen,
+   then leaves as usual; the page has already begun to change */
+.menu.chose:not(.on) { transition-delay: .16s, .56s; }
+/* its glass edge catches the light as it slides in: a fine highlight down the leading edge, brightest mid-travel,
+   settling to a quiet hairline as the panel lands (between the rounded corners) */
+.menu::after {
+  content: "";
+  position: absolute;
+  top: var(--r-lg);
+  bottom: var(--r-lg);
+  right: 0;
+  width: 1px;
+  background: linear-gradient(transparent, rgba(var(--gold-pale-rgb), .55) 30%, rgba(var(--gold-pale-rgb), .8) 50%, rgba(var(--gold-pale-rgb), .55) 70%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.menu.on::after { animation: menuEdge .6s var(--ease-in-out) both; }
+@keyframes menuEdge { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: .25; } }
 /* a computer or tablet with the height for the whole menu: the panel floats 12px off the edges, level with the
    bar, rounded all round (below 780px tall the 24px it costs would push the foot into a scroll). The 8px top
    puts the head row on the bar's centre line (12 + 1 + 8 + 22 = 43), so the close X lines up with the account button */
@@ -688,26 +708,49 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 }
 /* no glass in this browser: the panel goes nearly solid, so the page never shows sharp through the text */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(var(--gold-rgb), .08), transparent 60%), linear-gradient(180deg, rgba(14, 14, 14, .95), rgba(4, 4, 4, .96)); }
+  .menu { background: var(--menu-solid); }
 }
 /* opened over the live wash (the bar's .over-wash): the foam redraws every frame, so the panel drops its blur as the
    bar does and goes nearly solid; the foam still shows, dimmed, beside it */
-.topbar.over-wash ~ .menu { backdrop-filter: none; -webkit-backdrop-filter: none; background: radial-gradient(120% 60% at 0% 0%, rgba(var(--gold-rgb), .08), transparent 60%), linear-gradient(180deg, rgba(14, 14, 14, .95), rgba(4, 4, 4, .96)); }
+.topbar.over-wash ~ .menu { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--menu-solid); }
 .menu-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: clamp(18px, 4vh, 40px); }
 .menu-brand { display: flex; align-items: center; gap: 14px; min-height: 44px; text-decoration: none; }
 .menu-brand svg { width: 42px; height: 42px; }
 .menu-brand b { display: block; font: 500 17px/1.05 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: var(--tr-title); text-transform: uppercase; }
 .menu-brand small { display: block; font: 600 10px/1 var(--font-ui); letter-spacing: var(--tr-logo); text-transform: uppercase; color: var(--gold-ink); margin-top: 6px; }
 .menu nav { display: flex; flex-direction: column; }
-/* the items (and then the foot) arrive one after another, 28ms apart; the stagger delays only the entrance,
-   so a pointer or the keyboard lights an item at once (the 4px nudge is translate, apart from the entrance's transform) */
-.menu nav a, .menu-foot {
-  --i: 0;
-  opacity: 0;
-  transform: translateX(-14px);
-  transition: color .3s var(--ease), text-shadow .3s var(--ease), translate .3s var(--ease), opacity .45s var(--ease), transform .45s var(--ease);
+/* the items arrive 28ms apart from 140ms (owner §7), like plates set into a case: each word rises from behind its own
+   row (450ms; its clip moves against it, so the mask stays at the line's foot), the hairline under it draws just
+   behind it, and the foot rises 12px after the last. Only the entrance moves; a pointer or the keyboard lights an item
+   at once (its 4px step is translate). The current page's word takes its pass of gold light once risen (app.js). */
+.menu nav a, .menu-foot { --i: 0; }
+.menu nav a { transition: color .3s var(--ease), translate .3s var(--ease); }
+.menu.on nav a > span { animation: menuWord .45s var(--ease-unveil) calc(var(--i) * 28ms + 140ms) backwards; }
+.menu.on nav a.au-run > span { animation: menuWord .45s var(--ease-unveil) calc(var(--i) * 28ms + 140ms) backwards, auPass var(--au-dur) var(--au-ease) 1 both; }   /* (by name: the rise is not played again) */
+@keyframes menuWord {
+  from { transform: translateY(110%); clip-path: inset(-.4em -1em calc(110% - .12em) -1em); }
+  to { clip-path: inset(-.4em -1em -.12em -1em); }
 }
-.menu.on :is(nav a, .menu-foot) { opacity: 1; transform: none; transition-delay: 0s, 0s, 0s, calc(var(--i) * 28ms + 140ms), calc(var(--i) * 28ms + 140ms); }
+.menu.on .menu-foot { animation: menuFoot .45s var(--ease-unveil) calc(var(--i) * 28ms + 140ms) backwards; }
+@keyframes menuFoot { from { opacity: 0; transform: translateY(12px); } }
+.menu nav a > span { display: block; }
+.menu nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, .04);
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+.menu.on nav a::after { animation: menuRule .6s var(--ease-unveil) calc(var(--i) * 28ms + 200ms) backwards; }
+@keyframes menuRule { from { transform: scaleX(0); } }
+/* the page chosen (a tap, a click or Enter: app.js .chosen): its gold line shoots across the row under the word in
+   220ms, the choice confirmed under the finger, as the page begins to change */
+.menu nav a.chosen::after { background: var(--gold-grad); animation: menuChosen .22s var(--ease) both; }
+@keyframes menuChosen { from { transform: scaleX(0); } }
 .menu nav a {
   position: relative;
   display: flex;
@@ -719,7 +762,6 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   text-transform: uppercase;
   text-decoration: none;
   color: var(--ink-2);
-  border-bottom: 1px solid rgba(255, 255, 255, .04);
   touch-action: manipulation;
 }
 /* the gold line: scaled in from the left (never a width animation); the current page's is longer and lit */
@@ -736,15 +778,17 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   transform-origin: 0 50%;
   transition: transform .4s var(--ease), opacity .3s var(--ease), box-shadow .4s var(--ease);
 }
-/* pointed at or reached by Tab: gold, the line drawn and lit, a soft glow on the word, a 4px step */
+/* pointed at or reached by Tab: gold, the line drawn and lit, a 4px step (no glow on the letters: the colour and the
+   line carry it) */
 .menu nav a:is(:focus-visible, [aria-current="page"]) { color: var(--gold-hi); }
-.menu nav a:focus-visible { text-shadow: 0 0 22px rgba(var(--gold-rgb), .4); translate: 4px 0; }
+.menu nav a:focus-visible { translate: 4px 0; }
 .menu nav a:focus-visible::before { opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(var(--gold-rgb), .5); }
 @media (hover: hover) and (pointer: fine) {   /* a mouse only: a tapped item is not still lit when the menu opens again */
-  .menu nav a:hover { color: var(--gold-hi); text-shadow: 0 0 22px rgba(var(--gold-rgb), .4); translate: 4px 0; }
+  .menu nav a:hover { color: var(--gold-hi); translate: 4px 0; }
   .menu nav a:hover::before { opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(var(--gold-rgb), .5); }
 }
 .menu nav a[aria-current="page"]::before { width: 34px; opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(var(--gold-rgb), .6); }
+.menu.on nav a[aria-current="page"]::before { animation: menuRule .6s var(--ease-unveil) calc(var(--i) * 28ms + 200ms) backwards; }   /* drawn in with its row, just behind its word, like the hairlines */
 /* the keyboard ring in the panel's soft shapes, drawn close so it stays inside the short-screen scroller (below) with the 4px step */
 .menu nav a:focus-visible { outline-offset: 2px; border-radius: var(--r-sm); }
 .menu nav a.sep { margin-top: 18px; }   /* the owner's blank line before Account: a gap, not a second hairline */
@@ -1431,6 +1475,34 @@ section { position: relative; }
 @keyframes veil { 0% { transform: translateX(calc(-1 * var(--vx))); opacity: 1; } 100% { transform: translateX(var(--vx)); opacity: 1; } }
 
 /* ---------------------------------------------------------------- views (one page at a time) */
+/* A page change is a cut through black, the door closing (app.js; a view transition, html.vt-route, between pages other
+   than home; to or from home and from the open menu, the shade below): the page you leave dims and draws back (.985)
+   in 200ms, a beat of black (--cut-beat), then the new page rises 14px (from above on Back: vt-back) over 620ms,
+   fading in over 520ms. In the white studio the cut is through cream. The bar holds on its own layer (.vt-hold; its
+   name rolls live). Without view transitions: the fade below. */
+:root { --cut-out: 200ms; --cut-beat: 80ms; --cut-dy: 14px; }
+html.vt-route::view-transition { background: var(--bg); }
+html.vt-route::view-transition-old(root) { animation: cutOut var(--cut-out) var(--ease-in-out) both; }
+html.vt-route::view-transition-new(root) { animation: cutFade 520ms var(--ease) calc(var(--cut-out) + var(--cut-beat)) both, cutRise 620ms var(--ease-unveil) calc(var(--cut-out) + var(--cut-beat)) both; }
+@keyframes cutOut { to { opacity: 0; transform: scale(.985); } }
+@keyframes cutFade { from { opacity: 0; } }
+html.vt-back::view-transition-new(root) { --cut-dy: -14px; }   /* (on the picture itself: on html it would restyle the whole page) */
+@keyframes cutRise { from { transform: translateY(var(--cut-dy)); } }
+.bar.vt-hold { view-transition-name: bar; }
+html.vt-route::view-transition-old(bar) { display: none; }
+html.vt-route::view-transition-group(bar), html.vt-route::view-transition-new(bar) { animation: none; }
+/* The same cut made by the menu's shade (app.js .scrim.cut) where the browser's picture would be slow: from the open
+   menu, to or from home, on a slow device. Under the bar it deepens to the ground in 200ms, holds the beat while the
+   page is swapped, then lifts (520ms) as the page rises (.view.cut-in); with no menu open, the deepening alone (.bare) */
+.scrim.cut { z-index: 55; }   /* under the bar (60), over the page and the Services bar (50) */
+.scrim.cut.on { touch-action: none; }   /* a finger in the black pans nothing (app.js swaps the page on its lift) */
+.scrim.cut::after { content: ""; position: absolute; inset: 0; background: var(--bg); animation: cutDark var(--cut-out) var(--ease-in-out) both; }
+@keyframes cutDark { from { opacity: 0; } }
+.scrim.cut:not(.on) { transition: opacity 520ms var(--ease); }
+.scrim.cut.bare { background: none; }
+.scrim.cut.bare.on { transition: none; }
+.view.cut-in { animation: cutRise 620ms var(--ease-unveil) both; }
+.view.cut-in.from-above { --cut-dy: -14px; }   /* (Back or Forward) */
 .view.enter { animation: viewIn .45s var(--ease) backwards; }   /* app.js drops .enter when it ends */
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .btn.launch, .btn.launch:hover { transform: scale(1.05); filter: brightness(1.15); box-shadow: 0 0 0 1px rgba(var(--gold-hi-rgb), .5), 0 0 60px -6px rgba(var(--gold-rgb), .8); }   /* Book Now swells a little as the light crosses (over its own hover lift) */
@@ -4273,7 +4345,8 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement, .script, .facts span) { opacity: 1; transform: none; }   /* the card is set */
   .standard[data-std] .statement em { color: var(--gold-hi); }
   [data-room]:not(.in)::before { opacity: 1; }   /* the rooms' light is on and still */
-  .menu nav a, .menu-foot { transition: none !important; }   /* the items are there the frame the menu opens */
+  .menu.on nav a > span, .menu.on nav a::after, .menu.on nav a[aria-current="page"]::before, .menu.on .menu-foot { animation: none; }   /* the items are there the frame the menu opens (a choice changes the page at once: no line, app.js) */
+  .menu.on::after { animation: none; opacity: .25; }   /* the glass edge at rest */
   .hero h1 .l1 { animation: none; --hx: 46%; }
   .hero h1 .l1.split .ch { opacity: 1; transform: none; filter: none; animation: none; }
   .svc-opt.just, .choice-item.just, .choice-item.just::after, .bk-progress li.current.fresh .num, .svc-opt.glow::after, .times .chips.enter .choice-item, .fld-box:focus-within::after, .fld-ok.draw .tick path { animation: none; }   /* chosen things are simply chosen, a focused field simply lit, a tick drawn */
@@ -4812,15 +4885,15 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .btn-glass::after { background: linear-gradient(118deg, transparent 40%, rgba(var(--studio-gold-rgb), .1) 50%, transparent 60%); }
 :where([data-theme="light"]) .mini-btn { background: rgba(var(--studio-gold-rgb), .1); border-color: var(--gold); }
 /* the menu: frosted ivory glass with a white lit edge, dense enough that the gold current page keeps 4.5:1 over a black photo; nearly solid where the browser has no blur */
-:where([data-theme="light"]) .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(var(--studio-gold-rgb), .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .86), rgba(238, 234, 226, .9)); border-color: rgba(17, 17, 17, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 30px 0 80px -30px rgba(27, 27, 27, .3); }
+:where([data-theme="light"]) .menu { --menu-solid: radial-gradient(120% 60% at 0% 0%, rgba(var(--studio-gold-rgb), .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(238, 234, 226, .97)); background: radial-gradient(120% 60% at 0% 0%, rgba(var(--studio-gold-rgb), .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .86), rgba(238, 234, 226, .9)); border-color: rgba(17, 17, 17, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 30px 0 80px -30px rgba(27, 27, 27, .3); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :where([data-theme="light"]) .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(var(--studio-gold-rgb), .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(238, 234, 226, .97)); }
+  :where([data-theme="light"]) .menu { background: var(--menu-solid); }
 }
-:where([data-theme="light"]) .topbar.over-wash ~ .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(var(--studio-gold-rgb), .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(238, 234, 226, .97)); }   /* over the live wash: no blur (above) */
-:where([data-theme="light"]) .menu nav a { border-bottom-color: rgba(17, 17, 17, .06); }
+:where([data-theme="light"]) .topbar.over-wash ~ .menu { background: var(--menu-solid); }   /* over the live wash: no blur (above) */
+:where([data-theme="light"]) .menu::after { background: linear-gradient(transparent, rgba(var(--studio-gold-rgb), .3) 30%, rgba(var(--studio-gold-rgb), .5) 50%, rgba(var(--studio-gold-rgb), .3) 70%, transparent); }   /* the edge's light in the studio's gold (a pale one vanishes on the ivory) */
+:where([data-theme="light"]) .menu nav a::after { background: rgba(17, 17, 17, .06); }
 :where([data-theme="light"]) .menu nav a::before { background: var(--gold); box-shadow: none; }
-[data-theme="light"] .menu nav a:focus-visible { text-shadow: 0 0 18px rgba(var(--studio-gold-rgb), .3); }
-@media (hover: hover) and (pointer: fine) { [data-theme="light"] .menu nav a:hover { text-shadow: 0 0 18px rgba(var(--studio-gold-rgb), .3); } }
+:where([data-theme="light"]) .menu nav a.chosen::after { background: var(--gold); }
 /* the small AD mark: a deeper gold on ivory, so no stroke or sparkle fades into the page; no glow under it */
 [data-theme="light"] #adGold stop:nth-child(1) { stop-color: #ca8e20; }
 [data-theme="light"] #adGold stop:nth-child(2) { stop-color: #a8740e; }
@@ -4967,9 +5040,33 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .svc-fig.au-run { background-image: linear-gradient(var(--au-angle), transparent 16%, var(--gold) 34%, rgb(var(--gold-rgb)) 46%, rgb(var(--gold-rgb)) 54%, var(--gold) 66%, transparent 84%), linear-gradient(currentColor, currentColor); }
 [data-theme="light"] .ld-lap { --ld-head: var(--gold); }   /* the loader's head of light in the studio's gold (a pale one vanishes on cream) */
 [data-theme="light"] .seal-blind { filter: drop-shadow(-1px -1px 0 rgba(var(--gold-s4), .95)) drop-shadow(1px 1px 0 var(--press-shade)); }   /* the blind seal on ivory: a white edge to the light, a soft shade away from it */
-/* ---- the toggle: one 420ms cross-fade of the whole page (a view transition where the browser has one, else
-   every colour transitions under html.theming for the same time); the sun becomes a moon in the menu's button */
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: .42s; animation-timing-function: var(--ease-in-out); }
+/* ---- the toggle: the studio lights (app.js theme, a view transition: html.vt-theme). To Light (vt-lights) a soft white
+   softbox band crosses the page at 118deg in .9s, the ivory showroom behind it, the old page ahead, the light's own
+   white (--panel) in the band. To Dark (vt-dim) the dark closes in from the edges over .6s on the last pool of light
+   at the centre, gone by .42s. --lights moves the masks' stops. Without view transitions every colour cross-fades
+   under html.theming (.42s); under reduced motion the switch is instant. The sun becomes a moon in the button. */
+@property --lights { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+html.vt-lights::view-transition { background: var(--panel); }
+html.vt-lights::view-transition-new(root) {
+  -webkit-mask-image: linear-gradient(118deg, #000 calc(var(--lights) - 20%), transparent calc(var(--lights) - 2%));
+  mask-image: linear-gradient(118deg, #000 calc(var(--lights) - 20%), transparent calc(var(--lights) - 2%));
+  animation: lightsOn .9s var(--ease-in-out) both;
+}
+html.vt-lights::view-transition-old(root) {
+  -webkit-mask-image: linear-gradient(118deg, transparent calc(var(--lights) - 14%), #000 calc(var(--lights) + 10%));
+  mask-image: linear-gradient(118deg, transparent calc(var(--lights) - 14%), #000 calc(var(--lights) + 10%));
+  animation: lightsOn .9s var(--ease-in-out) both;
+}
+@keyframes lightsOn { from { --lights: -10%; } to { --lights: 120%; } }
+html.vt-dim::view-transition { background: var(--bg); }
+html.vt-dim::view-transition-old(root) { animation: lightsDim .6s var(--ease-in-out) both; }
+html.vt-dim::view-transition-new(root) {
+  -webkit-mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) - 60%), #000 var(--lights));
+  mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) - 60%), #000 var(--lights));
+  animation: lightsOff .6s var(--ease-in-out) both;
+}
+@keyframes lightsOff { from { --lights: 160%; } to { --lights: 0%; } }
+@keyframes lightsDim { 0% { opacity: 1; } 70%, 100% { opacity: 0; } }
 @media (prefers-reduced-motion: no-preference) {
   html.theming, html.theming *, html.theming *::before, html.theming *::after { transition: background-color .42s var(--ease), background .42s var(--ease), color .42s var(--ease), border-color .42s var(--ease), box-shadow .42s var(--ease), opacity .42s var(--ease) !important; transition-delay: 0s !important; }
 }
@@ -5006,7 +5103,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   .sl-rake, .rk-c, .rv-lamp, .rv-seal.issue .sl-blind { display: none; }   /* the seals as they are, in the system's colours */
   .rv.is-featured .st-au, .rv-seal.issue .sl-foil { clip-path: none !important; animation: none !important; }
   .emblem.trace .em-mark img { clip-path: none !important; animation: none !important; }
-  .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .btn-gold::before, .work-item::before, .gal-btn::after, .insp, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before { display: none; }
+  .shine::after, .glint::after, [class*="rim"], .au-line::after, .standard .statement em::after, .au-band, .appt-au, .trk::after, .btn-gold::before, .work-item::before, .gal-btn::after, .insp, .bar-light, .hero-mono::before, .hero-mono::after, .hero h1::before, .menu::after { display: none; }
   :is(.why, .work, .how, .svc-group, .cta-band)::before { display: none; }   /* no gold glow in the rooms */
   .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */

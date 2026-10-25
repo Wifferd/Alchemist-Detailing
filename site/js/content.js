@@ -143,7 +143,8 @@
       // a lazy picture inside a closed clip would never start loading: ask for it now, and never wait more than 1.2s
       const img = fig.querySelector('img');
       if (img) img.loading = 'eager';
-      Promise.race([img && img.decode ? img.decode().catch(() => {}) : null, new Promise((r) => setTimeout(r, 1200))]).then(show);
+      // it follows the page's heading (app.js: once the page shows out of the cut through black, as the head's lead does)
+      Promise.race([img && img.decode ? img.decode().catch(() => {}) : null, new Promise((r) => setTimeout(r, 1200))]).then(() => (window.AlchemistCut ? window.AlchemistCut.afterHead(fig, show) : show()));
     }, { threshold: 0.3 });
     seen.observe(fig);
     return fig;
@@ -284,11 +285,12 @@
     const L = window.AlchemistLight, A = window.AlchemistInspect, mark = e.querySelector('.em-mark');
     try { sessionStorage.setItem(TRACE_KEY, '1'); } catch (err) { /* storage unavailable: it may play again, which is harmless */ }
     // the pen comes in the page's first frame, out of the page change's own work, faint (.warm) until its clock starts
+    // (out of a cut through black, its warm-up runs in the black and its clock starts once the page shows, app.js)
     requestAnimationFrame(() => {
       if (!mark.isConnected) return;
       mark.classList.add('warm');
       mark.appendChild(penOf());
-      U.warmed(TRACE.warm).then(draw);
+      U.warmed(TRACE.warm).then(() => (window.AlchemistCut ? window.AlchemistCut.after(draw) : draw()));
     });
     let released = false, turn = null, asked = false, held = 0;
     const ready = new Promise((res) => { turn = res; });

@@ -200,15 +200,19 @@
     const seen = new IntersectionObserver((es) => {
       if (!es.some((e) => e.isIntersecting)) return;
       seen.disconnect();
-      const t0 = performance.now();
-      const frameStep = (now) => {
+      const nudge = () => {
         if (over) return;
-        const t = now - t0;
-        const v = t < OUT ? from + (to - from) * glide(t / OUT) : t < OUT + HOLD ? to : to + (from - to) * glide(Math.min(1, (t - OUT - HOLD) / BACK));
-        paint(v.toFixed(2));
-        if (t < OUT + HOLD + BACK) raf = requestAnimationFrame(frameStep); else stop();
+        const t0 = performance.now();
+        const frameStep = (now) => {
+          if (over) return;
+          const t = Math.max(0, now - t0);
+          const v = t < OUT ? from + (to - from) * glide(t / OUT) : t < OUT + HOLD ? to : to + (from - to) * glide(Math.min(1, (t - OUT - HOLD) / BACK));
+          paint(v.toFixed(2));
+          if (t < OUT + HOLD + BACK) raf = requestAnimationFrame(frameStep); else stop();
+        };
+        raf = requestAnimationFrame(frameStep);
       };
-      raf = requestAnimationFrame(frameStep);
+      if (window.AlchemistCut) window.AlchemistCut.after(nudge); else nudge();   // (the page just out of the cut, app.js: once it shows)
     }, { threshold: 0.4 });
     seen.observe(frame);
     ['pointerdown', 'keydown', 'input'].forEach((t) => frame.addEventListener(t, stop, { once: true, passive: true }));
@@ -315,7 +319,14 @@
       t.addEventListener('transitionend', (e) => { if (e.target === t && e.propertyName === 'transform') fin(); });
       setTimeout(fin, 1400);
     };
-    io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); inspRise(e.target); settle(e.target); io.unobserve(e.target); } }), { threshold: 0.15 });
+    // (the page just opened out of the cut through black, app.js: they rise once it shows)
+    const shown = (fn) => (window.AlchemistCut ? window.AlchemistCut.after(fn) : fn());
+    io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (!e.isIntersecting) return;
+      const t = e.target;
+      io.unobserve(t);
+      shown(() => { t.classList.add('in'); inspRise(t); settle(t); });
+    }), { threshold: 0.15 });
     tiles.forEach((t) => io.observe(t));
     if (fine) tiles.forEach((t) => {
       t.addEventListener('pointermove', (e) => {

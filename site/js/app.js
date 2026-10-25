@@ -409,7 +409,11 @@
   }
   function openMenu() {
     if (menuOpen) return;
+    finishDark();   // (a page chosen in it a moment ago, still in its cut: done at once)
     menuOpen = true;
+    menu.classList.remove('chose');   // the last choice's gold line goes with it
+    scrim.classList.remove('cut', 'bare');
+    $$('nav a.chosen', menu).forEach((a) => a.classList.remove('chosen'));
     press(menuBtn);
     setTimeout(() => {
       menu.classList.add('on');
@@ -424,7 +428,7 @@
     fitNav();
     if (hero && hero.pause) hero.pause();
     setTimeout(() => { const a = (menuNav.scrollTop > 0 && $('a[aria-current="page"]', menuNav)) || $('a', menuNav); if (a) a.focus({ preventScroll: true }); }, reduce ? 0 : 380);   // the first item, or the current one when the list opened scrolled to it
-    // the page you are on takes the gold light once its item has slid in (110ms press, 140ms + 28ms a step, .45s): the
+    // the page you are on takes the gold light once its word has risen (110ms press, 140ms + 28ms a step, .45s): the
     // customer's own input, so no shine holds it back
     const here = $('nav a[aria-current="page"]', menu);
     if (here) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen, now: true });
@@ -695,8 +699,26 @@
   // twice, and no frame carries the room's light, the new lines and the head's setting together.
   const due = new Set();
   let dueFrame = 0;
+  // A page coming out of the cut through black (the router): its reveals and its own moments (afterCut) wait until it
+  // shows (cutHeld), so its heading sets from its line as the page rises; cutGo lets them go (CUT_IN into a view
+  // transition: its 200ms and the beat, less the frames a head takes to set; the shade's cut: as it lifts).
+  const CUT_IN = 240;
+  let cutHeld = null;   // { els: what to reveal (and whether late), fns: moments to start, scope: the page }
+  let cutShown = -1e9;   // when the last cut's page showed (the shaders' compile waits for its rise: startHeavy)
+  function cutGo(c) {
+    if (!c || cutHeld !== c) return;
+    cutHeld = null;
+    cutShown = performance.now();
+    if (c.scope) revealAbove(c.scope);
+    c.els.forEach((late, el) => reveal(el, late));
+    c.fns.forEach((fn) => fn());
+  }
+  const afterCut = (fn) => { if (cutHeld) cutHeld.fns.push(fn); else fn(); };
+  // (the Gallery's covers and seam, gallery.js; About's photo, content.js, after its heading has led: afterLead)
+  window.AlchemistCut = { after: afterCut, afterHead: (el, fn) => afterCut(() => afterLead(el, fn)) };
   function reveal(el, late) {
     if (el.classList.contains('in') || held.has(el) || ownMoment(el)) return;
+    if (cutHeld) { cutHeld.els.set(el, late || cutHeld.els.get(el) || false); return; }
     // after the wash, everything waits for its end together (the heads, the rooms and the blocks under them), so a
     // card never rises ahead of its heading while the drops are still drying
     if (!late && afterWash(el)) {
@@ -894,11 +916,26 @@
     setTimeout(() => markSeen(c, key), 0);
     // the blocks under it that waited for it follow it, from the next frame (their wait for its lead is counted from
     // its start, so they keep their time)
+    const fw = leadWaits.get(c);
+    if (fw) { leadWaits.delete(c); fw.forEach((fn) => setTimeout(fn, now ? 0 : followHead(c))); }
     const w = waits.get(c);
     if (!w) return;
     waits.delete(c);
     const go = () => { const list = [...w]; w.clear(); list.forEach((el) => rise(el)); };
     if (now) go(); else requestAnimationFrame(go);
+  }
+  // A page's own moment that follows its heading (About's photo): it starts as the head's lead does, as the blocks
+  // under the head rise; at once where that head has set already or there is none (2s at most, whatever happens)
+  const leadWaits = new Map();
+  function afterLead(el, fn) {
+    const c = headAbove(el);
+    if (!c) { fn(); return; }
+    if (c.classList.contains('in')) { setTimeout(fn, followHead(c)); return; }
+    let done = false;
+    const go = () => { if (!done) { done = true; fn(); } };
+    if (!leadWaits.has(c)) leadWaits.set(c, []);
+    leadWaits.get(c).push(go);
+    setTimeout(go, 2000);
   }
   // a head's heading whole again, its lines landed (or faded in): what waits for that runs then (a brand page title's
   // gold pass, which crosses inside the letters, so never while they are split)
@@ -1260,9 +1297,48 @@
       });
     }, { passive: true });
   }
+  // The browser's view transitions: a page change (the router) and the light switch (below), one at a time, each
+  // keyed to its own classes on html (vt-route, vt-theme). Each is timed to its first frame (the screen holds still
+  // while the browser takes its pictures): a device that took over 300ms, ran out of time (4s), or twice took over
+  // 150ms (or a swap over 50ms) takes no more for the visit (still: ad.cut). Then the light switch is instant and pages
+  // change through the shade's cut, which takes no picture.
+  let vtNow = null, still = false, slow = 0;
+  try { still = sessionStorage.getItem('ad.cut') === 'still'; } catch (e) { /* storage unavailable */ }
+  function gauge(ms, upd) {
+    if (still || (ms <= 150 && upd <= 50)) return;
+    if (ms <= 300 && ++slow < 2) return;
+    still = true;
+    try { sessionStorage.setItem('ad.cut', 'still'); } catch (e) { /* storage unavailable */ }
+  }
+  const VT = ['vt-route', 'vt-back', 'vt-theme', 'vt-lights', 'vt-dim'];
+  function transition(cls, update, hold) {
+    if (vtNow) vtNow.skipTransition();
+    root.classList.remove(...VT);
+    root.classList.add(...cls);
+    glassBar.classList.toggle('vt-hold', !!hold);   // the bar on a layer of its own (a page change): its class, so nothing else restyles
+    const t0 = performance.now();
+    let upd = 0, ran = false;
+    const t = document.startViewTransition(() => { ran = true; const s = performance.now(); update(); upd = performance.now() - s; });
+    t.route = !!hold;   // (a page change: its update is the swap)
+    t.ran = () => ran;
+    vtNow = t;
+    const end = () => { if (vtNow !== t) return; vtNow = null; root.classList.remove(...VT); glassBar.classList.remove('vt-hold'); };
+    t.finished.then(end, end);
+    // skipped before its first frame, its update runs all the same; a timeout counts as the longest wait, a skip after
+    // 300ms as that wait (in a hidden tab nothing counts)
+    t.ready.then(() => gauge(performance.now() - t0, upd), (e) => {
+      const ms = performance.now() - t0;
+      if (document.hidden) return;
+      if (e && e.name === 'TimeoutError') gauge(Infinity, upd); else if (ms > 300) gauge(ms, upd);
+    });
+    return t;
+  }
   // Light mode (the white studio, doc 29): a toggle in the menu, remembered on this device (the head script
-  // applies the saved theme before the first paint). The switch is one 420ms cross-fade of the page: a view
-  // transition where the browser has one, otherwise every colour transitions under html.theming (CSS).
+  // applies the saved theme before the first paint). Where the browser has view transitions the studio lights come
+  // on: a soft white softbox band crosses the page at the site's 118deg and leaves the ivory showroom behind it
+  // (.9s); back to Dark, the light dims from the edges in (.6s; CSS vt-lights, vt-dim). Otherwise every colour
+  // cross-fades under html.theming (CSS). Under reduced motion, and on a device slow to take the browser's pictures
+  // (still, above), the switch is instant: its still frame.
   (function theme() {
     let saved = null;
     try { saved = localStorage.getItem('ad.theme'); } catch (e) { /* storage unavailable */ }
@@ -1276,17 +1352,18 @@
     };
     paint();
     if (!btn) return;
+    let lit = isLight();   // the theme asked for (a second press may come before the first one's switch has run)
+    // (a switch's update applies the theme last asked for, so one still to run never undoes a later press)
+    const apply = () => {
+      if (lit) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+      paint();
+    };
     btn.addEventListener('click', () => {
-      const light = !isLight();
-      const apply = () => {
-        if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
-        paint();
-      };
+      const light = (lit = !lit);
       try { localStorage.setItem('ad.theme', light ? 'light' : 'dark'); } catch (e) { /* storage unavailable */ }
-      if (document.startViewTransition && !reduce) {
-        const t = document.startViewTransition(apply);
-        if (t && t.ready) t.ready.catch(() => { /* a second press skips the first fade: the theme is applied all the same */ });
-      } else { root.classList.add('theming'); apply(); setTimeout(() => root.classList.remove('theming'), 500); }
+      if (!document.startViewTransition || reduce) { root.classList.add('theming'); apply(); setTimeout(() => root.classList.remove('theming'), 500); }   // (under reduced motion html.theming has no transitions: at once)
+      else if (still) { if (vtNow) vtNow.skipTransition(); apply(); }   // the still frame, at once (the cross-fade's transitions on every element would cost a slow device more)
+      else transition(['vt-theme', light ? 'vt-lights' : 'vt-dim'], apply);   // a second press ends the first at once
     });
   })();
 
@@ -1531,7 +1608,7 @@
   // it. Under reduced motion and in forced colours none plays: the plates show their still pictures and titles.
   const calm = reduce || window.matchMedia('(forced-colors: active)').matches;
   const onceSeen = (el, o, fn) => {
-    const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); fn(); } }, o);
+    const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); afterCut(fn); } }, o);   // (a page out of the cut: once it shows)
     io.observe(el);
   };
   // A room's turn in the light's queue. When the queue reaches it, it plays only if its plate is still a quarter on
@@ -2235,7 +2312,15 @@
     const [r, sub] = h.split('-');
     return NAMES[r] ? { r, sub: sub || null } : { r: 'home', sub: null };
   }
-  function render(first) {
+  // A page opens in two parts. The swap (render itself) is what has to change at once: the wash folded while home is
+  // still laid out (doc 35), the page shown, its name, the menu's mark, its scroll. Landing (land) builds and arms it:
+  // the app pages' content, the reveals, the focus, the pictures. Normally both run together, as always; in a cut
+  // (cut: what the new page holds, cutHeld) the landing is a task of its own just after, while the page is still
+  // unseen in the black, so neither part is one long task on a slow phone. A page change that comes before a cut's
+  // landing has run lets it land first.
+  let landing = null;   // a cut's landing still to come
+  function render(first, cut) {
+    if (landing) landing();
     const { r, sub } = parse();
     // Leaving home with the wash finished: its pinned length goes now, while home is still laid out (every rect is
     // zero once it is hidden), with no scroll; home's position is stored in the shorter layout.
@@ -2247,27 +2332,18 @@
       closeMenu(false);
       if (cur === 'home') unplan();   // the studio light's entrance, if it is still to come or playing, ends with the page
       if (cur === 'gallery' && window.AlchemistGallery && window.AlchemistGallery.unmount) window.AlchemistGallery.unmount();   // its scroll drift stops with the page
+      risen();   // (a page still rising out of the last cut)
       $$('.view').forEach((v) => {
         const on = v.dataset.view === view;
         v.hidden = !on;
         v.classList.remove('enter');
-        if (on && !first && !reduce) {
+        if (on && !first && !reduce && !cut) {   // (in a cut the page rises as a whole: the cut's CSS)
           void v.offsetWidth;
           v.classList.add('enter');
           v.addEventListener('animationend', function done(e) { if (e.target !== v) return; v.classList.remove('enter'); v.removeEventListener('animationend', done); });
         }
       });
-      // #book-ed and the like: a service chosen on Services (the Table's symbols), taken into the booking
-      if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'), { pick: sub });
-      if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
-      if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
-      if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
-      if (view === 'team' && window.AlchemistTeam) window.AlchemistTeam.mount($('#teamApp'));
-      if (view === 'reviews' && window.AlchemistReviews) window.AlchemistReviews.mount($('#reviewsApp'));
-      if (view === 'content' && window.AlchemistContent) window.AlchemistContent.mount($('#contentApp'), r);
-      if (view === 'gallery' && window.AlchemistGallery) window.AlchemistGallery.mount($('#galleryApp'));
-      if (view === 'services') mountServices();
-      if (view === 'home') startHero(first);
+      if (view === 'home' && heroRests && !menuOpen) { heroRests = false; hero.resume(); }   // (held still by the cut that left home: its light again)
       setName(NAMES[r]);
       if (footer) footer.classList.toggle('lean', r === 'contact');   // Contact carries the place, hours and phone itself: the footer keeps the brand and the pages
       if (footer) footer.classList.toggle('staff', r === 'admin' || r === 'team');   // the staff consoles are tools: one quiet line, no marketing footer (owner §26, §36)
@@ -2278,27 +2354,206 @@
       document.title = r === 'home' ? HOME_TITLE : NAMES[r] + ' · Alchemist Detailing';
     }
     cur = r;
-    if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
-    if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub);   // already booking: offered, never forced
-    if (r === 'services' && sub) {
-      const el = document.getElementById('svc-' + sub);
-      if (el) requestAnimationFrame(() => { chapterHold(); el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }); });
-    } else if (changed && !first) {
-      window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0);
-    }
-    if (changed) {
-      const scope = $$('.view').find((v) => !v.hidden) || document;
-      armReveals(scope);
-      revealAbove(scope);
-      if (!first) placeFocus(scope);
-      requestAnimationFrame(() => {
-        if (view === 'home') { fitServices(); if (wash) wash.refresh(); }
-        paintArt();
-      });
-      footRoute();   // (after the page's own scroll, in the next frame)
-    }
+    // the new page's place (a group's, #services-exterior, once its page is built): in a cut it goes with the swap, so
+    // nothing that follows the scroll (the wash above all) sees the page between the two; never under a finger (the
+    // shade's swap has waited for the lift already; a view transition's update may come with one down)
+    const place = () => { if (changed && !first && !(r === 'services' && sub)) window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0); };
+    if (cut) whenLifted(place);
+    let landed = false;
+    const land = () => {
+      if (landed) return;
+      landed = true;
+      if (landing === land) landing = null;
+      try { landOn(); } finally {
+        // in a cut, the built page is laid out in a task of its own too, before the next frame, so no frame of the cut
+        // carries its layout together with the frame's own work; and the cut goes on whatever a mount did
+        if (cut) setTimeout(() => { void main.offsetHeight; if (cut.landed) cut.landed(); });
+      }
+    };
+    const landOn = () => {
+      if (changed) {
+        // #book-ed and the like: a service chosen on Services (the Table's symbols), taken into the booking
+        if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'), { pick: sub });
+        if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
+        if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
+        if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
+        if (view === 'team' && window.AlchemistTeam) window.AlchemistTeam.mount($('#teamApp'));
+        if (view === 'reviews' && window.AlchemistReviews) window.AlchemistReviews.mount($('#reviewsApp'));
+        if (view === 'content' && window.AlchemistContent) window.AlchemistContent.mount($('#contentApp'), r);
+        if (view === 'gallery' && window.AlchemistGallery) window.AlchemistGallery.mount($('#galleryApp'));
+        if (view === 'services') mountServices();
+        if (view === 'home') startHero(first);
+      }
+      if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
+      if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub);   // already booking: offered, never forced
+      if (!cut) place();
+      if (r === 'services' && sub) {
+        const el = document.getElementById('svc-' + sub);
+        const go = () => { chapterHold(); el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }); };
+        if (el) requestAnimationFrame(() => (cut ? whenLifted(go) : go()));
+      }
+      if (changed) {
+        const scope = $$('.view').find((v) => !v.hidden) || document;
+        armReveals(scope);
+        if (cut && cutHeld === cut) cut.scope = scope; else revealAbove(scope);   // (in a cut: as the page shows, cutGo)
+        if (!first) placeFocus(scope);
+        requestAnimationFrame(() => {
+          if (view === 'home') { fitServices(); if (wash) wash.refresh(); }
+          paintArt();
+        });
+        footRoute();   // (after the page's own scroll, in the next frame)
+      }
+    };
+    if (cut) { landing = land; setTimeout(land); } else land();
   }
-  window.addEventListener('hashchange', () => render(false));
+  // A page change is a cut through black (the door closing): the page you leave dims and draws back a little into
+  // black in 200ms, a beat of black, and the new one rises 14px into place (from above on Back or Forward), its
+  // heading setting from its line (CUT_IN). The bar holds through it, its name rolling to the new page (CSS vt-route,
+  // vt-back, .bar.vt-hold). Not into booking (its gold veil), the staff consoles or under reduced motion; without view
+  // transitions the page fades in as before (.view.enter). The update is the swap, run at once (one that waited for a
+  // frame would be dropped); the landing follows as a task of its own.
+  let linked = false;   // the click handler below: a link was followed (no mark: Back, Forward or a typed address)
+  const quiet = (p) => p === 'admin' || p === 'team';
+  // (nor onto home before its hero is built: that build stalls the screen, so the page fades in as before)
+  const cuts = (from, to) => !reduce && !!document.startViewTransition && !!from && to !== from && to !== 'book' && !quiet(to) && !quiet(from) && !(to === 'home' && !heroStarted);
+  // The browser's pictures are taken only where they are quick: not of home (its live WebGL), not under the open menu
+  // (its glass), not on a device slow to take them (still). There the shade makes the same cut with no picture (below).
+  const pictured = (to) => !still && cur !== 'home' && to !== 'home' && !menuOpen;
+  const holdCut = () => { cutGo(cutHeld); return (cutHeld = { els: new Map(), fns: [] }); };   // the page left lets its last cut's holds go
+  // A finger on the glass. iOS undoes a script's scroll made under a finger at its next move (doc 35), so no cut swaps
+  // the page (or scrolls it) while one is down. A touch counts from its pointerdown to its lift (touchend with no
+  // touches left; a pointercancel only means the browser took it for a pan). After a touch, or with the page moving (a
+  // finger that catches a fling is never sent to the page), the swap also waits for the wash's own proof that the glass
+  // is free (foam.js rest.proven: a lift on a still page, or a scrollend), or 600ms after the lift on a still page.
+  // The shade itself can't be panned (CSS .scrim.cut.on), so a drag in the black leaves nothing moving behind it.
+  const restGate = window.AlchemistWash && window.AlchemistWash.rest;
+  const fingers = new Set();
+  let touchesOn = 0, touchAt = -1e9;
+  const onGlass = () => touchesOn > 0 || fingers.size > 0;
+  const fopt = { capture: true, passive: true };
+  window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') { fingers.add(e.pointerId); touchAt = performance.now(); } }, fopt);
+  window.addEventListener('pointerup', (e) => fingers.delete(e.pointerId), fopt);
+  window.addEventListener('touchstart', (e) => { touchesOn = e.touches.length; touchAt = performance.now(); }, fopt);
+  const lifted = (e) => { touchesOn = e.touches.length; if (!touchesOn) fingers.clear(); };
+  window.addEventListener('touchend', lifted, fopt);
+  window.addEventListener('touchcancel', lifted, fopt);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { touchesOn = 0; fingers.clear(); } });   // (a lift never heard)
+  function glassFree(s) {
+    if (onGlass()) { s.off = 0; return false; }
+    const R = restGate, t = performance.now();
+    if (!R) return true;
+    const moving = t - R.state.tScroll < 150 || Math.abs(window.scrollY - R.state.y) > 0.5;
+    if (!moving && !(s.touched || t - touchAt < 1000)) return true;
+    if (R.proven()) return true;
+    s.off = s.off || t;
+    return !moving && t - s.off >= 600;
+  }
+  const whenLifted = (fn) => { if (!onGlass()) fn(); else setTimeout(() => whenLifted(fn), 50); };   // (after the swap: the scrolls that follow it)
+  // The shade's cut (a page chosen in the open menu, home left or reached, and every change on a device slow to take
+  // pictures): the menu's shade, under the bar, deepens to the ground in 200ms (.scrim.cut; .bare with no menu open)
+  // as a chosen page's gold line crosses its row and the panel slides shut; the page is swapped and built in the black
+  // (the beat), then the shade lifts (520ms) as the page rises (.view.cut-in). Leaving home, the hero's light holds still.
+  const CUT_OUT = 200, CUT_DARK = 280;   // --cut-out, and --cut-out + --cut-beat
+  let dark = null;   // the shade's cut under way: { at: when it began, m: what the new page holds, ... }
+  let heroRests = false;   // the hero held still by a cut that left home, until home shows again (render)
+  let rising = null;   // [the page rising out of the shade, its animationend listener]
+  function risen() {
+    if (!rising) return;
+    const [v, fn] = rising;
+    rising = null;
+    v.classList.remove('cut-in', 'from-above');
+    v.removeEventListener('animationend', fn);
+  }
+  function blackOut(back, bare) {   // (the click handler, as the page is chosen; the router, for Back and the like)
+    if (dark) return;
+    scrim.classList.toggle('bare', !!bare);
+    scrim.classList.add('on', 'cut');
+    const rests = cur === 'home' && !!hero && !!hero.pause;
+    if (rests) hero.pause();
+    const d = dark = { at: performance.now(), back: !!back, m: null, swapped: false, landed: false, fast: false, touched: onGlass(), t: 0, safe: 0, hero: rests };
+    // should no page change come (the address still names this page after 300ms, or still none has come by 1.5s)
+    const safe = (n) => { if (dark !== d || d.m) return; if (parse().r !== cur && n < 4) { setTimeout(() => safe(n + 1), 300); return; } dark = null; unshade(d); };
+    setTimeout(() => safe(0), 300);
+  }
+  // the swap, at the end of the 200ms or at a press; with a finger on the glass it waits for the lift, then the page is
+  // there at once (force: a click, its finger already up)
+  function swapDark(d, force) {
+    clearTimeout(d.t);
+    if (d.swapped || dark !== d) return;
+    if (force ? onGlass() : !glassFree(d)) { d.fast = true; d.t = setTimeout(() => swapDark(d), 50); return; }
+    d.swapped = true;
+    d.m.landed = () => { d.landed = true; d.t = setTimeout(() => lift(d), d.fast ? 0 : Math.max(0, d.at + CUT_DARK - performance.now())); };   // (once the beat is over)
+    d.safe = setTimeout(() => lift(d), 600);   // (should the landing never report)
+    render(false, d.m);
+    setName(NAMES[cur]);   // (Back in the black, to the page it began on: its own name again)
+  }
+  // the shade goes; the hero's light comes back if home is still the page (Back in the black), and otherwise holds
+  // still until home shows again (render)
+  function unshade(d) {
+    if (!menuOpen) scrim.classList.remove('on');
+    setTimeout(() => { if (!dark && !menuOpen) scrim.classList.remove('cut', 'bare'); }, 600);   // (once the shade has lifted)
+    if (d.hero && !menuOpen) { if (cur === 'home') hero.resume(); else heroRests = true; }
+  }
+  function lift(d) {
+    if (dark !== d) return;
+    dark = null;
+    clearTimeout(d.t);
+    clearTimeout(d.safe);
+    const v = $$('.view').find((x) => !x.hidden);
+    risen();
+    // (home met at or past the wash: the shade lifts on it in place, so the pinned stage never moves but with the scroll)
+    const inPlace = cur === 'home' && washSection.getBoundingClientRect().top < window.innerHeight;
+    if (v && !d.fast && !inPlace) {
+      v.classList.add('cut-in');
+      v.classList.toggle('from-above', d.back);
+      const fn = (e) => { if (e.target === v) risen(); };
+      v.addEventListener('animationend', fn);
+      rising = [v, fn];
+    }
+    unshade(d);
+    cutGo(d.m);
+  }
+  // a click in the cut (the menu opened again, the next page): the page is there at once
+  function finishDark() {
+    const d = dark;
+    if (!d) return;
+    d.fast = true;
+    if (!d.m) { dark = null; unshade(d); return; }   // (its page change has not come)
+    if (!d.swapped) swapDark(d, true);
+    else if (d.landed) lift(d);
+  }
+  window.addEventListener('hashchange', () => {
+    const to = parse().r, back = !linked;
+    linked = false;
+    if (dark && dark.m) {
+      if (!dark.swapped) return;   // the shade's cut, still in the black: its swap shows the newest page
+      finishDark(); render(false); return;   // (its page already swapped in: this one simply follows)
+    }
+    if (!cuts(cur, to)) { finishDark(); render(false); return; }
+    if (!dark && !pictured(to)) { const open = menuOpen; if (open) closeMenu(false); blackOut(back, !open); }   // Back or Forward with the menu open, to or from home, or with no pictures
+    const d = dark;
+    if (d) {
+      d.m = holdCut();
+      setName(NAMES[to]);   // the bar's name leads the cut
+      d.t = setTimeout(() => swapDark(d), Math.max(0, d.at + CUT_OUT - performance.now()));
+      return;
+    }
+    let m = null;
+    const t = transition(back ? ['vt-route', 'vt-back'] : ['vt-route'], () => { m = holdCut(); render(false, m); }, true);
+    const go = () => setTimeout(() => cutGo(m || cutHeld), CUT_IN);   // (skipped: the same, once its update has run)
+    t.ready.then(go, go);
+  });
+  // A press in a cut ends it: a mouse's or a pen's at once. A finger only marks it quick (its page comes on the lift,
+  // swapDark), and ends a page's view transition only once its update (the swap) has run; the light switch's at once.
+  document.addEventListener('pointerdown', (e) => {
+    const touch = e.pointerType === 'touch';
+    if (vtNow && (!touch || !vtNow.route || vtNow.ran())) vtNow.skipTransition();
+    if (!touch) { finishDark(); return; }
+    const d = dark;
+    if (!d) return;
+    d.fast = d.touched = true;
+    if (d.landed) lift(d);
+  }, true);
 
   const veil = $('#veil');
   veil.addEventListener('animationend', () => veil.classList.remove('run'));   // one pass, then the light rests hidden
@@ -2324,7 +2579,7 @@
         else y = $('#' + a.dataset.scroll).getBoundingClientRect().top + window.scrollY - 40;
         window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
       };
-      if (cur !== 'home') { location.hash = 'home'; setTimeout(go, 60); } else go();
+      if (cur !== 'home') { linked = true; location.hash = 'home'; setTimeout(go, 60); } else go();
       return;
     }
     const token = a.getAttribute('href').slice(1);
@@ -2332,6 +2587,9 @@
     if (!NAMES[r]) return;
     e.preventDefault();
     const wasOpen = menuOpen;
+    // a page chosen in the menu: its gold line shoots across the row under the finger (220ms), and the panel holds a
+    // breath (160ms, CSS .chose) so it is seen, while the page changes at once
+    if (wasOpen && !reduce && a.closest('nav') === menuNav) { a.classList.add('chosen'); menu.classList.add('chose'); }
     closeMenu(false);
     const navigate = () => {
       if (location.hash.slice(1) === token) {   // same page: back to its top
@@ -2339,7 +2597,11 @@
           if (cur === 'home') { if (wash) wash.foldNow(); else if (washPin) washPin.now(); }   // a click: the pinned length goes first
           window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
         } else render(false);
-      } else location.hash = token;
+      } else {
+        linked = true;
+        if (cuts(cur, r) && (wasOpen || !pictured(r))) blackOut(false, !wasOpen);   // from the open menu, or to or from home: the shade's cut
+        location.hash = token;
+      }
     };
     // Book Now: the button lifts, gold light crosses the screen, booking fades in under the light
     if (r === 'book' && cur !== 'book' && !reduce) {
@@ -2398,7 +2660,9 @@
     });
   }).observe(main, { childList: true, subtree: true });
   // The wash and the still pictures compile their own shaders, a stall that would swallow the hero
-  // intro: they start once the intro has played (3.2s), or sooner the moment the visitor moves.
+  // intro: they start once the intro has played (3.2s), or sooner the moment the visitor moves. Never in a page
+  // change's cut or under its new page's rise (the stall would hold the black, or the page mid-rise; a tap that leaves
+  // home is a touch too): then once the page has settled (1.2s after it shows; 4s at most).
   let heavy = false;
   function startHeavy() {
     if (heavy) return;
@@ -2410,18 +2674,28 @@
     paintArt();
   }
   const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1200 }) : (fn) => setTimeout(fn, 600);
-  ['wheel', 'touchstart', 'keydown', 'scroll'].forEach((t) => window.addEventListener(t, () => idle(startHeavy), { once: true, passive: true }));
+  // (in a cut, or under its page's rise, it waits: 300ms at a time, 4s at most; on home, where the wash waits for it,
+  // it starts as the page shows, so a visitor who goes straight for the wash meets it from its start; elsewhere
+  // once the page has settled, 1.2s after it shows)
+  const heavySoon = (by) => idle(() => {
+    if (heavy) return;
+    by = by || performance.now() + 4000;
+    const wait = dark || vtNow || cutHeld ? 300 : cur === 'home' ? 0 : cutShown + 1200 - performance.now();
+    if (wait > 0 && performance.now() < by) setTimeout(() => heavySoon(by), wait); else startHeavy();
+  });
+  ['wheel', 'keydown', 'scroll'].forEach((t) => window.addEventListener(t, () => heavySoon(), { once: true, passive: true }));
+  window.addEventListener('touchstart', () => setTimeout(heavySoon, 350), { once: true, passive: true });   // (a tap on a link has left by then; a swipe scrolls first)
   // (while the studio light is still gliding in, they wait for it to slow: plan(); while a page's moment is still to come
   // or playing, About's mark, the Reviews certificate's raking light, until it has played: its release, and a moment)
-  const heavySoon = () => {
+  const afterMoment = () => {
     const h = $$('[data-hold], [data-moment]').find((x) => !x.closest('[hidden]'));   // (on the page shown: one left behind on a page since left holds nothing)
-    if (!h) { idle(startHeavy); return; }
+    if (!h) { heavySoon(); return; }
     let t = 0;
-    const go = () => { clearTimeout(t); h.removeEventListener('release', go); setTimeout(() => idle(startHeavy), 1600); };
+    const go = () => { clearTimeout(t); h.removeEventListener('release', go); setTimeout(() => heavySoon(), 1600); };
     h.addEventListener('release', go, { once: true });
     t = setTimeout(go, 4000);
   };
-  setTimeout(() => setTimeout(heavySoon, Math.max(0, glideEnd - performance.now())), reduce ? 0 : 3200);
+  setTimeout(() => setTimeout(afterMoment, Math.max(0, glideEnd - performance.now())), reduce ? 0 : 3200);
   // The Services header's photo waits (loading="lazy") while its page is hidden, so the first page doesn't pay for it;
   // once that page has settled it is fetched in the background, and Services opens on it at once.
   const topPhoto = $('.top-photo');
