@@ -686,7 +686,7 @@
   const io = new IntersectionObserver((es) => {
     es.forEach((e) => { if (e.isIntersecting && (e.intersectionRatio >= 0.15 || e.intersectionRect.height >= 24)) { reveal(e.target); io.unobserve(e.target); } });
   }, { threshold: [0, 0.02, 0.05, 0.1, 0.15], rootMargin: '0px 0px -8% 0px' });
-  const held = new WeakSet();   // what comes after the wash on home, waiting for washend
+  const held = new WeakSet();   // what comes after the wash on home, waiting for washend (or for its page's opening: data-hold)
   // An arrival is only noted where it is found (the observer, a page opening, washend). In the next frame the rooms
   // and the blocks go in (their light comes up first; a block under a head still to set waits for it). The heads are
   // read in a frame of their own (the lines as laid out, whether the head before is still on the screen), and their
@@ -704,6 +704,16 @@
       const go = () => { if (held.delete(el)) reveal(el, true); };
       washSection.addEventListener('washend', go, { once: true });
       setTimeout(go, 2500);   // should it not come: never an empty head on the screen
+      return;
+    }
+    // a page that opens on a moment of its own first (About's mark, content.js trace): what is on it waits for the
+    // moment's release, then arrives in its usual order
+    const hold = !late && el.closest('[data-hold]');
+    if (hold) {
+      held.add(el);
+      const go = () => { if (held.delete(el) && el.isConnected) reveal(el, true); };
+      hold.addEventListener('release', go, { once: true });
+      setTimeout(go, 4500);   // should it not come: never an empty page
       return;
     }
     if (priceGate(el)) return;   // a price card: once its figure is confirmed (or 600ms)
@@ -2401,8 +2411,17 @@
   }
   const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1200 }) : (fn) => setTimeout(fn, 600);
   ['wheel', 'touchstart', 'keydown', 'scroll'].forEach((t) => window.addEventListener(t, () => idle(startHeavy), { once: true, passive: true }));
-  // (while the studio light is still gliding in, they wait for it to slow: plan())
-  setTimeout(() => setTimeout(() => idle(startHeavy), Math.max(0, glideEnd - performance.now())), reduce ? 0 : 3200);
+  // (while the studio light is still gliding in, they wait for it to slow: plan(); while a page's moment is still to come
+  // or playing, About's mark, the Reviews certificate's raking light, until it has played: its release, and a moment)
+  const heavySoon = () => {
+    const h = $$('[data-hold], [data-moment]').find((x) => !x.closest('[hidden]'));   // (on the page shown: one left behind on a page since left holds nothing)
+    if (!h) { idle(startHeavy); return; }
+    let t = 0;
+    const go = () => { clearTimeout(t); h.removeEventListener('release', go); setTimeout(() => idle(startHeavy), 1600); };
+    h.addEventListener('release', go, { once: true });
+    t = setTimeout(go, 4000);
+  };
+  setTimeout(() => setTimeout(heavySoon, Math.max(0, glideEnd - performance.now())), reduce ? 0 : 3200);
   // The Services header's photo waits (loading="lazy") while its page is hidden, so the first page doesn't pay for it;
   // once that page has settled it is fetched in the background, and Services opens on it at once.
   const topPhoto = $('.top-photo');

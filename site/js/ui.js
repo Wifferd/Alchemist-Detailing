@@ -375,5 +375,50 @@
     }
   }
 
-  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage };
+  // A one-time moment's first paint and its clock (About's pen, content.js; the Reviews raking light, reviews.js).
+  // warmed: resolves once three frames in a row have come on time (under 34ms) after the moment's layers were first
+  // painted, faintly (or after ms at most), so the browser's first drawing of them, the programs it compiles for the
+  // GPU, lands before the moment's clock starts and not on its first line.
+  function warmed(ms) {
+    return new Promise((res) => {
+      const t0 = performance.now();
+      let last = -1, ok = 0;
+      const f = (t) => {
+        if (last >= 0) ok = t - last < 34 ? ok + 1 : 0;
+        last = t;
+        if (ok >= 3 || performance.now() - t0 >= ms) res(); else requestAnimationFrame(f);
+      };
+      requestAnimationFrame(f);
+    });
+  }
+  // steady: from then on a late frame (over 50ms: a stall) never jumps the moment ahead. Its runs (o.anims(), CSS
+  // animations and transitions) are put back to one frame past where the last frame had them, up to o.cap ms in all,
+  // and the moment goes on from there; o.held(ms) hears of each hold (to keep the light's turn as long). o.tick(t)
+  // runs each frame with the moment's own time (from its first frame, less what was held back); false stops it.
+  function steady(o) {
+    let last = -1, t0 = 0, held = 0;
+    const at = new Map();
+    const f = (t) => {
+      if (last < 0) t0 = t;
+      let list = [];
+      try { list = o.anims() || []; } catch (e) { list = []; }
+      const late = t - last;
+      if (last >= 0 && late > 50 && late < 1000 && held < o.cap) {
+        const back = Math.min(late - 17, o.cap - held);
+        held += back;
+        list.forEach((a) => {
+          const was = at.get(a), now = a.currentTime;
+          if (was != null && now != null) a.currentTime = Math.min(now, Math.max(was + 17, now - back));   // (never behind the last frame)
+        });
+        if (o.held) o.held(back);
+      }
+      list.forEach((a) => at.set(a, a.currentTime));
+      last = t;
+      if (o.tick(t - t0 - held) !== false) requestAnimationFrame(f);
+    };
+    requestAnimationFrame(f);
+    return { held: () => held };
+  }
+
+  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady };
 })();

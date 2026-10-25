@@ -126,15 +126,17 @@
         go ? el('a.note-link', { href: go[0] }, go[1], arrow()) : null));
   }
 
-  // About's one moment: the photo is unveiled once, when its plate is first well on screen and the picture decoded
-  // (.unveiled; the CSS does the rest). It has its own observer, as the shared reveal settles at once whatever lands
-  // in a view another page has already opened, and Tips, the FAQ and Contact share this one. Under reduced motion it
-  // is simply there.
+  // About's photo is unveiled once, when its plate is first well on screen and the picture decoded (.unveiled; the CSS
+  // does the rest), and on the mark's opening only once the title has set after it (after: trace). It has its own
+  // observer, as the shared reveal settles at once whatever lands in a view another page has already opened, and Tips,
+  // the FAQ and Contact share this one. Under reduced motion it is simply there.
   let unveiling = null;   // the last About's observer, let go when the page is built again
-  function unveil(fig) {
+  function unveil(fig, after) {
     const show = () => fig.classList.add('unveiled');
     if (unveiling) unveiling.disconnect();
+    unveiling = null;
     if (reduce || !('IntersectionObserver' in window)) { show(); return fig; }
+    if (after) { after.then(() => { if (fig.isConnected) unveil(fig); }); return fig; }
     const seen = unveiling = new IntersectionObserver((es) => {
       if (!es.some((e) => e.isIntersecting)) return;
       seen.disconnect();
@@ -227,12 +229,125 @@
   }
 
   // The emblem from the home page's Standard section: the monogram in a ring that draws itself as it arrives
-  // (the ring is written as markup so the SVG lands in its own namespace).
-  function emblem() {
-    const e = el('div.emblem', { 'data-reveal': '' });
+  // (the ring is written as markup so the SVG lands in its own namespace). On About's first opening this visit it is
+  // drawn by hand first (mode 'trace', below); after that it is simply there, the ring closed ('set').
+  function emblem(mode) {
+    const e = el('div.emblem', mode === 'trace' ? { class: 'trace' } : mode === 'set' ? { class: 'in settled' } : { 'data-reveal': '' });
     e.innerHTML = '<svg class="circle" viewBox="0 0 132 132" aria-hidden="true"><circle cx="66" cy="66" r="64"/></svg>';
-    e.appendChild(el('img', { src: 'img/mono-metallic.webp', alt: '', width: 547, height: 601, decoding: 'async' }));
+    const img = el('img', { src: 'img/mono-metallic.webp', alt: '', width: 547, height: 601, decoding: 'async' });
+    e.appendChild(mode === 'trace' ? el('span.em-mark', img) : img);   // (the trace's pen joins the mark in its first frame)
     return e;
+  }
+  // the pen: the page's own monogram (#ad-mark), one fine line per part, laid over the metallic picture in the
+  // picture's own frame (the 570 x 610 crop the mark was measured in, trimmed by 9px: viewBox 9 9 547 601)
+  function penOf() {
+    const shape = document.querySelector('#ad-mark path');
+    const parts = shape ? shape.getAttribute('d').split(/(?=M)/).map((d) => d.trim()).filter(Boolean) : [];
+    const pen = U.svgEl('svg', { class: 'em-pen', viewBox: '9 9 547 601', 'aria-hidden': 'true', focusable: 'false' });
+    TRACE.parts.forEach(([i, at, dur, kind]) => {
+      if (!parts[i]) return;
+      const style = '--pen-at:' + at + 'ms;--pen-dur:' + dur + 'ms';
+      if (kind === 'spark') pen.appendChild(U.svgEl('path', { class: 'em-spark', d: parts[i], style }));
+      pen.appendChild(U.svgEl('path', { class: kind === 'spark' ? 'em-star' : 'em-line', d: parts[i], pathLength: 1, style }));
+    });
+    return pen;
+  }
+
+  // About's opening, once a visit (the owner's §21, About as a cinematic story; §6, the logo's glow). The page opens on
+  // black with the ring empty and a fine gold line draws the monogram at a pen's pace: the A and the D's bowl in one
+  // line, then the base bar and the two short stems; the two stars come last, as small sparks, and the kicker fades in
+  // with the second. Then the site's light crosses the mark once (its turn in the light's queue: the head's one gold
+  // light, so the title takes none of its own this time) and behind the light the owner's metallic logo is there, the
+  // pen's line fading into its edge, and the ring closes round it in the second half of the crossing. The title, the
+  // lead and the words below follow once the ring has all but closed (the page waits for that: data-hold, app.js), and
+  // the photo waits until the title has set. A visitor who scrolls or types meanwhile has the page at once (the mark
+  // finishes on its own). Not under reduced motion or in forced colours, and once a visit (the tab's own storage): the
+  // mark is simply there, the ring closed, as in print.
+  // The pen is painted first, faintly (.warm), and its clock starts once the frames come on time, so the browser's
+  // first drawing of the new layers lands on the black page and not on the first line; and a frame that comes late
+  // after that holds the pen (and then the light) where they were instead of jumping them ahead (U.warmed, U.steady).
+  // parts: [the mark's part (A and D, base bar, top star, inner star, top stem, foot stem), start, length (ms), kind]
+  const TRACE = {
+    parts: [[0, 0, 1000, 'line'], [1, 1040, 240, 'line'], [4, 1320, 110, 'line'], [5, 1390, 110, 'line'], [2, 1550, 360, 'spark'], [3, 1650, 360, 'spark']],
+    kick: 1760,     // the kicker fades in as the second spark flashes (on the pen's own clock, from its first line)
+    gild: 2010,     // the light's turn is asked for as the second spark settles
+    ring: 550,      // the ring closes in the second half of the light's crossing (CSS: 1s), all but closed when
+    release: 1050,  // the page follows, this long into the light's run (its core past the mark)
+    done: 1900,     // and all of it has settled this long after the light's start: the pen's layer goes
+    warm: 600,      // the pen's faint first paint has this long at most to come through before its clock starts
+    hold: 400,      // and its clock (the pen's, then the light's) is held back this much at most in all
+  };
+  const TRACE_KEY = 'ad.traced';
+  const traced = () => { try { return sessionStorage.getItem(TRACE_KEY) === '1'; } catch (e) { return false; } };   // storage unavailable: it plays
+  // plays the trace on emblem e at the head of page (held until then); returns a promise of the photo's turn
+  function trace(e, page, head) {
+    const L = window.AlchemistLight, A = window.AlchemistInspect, mark = e.querySelector('.em-mark');
+    try { sessionStorage.setItem(TRACE_KEY, '1'); } catch (err) { /* storage unavailable: it may play again, which is harmless */ }
+    // the pen comes in the page's first frame, out of the page change's own work, faint (.warm) until its clock starts
+    requestAnimationFrame(() => {
+      if (!mark.isConnected) return;
+      mark.classList.add('warm');
+      mark.appendChild(penOf());
+      U.warmed(TRACE.warm).then(draw);
+    });
+    let released = false, turn = null, asked = false, held = 0;
+    const ready = new Promise((res) => { turn = res; });
+    const INPUT = ['wheel', 'touchmove', 'keydown'];
+    function release() {
+      if (released) return;
+      released = true;
+      INPUT.forEach((t) => window.removeEventListener(t, release));
+      page.removeAttribute('data-hold');
+      page.dispatchEvent(new Event('release'));   // (also when the visitor has left About: what waited for it lets go)
+      if (!page.isConnected) return;
+      // the photo's turn: once the title has set (its lines whole again)
+      requestAnimationFrame(() => { if (A && A.afterHead) A.afterHead(head, () => setTimeout(turn, 0)); else turn(); });
+    }
+    INPUT.forEach((t) => window.addEventListener(t, release, { passive: true }));
+    setTimeout(release, 4200);   // should the frames or the light's turn never come: never an empty page
+    // the pen draws (its runs start as .warm goes) on its own clock: the kicker, then the light's turn
+    function draw() {
+      if (!mark.isConnected) { release(); return; }
+      const pen = mark.querySelector('.em-pen');
+      mark.classList.remove('warm');
+      let runs = null;
+      const clock = U.steady({ cap: TRACE.hold, anims: () => runs || (runs = pen.getAnimations({ subtree: true })), tick: (t) => {
+        if (!mark.isConnected) { release(); return false; }
+        if (t >= TRACE.kick) head.classList.add('kick');
+        if (t < TRACE.gild) return true;
+        held = clock.held();
+        gild();
+        return false;
+      } });
+    }
+    function gild() {
+      if (asked) return;
+      asked = true;
+      if (L && !L.off) L.pass(mark, { start: () => gilt(true), miss: () => gilt(false) });
+      else gilt(false);
+    }
+    // the light has its turn (or could not have one: another light crossing too long, the mark gone from the screen),
+    // then the ring closes, the page follows, and the pen's layer goes once all of it has settled, on the light's clock
+    function gilt(lit) {
+      if (!lit) mark.classList.add('gilt');   // the gold simply comes
+      let runs = null, at = 0;
+      U.steady({
+        cap: lit ? Math.max(0, TRACE.hold - held) : 0,
+        anims: () => runs || (runs = mark.getAnimations({ subtree: true })),
+        held: () => { if (L.extend) L.extend(mark, Math.max(0, 1200 - at)); },   // the light's turn lasts as long (--au-dur)
+        tick: (t) => {
+          at = t;
+          if (!mark.isConnected) { release(); return false; }
+          if (t >= TRACE.ring) e.classList.add('in');
+          if (t >= TRACE.release) release();
+          if (t < TRACE.done) return true;
+          const p = mark.querySelector('.em-pen');
+          if (p) p.remove();
+          return false;
+        },
+      });
+    }
+    return ready;
   }
 
   // The home page's two doorways (after Our work): the first tip and the About page's opening line, quoted from
@@ -257,13 +372,20 @@
   function mount(container, page) { root = container; render(page); }
   function render(page) {
     const d = DRAFT[page];
+    // About's mark: drawn by hand on its first opening this visit (motion and the light on), set after that
+    const L = window.AlchemistLight;
+    const mode = page !== 'about' ? null : reduce || !L || L.off ? 'reveal' : traced() ? 'set' : 'trace';
+    const mark = mode ? emblem(mode) : null;
+    const title = el('h1.display.gold-text', { class: mode === 'trace' ? 'au-lit' : null }, d.title);   // (au-lit: the mark's light is the head's)
     const head = el('header.page-head',
-      page === 'about' ? emblem() : null,
+      mark,
       el('p.eyebrow', d.eyebrow),
-      el('h1.display.gold-text', d.title),
+      title,
       el('span.rule', { 'data-reveal': '' }),
       el('p.bk-lead', withPhone(d.intro).flatMap((x) => (typeof x === 'string' ? whole(x, 'nobr') : [x]))),   // the centred lead never breaks at a hyphen ("owner-run")
       SHOW_DRAFT_BANNER ? el('div.bk-preview.draft', el('b', 'Draft'), ' — these words are a first draft for the owner to edit. Nothing here is final.') : null);
+    const wrap = el('div.wrap.content-page', { class: page === 'contact' ? 'contact-page' : null, 'data-hold': mode === 'trace' ? '' : null });
+    const turn = mode === 'trace' ? trace(mark, wrap, head) : null;
     let body;
     if (page === 'tips') body = el('div.tip-list', d.items.map(tip));
     else if (page === 'faq') body = el('div.faq', d.items.map(faqItem));
@@ -271,13 +393,14 @@
     else body = [
       el('div.about-grid',
         el('div.about', d.paras.map((t) => el('p', t))),
-        unveil(el('figure.about-photo', el('img', { src: 'img/work/hero-tall.webp', alt: 'A car detailed by Alchemist', width: 1080, height: 1620, loading: 'lazy', decoding: 'async' })))),
+        unveil(el('figure.about-photo', el('img', { src: 'img/work/hero-tall.webp', alt: 'A car detailed by Alchemist', width: 1080, height: 1620, loading: 'lazy', decoding: 'async' })), turn)),
       products()];
     // Contact's own call is its one gold action, and its online booking is a text link: no second row of buttons
     const actions = page === 'contact' ? null : el('div.bk-actions',
       el('a.btn.btn-gold.shine', { href: '#book' }, 'Book Now ', arrow()),
       el('a.btn.btn-glass', { href: '#services' }, 'Services and prices'));
-    root.replaceChildren(el('div.wrap.content-page', { class: page === 'contact' ? 'contact-page' : null }, head, body, actions));
+    U.append(wrap, [head, body, actions]);
+    root.replaceChildren(wrap);
   }
   window.AlchemistContent = { mount, mountDoors, DRAFT };
 })();
