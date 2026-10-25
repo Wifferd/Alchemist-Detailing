@@ -382,7 +382,7 @@
   // ---------------------------------------------------------------- menu
   const menu = $('#menu'), scrim = $('#scrim'), menuBtn = $('#menuBtn'), main = $('#main');
   const footer = $('.footer'), topbar = $('#topbar');
-  let menuOpen = false;
+  let menuOpen = false, menuMoved = -1e9;   // (when the panel last began to slide: the shaders' compile waits it out)
   const holdPage = (on) => { if (window.AlchemistUI) window.AlchemistUI.holdPage(on); else document.body.style.overflow = on ? 'hidden' : ''; };   // ui.js: no sideways jolt from the scroll bar
   // On a short screen the list scrolls between the menu's head and foot (alchemist.css): it fades out at the foot
   // while more of it is below, and under the head while some of it is above; it opens with the current page's item in view.
@@ -411,6 +411,7 @@
     if (menuOpen) return;
     finishDark();   // (a page chosen in it a moment ago, still in its cut: done at once)
     menuOpen = true;
+    menuMoved = performance.now();
     menu.classList.remove('chose');   // the last choice's gold line goes with it
     scrim.classList.remove('cut', 'bare');
     $$('nav a.chosen', menu).forEach((a) => a.classList.remove('chosen'));
@@ -436,6 +437,8 @@
   function closeMenu(returnFocus) {
     if (!menuOpen) return;
     menuOpen = false;
+    menuMoved = performance.now();
+    if (cur === 'home' && !heavy) addEventListener('scroll', slideOver, { passive: true, once: true });   // (the wash waits for the compile: heavySoon)
     menu.classList.remove('on');
     scrim.classList.remove('on');
     menu.setAttribute('aria-hidden', 'true');
@@ -552,8 +555,8 @@
     topbar.classList.toggle('over-hero', [...underBar].some((el) => el.matches('.hero')));   // the studio light is under the glass
   }, { rootMargin: '0px 0px -90% 0px' });
   darkTops.forEach((el) => darkIo.observe(el));
-  // Under a finger there is no hover: once the row's light has crossed (at once where no light plays), the row
-  // scrolled to the middle of the screen is lit.
+  // Under a finger there is no hover: once the row's light has crossed and the page moves again (at once where no light
+  // plays), the row scrolled to the middle of the screen is lit.
   let litArmed = false;
   function armLit() {
     if (litArmed || !window.matchMedia('(hover: none)').matches) return;
@@ -568,6 +571,13 @@
       cards.forEach((c, i) => c.classList.toggle('lit', !!best && (c === best || tops[i] === row)));
     }, { rootMargin: '-38% 0px -38% 0px', threshold: [0, .25, .5, .75, 1] });
     cards.forEach((c) => lio.observe(c));
+  }
+  // after the row's gold pass the touch light waits for the visitor's next scroll or touch, so no second light comes
+  // on along the row straight after the gold one
+  function armLitNext() {
+    const go = () => { removeEventListener('scroll', go); removeEventListener('touchstart', go); armLit(); };
+    addEventListener('scroll', go, { passive: true, once: true });
+    addEventListener('touchstart', go, { passive: true, once: true });
   }
   // Reveal the paint (the owner's §9, and "wash it, then reveal the paint"): after the rinse, once the row is half on
   // the screen, the four cards sit a beat in their satin dimness, then one light at the 118deg angle crosses the row:
@@ -661,7 +671,7 @@
         c.classList.remove('au-glow');
         ['--au-reach', '--au-delay', '--au-lit-at', '--au-gdelay'].forEach((k) => c.style.removeProperty(k));
       });
-      armLit();
+      armLitNext();
     }, end + 160);   // after the pass has ended (.au-run goes at end + 60)
     return end;
   }
@@ -778,7 +788,7 @@
   // a block or a room goes in, after the head above it has led. While that head is still to set (held for the wash's
   // end, waiting for the fonts or for the head before it on the screen) the block waits for it, and setHead lets it go
   // (3s at most); now: the keyboard has reached it, so it is there at once
-  const waits = new Map();   // a head still to set: the blocks under it waiting for it
+  const waits = new WeakMap();   // a head still to set: the blocks under it waiting for it (weak, as the maps of heads below: a page rebuilt lets its old heads go)
   function rise(el, now) {
     if (el.classList.contains('in')) return;
     const c = headAbove(el);
@@ -859,7 +869,7 @@
   // motion (armReveals stops first): the heads are simply there, as without JavaScript and in print.
   const HEADS = '.section-head, .page-head, .show-head, .group-plate figcaption, .cta-band';
   const LINE = { at: 80, gap: 90, dur: 800, lead: 360 };   // the first line's start, --line-gap, --dur-line; the lead's wait after the last line starts
-  const heads = new Map();   // a head that has started setting: { at, lead } (when, and when its lead follows)
+  const heads = new WeakMap();   // a head that has started setting: { at, lead } (when, and when its lead follows)
   let headLast = null, headFree = 0;   // the last head set, and when the next one on the screen may start
   function armHeads(scope) {
     if (reduce) return;
@@ -926,7 +936,7 @@
   }
   // A page's own moment that follows its heading (About's photo): it starts as the head's lead does, as the blocks
   // under the head rise; at once where that head has set already or there is none (2s at most, whatever happens)
-  const leadWaits = new Map();
+  const leadWaits = new WeakMap();
   function afterLead(el, fn) {
     const c = headAbove(el);
     if (!c) { fn(); return; }
@@ -939,7 +949,7 @@
   }
   // a head's heading whole again, its lines landed (or faded in): what waits for that runs then (a brand page title's
   // gold pass, which crosses inside the letters, so never while they are split)
-  const headsDone = new WeakSet(), headWaits = new Map();
+  const headsDone = new WeakSet(), headWaits = new WeakMap();
   function afterHead(c, fn) {
     if (!c || !c.hasAttribute('data-head') || headsDone.has(c)) { fn(); return; }
     if (!headWaits.has(c)) headWaits.set(c, []);
@@ -1150,16 +1160,16 @@
     view.observe(em);
   }
   // The figures arrive set (the owner, Oct 23: no number counts up). A price card waits for the database to confirm
-  // its figure (services.js priced(), 600ms at most from its arrival), then arrives with it (CSS .pc-set): its name
-  // fades in, its figure rises from behind its own baseline 120ms later (its digits in a span, .pc-fig, that moves
-  // inside the figure's still box, .pc-slot, until they have landed), the time, mobile and where cells follow 80ms apart and the
-  // short line under them draws. A Deluxe's or the Full Detail Bundle's figure lands in a softer ink (.pc-ink) and,
+  // its figure (services.js priced(), 400ms at most from its arrival), then arrives with it (CSS .pc-set): its name
+  // and the time, mobile and where cells fade in (80ms apart), its figure rises from behind its own baseline 120ms
+  // later (its digits in a span, .pc-fig, that moves inside the figure's still box, .pc-slot, until they have landed),
+  // and the short line under them draws. A Deluxe's or the Full Detail Bundle's figure lands in a softer ink (.pc-ink) and,
   // once it has landed, its turn in the light's queue turns it gold behind the light's edge, where it stays; the
   // Basic figures land gold. A figure the database has not
   // confirmed by then (a preview, a slow answer) arrives with its card, gold, as it always has, and one the menu
   // writes again later is simply shown (services.js put). Not under reduced motion (armReveals stops first), without
   // JavaScript or in print: the cards are set.
-  const PC = { cap: 600, end: 1800, late: 2400 };   // the wait for the database; the arrival's end; the light's latest start
+  const PC = { cap: 400, end: 1800, late: 2400 };   // the wait for the database; the arrival's end; the light's latest start
   const pcAsked = new WeakSet(), pcLive = new WeakSet();
   function priceGate(el) {
     if (pcAsked.has(el) || !el.matches('.price-card') || !$('.amount', el)) return false;
@@ -1258,7 +1268,7 @@
     let px = 0, py = 0, hxTick = false;
     document.addEventListener('pointermove', (e) => {
       px = e.clientX; py = e.clientY;
-      const t = e.target.closest('.price-card, .svc-opt, .why-item, .btn-gold, .appt, .rv, .work-item, .el-tile, .door');
+      const t = e.target.closest('.price-card, .svc-opt, .btn-gold, .appt, .rv, .work-item, .el-tile, .door');
       if (t) {
         const r = t.getBoundingClientRect();
         t.style.setProperty('--mx', ((px - r.left) / r.width * 100).toFixed(1) + '%');
@@ -1459,14 +1469,20 @@
       box.innerHTML = '<i class="insp-shade"></i><i class="insp-glow"></i><i class="insp-hot"></i><i class="insp-lamp"></i>';
       tile.insertBefore(box, tile.querySelector(':scope > figcaption'));
     }
-    const wait = (tiles) => { if (on) tiles.forEach((t) => { prep(t); boxOf(t).classList.add('wait'); }); };
+    // photos waiting for the light in its shade; soft: the shade comes on over --dur-rise (the home strip, as it comes
+    // on the screen), from the frame after the shade is drawn clear
+    function wait(tiles, soft) {
+      if (!on) return;
+      const boxes = tiles.map((t) => { prep(t); const b = boxOf(t); b.classList.add('wait'); if (soft) b.classList.add('soft'); return b; });
+      if (soft) requestAnimationFrame(() => requestAnimationFrame(() => boxes.forEach((b) => b.classList.add('dim'))));
+    }
     // photos whose light will not come (they left the screen before their turn): their shade lifts quietly
     function lift(tiles) {
       const boxes = tiles.map(boxOf).filter((b) => b && b.classList.contains('wait') && !b.classList.contains('lift'));
       if (!boxes.length) return;
       requestAnimationFrame(() => boxes.forEach((b) => {
         b.classList.add('lift');
-        setTimeout(() => b.classList.remove('wait', 'lift'), 640);   // the lift's --dur-rise (600ms), and a frame
+        setTimeout(() => b.classList.remove('wait', 'lift', 'soft', 'dim'), 640);   // the lift's --dur-rise (600ms), and a frame
       }));
     }
     // the light crosses these photos (o.pick: those whose box it passes), from just outside the first one on the
@@ -1524,7 +1540,7 @@
             if (e && (e.target !== shade || e.animationName !== 'inspShade')) return;
             shade.removeEventListener('animationend', end);
             clearTimeout(t);
-            x.b.classList.remove('go', 'fade');
+            x.b.classList.remove('go', 'fade', 'soft', 'dim');
             VARS.forEach((k) => s.removeProperty(k));
             if (--left === 0 && o.done) o.done();
           };
@@ -1543,11 +1559,11 @@
     return { on, prep, box: boxOf, wait, lift, cross, decoded, afterHead: (c, fn) => afterHead(c, fn) };
   })();
   window.AlchemistInspect = inspect;
-  // Home's strip: after the wash (washend), once 40% of it is on the screen (or a visitor has stopped short of that
-  // for 2.5s), its head has set and its pictures are decoded, the photos in view take the shade and the light crosses
-  // them, once per visit. Until then they are simply at their exposure, so they never sit waiting in the shade. A strip
-  // that has left the screen before the light's turn gets it when it comes back; one whose turn has not come 6s on
-  // simply stays as it is.
+  // Home's strip: after the wash (washend), its photos take the shade softly as the strip first comes on the screen, so
+  // they are already a little under their exposure when the light comes (never dimmed just before it); once 40% of it
+  // is on the screen (or a visitor has stopped short of that for 2.5s), its head has set and its pictures are decoded,
+  // the light crosses the photos in view, once per visit, and the others' shade lifts. A strip that has left the
+  // screen before the light's turn gets it when it comes back; one whose turn has not come 6s on lifts its shade.
   const workStrip = $('#workStrip');
   let stripArmed = false, stripLit = false, stripEarly = false;
   if (workStrip) $$('.work-item', workStrip).forEach(inspect.prep);   // the pointer's light, from the start
@@ -1560,20 +1576,21 @@
   }
   // the strip's photos on the screen (a sliver at its edge counts once it is 24px wide)
   const stripShows = (r) => Math.min(r.right, innerWidth) - Math.max(r.left, 0) >= 24;
-  const stripInView = () => $$('.work-item', workStrip).filter((t) => stripShows(t.getBoundingClientRect()));
+  const stripTiles = () => $$('.work-item', workStrip);
+  const stripInView = () => stripTiles().filter((t) => stripShows(t.getBoundingClientRect()));
   const stripSeen = (f) => { const r = workStrip.getBoundingClientRect(), v = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0); return r.height > 0 && v >= Math.min(r.height, innerHeight) * f; };
   let stripStall = 0;
   const stripOn = () => { stripIo.disconnect(); clearTimeout(stripStall); stripStall = 0; stripGo(); };
   const stripIo = new IntersectionObserver(() => {
     if (!stripSeen(0.001)) return;
-    if (!stripEarly) { stripEarly = true; inspect.decoded(stripInView()); }   // the pictures start decoding as the strip comes on
+    if (!stripEarly) { stripEarly = true; inspect.decoded(stripInView()); inspect.wait(stripTiles(), true); }   // the pictures start decoding and take the shade as the strip comes on
     if (stripSeen(0.4)) stripOn();
     else if (!stripStall) stripStall = setTimeout(() => { stripStall = 0; if (stripSeen(0.15)) stripOn(); }, 2500);
   }, { threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5] });
   function stripWatch() { if (!stripLit) stripIo.observe(workStrip); }
   function stripGo() {
     let started = false, el = null;
-    const safe = setTimeout(() => { if (!started) { stripLit = true; light.stop(el); } }, 6000);
+    const safe = setTimeout(() => { if (!started) { stripLit = true; light.stop(el); inspect.lift(stripTiles()); } }, 6000);
     // (each step from the next frame on, where the page is laid out anyway: no read forces a restyle of its own)
     afterHead($('#work [data-head]') || $('#work .section-head'), () => requestAnimationFrame(() => {
       const tiles = stripInView();
@@ -1588,7 +1605,9 @@
             started = true;
             clearTimeout(safe);
             stripLit = true;
-            return inspect.cross($$('.work-item', workStrip), { pick: stripShows, fade: true });
+            const ms = inspect.cross(stripTiles(), { pick: stripShows, fade: true });
+            requestAnimationFrame(() => inspect.lift(stripTiles()));   // (after the cross's own frame: the photos it does not reach)
+            return ms;
           },
         });
       }));
@@ -1777,7 +1796,7 @@
   // paint and leaves it at the right (2.1-3.7s), and in its wake the owner's real photo of beading is uncovered by a
   // soft edge at the light's own angle riding just behind it (the canvas is masked, frame by frame, from where the bar
   // is: the same numbers as the shader, artBar), the photo coming up from dark. So the gold-lit paint and the daylight
-  // photo read as one light reaching the real car. The title rises as the edge reaches the far side, and the canvas
+  // photo read as one light reaching the real car. The title rises as the bar sets off, and the canvas
   // stops as soon as the edge has cleared the plate (4s at most). Its scene's time runs on with the moment. On a page
   // that has only just opened here (#services-protection), before the stills' context is up, it waits at most 300ms,
   // then the photo fades in and the title rises. A context lost on the way ends it at once: the photo and the title.
@@ -1876,7 +1895,7 @@
         hand = Object.assign(g, { cx: cw / 2, cy: g.ph - ch / 2, lg: cw * Math.abs(g.d[0]) + ch * Math.abs(g.d[1]), soft: HAND.soft * g.len });
         plate.classList.add('handover');
       });
-      later(3300, () => { plate.classList.add('risen'); headGo(cap); });
+      later(HAND.sweep[0] * 1000, () => { plate.classList.add('risen'); headGo(cap); });   // the name rises as the bar sets off
       later(BEAD.end * 1000, m.stop);
       later(4800, () => { done = true; plate.classList.remove('beading', 'handover', 'risen'); shade.remove(); });
       return true;
@@ -2453,7 +2472,7 @@
   // pictures): the menu's shade, under the bar, deepens to the ground in 200ms (.scrim.cut; .bare with no menu open)
   // as a chosen page's gold line crosses its row and the panel slides shut; the page is swapped and built in the black
   // (the beat), then the shade lifts (520ms) as the page rises (.view.cut-in). Leaving home, the hero's light holds still.
-  const CUT_OUT = 200, CUT_DARK = 280;   // --cut-out, and --cut-out + --cut-beat
+  const CUT_OUT = 200, CUT_BEAT = 80, CUT_DARK = CUT_OUT + CUT_BEAT;   // --cut-out, --cut-beat
   let dark = null;   // the shade's cut under way: { at: when it began, m: what the new page holds, ... }
   let heroRests = false;   // the hero held still by a cut that left home, until home shows again (render)
   let rising = null;   // [the page rising out of the shade, its animationend listener]
@@ -2470,19 +2489,41 @@
     scrim.classList.add('on', 'cut');
     const rests = cur === 'home' && !!hero && !!hero.pause;
     if (rests) hero.pause();
-    const d = dark = { at: performance.now(), back: !!back, m: null, swapped: false, landed: false, fast: false, touched: onGlass(), t: 0, safe: 0, hero: rests };
+    const d = dark = { at: performance.now(), shown: 0, name: '', back: !!back, m: null, swapped: false, landed: false, fast: false, touched: onGlass(), t: 0, safe: 0, hero: rests };
+    // the 200ms are counted from the shade's first frame on the screen, not from the press: after a busy frame (the
+    // press's restyle, a late hashchange) a count from the press would swap the page in under a shade not yet dark
+    requestAnimationFrame((t) => shaded(d, t));
+    setTimeout(() => shaded(d, performance.now()), 400);   // (no frames: a hidden tab)
     // should no page change come (the address still names this page after 300ms, or still none has come by 1.5s)
     const safe = (n) => { if (dark !== d || d.m) return; if (parse().r !== cur && n < 4) { setTimeout(() => safe(n + 1), 300); return; } dark = null; unshade(d); };
     setTimeout(() => safe(0), 300);
   }
+  // the shade's first frame: the bar's name rolls to the new page with it, and the 200ms start
+  function shaded(d, t) {
+    if (d.shown || dark !== d) return;
+    d.shown = Math.min(t, performance.now());
+    const name = d.name || NAMES[parse().r];   // (a link sets the address before its hashchange comes)
+    if (name) setName(name);
+    if (d.m) swapSoon(d);
+  }
+  function swapSoon(d) {   // (before its first frame, shaded() calls again)
+    clearTimeout(d.t);
+    if (d.shown) d.t = setTimeout(() => swapDark(d), Math.max(0, d.shown + CUT_OUT - performance.now()));
+  }
+  // the shade is dark: the menu's scrim times its black (::after), both all but opaque
+  function shadeDark() {
+    return parseFloat(getComputedStyle(scrim).opacity) * parseFloat(getComputedStyle(scrim, '::after').opacity) >= 0.98;
+  }
   // the swap, at the end of the 200ms or at a press; with a finger on the glass it waits for the lift, then the page is
-  // there at once (force: a click, its finger already up)
+  // there at once (force: a click, its finger already up). A shade still deepening (a late frame) gets one more frame
   function swapDark(d, force) {
     clearTimeout(d.t);
     if (d.swapped || dark !== d) return;
     if (force ? onGlass() : !glassFree(d)) { d.fast = true; d.t = setTimeout(() => swapDark(d), 50); return; }
+    if (!force && !shadeDark() && performance.now() - d.at < 1500) { d.t = setTimeout(() => swapDark(d), 16); return; }
     d.swapped = true;
-    d.m.landed = () => { d.landed = true; d.t = setTimeout(() => lift(d), d.fast ? 0 : Math.max(0, d.at + CUT_DARK - performance.now())); };   // (once the beat is over)
+    const at = performance.now();   // (the beat is never shorter than its 80ms after the swap, whenever the shade came)
+    d.m.landed = () => { d.landed = true; d.t = setTimeout(() => lift(d), d.fast ? 0 : Math.max(0, (d.shown || d.at) + CUT_DARK - performance.now(), at + CUT_BEAT - performance.now())); };   // (once the beat is over)
     d.safe = setTimeout(() => lift(d), 600);   // (should the landing never report)
     render(false, d.m);
     setName(NAMES[cur]);   // (Back in the black, to the page it began on: its own name again)
@@ -2534,8 +2575,9 @@
     const d = dark;
     if (d) {
       d.m = holdCut();
-      setName(NAMES[to]);   // the bar's name leads the cut
-      d.t = setTimeout(() => swapDark(d), Math.max(0, d.at + CUT_OUT - performance.now()));
+      d.name = NAMES[to];   // the bar's name leads the cut, from the shade's first frame
+      if (d.shown) setName(d.name);
+      swapSoon(d);
       return;
     }
     let m = null;
@@ -2623,6 +2665,7 @@
   });
 
   render(true);
+  if (cur !== 'home') cutShown = performance.now();   // a page landed on directly: its settle counts from its first showing
   desyncShine(document);   // every shine on the site, the hidden pages' too, so none sweep together
   $$('.shine, .scroll-cue').forEach((el) => ioAway.observe(el));
   if (heroEl) ioAway.observe(heroEl);   // the wordmark's drift (a finger's screen) rests below the hero (CSS)
@@ -2633,9 +2676,17 @@
   // A new head in it (the featured review's on home) still sets as it arrives; a page seen before shows it set.
   const ARM = '[data-reveal], ' + HEADS + ', ' + RISE.join(', ');
   let armT = 0, landed = [];
+  // what a rebuild takes out (content.js, the account, the reviews, the gallery) the observers let go, so a page
+  // changed many times keeps no old nodes alive
+  const WATCHED = '[data-reveal], [data-rise], [data-room], [data-head], .rule, .svc-top, .shine, .scroll-cue, ' + ARRIVE;
+  const forget = (n) => (n.matches(WATCHED) ? [n] : []).concat($$(WATCHED, n)).forEach((el) => { io.unobserve(el); ioAway.unobserve(el); arriveIo.unobserve(el); });
   new MutationObserver((muts) => {
     // (a heading's own lines, swapped in and out as it sets, are not new content)
-    muts.forEach((m) => { if (m.target.classList && (m.target.classList.contains('hd-lines') || m.target.matches('[data-hd="h"]'))) return; m.addedNodes.forEach((n) => { if (n.nodeType === 1) landed.push(n); }); });
+    muts.forEach((m) => {
+      if (m.target.classList && (m.target.classList.contains('hd-lines') || m.target.matches('[data-hd="h"]'))) return;
+      m.addedNodes.forEach((n) => { if (n.nodeType === 1) landed.push(n); });
+      m.removedNodes.forEach((n) => { if (n.nodeType === 1 && !n.isConnected) forget(n); });
+    });
     if (!landed.length) return;
     cancelAnimationFrame(armT);
     armT = requestAnimationFrame(() => {
@@ -2676,19 +2727,24 @@
   const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1200 }) : (fn) => setTimeout(fn, 600);
   // (in a cut, or under its page's rise, it waits: 300ms at a time, 4s at most; on home, where the wash waits for it,
   // it starts as the page shows, so a visitor who goes straight for the wash meets it from its start; elsewhere
-  // once the page has settled, 1.2s after it shows)
+  // once the page has settled, 1.2s after it shows. Never in the 800ms after the menu's panel begins to slide in or
+  // out (a first tap on the menu would otherwise meet the compile mid-slide), and away from home never under the open
+  // menu either; on home it runs under the menu at rest, and a visitor who scrolls on as it closes has it at once)
   const heavySoon = (by) => idle(() => {
     if (heavy) return;
-    by = by || performance.now() + 4000;
-    const wait = dark || vtNow || cutHeld ? 300 : cur === 'home' ? 0 : cutShown + 1200 - performance.now();
-    if (wait > 0 && performance.now() < by) setTimeout(() => heavySoon(by), wait); else startHeavy();
+    const now = performance.now(), slide = menuMoved + 800 - now;
+    by = by || now + 4000;
+    const wait = dark || vtNow || cutHeld ? 300 : cur === 'home' ? slide : menuOpen ? 300 : Math.max(slide, cutShown + 1200 - now);
+    if (wait > 0 && (now < by || menuOpen || slide > 0)) setTimeout(() => heavySoon(by), wait); else startHeavy();
   });
+  function slideOver() { if (!menuOpen && cur === 'home') { menuMoved = -1e9; heavySoon(); } }
   ['wheel', 'keydown', 'scroll'].forEach((t) => window.addEventListener(t, () => heavySoon(), { once: true, passive: true }));
   window.addEventListener('touchstart', () => setTimeout(heavySoon, 350), { once: true, passive: true });   // (a tap on a link has left by then; a swipe scrolls first)
   // (while the studio light is still gliding in, they wait for it to slow: plan(); while a page's moment is still to come
   // or playing, About's mark, the Reviews certificate's raking light, until it has played: its release, and a moment)
   const afterMoment = () => {
-    const h = $$('[data-hold], [data-moment]').find((x) => !x.closest('[hidden]'));   // (on the page shown: one left behind on a page since left holds nothing)
+    const shown = (x) => !x.closest('[hidden]');   // (on the page shown: one left behind on a page since left holds nothing)
+    const h = $$('[data-moment]').find(shown) || $$('[data-hold]').find(shown);   // (a moment that outlasts its page's hold, About's mark, first)
     if (!h) { heavySoon(); return; }
     let t = 0;
     const go = () => { clearTimeout(t); h.removeEventListener('release', go); setTimeout(() => heavySoon(), 1600); };

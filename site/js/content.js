@@ -260,20 +260,20 @@
   // with the second. Then the site's light crosses the mark once (its turn in the light's queue: the head's one gold
   // light, so the title takes none of its own this time) and behind the light the owner's metallic logo is there, the
   // pen's line fading into its edge, and the ring closes round it in the second half of the crossing. The title, the
-  // lead and the words below follow once the ring has all but closed (the page waits for that: data-hold, app.js), and
-  // the photo waits until the title has set. A visitor who scrolls or types meanwhile has the page at once (the mark
-  // finishes on its own). Not under reduced motion or in forced colours, and once a visit (the tab's own storage): the
-  // mark is simply there, the ring closed, as in print.
+  // lead and the words below follow once the ring has all but closed (the page waits for that: data-hold, app.js),
+  // about 2.6s into the pen's clock, and the photo waits until the title has set. A visitor who scrolls or types
+  // meanwhile has the page at once (the mark finishes on its own). Not under reduced motion or in forced colours, and
+  // once a visit (the tab's own storage): the mark is simply there, the ring closed, as in print.
   // The pen is painted first, faintly (.warm), and its clock starts once the frames come on time, so the browser's
   // first drawing of the new layers lands on the black page and not on the first line; and a frame that comes late
   // after that holds the pen (and then the light) where they were instead of jumping them ahead (U.warmed, U.steady).
   // parts: [the mark's part (A and D, base bar, top star, inner star, top stem, foot stem), start, length (ms), kind]
   const TRACE = {
-    parts: [[0, 0, 1000, 'line'], [1, 1040, 240, 'line'], [4, 1320, 110, 'line'], [5, 1390, 110, 'line'], [2, 1550, 360, 'spark'], [3, 1650, 360, 'spark']],
-    kick: 1760,     // the kicker fades in as the second spark flashes (on the pen's own clock, from its first line)
-    gild: 2010,     // the light's turn is asked for as the second spark settles
-    ring: 550,      // the ring closes in the second half of the light's crossing (CSS: 1s), all but closed when
-    release: 1050,  // the page follows, this long into the light's run (its core past the mark)
+    parts: [[0, 0, 800, 'line'], [1, 830, 190, 'line'], [4, 1055, 90, 'line'], [5, 1110, 90, 'line'], [2, 1240, 290, 'spark'], [3, 1320, 290, 'spark']],
+    kick: 1410,     // the kicker fades in as the second spark flashes (on the pen's own clock, from its first line)
+    gild: 1610,     // the light's turn is asked for as the second spark settles
+    ring: 550,      // the ring closes in the second half of the light's crossing (CSS: 1s), about 96% closed when
+    release: 1000,  // the page follows, this long into the light's run (its core past the mark)
     done: 1900,     // and all of it has settled this long after the light's start: the pen's layer goes
     warm: 600,      // the pen's faint first paint has this long at most to come through before its clock starts
     hold: 400,      // and its clock (the pen's, then the light's) is held back this much at most in all
@@ -294,6 +294,11 @@
     });
     let released = false, turn = null, asked = false, held = 0;
     const ready = new Promise((res) => { turn = res; });
+    // the moment itself runs on past the page's release: the mark keeps data-moment until it has settled, so the
+    // shaders' compile (app.js) waits for its end, not for the title
+    e.setAttribute('data-moment', '');
+    const settle = () => { if (!e.hasAttribute('data-moment')) return; e.removeAttribute('data-moment'); e.dispatchEvent(new Event('release')); };
+    setTimeout(settle, 6000);   // (should its end never come)
     const INPUT = ['wheel', 'touchmove', 'keydown'];
     function release() {
       if (released) return;
@@ -306,7 +311,7 @@
       requestAnimationFrame(() => { if (A && A.afterHead) A.afterHead(head, () => setTimeout(turn, 0)); else turn(); });
     }
     INPUT.forEach((t) => window.addEventListener(t, release, { passive: true }));
-    setTimeout(release, 4200);   // should the frames or the light's turn never come: never an empty page
+    setTimeout(release, 3800);   // should the frames or the light's turn never come: never an empty page
     // the pen draws (its runs start as .warm goes) on its own clock: the kicker, then the light's turn
     function draw() {
       if (!mark.isConnected) { release(); return; }
@@ -339,12 +344,13 @@
         held: () => { if (L.extend) L.extend(mark, Math.max(0, 1200 - at)); },   // the light's turn lasts as long (--au-dur)
         tick: (t) => {
           at = t;
-          if (!mark.isConnected) { release(); return false; }
+          if (!mark.isConnected) { release(); settle(); return false; }
           if (t >= TRACE.ring) e.classList.add('in');
           if (t >= TRACE.release) release();
           if (t < TRACE.done) return true;
           const p = mark.querySelector('.em-pen');
           if (p) p.remove();
+          settle();
           return false;
         },
       });

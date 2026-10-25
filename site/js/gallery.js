@@ -76,7 +76,12 @@
   // only, and the data layer knows which mode it is in once it has reached the database, so this waits.
   function placeCompare(page, next) {
     const D = window.AlchemistData;
-    const put = () => { const sec = compare(PAIRS); if (sec && page.isConnected) page.insertBefore(sec, next); };
+    const put = () => {
+      const sec = compare(PAIRS);
+      if (!sec || !page.isConnected) return;
+      page.insertBefore(sec, next);
+      hold(sec.querySelector('.tm-frame'));
+    };
     if (!D || PAIRS.some((p) => p.before)) put();
     else D.init().then(put);
   }
@@ -182,6 +187,19 @@
       frame, thumbs);
   }
 
+  // The slider's photo waits for the words above it, as the covers do: unseen (.tm-hold) until its heading's lead rises
+  // (app.js afterLead, once the page's title has set and the heads are armed, a frame or two after it lands; 2.5s at
+  // most), then it rises in as the blocks do. At once on a page seen before, and never under reduced motion or with
+  // the light off (forced colours)
+  function hold(frame) {
+    const I = window.AlchemistInspect, C = window.AlchemistCut;
+    if (!frame || reduce || !I || !I.on || !C || !C.afterHead) return;
+    frame.classList.add('tm-hold');
+    let done = false;
+    const go = () => { if (!done) { done = true; requestAnimationFrame(() => frame.classList.remove('tm-hold')); } };
+    requestAnimationFrame(() => requestAnimationFrame(() => C.afterHead(frame, go)));
+    setTimeout(go, 2500);
+  }
   // The seam shows it can be dragged: the first time the frame is 40% on screen it glides out to 58% and back
   // (about 1.4s, the long unveil ease), then rests. Skipped under reduced motion; a touch of the frame, a key or a drag
   // on the slider stops it at once and the seam is where the slider says. The rAF loop runs only for the glide.

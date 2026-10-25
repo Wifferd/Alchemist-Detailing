@@ -610,6 +610,7 @@ void main(){
       const now = performance.now();
       if (now - t0 > 350) return null;
       const r = box(true), turn = IN.at + IN.glide, end = turn + IN.back;
+      if (!r) return null;   // (no box: a zero-size canvas, a page printed as it loads)
       // it slows with its body (where it is brighter than half its middle, as envAt draws it) just clear of endX on the
       // row: on a phone, where the word runs nearly to the edge, just beyond the edge
       const portrait = 1 - Math.min(r.w / r.h, 1);

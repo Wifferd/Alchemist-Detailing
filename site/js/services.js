@@ -299,8 +299,8 @@
     }
     box.addEventListener('click', all, true);
     box.addEventListener('focusin', all);
-    // the panel's Au rises into the light from sym (ms) and its equation draws from eq (on its own clock: the tiles'
-    // end does not cut it short)
+    // the panel's Au rises into the light from sym (ms) and its equation rises in, whole, from eq (on its own clock:
+    // the tiles' end does not cut it short)
     function setPanel(sym, eq) {
       if (panelSet) return;
       panelSet = true;
@@ -486,12 +486,13 @@
   }
 
   // ---------------------------------------------------------------- the Ritual
+  // (the page's plates have the front and the mirror, so the last two steps take the side skirt and the lip)
   const STEPS = [
     { n: '01', title: 'Snow foam', text: 'A snow-foam pre-wash covers the car first. Deluxe adds Green Star pre-treatment where appropriate.', chips: ['Snow foam', 'Green Star · Deluxe'], media: () => texture('foam', 1200, 900), pos: '30% 50%' },
     { n: '02', title: 'Wheels', text: 'Brake Buster on the wheels and tires, then the tires are cleaned.', chips: ['Brake Buster'], media: () => photo('wheel', 'Rear wheel and arch after cleaning'), pos: '45% 62%' },
     { n: '03', title: 'Hand wash', text: 'A thorough hand wash with professional-grade chemicals.', chips: ['By hand'], media: () => photo('badge', 'M2 badge on wet white paint'), pos: '50% 50%' },
-    { n: '04', title: 'Hand dry', text: 'Dried by hand, panel by panel, exterior glass included.', chips: ['Exterior glass'], media: () => photo('front', 'Front of a white BMW M2 after an exterior detail'), pos: '40% 40%' },
-    { n: '05', title: 'Seal', text: 'Koch-Chemie Hydro Foam Sealant for gloss and water beading. Or add WetGloss to any exterior.', chips: ['Hydro Foam Sealant · Deluxe', 'WetGloss · add-on'], media: () => photo('mirror', 'Water beading on a side mirror'), pos: '58% 38%' },
+    { n: '04', title: 'Hand dry', text: 'Dried by hand, panel by panel, exterior glass included.', chips: ['Exterior glass'], media: () => photo('side', 'Side skirt and carbon trim after a wash'), pos: '40% 100%' },
+    { n: '05', title: 'Seal', text: 'Koch-Chemie Hydro Foam Sealant for gloss and water beading. Or add WetGloss to any exterior.', chips: ['Hydro Foam Sealant · Deluxe', 'WetGloss · add-on'], media: () => photo('lip', 'Carbon-fibre front lip with water beading'), pos: '50% 100%' },
   ];
   function mountRitual(container) {
     let open = 4;
@@ -635,7 +636,12 @@
     const sum = parts.reduce((t, c) => t + (priceOf(m, c) || 0), 0);
     return sum > s.base_price_cents ? { sum, save: sum - s.base_price_cents } : null;
   }
-  function fade(node) { if (!reduce && node.animate) node.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' }); }
+  // a figure swapped in place fades in over a panel's time, on the feedback curve (both read from the stylesheet's tokens)
+  function fade(node) {
+    if (reduce || !node.animate) return;
+    const cs = getComputedStyle(document.documentElement);
+    node.animate([{ opacity: 0 }, { opacity: 1 }], { duration: parseFloat(cs.getPropertyValue('--dur-panel')) || 450, easing: cs.getPropertyValue('--ease').trim() || 'cubic-bezier(.2, .8, .2, 1)' });
+  }
   function put(node, text) {
     if (!node || text == null || node.textContent === text) return;
     node.textContent = text;
