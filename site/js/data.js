@@ -260,21 +260,21 @@
     const weekend = (weeks, sunday) => { let d = addDays(todayLocal(), -7 * weeks); while (d.getDay() !== 6) d = addDays(d, -1); return sunday ? addDays(d, 1) : d; };
     const at = (day, daysBefore, min) => { const d = addDays(day, -daysBefore); d.setHours(0, min, 0, 0); return d.toISOString(); };
     const make = (day, start, p, status, extra) => {
-      const q = previewQuote(p);
+      const q = previewQuote(p), kind = SEED.vehicle_types.find((t) => t.code === p.vehicle_type);
       const steps = status === 'cancelled'
         ? [['requested', at(day, 6, 1210)], ['confirmed', at(day, 5, 570)], ['cancelled', at(day, 1, 1085)]]
         : [['requested', at(day, 5, 1182)], ['confirmed', at(day, 4, 555)], ['in_progress', at(day, 0, start)], ['completed', at(day, 0, start + q.duration_min)]];
       return Object.assign({
         id: uuid(), ref: previewRef(), status, service_date: isoDate(day), start_min: start, duration_min: q.duration_min, end_min: start + q.duration_min,
         location_type: p.location_type, address: null, address_zip: null,
-        vehicle: { make: 'Toyota', model: 'Camry', year: 2020, color: null, type: 'sedan', size: 'standard', not_sure: false, description: null },
+        vehicle: { make: null, model: null, year: null, color: null, type: p.vehicle_type, size: 'standard', not_sure: true, description: kind ? kind.name : null },   // the type it is priced for, in the menu's word: no make or model is made up
         hold_expires_at: null, value_cents: q.value_cents, bundle_savings_cents: q.bundle_savings_cents, mobile_cents: q.mobile_cents,
         extra_cost_cents: null, extra_cost_note: null, price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
         created_at: steps[0][1], preview: true, example: true, shop_address: null, team: [], history: steps.map(([s, t]) => ({ status: s, at: t, note: null })),
       }, extra || {});
     };
     return [
-      make(weekend(1), 600, { location_type: 'mobile', bundle: 'full_detail', vehicle_type: 'sedan', conditions: ['none'] }, 'completed', { address: 'Example address', address_zip: '75002' }),
+      make(weekend(1), 600, { location_type: 'mobile', bundle: 'full_detail', vehicle_type: 'sedan', conditions: ['none'] }, 'completed'),
       make(weekend(3, true), 600, { location_type: 'shop', bundle: 'signature_combo', vehicle_type: 'sedan', conditions: ['none'] }, 'cancelled'),
       make(weekend(5, true), 660, { location_type: 'shop', interior: 'int_deluxe', vehicle_type: 'sedan', conditions: ['pet_hair'] }, 'completed'),
       make(weekend(8), 840, { location_type: 'shop', exterior: 'ext_basic', vehicle_type: 'sedan' }, 'completed'),

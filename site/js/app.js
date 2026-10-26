@@ -382,6 +382,7 @@
   // ---------------------------------------------------------------- menu
   const menu = $('#menu'), scrim = $('#scrim'), menuBtn = $('#menuBtn'), main = $('#main');
   const footer = $('.footer'), topbar = $('#topbar');
+  const menuLit = new Set();   // the pages whose row in the menu has taken its light this visit
   let menuOpen = false, menuMoved = -1e9, menuY = 0;   // (when the panel last began to slide: the shaders' compile waits it out; the page's scroll as it opened)
   const holdPage = (on, sb) => { if (window.AlchemistUI) window.AlchemistUI.holdPage(on, sb); else document.body.style.overflow = on ? 'hidden' : ''; };   // ui.js: no sideways jolt from the scroll bar (sb: its width, read already)
   // On a short screen the list scrolls between the menu's head and foot (alchemist.css): it fades out at the foot
@@ -436,9 +437,10 @@
     if (hero && hero.pause) hero.pause();
     setTimeout(() => { const a = (menuNav.scrollTop > 0 && $('a[aria-current="page"]', menuNav)) || $('a', menuNav); if (a && menuOpen && !menu.contains(document.activeElement)) a.focus({ preventScroll: true }); }, reduce ? 0 : 380);   // the first item, or the current one when the list opened scrolled to it (unless a Tab has taken focus in already)
     // the page you are on takes the gold light once its word has risen (110ms press, 140ms + 28ms a step, .45s): the
-    // customer's own input, so no shine holds it back
-    const here = $('nav a[aria-current="page"]', menu);
-    if (here) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen, now: true });
+    // customer's own input, so no shine holds it back. Once a visit for each page (menuLit): later opens show its row
+    // and its dash as they are
+    const here = $('nav a[aria-current="page"]', menu), page = here && here.getAttribute('href');
+    if (here && !menuLit.has(page)) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen, now: true, start: () => { menuLit.add(page); } });
   }
   function closeMenu(returnFocus) {
     if (!menuOpen) return;
@@ -1559,8 +1561,10 @@
     }
     // the light crosses these photos (o.pick: those whose box it passes), from just outside the first one on the
     // screen to just past the last, on an arc through the part of them on the screen; returns how long it runs.
-    // o.fade: their shade comes on with the light; o.max: the longest it may run; o.done: called once it has crossed
-    // them all.
+    // o.fade: their shade comes on with the light; o.max / o.min: the longest / shortest it may run; o.tight: under a
+    // finger, where only the light's core shows (half its reach, CSS), it starts and ends that core's width outside
+    // the photos rather than the whole glow's, so it spends its time on them; o.done: called once it has crossed them all.
+    const coarse = matchMedia('(hover: none), (pointer: coarse)');
     function cross(tiles, o) {
       o = o || {};
       if (!on) return 0;
@@ -1580,12 +1584,13 @@
       const seen = Math.max(0, -top), band = Math.max(h * 0.3, Math.min(h, vh - top) - seen), rows = Math.min(bottom, vh) - Math.max(top, 0);
       // the light's reach (its glow fades out at R); the shade starts just past its core and is whole where its glow ends
       const R = Math.round(Math.min(260, Math.max(w * 0.42, rows > band + 8 ? rows * 0.36 : 0))), lead = Math.round(R * 0.9), soft = Math.round(R * 0.8);
-      const xs = Math.max(0, Math.min(...box.map((x) => x.r.left))) - R, xe = Math.min(vw, Math.max(...box.map((x) => x.r.left + x.w))) + R;
+      const out = o.tight && coarse.matches ? R * 0.5 : R;
+      const xs = Math.max(0, Math.min(...box.map((x) => x.r.left))) - out, xe = Math.min(vw, Math.max(...box.map((x) => x.r.left + x.w))) + out;
       const peak = seen + band * 0.38, rise = band * 0.16, half = (xe - xs) / 2;
       const arm = (half * half + rise * rise) / (2 * rise), ang = Math.asin(Math.min(1, half / arm)) * 180 / Math.PI;
       // about a hand's pace, on the light's own times: 1.2s across a phone, 1.4s, 1.8s across a wide screen
-      const pace = (xe - xs) * 1.15, times = [AU_MS.el, AU_MS.card, AU_MS.wide].filter((t, i) => !i || !o.max || t <= o.max);
-      const ms = times.reduce((a, b) => (Math.abs(b - pace) < Math.abs(a - pace) ? b : a));
+      const pace = (xe - xs) * 1.15, times = [AU_MS.el, AU_MS.card, AU_MS.wide].filter((t) => (!o.max || t <= o.max) && (!o.min || t >= o.min));
+      const ms = (times.length ? times : [AU_MS.el]).reduce((a, b) => (Math.abs(b - pace) < Math.abs(a - pace) ? b : a));
       // then every write, in the next frame, on each photo's own light layer
       requestAnimationFrame(() => {
         let left = box.length;
@@ -1646,8 +1651,9 @@
     if (wash && wash.live()) washSection.addEventListener('washend', stripWatch, { once: true });
     else stripWatch();
   }
-  // the strip's photos on the screen (a sliver at its edge counts once it is 24px wide)
-  const stripShows = (r) => Math.min(r.right, innerWidth) - Math.max(r.left, 0) >= 24;
+  // the strip's photos on the screen: at least half of one (a sliver at the edge is left to lift its shade quietly, so the
+  // light never hurries across the main photo to linger on the next one's edge)
+  const stripShows = (r) => Math.min(r.right, innerWidth) - Math.max(r.left, 0) >= Math.max(24, r.width * 0.5);
   const stripTiles = () => $$('.work-item', workStrip);
   const stripInView = () => stripTiles().filter((t) => stripShows(t.getBoundingClientRect()));
   const stripSeen = (f) => { const r = workStrip.getBoundingClientRect(), v = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0); return r.height > 0 && v >= Math.min(r.height, innerHeight) * f; };
@@ -1677,7 +1683,7 @@
             started = true;
             clearTimeout(safe);
             stripLit = true;
-            const ms = inspect.cross(stripTiles(), { pick: stripShows, fade: true });
+            const ms = inspect.cross(stripTiles(), { pick: stripShows, fade: true, tight: true, min: AU_MS.card });   // a card's time at least (1.4s), even across one photo
             requestAnimationFrame(() => inspect.lift(stripTiles()));   // (after the cross's own frame: the photos it does not reach)
             return ms;
           },
@@ -1892,7 +1898,7 @@
     plate.insertBefore(shade, $('img', plate).nextSibling);
     const timers = [];
     const later = (ms, fn) => timers.push(setTimeout(fn, ms));
-    let done = false, hand = null;
+    let done = false, hand = null, begun = false, seenAt = 0;   // (begun: its turn in the queue has come; seenAt: when it was last sighted)
     const cap = $('figcaption', plate);   // its title sets as the photo is back (headGo)
     // the Bead Test's title below waits for the plate's own (reading order), 1.2s at most until the moment has begun
     const beadHead = holdHeads((c) => !done && !!c.closest('#svc-bead'), 1200);
@@ -1951,14 +1957,15 @@
     }
     // its turn has come (it returns how long the light runs: until the bar has left the paint, and, should it have to
     // wait for the stills, the 300ms it may wait). The stills can be busy just then (the leather painting, the closing
-    // band's beads holding them): it waits for them up to 300ms, counted from its turn and holding it, and only then
-    // does the photo simply fade in. Left on the way (off the screen), it goes to its end at once (end).
+    // band's beads holding them): it waits for them up to 300ms, counted from its sighting and holding its turn, and
+    // only then does the photo simply fade in. Left on the way (off the screen), it goes to its end at once (end).
     function start() {
+      begun = true;
       if (done) return 1;
       if (beadsPlayed()) { reveal(); return 1; }   // (the closing band's beads seen this visit: its photo, at once)
       const room = m.room();
       if (room) return play(room) ? roomTurn(plate, HAND.sweep[1] * 1000, end) : 1;
-      const t = performance.now();
+      const t = seenAt;
       later(50, function wait() {
         if (done) return;
         const r = m.room();
@@ -1988,13 +1995,21 @@
       return true;
     }
     // each sighting (the first, and one after a turn it missed): on a page that has only just opened here, before the
-    // stills' context is up, it waits for it 300ms at most, counted from this sighting
+    // stills' context is up, it waits for it 300ms at most, counted from this sighting. Queued, the Bead Test's title
+    // below waits for this plate's own; should its turn still not have come 300ms from the sighting (a light crossing
+    // ahead of it), the same rule: the photo comes up from black and the title rises. A turn missed (passed by) lets
+    // the Bead Test's title go, and the plate waits to be seen again
     function sighted() {
-      const t = performance.now();
+      const t = seenAt = performance.now();
       (function go() {
         if (done) return;
         if (beadsPlayed()) reveal();   // the beading has played this visit (the closing band): the photo comes up from black
-        else if (m.room()) light.pass(plate, { start, when: roomWhen(plate), miss: () => onceSeen(plate, { threshold: 0.4 }, sighted) });
+        else if (m.room()) {
+          beadHead.firm();
+          const late = setTimeout(() => { if (!begun && !done) { light.stop(plate); reveal(); } }, Math.max(0, 300 - (performance.now() - t)));
+          timers.push(late);
+          light.pass(plate, { start, when: roomWhen(plate), miss: () => { clearTimeout(late); beadHead.open(); onceSeen(plate, { threshold: 0.4 }, sighted); } });
+        }
         else if (performance.now() - t > 300) reveal();
         else later(50, go);
       })();
@@ -2817,7 +2832,7 @@
     rowArm();   // the row's light after the wash (no wash: the first time the row is half on the screen; no light: none)
     stripArm();   // the strip's inspection light, after the wash too
     artReady = true;
-    paintArt();
+    requestAnimationFrame(paintArt);   // the stills a frame later, in a task of their own (not one long one with the wash's start)
   }
   const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1200 }) : (fn) => setTimeout(fn, 600);
   // (in a cut, or under its page's rise, it waits: 300ms at a time, 4s at most; on home, where the wash waits for it,

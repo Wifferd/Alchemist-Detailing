@@ -176,6 +176,7 @@
   /* roles (the old names point at the scale, so every var() that used them follows) */
   --fs-display: clamp(40px, 8.2vw, 110px);     /* the hero wordmark only */
   --fs-h1: var(--t-8);
+  --fs-page: max(var(--t-8), 40px);   /* a brand page's title: 40px at least, so on a phone it outranks the Services plates' names (from about 600px wide --t-8 is larger anyway) */
   --fs-h2: var(--t-7);
   --fs-h3: var(--t-4);
   --fs-base: 16px;
@@ -1521,7 +1522,7 @@ section { position: relative; }
   background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
   border: 1px solid rgba(255, 255, 255, .07);
 }
-.page h1 { font-size: var(--fs-h1); font-weight: var(--wght-display); letter-spacing: var(--tr-display); text-indent: var(--tr-display); }   /* the brand pages' title (see .page-head) */
+.page h1 { font-size: var(--fs-page); font-weight: var(--wght-display); letter-spacing: var(--tr-display); text-indent: var(--tr-display); }   /* the brand pages' title (see .page-head) */
 .page .rule { display: block; margin: 4px auto 0; }
 .page p { color: var(--ink-2); margin: 18px auto 0; max-width: 44ch; }
 .page p.eyebrow { color: var(--gold-ink); }   /* the 404's eyebrow is gold like every other (the rule above outranks .eyebrow) */
@@ -1620,7 +1621,7 @@ html.vt-route::view-transition-group(bar), html.vt-route::view-transition-new(ba
 /* ---------------------------------------------------------------- services page */
 /* the brand pages share one head: centred eyebrow, gold title, one lead sentence, a drawn rule */
 .page-head { display: grid; gap: var(--s-2); justify-items: center; text-align: center; }
-.page-head h1 { font-size: var(--fs-h1); font-weight: var(--wght-display); letter-spacing: var(--tr-display); text-indent: var(--tr-display); }
+.page-head h1 { font-size: var(--fs-page); font-weight: var(--wght-display); letter-spacing: var(--tr-display); text-indent: var(--tr-display); }
 .page-head p:not(.eyebrow) { margin: 0; max-width: var(--m-centre); font-size: var(--t-4); line-height: var(--lh-4); color: var(--ink-2); text-wrap: balance; }   /* a lead that wraps breaks evenly, never one word alone */
 .page-head p.eyebrow { margin: 0; }
 .page-head .rule { order: 1; }   /* the rule draws last, under the lead, on every page (the brand pages write it before the lead) */
@@ -3210,7 +3211,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 @media screen and (prefers-reduced-motion: no-preference) {
   .bk-sent.wait-draw .sent-mark > svg { display: none; }
   .bk-sent.wait-seal > .sent-mark { opacity: 0; }
-  .bk-sent.wait-head > .eyebrow, .bk-sent.wait-head > .bk-title, .bk-sent.wait-head > .sent-ref { opacity: 0; }
+  .bk-sent.wait-head > .eyebrow, .bk-sent.wait-head > .bk-title, .bk-sent.wait-head > .sent-ref, .bk-sent.wait-head > .bk-preview { opacity: 0; }
   .bk-sent.wait-sheet > .sent-sheet, .bk-sent.wait-lines .pr > .sr, .bk-sent.wait-next > .sent-next { opacity: 0; }
   /* the seal, from 0ms */
   .bk-sent.play-seal .seal-blind { animation: sealPress .42s var(--ease-unveil) backwards; }
@@ -3223,6 +3224,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   .bk-sent.play-head .sent-ref-k { animation: sentFade var(--dur-line) var(--ease-unveil) 570ms backwards; }
   .bk-sent.play-head .sent-code-in { animation: lineUp var(--dur-line) var(--ease-unveil) 570ms backwards; }
   .bk-sent.play-head .sent-ref > .mini-btn { animation: sentFade var(--dur-rise) var(--ease-unveil) 700ms backwards; }   /* it works from the first frame */
+  .bk-sent.play-head > .bk-preview { animation: sentFade var(--dur-rise) var(--ease-unveil) 700ms backwards; }   /* the preview's note with the Copy button, after the reference */
   /* the sheet, started at 600ms: from 1000ms, the panel with its first row (never empty), then the summary's rows */
   .bk-sent.play-sheet > .sent-sheet { animation: sentFade var(--dur-rise) var(--ease-unveil) 400ms backwards; }
   .bk-sent.play-sheet .sum-list > .sr { animation: sentRow var(--dur-rise) var(--ease-unveil) calc(400ms + var(--k, 0) * 60ms) backwards; }
@@ -4751,7 +4753,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 }
 [data-theme="light"] { --insp-shade: .3; }   /* in the white studio the shaded photos sit a touch less deep against the cream */
 @media (prefers-reduced-motion: reduce) { .insp { display: none; } }   /* the photos simply at their exposure */
-.lightbox { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 14px; padding: 24px; background: rgba(0, 0, 0, .96); opacity: 0; transition: opacity .3s var(--ease); outline: none; }
+.lightbox { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 14px; padding: 24px; background: var(--bg); opacity: 0; transition: opacity .3s var(--ease); outline: none; }   /* opaque: the grid behind never shows through round the caption */
 .lightbox.on { opacity: 1; }
 /* the picture's height leaves room for its caption and link, and never drops under half the screen; --lb-vh is the
    small viewport (a phone with its bars shown) where the browser knows it */
@@ -5016,7 +5018,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .brand-link svg { filter: none; }
 :where([data-theme="light"]) .scrim { background: rgba(var(--studio-scrim-rgb), .35); }
 :where([data-theme="light"]) .toast { background: rgba(var(--studio-panel-rgb), .97); color: var(--ink); box-shadow: 0 20px 50px -20px rgba(var(--studio-shade-rgb), .4); }
-:where([data-theme="light"]) .lightbox { background: rgba(var(--studio-bg-rgb), .97); }
+:where([data-theme="light"]) .lightbox { background: rgb(var(--studio-bg-rgb)); }
 :where([data-theme="light"]) .lightbox .icon-btn { background: rgba(var(--studio-ink-rgb), .05); border-color: rgba(var(--studio-ink-rgb), .22); }
 :where([data-theme="light"]) .lightbox img { box-shadow: 0 40px 100px -40px rgba(var(--studio-shade-rgb), .55); }
 [data-theme="light"] ::selection { background: rgba(var(--studio-gold-rgb), .3); color: var(--ink); }
@@ -5311,6 +5313,7 @@ html.vt-dim::view-transition-new(root) {
   :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band, .door) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid var(--print-line) !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; transition: none !important; }
   .bk-sent :is(.mini-btn, .link, .bk-actions), .mark-pass { display: none !important; }
+  .steps .step .n, .steps.in .step .n { background: none; box-shadow: none; border-color: currentColor; color: var(--gold-ink); }   /* How booking works: each number an outlined figure, with or without the background graphics */
   .footer::before { transform: none !important; }   /* the hairline drawn, wherever the sign-off had got to */
   /* the receipt on one page, a long booking too: tighter, the mark smaller, the footer left off (the receipt carries
      the phone itself) */

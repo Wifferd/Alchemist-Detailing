@@ -48,7 +48,7 @@
   const DRIFT = [0.1, 0.5, 0.3, 0.05, 0.11];   // 0.1 + 0.5 sin(0.3 t) + 0.05 sin(0.11 t)
   const CURVE = [0.05, 1.8, 0.4, 0.02, 3.1];   // 0.05 sin(1.8 y + 0.4) + 0.02 sin(3.1 x)
   const SPAN = 1.35, PAN = [0.006, 0.0025];
-  const BODY = [60, 30];   // the bar's body across its axis: exp(-d*d*BODY), from BODY[0] on a wide frame to BODY[1] on a tall one
+  const BODY = [60, 160];   // the bar's body across its axis: exp(-d*d*BODY), from BODY[0] on a wide frame to BODY[1] on a tall one
   const drift = (t) => DRIFT[0] + DRIFT[1] * Math.sin(t * DRIFT[2]) + DRIFT[3] * Math.sin(t * DRIFT[4]);
   const curve = (x, y) => CURVE[0] * Math.sin(y * CURVE[1] + CURVE[2]) + CURVE[3] * Math.sin(x * CURVE[4]);
   const glf = (v) => (Number.isInteger(v) ? v.toFixed(1) : String(v));   // as a GLSL float
@@ -120,17 +120,19 @@ vec3 finish(vec3 c, vec2 uv){
 // stretched along its axis, soft across it, never a hard-edged band.
 vec3 envAt(float d, float sharp){
   float ds = d + 0.42;
-  // a tall frame (a phone) sees a narrow slice of the paint: the bar spreads a little so it still reads
+  // a tall frame (a phone): the bar's band runs its whole height, so the same band on the paint would cover about
+  // twice the share of the screen it does on a desk. There it is drawn narrower, core and body, and its body a little
+  // dimmer (and the live hero's paint zooms out a little more), so its gold covers about a desk's share of the screen
   float portrait = 1.0 - min(uRes.x/uRes.y, 1.0);
   vec3 base = mix(vec3(0.003, 0.003, 0.004), vec3(0.94, 0.93, 0.91), uStudio);
   // the studio preset: a wide white softbox panel beside the warm bar
   base = mix(base, vec3(0.985, 0.98, 0.97), smoothstep(0.30, 0.22, abs(ds))*0.95*uStudio);
-  float k = mix(80.0, 420.0, sharp)*mix(1.0, 0.6, portrait);
+  float k = mix(80.0, 420.0, sharp)*mix(1.0, 1.5, portrait);
   float core = exp(-d*d*k)*sqrt(k/420.0);
   float body = exp(-d*d*mix(${glf(BODY[0])}, ${glf(BODY[1])}, portrait));
   // the halo: a wide, dim amber spill that keeps the whole panel warm, so the drops have light to bend
   float halo = exp(-d*d*1.8);
-  vec3 bar = (CORE*core*2.4 + GOLD*body*1.2 + AMBER*halo*0.26)*mix(1.0, 0.35, uStudio);
+  vec3 bar = ((CORE*core*2.4 + GOLD*body*1.2)*mix(1.0, 0.7, portrait) + AMBER*halo*0.26)*mix(1.0, 0.35, uStudio);
   vec3 c = base + bar*uIntro;
   // a second, cooler reflection beside the bar: the soft edge of a panel, a wide gaussian with no edge
   float d2 = d + 0.52;
@@ -555,11 +557,11 @@ void main(){
     let timeOffset = opts.time != null ? opts.time : 4 + Math.random() * 30;
     let zoom = 1, shown = { T: timeOffset, L: drift(timeOffset) }, rect = null;   // the last picture: its paint time, where its bar was
 
-    // portrait screens see less of the surface, so zoom out a little there; the cream studio a little
-    // more, so its drops stay small on the paint
+    // portrait screens see less of the surface, so zoom out a little there (and the bar's band takes less of the
+    // screen); the cream studio a little more, so its drops stay small on the paint
     function applyZoom() {
       const portrait = canvas.clientHeight > canvas.clientWidth;
-      zoom = preset.zoom * (portrait ? 1.25 : 1) * (studio ? 1.2 : 1);
+      zoom = preset.zoom * (portrait ? 1.45 : 1) * (studio ? 1.2 : 1);
       gl.uniform1f(P.uZoom, zoom);
     }
     // the canvas on the screen, kept in page coordinates (so a scroll needs no layout) and taken from the observer's

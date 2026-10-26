@@ -431,7 +431,7 @@
         note ? el('p.bk-muted', note) : null,
         el('dl.sum-body',
           el('dt', 'Reference'), el('dd.appt-refline', refValue(b)),
-          el('dt', 'Where'), el('dd', b.location_type === 'mobile' ? (b.address || '') + (b.address_zip ? ', ' + b.address_zip : '') : (b.shop_address ? b.shop_address : isLive(b) ? settings.public_area + ' — we send the address with your confirmation' : settings.public_area)),
+          el('dt', 'Where'), el('dd', b.location_type === 'mobile' ? ([b.address, b.address_zip].filter(Boolean).join(', ') || whereText(b)) : (b.shop_address ? b.shop_address : isLive(b) ? settings.public_area + ' — we send the address with your confirmation' : settings.public_area)),
           el('dt', 'Vehicle'), el('dd', b.vehicle ? (b.vehicle.not_sure ? b.vehicle.description : [b.vehicle.year, b.vehicle.make, b.vehicle.model, b.vehicle.color && '· ' + b.vehicle.color].filter(Boolean).join(' ')) : ''),
           el('dt', 'Length'), el('dd', 'About ' + minutesText(b.duration_min)),
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
