@@ -183,7 +183,7 @@
     slide(range.value);
     nudge(frame, range, paint, () => slide(range.value));
     return el('section.transmute', { 'aria-labelledby': 'tmTitle' },
-      el('div.section-head', el('p.eyebrow', 'Before and after'), el('h2.display', { id: 'tmTitle' }, 'The Transmutation'), el('p.script', 'Drag the seam. Same car, same spot. ✦')),
+      el('div.section-head', el('p.eyebrow', 'Before and after'), el('h2.display', { id: 'tmTitle' }, 'The Transmutation'), el('p', 'Drag the seam. Same car, same spot. ✦')),
       frame, thumbs);
   }
 

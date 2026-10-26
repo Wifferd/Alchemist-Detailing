@@ -544,7 +544,7 @@
     bead = { refresh() { WG.forEach((g, i) => put(prices[i], g.price)); } };
     container.replaceChildren(
       el('div.show-head', el('div', el('p.eyebrow', 'Protection'), el('h2.display', { id: 'beadTitle' }, 'The Bead Test')),
-        el('p', (spray ? 'Press and drag across the panel. ' : '') + 'On bare paint the water lies flat. WetGloss pulls it into beads that roll off.')),
+        el('p', spray ? el('span.bead-how', 'Press and drag across the panel. ') : null, 'On bare paint the water lies flat. WetGloss pulls it into beads that roll off.')),   // (the panel's own words: not in print)
       el('div.bead-cmp', bare, gloss, el('span.bead-seam', { 'aria-hidden': 'true' }), el('span.bead-badge', { 'aria-hidden': 'true' }, '✦')),
       el('div.bead-foot',
         el('div.wg', el('b', 'WetGloss'), el('p', 'Spray-on sealant, added after a wash with any exterior service. Lasts several weeks, depending on weather and washing.')),

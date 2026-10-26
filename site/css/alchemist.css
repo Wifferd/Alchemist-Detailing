@@ -87,6 +87,7 @@
   --font-section: var(--font-display);
   --wdth-section: var(--wdth-display);
   --tr-section: var(--tr-display);
+  --ws-section: 0;       /* the gap between their words: the face's own, a little wider on a phone (below) */
   --wght-display: 300;   /* the expanded capitals are light; the studio sets them a touch heavier (dark on cream reads thinner) */
   --wght-title: 500;
   --r-xl: 32px;
@@ -279,11 +280,12 @@
 }
 /* a phone: the statements at the semi-expanded width, with that width's fallback. The section titles go a step
    narrower (106%, with that width's fallback) and untracked, so DONE PROPERLY, BY HAND holds one line from 360 to
-   440px (the owner: tighter capitals; a title that wraps on a phone fits one line) */
+   440px (the owner: tighter capitals; a title that wraps on a phone fits one line). Untracked, the face's own word
+   space closes up (BY HAND, UP CLOSE, THANK YOU read as one word): their words keep a clear gap, .06em wider */
 @media (max-width: 640px) {
   :root {
     --wdth-display: 112%; --font-display: "Archivo", "Archivo Title Fallback", system-ui, sans-serif;
-    --wdth-section: 106%; --tr-section: 0em; --font-section: "Archivo", "Archivo Semi Fallback", system-ui, sans-serif;
+    --wdth-section: 106%; --tr-section: 0em; --ws-section: .06em; --font-section: "Archivo", "Archivo Semi Fallback", system-ui, sans-serif;
   }
 }
 /* under 390px the section titles keep shrinking with the screen (continuous at 390px), so DONE PROPERLY, BY HAND and
@@ -497,9 +499,9 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   animation: auPass calc(var(--au-dur) * .6) var(--au-ease) 1 both;
 }
 /* a light running along a hairline while something waits (Send Request's lower edge as the request goes: .send-line,
-   in the booking's bottom bar): a 2px charcoal hairline with the same light; at most twenty runs, then it rests */
+   in the booking's bottom bar): a 2px charcoal hairline with the same light; at most twelve runs (the loaders' cap), then it rests */
 .au-line { position: relative; display: block; flex-shrink: 0; width: 160px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .1); }
-.au-line::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--gold) 35%, var(--gold-hi) 50%, var(--gold) 65%, transparent); transform: translateX(-100%); animation: auLine 1.6s var(--au-ease) 20 forwards; }
+.au-line::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--gold) 35%, var(--gold-hi) 50%, var(--gold) 65%, transparent); transform: translateX(-100%); animation: auLine 1.6s var(--au-ease) 12 forwards; }
 @keyframes auLine { 0% { transform: translateX(-100%); } 75%, 100% { transform: translateX(250%); } }
 
 /* ---------------------------------------------------------------- buttons */
@@ -788,6 +790,9 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 /* opened over the live wash (the bar's .over-wash): the foam redraws every frame, so the panel drops its blur as the
    bar does and goes nearly solid; the foam still shows, dimmed, beside it */
 .topbar.over-wash ~ .menu { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--menu-solid); }
+/* a phone's panel over the hero: nearly solid too, so the hero's gold light never shows through the glass as a warm
+   smear behind the items (the light theme's own --menu-solid applies) */
+@media (max-width: 720px) { .topbar.over-hero ~ .menu { background: var(--menu-solid); } }
 .menu-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: clamp(18px, 4vh, 40px); }
 .menu-brand { display: flex; align-items: center; gap: 14px; min-height: 44px; text-decoration: none; }
 .menu-brand svg { width: 42px; height: 42px; }
@@ -1009,7 +1014,7 @@ section { position: relative; }
 .section-head h2 { font-size: var(--fs-h2); }
 /* every section title (the wash's, the closing band's, the booking steps' and the account's too) in the section face:
    a step narrower on a phone, so HOW DO WE REACH YOU? and its kind hold one line from 390px */
-:is(.section-head, .svc-head, .cta-band) h2, .bk-title, .soon-title { font-family: var(--font-section); font-stretch: var(--wdth-section); letter-spacing: var(--tr-section); }
+:is(.section-head, .svc-head, .cta-band) h2, .bk-title, .soon-title { font-family: var(--font-section); font-stretch: var(--wdth-section); letter-spacing: var(--tr-section); word-spacing: var(--ws-section); }
 .section-head p:not(.eyebrow) { margin: 0; max-width: var(--m-centre); color: var(--ink-2); font-size: var(--t-4); line-height: var(--lh-4); text-wrap: balance; }
 .section-head p.eyebrow { margin: 0; }
 /* centred capitals carry their tracking on both sides (a text-indent the size of it), so they sit on the centre line */
@@ -1053,18 +1058,19 @@ section { position: relative; }
    --std-lines, --line-gap apart, all in the statement's ink; then the gold light (the light's queue, .au-run) crosses
    the phrase and the words turn gold behind its edge (the gold behind, a soft bright edge, the ink ahead, on --au-p:
    at 0 all ink, at 1 all gold), and stay gold (.au-lit); a phrase that gets no light simply turns gold (.std-fade).
-   The script fades up at --std-tail, the facts after it, a line's gap apart. Hidden only while app.js holds the card:
+   The script fades up --std-tail after the phrase's light has begun (or its plain turn to gold: .std-gold, app.js),
+   the facts after it, a line's gap apart, so the promise is never last. Hidden only while app.js holds the card:
    never without JavaScript, under reduced motion or in print, where it is set and the phrase gold */
-.standard[data-std] { --std-kicker: 250ms; --std-lines: 450ms; --std-tail: 2300ms; }
+.standard[data-std] { --std-kicker: 250ms; --std-lines: 450ms; --std-tail: 800ms; }
 .standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement) { opacity: 0; }
 .standard[data-std]:not(.in) .emblem img { transform: translateY(10px); }
-.standard[data-std]:not(.in) :is(.script, .facts span) { opacity: 0; transform: translateY(12px); }
+.standard[data-std]:not(.std-gold) :is(.script, .facts span) { opacity: 0; transform: translateY(12px); }
 .standard[data-std].in .emblem img { transition: opacity 1.2s var(--ease-unveil), transform 1.2s var(--ease-unveil); }
 .standard[data-std].in h2.eyebrow { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-kicker); }
 .standard[data-std].in .statement:not(.hd-lines) { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-lines); }   /* one that could not be split fades in */
 .standard[data-std].in .statement .ln-w { animation: lineUp var(--dur-line) var(--ease-unveil) calc(var(--std-lines) + var(--i, 0) * var(--line-gap)) both; }
-.standard[data-std].in .script { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-tail), transform var(--dur-line) var(--ease-unveil) var(--std-tail); }
-.standard[data-std].in .facts span { transition: opacity var(--dur-rise) var(--ease-unveil), transform var(--dur-rise) var(--ease-unveil); transition-delay: calc(var(--std-tail) + 200ms + var(--k, 0) * var(--line-gap)); }
+.standard[data-std].std-gold .script { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-tail), transform var(--dur-line) var(--ease-unveil) var(--std-tail); }
+.standard[data-std].std-gold .facts span { transition: opacity var(--dur-rise) var(--ease-unveil), transform var(--dur-rise) var(--ease-unveil); transition-delay: calc(var(--std-tail) + 200ms + var(--k, 0) * var(--line-gap)); }
 .standard .facts span:nth-child(2) { --k: 1; }
 .standard .facts span:nth-child(3) { --k: 2; }
 .standard[data-std] .statement em { color: var(--ink); }
@@ -1234,6 +1240,7 @@ section { position: relative; }
 .svc-card .art { background: radial-gradient(90% 70% at 30% 20%, rgb(var(--grey-30)), rgb(var(--grey-11))); }
 .svc-card .photo { object-fit: cover; }
 .no-webgl .svc-card .art, .no-js .svc-card .art { background: repeating-linear-gradient(45deg, transparent 0 26px, rgba(var(--gold-rgb), .14) 26px 27px), repeating-linear-gradient(-45deg, transparent 0 26px, rgba(var(--gold-rgb), .14) 26px 27px), radial-gradient(90% 70% at 30% 20%, rgb(var(--grey-30)), rgb(var(--grey-11))); }   /* quilted leather, without WebGL */
+:is(.no-webgl, .no-js) .svc-card .art[data-art="leather"] { background: url(../img/art/leather.webp) 50% 50% / cover no-repeat, var(--room-black); }   /* Interior's card: its own leather as the pre-rendered still, as Services' Interior plate */
 .svc-card::before {
   content: "";
   position: absolute;
@@ -1519,6 +1526,10 @@ section { position: relative; }
 .page p { color: var(--ink-2); margin: 18px auto 0; max-width: 44ch; }
 .page p.eyebrow { color: var(--gold-ink); }   /* the 404's eyebrow is gold like every other (the rule above outranks .eyebrow) */
 .page .actions { margin-top: 30px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+/* a wider screen: the title a step smaller, so PAGE NOT FOUND sets on one line in the card (a phone keeps two). A
+   phone: the two ways on full width, one over the other, as on every other page */
+@media (min-width: 641px) { .page h1 { font-size: var(--t-7); } }
+@media (max-width: 640px) { .page .actions { flex-direction: column; align-items: stretch; } .page .actions .btn { width: 100%; } }
 /* the 404 page (site/404.html): the emblem with the monogram symbol inside the ring, and one quiet line at the foot */
 .page .emblem { margin-bottom: 26px; }
 .nf-mark { position: relative; width: 56px; height: 58px; filter: drop-shadow(0 6px 18px rgba(var(--gold-rgb), .25)); }
@@ -2747,7 +2758,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .fld-label { font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); transition: color .2s var(--ease); }
 .fld-label i { font-style: normal; color: var(--gold-ink); }
 .fld-label small { font-size: inherit; font-weight: 500; letter-spacing: .08em; text-transform: none; color: var(--muted); }
-.fld-box { position: relative; display: flex; align-items: stretch; border-radius: var(--r-field); border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .35); transition: border-color .3s var(--ease), box-shadow .3s var(--ease); }
+.fld-box { position: relative; display: flex; align-items: stretch; border-radius: var(--r-field); border: 1px solid var(--border-strong); background: rgba(0, 0, 0, .35); transition: border-color .3s var(--ease), box-shadow .3s var(--ease); }
 /* focus is light on glass: the label warms to gold, and the field's 1px rim lights from where the finger touched (--a,
    ui.js), two arcs running round to meet on the far side (--rim-sweep, 450ms), then rests as one gold hairline with a
    faint glow (there at once: a growing blur would be redrawn every frame as the keyboard opens); the caret is gold.
@@ -3380,6 +3391,12 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .soon-text { margin: 22px 0 0; max-width: var(--m-centre); font-size: var(--t-4); line-height: var(--lh-4); color: var(--ink-2); text-wrap: pretty; }
 .soon-actions { margin-top: 36px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 34px; }
 .soon-actions .btn { min-width: 210px; }
+@media (max-width: 640px) {   /* a phone: Book a detail full width within the page's 16px gutter, as on every other page; the call under it */
+  .book-page:has(.acct-soon) { padding-inline: var(--gutter); }
+  .soon-actions { justify-self: stretch; flex-direction: column; align-items: stretch; }
+  .soon-actions .btn { width: 100%; }
+  .soon-actions .acct-go { align-self: center; }
+}
 .acct-soon > * { animation: soonIn .8s var(--ease-unveil) both; }
 .acct-soon > :nth-child(2) { animation-delay: .08s; }
 .acct-soon > :nth-child(3) { animation-delay: .16s; }
@@ -3934,7 +3951,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .rv-seal .au { fill: var(--au-200); font: 400 20px var(--font-title); font-stretch: var(--wdth-title); letter-spacing: 0; }
 .rv-main { position: relative; display: grid; gap: 22px; padding-right: 110px; }
 .rv.cert .stars { font-size: 18px; color: var(--gold-hi); }
-.rv.cert .rv-body { font: italic 500 30px/1.3 var(--font-script); }
+.rv.cert .rv-body { font: 400 var(--t-5)/1.45 var(--font-title); font-stretch: var(--wdth-title); }   /* the customer's words upright in the title face (the italic serif is the tagline's and the Table's alone) */
 .rv.cert .rv-reply { position: relative; margin-top: 28px; }
 :where(.rv-grid) .rv.cert { padding: 32px 28px 28px; }
 /* in the grid a certificate takes one cell like any review, so the order stays newest first with no holes; each cell
@@ -3945,7 +3962,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
   .rv-seal { width: 64px; height: 64px; right: 20px; top: 20px; }
   .rv-main { gap: 16px; padding-right: 0; }
   .rv.cert .rv-head { min-height: 64px; padding-right: 76px; align-content: center; }
-  .rv.cert .rv-body { font-size: 22px; }
+  .rv.cert .rv-body { font-size: var(--t-4); }
   .rv-circles { right: -130px; bottom: -150px; }
 }
 /* the reveal, once (.in), of a certificate in the grid: the stars from the 200ms mark, 90ms apart; the name after
@@ -4113,7 +4130,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
   .rv-seal { width: 64px; height: 64px; right: 20px; top: 20px; }
   .rv-main { gap: 16px; padding-right: 0; }
   .rv.cert .rv-head { min-height: 64px; padding-right: 76px; align-content: center; }
-  .rv.cert .rv-body { font-size: 22px; }
+  .rv.cert .rv-body { font-size: var(--t-4); }
   .rv-circles { right: -130px; bottom: -150px; }
   .rv-foot { flex-direction: column; align-items: stretch; }
   .rv-foot .bk-actions, .rv-empty .bk-actions { flex-direction: column; align-items: stretch; }
@@ -4124,7 +4141,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 }
 /* on a phone the clauses' title takes the section titles' narrower, untracked face, so HOW REVIEWS WORK HERE holds
    one line; under 390px it shrinks with the screen, as the section titles do (one line at 360px too) */
-@media (max-width: 640px) { .rv-un-title { font-family: var(--font-section); font-stretch: var(--wdth-section); letter-spacing: var(--tr-section); text-indent: var(--tr-section); } }
+@media (max-width: 640px) { .rv-un-title { font-family: var(--font-section); font-stretch: var(--wdth-section); letter-spacing: var(--tr-section); word-spacing: var(--ws-section); text-indent: var(--tr-section); } }
 @media (max-width: 389px) { .rv-un-title { font-size: min(var(--t-5), 5.2vw); } }
 @media (prefers-reduced-motion: reduce) {   /* stars, name and rim are simply there; the featured review issued, its seal in foil */
   .rv:is(.cert, .is-featured) .stars i.on, .rv:is(.cert, .is-featured) .rv-who { opacity: 1; transform: none; transition: none; }
@@ -4225,9 +4242,11 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 
 /* sections rise in as they enter; children staggered --stagger apart, capped at the fourth (--k, set per parent by
    app.js), after the head above them has led (--after). The hidden state lives on :not(.in) so hover transforms win
-   once an element is in; app.js then drops data-rise, so the element's own transitions take over. */
+   once an element is in; app.js then drops data-rise, so the element's own transitions take over. The hidden state
+   comes at once (no transition): a block that landed on the screen a frame before it was armed (a page built after
+   its data answered, Reviews' certificate) never fades out before it rises. */
 [data-rise] { transition: opacity var(--dur-rise) var(--ease-unveil), transform var(--dur-rise) var(--ease-unveil); transition-delay: calc(var(--after, 0ms) + var(--k, 0) * var(--stagger)); }
-[data-rise]:not(.in) { opacity: 0; transform: translateY(18px); }
+[data-rise]:not(.in) { opacity: 0; transform: translateY(18px); transition: none; }
 :is([data-view="home"], [data-view="services"], [data-view="gallery"], [data-view="reviews"], [data-view="content"]) { --stagger: 90ms; }
 /* The heads (app.js HEADS, data-head): a section's head arrives in reading order (.in). The kicker fades where it
    sits; from 80ms the heading's lines (.hd-lines > .ln, one per line the browser laid out) rise out of a slot just
@@ -4433,7 +4452,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   [data-rise]:not(.in) { opacity: 1; transform: none; }
   .rule { transform: scaleX(1); }
   [data-head]:not(.in) :is([data-hd], .rule) { opacity: 1; transform: none; }   /* the heads are simply there (app.js never holds one) */
-  .standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement, .script, .facts span) { opacity: 1; transform: none; }   /* the card is set */
+  .standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement), .standard[data-std]:not(.std-gold) :is(.script, .facts span) { opacity: 1; transform: none; }   /* the card is set */
   .standard[data-std] .statement em { color: var(--gold-hi); }
   [data-room]:not(.in)::before { opacity: 1; }   /* the rooms' light is on and still */
   .menu.on nav a > span, .menu.on nav a::after, .menu.on nav a[aria-current="page"]::before, .menu.on .menu-foot { animation: none; }   /* the items are there the frame the menu opens (a choice changes the page at once: no line, app.js) */
@@ -4835,9 +4854,6 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
    themes. With no before photo yet the before layer is the owner's hatched placeholder. */
 .transmute { --pos: 46%; --cr: 54%; position: relative; padding-block: var(--s-3) var(--s-4); background: radial-gradient(50% 36% at 50% 26%, rgba(var(--gold-rgb), .08), transparent 70%); }
 .transmute .section-head { margin-bottom: var(--s-4); }
-/* the owner's line under the title in the brand's italic serif (a section head's plain lead rule would set it small in
-   grey); off-white, as the eyebrow, the seam and the After pill already carry this screen's gold */
-.transmute .section-head p.script { font: italic 500 clamp(21px, 2.2vw, 25px)/1.3 var(--font-script); color: var(--ink); }
 .tm-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 28px; overflow: hidden; isolation: isolate; border: 1px solid var(--hair); background: rgb(var(--grey-10)); color: var(--dark-ink); box-shadow: 0 50px 100px -50px rgba(0, 0, 0, .95), inset 0 1px 0 rgba(var(--gold-pale-rgb), .06); }
 .tm-frame:has(.tm-range:focus-visible) { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
 /* waiting for its heading (gallery.js hold): unseen, then it rises in as the blocks do */
@@ -5138,24 +5154,27 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .svc-fig.au-run { background-image: linear-gradient(var(--au-angle), transparent 16%, var(--gold) 34%, rgb(var(--gold-rgb)) 46%, rgb(var(--gold-rgb)) 54%, var(--gold) 66%, transparent 84%), linear-gradient(currentColor, currentColor); }
 [data-theme="light"] .ld-lap { --ld-head: var(--gold); }   /* the loader's head of light in the studio's gold (a pale one vanishes on cream) */
 [data-theme="light"] .seal-blind { filter: drop-shadow(-1px -1px 0 rgba(var(--gold-s4), .95)) drop-shadow(1px 1px 0 var(--press-shade)); }   /* the blind seal on ivory: a white edge to the light, a soft shade away from it */
-/* ---- the toggle: the studio lights (app.js theme, a view transition: html.vt-theme). To Light (vt-lights) a soft white
-   softbox band crosses the page at 118deg in .9s, the ivory showroom behind it, the old page ahead, the light's own
-   white (--panel) in the band. To Dark (vt-dim) the dark closes in from the edges over .6s on the last pool of light
-   at the centre, gone by .42s. --lights moves the masks' stops. Without view transitions every colour cross-fades
-   under html.theming (.42s); under reduced motion the switch is instant. The sun becomes a moon in the button. */
+/* ---- the toggle: the studio lights (app.js theme, a view transition: html.vt-theme). To Light (vt-lights) a soft
+   white softbox band crosses the page at 118deg in the light's own time (--au-dur, 1.2s), from its first frame
+   (--lights 14%: the band's edge at the screen's corner) to the far corner, the ivory showroom behind it, the old
+   page ahead, the light's own white (--panel) in the band. To Dark (vt-dim) the dark closes in from the edges over
+   .6s on the last pool of light at the centre; the lit page under it holds until the dark has nearly closed (55%),
+   then fades, so the centre shrinks into the dark with no black between. --lights moves the masks' stops. Without
+   view transitions every colour cross-fades under html.theming (.42s); under reduced motion the switch is instant.
+   The sun becomes a moon in the button. */
 @property --lights { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
 html.vt-lights::view-transition { background: var(--panel); }
 html.vt-lights::view-transition-new(root) {
   -webkit-mask-image: linear-gradient(118deg, #000 calc(var(--lights) - 20%), transparent calc(var(--lights) - 2%));
   mask-image: linear-gradient(118deg, #000 calc(var(--lights) - 20%), transparent calc(var(--lights) - 2%));
-  animation: lightsOn .9s var(--ease-in-out) both;
+  animation: lightsOn var(--au-dur) var(--ease-in-out) both;
 }
 html.vt-lights::view-transition-old(root) {
   -webkit-mask-image: linear-gradient(118deg, transparent calc(var(--lights) - 14%), #000 calc(var(--lights) + 10%));
   mask-image: linear-gradient(118deg, transparent calc(var(--lights) - 14%), #000 calc(var(--lights) + 10%));
-  animation: lightsOn .9s var(--ease-in-out) both;
+  animation: lightsOn var(--au-dur) var(--ease-in-out) both;
 }
-@keyframes lightsOn { from { --lights: -10%; } to { --lights: 120%; } }
+@keyframes lightsOn { from { --lights: 14%; } to { --lights: 120%; } }
 html.vt-dim::view-transition { background: var(--bg); }
 html.vt-dim::view-transition-old(root) { animation: lightsDim .6s var(--ease-in-out) both; }
 html.vt-dim::view-transition-new(root) {
@@ -5164,7 +5183,7 @@ html.vt-dim::view-transition-new(root) {
   animation: lightsOff .6s var(--ease-in-out) both;
 }
 @keyframes lightsOff { from { --lights: 160%; } to { --lights: 0%; } }
-@keyframes lightsDim { 0% { opacity: 1; } 70%, 100% { opacity: 0; } }
+@keyframes lightsDim { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: no-preference) {
   html.theming, html.theming *, html.theming *::before, html.theming *::after { transition: background-color .42s var(--ease), background .42s var(--ease), color .42s var(--ease), border-color .42s var(--ease), box-shadow .42s var(--ease), opacity .42s var(--ease) !important; transition-delay: 0s !important; }
 }
@@ -5225,7 +5244,7 @@ html.vt-dim::view-transition-new(root) {
     --hair: var(--print-line); --line: #ceb380; --line-soft: #e4dcc4; --border-strong: #999;
     --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); --gold-pale: var(--studio-gold-ink); --gold-deep: var(--studio-gold-ink);
   }
-  .svc-card, [data-theme="light"] :is(.svc-card, .gold-card) { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); }
+  .svc-card, [data-theme="light"] :is(.svc-card, .gold-card, .hero, .svc-top) { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); }
   /* the account's dark pieces print as ink on paper: no gold face, no drawing's light */
   .appt-next, .car-card, .acct .appt .appt-head, [data-theme="light"] .appt-next, [data-theme="light"] .acct .appt.st-completed .appt-head, .acct .appt.gold:is(.in, .settled) .appt-head, [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); color: var(--print-ink); background: #fff !important; box-shadow: none !important; }
   .appt-au, .trk::after, .acct-soon .soon-mark, .insp { display: none !important; }
@@ -5247,6 +5266,7 @@ html.vt-dim::view-transition-new(root) {
   .standard .statement em { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }   /* the promise in gold, lit or not */
   .standard .statement em::after { content: none !important; }
   .amount, .price-card .tag, .svc-card .price, .eyebrow { color: var(--studio-gold-ink) !important; text-shadow: none !important; }
+  .hero :is(.sub, h1 .l2, .place, .scroll-cue), .svc-note { text-shadow: none !important; }   /* the screen's dark halos (for the light bar) never print grey (the studio's black hero and Services header print in ink: above) */
   .svc-card .price { background: none !important; -webkit-text-fill-color: currentColor !important; }   /* the row's glint, mid-pass, never prints */
   .au-band { display: none !important; }
   .hero { min-height: 0 !important; background: none !important; }
@@ -5258,7 +5278,18 @@ html.vt-dim::view-transition-new(root) {
   .svc-card { min-height: 0; }
   .svc-top { min-height: 0; padding: 0 0 8mm; background: none; }
   .svc-group { padding-block: 6mm; }
-  .group-plate { aspect-ratio: auto; background: none !important; border: 0 !important; margin-bottom: 4mm; }
+  .group-plate { aspect-ratio: auto; height: auto !important; min-height: 0 !important; background: none !important; border: 0 !important; margin-bottom: 4mm; }   /* only its caption prints: no screen-tall blank */
+  /* a heading never ends a page: the heads, the plates' titles, an eyebrow and About's list keys stay with what follows,
+     and a head is never split (the Ritual's and the Bead Test's wrap their lead under the title); About's list, the
+     Bead Test's foot and the Services cards' head keep whole. The Bead Test's panel (and its hint) is the screen's to
+     play with: on paper its head's words say what it shows */
+  :is(.section-head, .show-head, .page-head, .svc-head, .group-plate figcaption, h2, h3, .eyebrow, .use-keys) { break-after: avoid; page-break-after: avoid; }
+  :is(.section-head, .show-head, .page-head, .group-plate figcaption), .about-use, .bead-foot, .svc-head { break-inside: avoid; page-break-inside: avoid; }
+  .bead-cmp, .bead-hint, .bead-how { display: none !important; }
+  /* the Why rows two by two as a wrapping row, not a grid (the print engine lets a page end between a heading and a
+     grid's first row, but keeps it with a flex row) */
+  .why-grid { display: flex !important; flex-wrap: wrap; }
+  .why-grid > .why-item { width: 50%; }
   .group-plate figcaption { position: static; padding: 0; color: var(--print-ink); }
   .group-plate h2, .group-plate p, .group-plate .motto { color: var(--print-ink); }
   .group-plate .motto i, .group-plate svg { color: var(--studio-gold-ink); }
@@ -5330,6 +5361,7 @@ html.vt-dim::view-transition-new(root) {
   .sheet, .sheet-top, .bk-before { background: #fff !important; border-color: var(--print-line) !important; box-shadow: none !important; }
   .work-strip { flex-wrap: wrap; overflow: visible; }
   .work-item { flex-basis: calc(33.33% - 10px); }
+  .work-item.unready, .work.unready { display: none !important; }   /* a photo not yet arrived (app.js, at print): no empty card */
   .page, .book-page { min-height: 0 !important; padding-top: 8mm !important; background: none !important; }
   a { color: inherit; }
   a[href^="http"]::after { content: " (" attr(href) ")"; font: 400 10px/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--print-muted); word-break: break-all; }

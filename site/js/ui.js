@@ -363,10 +363,12 @@
   // sticky bars would let go and leave a black page behind the menu's glass). On a computer with a classic
   // scroll bar its width is given back as padding, and the fixed top bar keeps its right edge, so neither the page nor
   // the bar moves sideways as the scroll bar goes and comes back. Overlay scroll bars (phones) measure 0: no change.
-  function holdPage(on) {
+  // w: the scroll bar's width, when the caller has read it already (the menu reads before it writes anything, so
+  // holding the page never lays it out)
+  function holdPage(on, w) {
     const r = document.documentElement, b = document.body, bar = document.getElementById('topbar');
     if (on) {
-      const sb = window.innerWidth - r.clientWidth;
+      const sb = w == null ? window.innerWidth - r.clientWidth : w;
       b.style.overflow = 'hidden';
       if (sb > 0) { r.style.paddingRight = sb + 'px'; if (bar) bar.style.right = sb + 'px'; }
     } else {
