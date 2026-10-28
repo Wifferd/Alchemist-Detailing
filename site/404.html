@@ -31,6 +31,13 @@
   </defs>
 </svg>
 
+<!-- Back: to the page of this site the visitor came from (history.back(), the browser's own Back); otherwise, and
+     without JavaScript, the link to the home page -->
+<a class="icon-btn bar-back nf-back" id="nfBack" href="/" aria-label="Back to Home">
+  <span class="ring"></span>
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M19 12H5.5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span class="bar-back-word">Back</span>
+</a>
 <main id="main" tabindex="-1">
   <section class="page" aria-labelledby="nfTitle">
     <div class="card">
@@ -50,5 +57,6 @@
     </div>
   </section>
 </main>
+<script>/* came from a page of this site: Back is the browser's own Back, a button (Enter and Space) */(function(a){var r=document.referrer,b;try{if(!a||!r||new URL(r).origin!==location.origin||history.length<2)return}catch(e){return}b=document.createElement('button');b.type='button';b.className=a.className;b.id=a.id;b.innerHTML=a.innerHTML;b.addEventListener('click',function(){b.classList.add('ringing');history.back()});a.replaceWith(b)})(document.getElementById('nfBack'));</script>
 </body>
 </html>

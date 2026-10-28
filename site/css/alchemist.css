@@ -105,6 +105,11 @@
      change (under about .9s: the gold veil into booking) */
   --dur-panel: 450ms;
   --dur-page: .9s;
+  /* the top bar stepping out of the way as the page scrolls down, and back on the way up (the Services chapter bar
+     with it), by --bar-out: just clear of the screen (its shadow fades on the way), so the slide is seen from its
+     first frame */
+  --dur-bar: 360ms;
+  --bar-out: calc(-78px - env(safe-area-inset-top, 0px));
   /* the arrivals: a heading's line rises over --dur-line, the next one --line-gap after it (app.js LINE keeps the same
      numbers), the blocks after a head rise over --dur-rise, --stagger apart (60ms; 90ms on the public pages), a room's
      studio light comes up over --dur-room and drifts --room-drift either way with the scroll (less on a phone; in
@@ -614,14 +619,25 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   z-index: 60;
   padding: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 0 calc(12px + env(safe-area-inset-left, 0px));
   pointer-events: none;
+  transition: transform var(--dur-bar) var(--ease-in-out);
 }
+/* out of the way (app.js .away): scrolling down slides the whole bar up off the screen and the first move up brings it
+   back; only a transform, so nothing on the page moves. Its shadow fades as it goes (it would hang at the screen's top).
+   A page change brings back a bar that was away on the cut's own clock (.cutting), so it is there before the black.
+   Under less motion it simply goes and comes (the .01ms rule) */
+.topbar.away { transform: translate3d(0, var(--bar-out), 0); }
+.topbar.cutting { transition-duration: var(--cut-out); }
+.topbar.away .bar { box-shadow: 0 18px 50px -20px transparent, inset 0 1px 0 rgba(var(--gold-pale-rgb), .07); }
 .bar {
   pointer-events: auto;
   width: min(100%, var(--col));
   margin-inline: auto;
   height: 62px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* the page name on the bar's centre line; where the wider group (the menu button and Back) leaves it too little room
+     there, as near it as the groups allow, balanced between them, and never closer to a button than the gap */
+  --back-w: 84px;
+  grid-template-columns: 1fr minmax(0, auto) 1fr;
   column-gap: 12px;   /* a long page name keeps clear of the buttons and the logo at any width */
   align-items: center;
   padding: 0 9px;
@@ -631,7 +647,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   box-shadow: 0 18px 50px -20px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(var(--gold-pale-rgb), .07);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
-  transition: background .5s var(--ease), border-color .5s var(--ease);
+  transition: background .5s var(--ease), border-color .5s var(--ease), box-shadow var(--dur-release) var(--ease);
   position: relative;
 }
 /* the glass catches the studio light: over the hero, its top edge is brightest right above where the light bar is
@@ -699,17 +715,35 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   text-indent: var(--tr-eyebrow);
   text-transform: uppercase;
   color: var(--ink);
-  min-width: 8ch;
+  grid-template-columns: minmax(0, 1fr);   /* (its track is what the groups leave: a name longer still ends in an ellipsis) */
+  min-width: 0;
   text-align: center;
   position: relative;
   height: 1.2em;
-  overflow: hidden;
+  clip-path: inset(0 -40px);   /* the roll is clipped above and below; a wider name rolling out is not cut at the sides */
 }
-.page-name span { grid-area: 1 / 1; display: block; line-height: 1.2em; transition: transform .45s var(--ease), opacity .45s var(--ease); }
+.page-name span { grid-area: 1 / 1; display: block; line-height: 1.2em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: transform .45s var(--ease), opacity .45s var(--ease); }
+/* the names rolling out and still to roll in leave the column to the one shown, so it never moves when they go */
+.page-name span:is(.out, .in-start) { position: absolute; inset: 0 -40px; }
 .page-name span.out { transform: translateY(-110%); opacity: 0; }
 .page-name span.in-start { transform: translateY(110%); opacity: 0; }
 .bar-right { justify-self: end; display: flex; align-items: center; gap: 8px; }
-.bar-left { justify-self: start; }
+.bar-left { justify-self: start; display: flex; align-items: center; gap: 8px; }
+.bar-left > * { flex: none; }
+/* Back (app.js): the page the visitor came from, at the place they left it (the browser's own Back); with no earlier
+   page of the site in the tab, home. The bar's icon button with its word: the glass, the press and the ring, the word
+   in the interface capitals beside a gold arrow. Where there is nowhere to go back to it fades out (.off; its place in
+   the bar stays, so nothing moves), set as a page change begins */
+.bar-back { width: var(--back-w); grid-auto-flow: column; justify-content: center; gap: 6px; padding: 0 3px 0 0; transition: transform .18s var(--ease), box-shadow .25s var(--ease), color .25s var(--ease), opacity var(--dur-release) var(--ease), visibility 0s; }
+.bar-back.off { opacity: 0; visibility: hidden; transition-delay: 0s, 0s, 0s, 0s, var(--dur-release); }
+.bar-back[hidden] { display: none; }
+.bar-back svg { width: 16px; height: 16px; transition: transform var(--dur-bar) var(--ease); }
+.bar-back-word { color: var(--ink); font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; white-space: nowrap; transition: color var(--dur-release) var(--ease); }
+@media (hover: hover) and (pointer: fine) {
+  .bar-back:hover .bar-back-word { color: var(--gold-hi); }
+  .bar-back:hover svg { transform: translateX(-3px); }
+}
+.bar-back.pressed .bar-back-word { color: var(--gold-hi); }
 .brand-link { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; border: 1px solid transparent; transition: box-shadow .35s var(--ease), opacity .35s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .brand-link:hover { box-shadow: 0 0 18px -6px rgba(var(--gold-rgb), .6); } }
 .brand-link svg { width: 34px; height: 34px; filter: drop-shadow(0 0 10px rgba(var(--gold-rgb), .25)); }
@@ -1533,6 +1567,9 @@ section { position: relative; }
 @media (max-width: 640px) { .page .actions { flex-direction: column; align-items: stretch; } .page .actions .btn { width: 100%; } }
 /* the 404 page (site/404.html): the emblem with the monogram symbol inside the ring, and one quiet line at the foot */
 .page .emblem { margin-bottom: 26px; }
+/* its Back (the bar's), where the bar's left button sits on every other page */
+.nf-back { --back-w: 84px; position: absolute; top: calc(21px + env(safe-area-inset-top, 0px)); left: calc(21px + env(safe-area-inset-left, 0px)); z-index: 2; text-decoration: none; }
+@media (max-width: 640px) { .nf-back { --back-w: 60px; top: calc(19px + env(safe-area-inset-top, 0px)); left: calc(18px + env(safe-area-inset-left, 0px)); } }
 .nf-mark { position: relative; width: 56px; height: 58px; filter: drop-shadow(0 6px 18px rgba(var(--gold-rgb), .25)); }
 .page .foot-line { margin-top: 34px; font: 600 var(--fs-xs)/1.7 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); text-wrap: balance; }
 .page .foot-line a { color: var(--ink-2); text-decoration: none; }
@@ -1599,6 +1636,10 @@ html.vt-route::view-transition-group(bar), html.vt-route::view-transition-new(ba
 .view.cut-in.from-above { --cut-dy: -14px; }   /* (Back or Forward) */
 .view.enter { animation: viewIn .45s var(--ease) backwards; }   /* app.js drops .enter when it ends */
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* a page met again (Back, Forward) comes in at the place it was left, still: it only fades in, as home met at the wash
+   does in the cut (the shade lifts on it in place), so what the visitor left is where they left it from the first frame */
+.view.enter.in-place { animation-name: viewInPlace; }
+@keyframes viewInPlace { from { opacity: 0; } to { opacity: 1; } }
 .btn.launch, .btn.launch:hover { transform: scale(1.05); filter: brightness(1.15); box-shadow: 0 0 0 1px rgba(var(--gold-hi-rgb), .5), 0 0 60px -6px rgba(var(--gold-rgb), .8); }   /* Book Now swells a little as the light crosses (over its own hover lift) */
 .menu-close svg { width: 18px; height: 18px; }
 .no-webgl .hero, .no-hero-gl .hero { background: radial-gradient(70% 55% at 50% 42%, rgb(var(--grey-26)) 0%, rgb(var(--grey-7)) 60%, #000 100%); }
@@ -1650,7 +1691,7 @@ html.vt-route::view-transition-group(bar), html.vt-route::view-transition-new(ba
 .svc-top::after { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--fade-dark) 0 100% / 100% 85% no-repeat, linear-gradient(180deg, rgba(0, 0, 0, .45) 0%, rgba(0, 0, 0, .12) 38%, rgba(0, 0, 0, .6) 72%, var(--bg) 100%); pointer-events: none; }
 /* the chapter bar (app.js): the four groups in a strip of smoked glass, docked across the header's foot; once the header
    has gone it is held under the top bar. One gold line marks the group in the middle of the screen and slides from link
-   to link; scrolling down slides the bar away under the top bar, the first move up brings it back. Where the browser
+   to link; held under the top bar it slides away and comes back with it (app.js barGate). Where the browser
    has no blur it is nearly solid. On a phone the row is one line that scrolls sideways. */
 html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(146px + env(safe-area-inset-top, 0px)); }   /* a group scrolled to, or a focused card, lands clear of both bars */
 .svc-jump {
@@ -1667,13 +1708,15 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   box-shadow: 0 18px 50px -24px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(var(--gold-pale-rgb), .06);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
-  transition: transform .5s var(--ease-unveil), opacity .35s var(--ease), background .5s var(--ease);
+  /* the top bar's slide: the two go and come back as one. Coming back it clears on the slide's own curve, so it is
+     never seen alone at the screen's top before the top bar's edge comes in; going, it fades at once (.away) */
+  transition: transform var(--dur-bar) var(--ease-in-out), opacity var(--dur-bar) var(--ease-in-out), background .5s var(--ease);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .svc-jump { background: rgba(var(--grey-8), .96); } }
 /* held under the top bar, it takes the scrolled top bar's deeper glass, so the two read as one header and a gold button
    passing under it shows only faintly (the lighter glass turned the whole strip gold) */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :where(:root:not([data-theme="light"])) .svc-jump.stuck { background: linear-gradient(180deg, rgba(var(--grey-16), .86), rgba(var(--grey-4), .86)); } }
-.svc-jump:is(.away, .menu-away) { transform: translateY(calc(-100% - 20px)); opacity: 0; pointer-events: none; }
+.svc-jump:is(.away, .menu-away) { transform: translateY(var(--bar-out)); opacity: 0; pointer-events: none; transition: transform var(--dur-bar) var(--ease-in-out), opacity var(--dur-bar) var(--ease), background .5s var(--ease); }
 /* held under the top bar (.stuck from app.js), the two bars are one header: the page above the chapter bar and in its
    top corners is covered in the page colour, so no line of text shows sliced in the slit between them. It goes with
    the bar when the bar slides away, and the top bar floats again as on every other page */
@@ -2569,7 +2612,10 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .why-item h3 { margin: 3px 0 6px; }
 }
 @media (max-width: 640px) {
-  .bar { height: 58px; }
+  .bar { height: 58px; --back-w: 60px; column-gap: 14px; padding: 0 6px; }   /* Back a size closer, the page name kept 14px clear of it */
+  .bar-back { gap: 4px; padding: 0; }
+  .bar-back svg { width: 14px; height: 14px; }
+  .bar-back-word { letter-spacing: var(--tr-title); }
   .menu { padding-top: calc(18px + env(safe-area-inset-top, 0px)); }   /* the menu's head row on the 58px bar's centre line */
   .page-name { font-size: 12.5px; letter-spacing: var(--tr-label); text-indent: var(--tr-label); }   /* the longest name (Appointments) stays on the bar's centre line */
   .hero .actions { flex-direction: column; align-items: stretch; width: min(100%, 320px); }
@@ -2605,10 +2651,26 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .price-grid { grid-template-columns: 1fr; }
   .wash { --wash-h: 380vh; }
 }
+/* beside Back on a phone under 440px, the longest page name (Appointments, app.js data-long) stays whole on the bar's
+   centre line: in the other names' capitals at the display headings' tracking, under 401px at the type's floor, and
+   under 375px untracked at the plain width (about 9px clear of Back on a 360px phone). The bar's columns may then
+   come as close as 8px, which only that name ever needs */
+@media (max-width: 439px) {
+  .bar { column-gap: 8px; }
+  .page-name span[data-long] { letter-spacing: var(--tr-display); text-indent: var(--tr-display); }
+}
+@media (max-width: 400px) { .page-name span[data-long] { font-size: var(--t-0); } }
+@media (max-width: 374px) { .page-name span[data-long] { letter-spacing: 0; text-indent: 0; font-stretch: 100%; } }
 /* a narrow phone (360-400px): the page name a size smaller and the monogram a little closer to the account button,
    so the longest name (Appointments) sits on the centre line with clear space on both sides */
 @media (max-width: 400px) {
   .page-name { font-size: 11.5px; }
+  /* Back at 56px: its arrow and word a size closer and the word at the display tracking, so they sit with room on
+     both sides (the arrow's drawing has its own space at the left: the word a pixel nearer the middle) */
+  .bar { --back-w: 56px; }
+  .bar-back { gap: 3px; padding-right: 2px; }
+  .bar-back svg { width: 12px; height: 12px; }
+  .bar-back-word { letter-spacing: var(--tr-display); }
   /* a 360px phone: the two-word titles beside a tag or a price keep one line at the label width, the tagline at a
      tighter tracking */
   .price-card h3, .addon-main b { font-stretch: var(--wdth-label); letter-spacing: .04em; }
@@ -4979,6 +5041,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 }
 /* ---- the chrome: bar, buttons, menu */
 :where([data-theme="light"]) .bar { background: rgba(255, 255, 255, .72); border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 18px 50px -24px rgba(var(--studio-shade-rgb), .25); }
+:where([data-theme="light"]) .topbar.away .bar { box-shadow: 0 18px 50px -24px transparent; }   /* (its shadow fades as it goes, as in the dark) */
 /* scrolled, the bar is nearly solid ivory (the chapter bar's): a translucent white blurred over a dark photo (a group
    plate, the Ritual, a gallery tile) reads as a grey band. Colours only, nothing moves */
 :where([data-theme="light"]) .topbar.scrolled .bar { background: rgba(var(--studio-panel-rgb), .94); border-color: rgba(var(--studio-ink-rgb), .08); }
@@ -5252,7 +5315,7 @@ html.vt-dim::view-transition-new(root) {
   .appt-au, .trk::after, .acct-soon .soon-mark, .insp { display: none !important; }
   .acct-soon > * { animation: none !important; }
   html, body { background: #fff !important; color: var(--print-ink) !important; }
-  .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
+  .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .bar-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
   .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before { display: none !important; }
   [data-rise], [data-reveal], [data-hd], .ln-w, .standard[data-std] :is(.emblem img, h2.eyebrow, .script, .facts span), .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }

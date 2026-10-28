@@ -131,7 +131,7 @@
   function shell(title, body, nav) {
     return el('div.bk.admin',
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — example data, nothing is saved. Names and bookings here are made up for the preview.') : null,
-      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; history.replaceState(null, '', '#admin-' + k); render(); } }, label))) : null,
+      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; history.replaceState(history.state, '', '#admin-' + k); render(); } }, label))) : null,
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Admin'), el('h1.display.bk-title', title)),
         staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.bookings = null; render(); } }, 'Sign out')) : null),
       body);
@@ -304,7 +304,7 @@
       tile('today', todays.length, 'jobs today', minutesText(minutes) + ' booked', () => jump('today')),
       tile('needs', needs.length, 'need you', needs.length ? 'oldest hold: ' + (needs[0].hold_expires_at ? hoursLeft(needs[0].hold_expires_at) : '—') : 'all clear', () => jump('needs')),
       tile('tomorrow', tmr.length, 'tomorrow', '', () => jump('tomorrow')),
-      tile('admin-requests', all.filter((b) => b.queue === 'review' && live(b)).length, 'in review', '', () => { st.lane = 'review'; screen = 'requests'; history.replaceState(null, '', '#admin-requests'); render(); }));
+      tile('admin-requests', all.filter((b) => b.queue === 'review' && live(b)).length, 'in review', '', () => { st.lane = 'review'; screen = 'requests'; history.replaceState(history.state, '', '#admin-requests'); render(); }));
     // the team today (doc 20: the morning view shows the team): each active member with the times of the jobs assigned
     // to them today. Time off isn't recorded yet, so it never says who is off or available
     if (st.staffList == null) { try { await loadStaff(); } catch (e) { st.staffList = []; } }
@@ -345,7 +345,7 @@
     const open = (b) => {
       st.open = b.id; st.panel = null;
       if (['requested', 'needs_information'].includes(b.status)) { screen = 'requests'; st.lane = b.queue; } else screen = 'morning';
-      history.replaceState(null, '', '#admin-' + screen); render();
+      history.replaceState(history.state, '', '#admin-' + screen); render();
     };
     const item = (b) => el('button.cal-item', { type: 'button', class: 'st-' + b.status + (isGold(b) ? ' gold' : ''), title: name(b) + ' · ' + services(b) + ' · ' + vehicle(b), onclick: () => open(b) },
       el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')), isGold(b) ? el('span.rv-gold', 'Gold') : null);   // the short label: the week's columns are narrow, the card's gold border says the rest

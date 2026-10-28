@@ -93,22 +93,27 @@
   // The FAQ: a details element whose answer unfolds (grid rows 0fr -> 1fr, .32s) and folds (.22s) before it
   // closes. Opening sets `open` first, so the body exists, then .is-open a frame later so the rows transition;
   // closing drops .is-open and removes `open` once the fold has ended (transitionend, with a fallback timer).
-  // Under reduced motion the browser toggles it and .is-open only mirrors `open`.
-  function faqItem([q, a]) {
+  // Under reduced motion the browser toggles it and .is-open only mirrors `open`. A question the visitor had open
+  // when they left the page is open again when Back or Forward brings them to it (mount's open, from app.js): set
+  // open as it is built, so it shows unfolded with no fold to watch, and the page lays out as it was left.
+  const folding = new WeakSet();   // (a question folding shut: still open until its fold has ended)
+  function faqItem([q, a], open) {
     const body = el('div.faq-body', el('div', el('p', withPhone(a))));
-    const d = el('details.faq-item', el('summary', q), body);
+    const d = el('details.faq-item', { open: open || null, class: open ? 'is-open' : null }, el('summary', q), body);
     if (reduce) { d.addEventListener('toggle', () => d.classList.toggle('is-open', d.open)); return d; }
     let closing = 0;
-    const done = () => { clearTimeout(closing); closing = 0; body.removeEventListener('transitionend', onEnd); d.open = false; };
+    const done = () => { clearTimeout(closing); closing = 0; body.removeEventListener('transitionend', onEnd); folding.delete(d); d.open = false; };
     function onEnd(e) { if (e.target === body) done(); }
     d.querySelector('summary').addEventListener('click', (e) => {
       e.preventDefault();
       if (d.classList.contains('is-open')) {
         d.classList.remove('is-open');
+        folding.add(d);
         body.addEventListener('transitionend', onEnd);
         closing = setTimeout(done, 260);
       } else {
         if (closing) { clearTimeout(closing); closing = 0; body.removeEventListener('transitionend', onEnd); }
+        folding.delete(d);
         d.open = true;
         requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add('is-open')));
       }
@@ -377,8 +382,11 @@
   }
 
   let root = null;
-  function mount(container, page) { root = container; render(page); }
-  function render(page) {
+  // opts.open: the FAQ's questions to show open (their places in the list), as the visitor left them
+  function mount(container, page, opts) { root = container; render(page, (opts && opts.open) || []); }
+  // the FAQ's questions open now (one still unfolding counts, one folding shut does not), for app.js to keep
+  const opened = () => (root ? Array.from(root.querySelectorAll('.faq-item')).flatMap((d, i) => (d.open && !folding.has(d) ? [i] : [])) : []);
+  function render(page, open) {
     const d = DRAFT[page];
     // About's mark: drawn by hand on its first opening this visit (motion and the light on), set after that
     const L = window.AlchemistLight;
@@ -396,7 +404,7 @@
     const turn = mode === 'trace' ? trace(mark, wrap, head) : null;
     let body;
     if (page === 'tips') body = el('div.tip-list', d.items.map(tip));
-    else if (page === 'faq') body = el('div.faq', d.items.map(faqItem));
+    else if (page === 'faq') body = el('div.faq', d.items.map((it, i) => faqItem(it, open.includes(i))));
     else if (page === 'contact') body = contactBody();
     else body = [
       el('div.about-grid',
@@ -410,5 +418,5 @@
     U.append(wrap, [head, body, actions]);
     root.replaceChildren(wrap);
   }
-  window.AlchemistContent = { mount, mountDoors, DRAFT };
+  window.AlchemistContent = { mount, mountDoors, opened, DRAFT };
 })();

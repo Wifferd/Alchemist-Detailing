@@ -38,7 +38,7 @@
       // has to lay it out again; the hero reads its canvas with them (hero-gl.js), and the glass bar its own box.
       const plays = !late && !light.off;
       if (plays && heroWord && heroMono) spots = { w: pageBox(heroWord), m: pageBox(heroMono) };
-      if (glassLight && glassBar) glassBox = glassBar.getBoundingClientRect();
+      if (glassLight && glassBar) glassBox = barBox(glassBar.getBoundingClientRect());
       // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
       try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce, studio: false, entrance: plays, onFrame: glass, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
     }
@@ -141,6 +141,8 @@
   // box is read with the hero's start and after a new size, from the next layout (never inside a picture).
   const glassBar = $('.bar'), glassLight = $('.bar-light i');
   let glassBox = null, glassAt = null, glassA = null;
+  // (the bar's place on the screen as it rests, should it be sliding away or back: .topbar.away)
+  const barBox = (b) => { const m = getComputedStyle(topbar).transform, ty = m && m !== 'none' ? new DOMMatrix(m).m42 : 0; return { left: b.left, top: b.top - ty, width: b.width, height: b.height }; };
   function glass(h) {
     if (!glassBox || root.dataset.theme === 'light') return;   // the white studio's bar is solid over the hero: no light in it
     const b = glassBox, lx = h.lineX(b.top + b.height / 2);
@@ -153,7 +155,7 @@
   }
   window.addEventListener('resize', () => {
     if (!glassBox) return;
-    const io = new IntersectionObserver((es) => { io.disconnect(); glassBox = es[0].boundingClientRect; if (hero) glass(hero); });
+    const io = new IntersectionObserver((es) => { io.disconnect(); glassBox = barBox(es[0].boundingClientRect); if (hero) glass(hero); });
     io.observe(glassBar);
   });
   function splitHeadline() {
@@ -371,6 +373,7 @@
     const n = document.createElement('span');
     n.textContent = text;
     n.className = 'in-start';
+    if (text.length > 10) n.dataset.long = '';   // (Appointments: set a little narrower on a narrow phone, CSS)
     pageName.appendChild(n);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       n.className = '';
@@ -421,6 +424,7 @@
     fitNav();
     menuOpen = true;
     menuMoved = performance.now();
+    barGate.show();
     menu.classList.remove('chose');   // the last choice's gold line goes with it
     scrim.classList.remove('cut', 'bare');
     $$('nav a.chosen', menu).forEach((a) => a.classList.remove('chosen'));
@@ -486,6 +490,71 @@
   const onScroll = () => topbar.classList.toggle('scrolled', window.scrollY > 30);
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+  // The bar steps out of the way: scrolling down slides it up off the screen (CSS .topbar.away, a transform: nothing on
+  // the page moves) and the first move up brings it back. It is always there at the top of a page (within the bar's
+  // own height of it), while the menu is open, while it or the Services chapter bar has the keyboard's focus, through
+  // a page change and for 1.2s after a page arrives. The chapter bar's gate: only the visitor's own scrolling sends
+  // it away (a wheel, a finger, a key or a press in the last moment), never the router's jumps, a late layout, scroll
+  // anchoring or the wash's own scrolls (foam.js rest.own: they move the page by what the wash took away, so nothing
+  // on the screen moves). It goes by the distance the page has travelled since it last turned (TRAVEL), not by its
+  // speed, so a slow scroll up brings it back as surely as a quick one, and a pixel or two of wobble at the turn
+  // changes nothing. Read in the scroll event, written in the frame; the chapter bar follows it in the same frame
+  // (chapters, below: its listener comes after this one).
+  const svcJump = $('#svcJump'), washRest = window.AlchemistWash && window.AlchemistWash.rest;
+  const TRAVEL = 8;
+  const barGate = (() => {
+    let lastY = window.scrollY, held = performance.now() + 1200, felt = -1e9, tick = false, seen = null, away = false, topH = 0, run = 0, cutT = 0;
+    const ownScroll = () => !!washRest && performance.now() - washRest.state.tOwn < 1500 && washRest.state.own.some((y) => Math.abs(window.scrollY - y) < 1.5);
+    // the keyboard's focus in a bar (Tab: :focus-visible), not a button a mouse or a finger has just pressed
+    const focusIn = (el) => { const a = document.activeElement; if (!el || !a || !el.contains(a)) return false; try { return a.matches(':focus-visible'); } catch (e) { return true; } };
+    const kept = () => { const t = performance.now(); return menuOpen || !!dark || !!vtNow || !!cutHeld || t < held || t - cutShown < 1200 || focusIn(topbar) || focusIn(svcJump); };
+    function set(on) {
+      if (on === away) return;
+      away = on;
+      topbar.classList.toggle('away', on);
+    }
+    function frame() {
+      tick = false;
+      const s = seen;
+      seen = null;
+      if (!s) return;
+      const dy = s.y - lastY;
+      lastY = s.y;
+      if (s.own) return;
+      if (s.y < topH || kept()) { run = 0; set(false); return; }
+      if (dy > 0 && performance.now() - felt >= 700) { run = 0; return; }   // (down on its own: not the visitor)
+      if (dy && (dy > 0) !== (run > 0)) run = 0;   // (the page turned)
+      run += dy;
+      if (run > TRAVEL) set(true);
+      else if (run < -TRAVEL) set(false);
+    }
+    window.addEventListener('scroll', () => {
+      if (!topH) topH = topbar.offsetHeight;   // (read here, where the page has just been laid out; again after a resize)
+      // (within the page's own range: an iPhone's rubber band past either end, and its spring back, are not a move)
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      seen = { y: Math.max(0, Math.min(window.scrollY, max)), own: ownScroll() };
+      if (!tick) { tick = true; requestAnimationFrame(frame); }
+    }, { passive: true });
+    ['wheel', 'touchmove', 'keydown', 'pointerdown'].forEach((t) => window.addEventListener(t, () => { felt = performance.now(); }, { passive: true, capture: true }));
+    window.addEventListener('resize', () => { topH = 0; });
+    const show = () => set(false);
+    topbar.addEventListener('focusin', show);
+    // a jump the visitor asked for: the bar is there, and stays while the page gets there
+    const hold = () => { held = performance.now() + 1200; run = 0; show(); };
+    return {
+      get away() { return away; },
+      felt: () => felt,
+      focusIn,
+      show,
+      hold,
+      // a page change: the same, and a bar that was away comes back on the cut's own clock (CSS .topbar.cutting: over
+      // --cut-out), so it is in place as the shade or the page left reaches black
+      cut() {
+        if (away) { topbar.classList.add('cutting'); clearTimeout(cutT); cutT = setTimeout(() => topbar.classList.remove('cutting'), 400); }
+        hold();
+      },
+    };
+  })();
 
   // ---------------------------------------------------------------- still pictures (cards, backgrounds)
   // Painted once the first page is on screen (see the idle callback at the end), never before.
@@ -2314,18 +2383,17 @@
   // ---------------------------------------------------------------- the services chapter bar
   // The four groups' links, docked across the header's foot; once the header has gone the bar is held under the top
   // bar (CSS sticky). One gold line marks the group crossing the middle of the screen (aria-current) and slides from
-  // link to link; on a phone the row scrolls sideways to keep it in view. Scrolling down slides the bar away under the
-  // top bar and the first move up brings it back; it stays while it has the focus and while a jump it started is
-  // under way, and goes while the menu is open. Only the visitor's own scrolling sends it away (a wheel, a finger, a
-  // key or a press in the last moment): the router's jumps, a late layout and scroll anchoring never do. Work is done
-  // only on scroll, and only on the services page.
+  // link to link; on a phone the row scrolls sideways to keep it in view. Held under the top bar it goes and comes
+  // back with it (barGate, the top bar's gate: scrolling down, the first move up), so it never sits under an empty
+  // gap; it stays while it has the keyboard's focus and while a jump it started is under way (and so does the top
+  // bar), goes while the menu is open, and past the last group. Work is done only on scroll, and only on Services.
   let chapterHold = () => {};   // the router calls it just before it scrolls to a group
   (function chapters() {
     const bar = $('#svcJump'), top = $('.svc-top');
     if (!bar || !top) return;
     const row = $('.svc-jump-row', bar), ink = $('.svc-jump-ink', bar), links = $$('a[data-group]', bar);
     const groups = links.map((a) => document.getElementById(a.dataset.group));
-    let at = -1, lastY = window.scrollY, held = performance.now() + 1200, tick = false, stickAt = 0, felt = -1e9, seen = null, jumpT = 0;
+    let at = -1, held = performance.now() + 1200, tick = false, stickAt = 0, seen = null, jumpT = 0;
     const measure = () => { stickAt = parseFloat(getComputedStyle(bar).top) || 0; };
     // where the mark goes under a link's words (on a phone the links share out the row's spare width, their words
     // centred); only read
@@ -2361,7 +2429,7 @@
       groups.forEach((g, k) => { if (g && g.getBoundingClientRect().top <= line) i = k; });
       const a = links[i], wide = i !== at && row.scrollWidth > row.clientWidth + 1;
       seen = {
-        y: window.scrollY, i, to: i !== at ? spot(a) : null,
+        i, to: i !== at ? spot(a) : null,
         // on a phone the row scrolls sideways to keep the mark in view
         left: wide ? (a ? a.offsetLeft - (row.clientWidth - a.offsetWidth) / 2 : 0) : null,
         stuck: top.getBoundingClientRect().bottom - h / 2 < stickAt + 1,
@@ -2382,27 +2450,21 @@
       const s = seen;
       seen = null;
       if (cur !== 'services' || !s) return;
-      const dy = s.y - lastY;
-      lastY = s.y;
-      let away = bar.classList.contains('away');
-      if (!s.stuck || performance.now() < held || bar.contains(document.activeElement)) away = false;
-      else if (s.past) away = true;
-      else if (dy > 4 && performance.now() - felt < 700) away = true;
-      else if (dy < -4) away = false;
+      // past the last group, or with the top bar (barGate, decided a moment ago in this frame from the same scroll)
+      const away = s.stuck && performance.now() >= held && !barGate.focusIn(bar) && (s.past || barGate.away);
       bar.classList.toggle('away', away);
       bar.classList.toggle('stuck', s.stuck);   // held under the top bar: the two bars cover the page between them (CSS)
       mark(s);
     }
     const soon = () => { if (cur !== 'services') return; look(); if (!tick) { tick = true; requestAnimationFrame(frame); } };
     window.addEventListener('scroll', soon, { passive: true });
-    const touched = () => { felt = performance.now(); };
-    ['wheel', 'touchmove', 'keydown', 'pointerdown'].forEach((t) => window.addEventListener(t, touched, { passive: true, capture: true }));
-    // a page or a group opened (a link here, a card on home): the bar stays while the page gets there
-    const hold = () => { held = performance.now() + 1200; };
+    // a page or a group opened (a link here, a card on home): both bars stay while the page gets there
+    const hold = () => { held = performance.now() + 1200; barGate.hold(); };
     chapterHold = hold;
-    window.addEventListener('hashchange', () => { hold(); requestAnimationFrame(() => { lastY = window.scrollY; edges(); soon(); }); });
+    // (a page change: the top bar comes back on the cut's clock, whichever listener hears it first)
+    window.addEventListener('hashchange', () => { held = performance.now() + 1200; barGate.cut(); requestAnimationFrame(() => { edges(); soon(); }); });
     bar.addEventListener('click', hold);   // the same group again: no hashchange, the page still scrolls there
-    bar.addEventListener('focusin', () => bar.classList.remove('away'));
+    bar.addEventListener('focusin', () => { bar.classList.remove('away'); barGate.show(); });
     row.addEventListener('scroll', edges, { passive: true });
     new MutationObserver(() => bar.classList.toggle('menu-away', menu.classList.contains('on'))).observe(menu, { attributes: true, attributeFilter: ['class'] });
     const again = () => { measure(); edges(); if (at >= 0) place(spot(links[at])); soon(); };
@@ -2442,6 +2504,133 @@
     const [r, sub] = h.split('-');
     return NAMES[r] ? { r, sub: sub || null } : { r: 'home', sub: null };
   }
+  // Where each page was left. Every entry of the site in the tab's history carries an id, its depth (how many of the
+  // site's pages came before it in the tab) and the page before it (history.state.ad, written once as it opens;
+  // whatever else the state holds is kept), and the place the visitor left it (places, kept in sessionStorage too, so a
+  // reload keeps them). Back, Forward and a reload land a page where it was left, once it is built (render's place);
+  // a page opened by a link lands as before (memo). The browser's own restore is off: it would scroll the page being
+  // left, in that page's layout, before the cut.
+  try { history.scrollRestoration = 'manual'; } catch (e) { /* not settable here */ }
+  const LEFT = 'ad.left';
+  let places = {}, entry = null, stateless = false;   // entry: the one shown, { id, d: its depth, p: the page before it }
+  let coming = null, comingR = null;   // the entry the address names once a page change has begun, and its page, until it shows
+  try { places = JSON.parse(sessionStorage.getItem(LEFT) || '{}') || {}; } catch (e) { places = {}; }
+  const stateOf = () => { const s = history.state; return s && typeof s === 'object' && s.ad && s.ad.id ? s.ad : null; };
+  const newId = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function markEntry(e) {
+    const s = history.state;
+    try { history.replaceState(Object.assign({}, s && typeof s === 'object' ? s : null, { ad: e }), ''); } catch (err) { stateless = true; }   // (a sandboxed preview: no entry keeps its mark, so Back goes home)
+  }
+  // A page change begins (hashchange): the entry the address names now. A new one (a link, a typed address) is marked
+  // at once, one deeper than the page it leaves, so Back is set for it before the cut goes dark, and one passed through
+  // in the black (two links in one cut) keeps its mark for later
+  function meet(r) {
+    const was = coming || entry;
+    let e = stateOf();
+    if (!e) { e = { id: newId(), d: was ? was.d + 1 : 0, p: was ? (coming ? comingR : cur) : null }; markEntry(e); }
+    coming = e;
+    comingR = r;
+    backFor(r);
+  }
+  function keepPlaces() {
+    const ids = Object.keys(places);
+    ids.slice(0, Math.max(0, ids.length - 60)).forEach((k) => delete places[k]);   // (the oldest go first)
+    try { sessionStorage.setItem(LEFT, JSON.stringify(places)); } catch (e) { /* storage unavailable: this visit still remembers */ }
+  }
+  // home's wash: the pinned length it still has (none once it has given it back, or where it never pins: no WebGL,
+  // less motion; read only while it has it)
+  const washStage = $('#washStage');
+  function washSpare() {
+    if (wash ? wash.folded() : washPin ? washPin.folded() : reduce || !glOk || root.classList.contains('no-webgl')) return 0;
+    return Math.max(0, washSection.offsetHeight - washStage.offsetHeight);
+  }
+  // the place a page is left at (on home with the wash's length then: after render's fold, as memo.home; on the FAQ the
+  // questions then open, which it shows open again before it is placed, so what was on the screen is there again)
+  function placeOf(r, y) {
+    if (r === 'home') return { y, s: washSpare() };
+    const C = window.AlchemistContent, o = r === 'faq' && C && C.opened ? C.opened() : null;
+    return o && o.length ? { y, o } : { y };
+  }
+  // where a page met again lands now: home's wash may have given its pinned length back since, or have it again after
+  // a reload, so what lies below the wash moves by the difference, and a place inside the pin, which never plays
+  // twice, lands on the stage (the services)
+  function landY(k) {
+    if (cur !== 'home' || k.s == null) return k.y;
+    const n = washSpare();
+    if (Math.abs(n - k.s) < 1) return k.y;
+    const top = window.scrollY + washSection.getBoundingClientRect().top;
+    if (k.y <= top) return k.y;
+    if (k.y >= top + k.s) return k.y - k.s + n;
+    return n > 0 ? top + (k.y - top) * n / k.s : top;
+  }
+  // A home left with its wash over (the length given back), met again on a wash that has it again (a reload since: a
+  // new wash, still to play) with the services then on the screen or above it: they are shown as the wash left them,
+  // at once, by the wash's own finish (as for a key into the services), so the place lands as it was left
+  function washOver(k) {
+    if (k.s == null || k.s > 0.5 || washSpare() < 1) return;
+    if (k.y <= window.scrollY + washSection.getBoundingClientRect().top - window.innerHeight) return;   // (above the wash: the same page either way)
+    if (!wash && !washPin) startHeavy();
+    if (wash) { if (!wash.done()) wash.finish(); } else if (washPin) washPin.now();
+  }
+  // A page met again whose content is still coming (the data layer's answer, a section the Gallery adds above its grid)
+  // is held to its place as it grows, either way: for 3s at most, never under a finger, and not once the visitor has
+  // moved on (their own wheel, finger, key or press). Meanwhile the browser's scroll anchoring is off: it would carry
+  // the page down by whatever is added above, away from the place it was left at.
+  let catchUp = null;
+  const MOVED = ['wheel', 'touchstart', 'keydown', 'pointerdown'];   // (the visitor's own input: the hold lets go at once)
+  function caught() {
+    catchUp = null;
+    catchRo.disconnect();
+    root.style.overflowAnchor = '';
+    MOVED.forEach((n) => removeEventListener(n, caught, true));
+  }
+  const catchRo = window.ResizeObserver ? new ResizeObserver(() => {
+    const k = catchUp;
+    if (!k) return;
+    if (cur !== k.r || performance.now() > k.until || barGate.felt() > k.at) { caught(); return; }
+    if (!onGlass() && Math.abs(window.scrollY - k.y) > 2) window.scrollTo(0, k.y);
+  }) : null;
+  function catchUpTo(y) {
+    if (!catchRo) return;
+    const t = performance.now(), k = (catchUp = { y, r: cur, at: t, until: t + 3000 });
+    root.style.overflowAnchor = 'none';
+    MOVED.forEach((n) => addEventListener(n, caught, { capture: true, passive: true }));
+    catchRo.observe(main);
+    setTimeout(() => { if (catchUp === k) caught(); }, 3100);
+  }
+  // Back, in the bar: the page before this one in the tab, where it was left (history.back(): the browser's own Back,
+  // the same path); with no earlier page of the site in the tab (the page opened directly), home, as a link to it
+  // would; on home opened directly there is nowhere to go back to. It is set as a page change begins (meet), for the
+  // entry the address names, so the bar is whole before the cut goes dark; it fades in and out (CSS .bar-back.off).
+  // A Back under way (history.back() until its hashchange) takes no second press: one more would count from the page
+  // being left and could take the tab out of the site.
+  const barBack = $('#barBack');
+  let backing = 0;
+  const deep = () => { const e = coming || entry; return !!e && e.d > 0 && !stateless; };   // an earlier page of the site in the tab
+  function backFor(r) {
+    const e = coming || entry, to = deep() ? e.p : 'home';
+    barBack.classList.toggle('off', !deep() && r === 'home');
+    if (barBack.hidden) barBack.hidden = false;   // (shown once the script runs; from its first style, so it does not fade in)
+    barBack.setAttribute('aria-label', NAMES[to] ? 'Back to ' + NAMES[to] : 'Back');
+  }
+  function goBack() {
+    if (performance.now() < backing || barBack.classList.contains('off')) return;
+    press(barBack);
+    barGate.cut();
+    if (deep()) { backing = performance.now() + 1500; history.back(); return; }
+    const wasOpen = menuOpen;
+    closeMenu(false);
+    linked = true;
+    memo.home = null;   // (home from its top, as a first visit: not where an earlier visit to it was left)
+    if (cuts(cur, 'home') && (wasOpen || !pictured('home'))) blackOut(false, !wasOpen);
+    location.hash = 'home';
+  }
+  barBack.addEventListener('click', goBack);
+  // the page shown as the tab goes (a reload, another site) or is put away (another app: a phone may then discard the
+  // tab with no pagehide, and reload it on the way back): its place, for when it comes back
+  const keepHere = () => { if (entry && cur) { places[entry.id] = placeOf(cur, window.scrollY); keepPlaces(); } };
+  addEventListener('pagehide', keepHere);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) keepHere(); });
   // A page opens in two parts. The swap (render itself) is what has to change at once: the wash folded while home is
   // still laid out (doc 35), the page shown, its name, the menu's mark, its scroll. Landing (land) builds and arms it:
   // the app pages' content, the reveals, the focus, the pictures. Normally both run together, as always; in a cut
@@ -2457,7 +2646,22 @@
     const shift = cur === 'home' && r !== 'home' ? (wash ? wash.foldNow({ scroll: false }) : washPin ? washPin.now({ scroll: false }) : 0) : 0;
     const view = ['tips', 'faq', 'about', 'contact'].includes(r) ? 'content' : r;   // every other route has its own view
     if (cur) memo[cur] = window.scrollY + shift;
+    // the history entry: the one left keeps its place; the one shown is met again (Back, Forward, a reload: it lands
+    // where it was left, again) or is new (a link: marked one deeper than the page it came from)
+    const st = stateOf(), was = entry, moved = !was || !st || st.id !== was.id;
+    let again = null;
+    if (moved) {
+      if (was && cur) places[was.id] = placeOf(cur, window.scrollY + shift);
+      if (st) { entry = st; again = places[st.id] || null; }
+      else { entry = { id: newId(), d: was ? was.d + 1 : 0, p: was ? cur : null }; markEntry(entry); }
+      if (was) keepPlaces();
+    }
+    coming = null;
+    backFor(r);
+    const late = !!again && r !== 'home';   // (met again, a page whose content its landing builds: placed after it)
     const changed = r !== cur;
+    if (changed && catchUp) caught();   // (the page left was still being held to its place)
+    if (changed || moved) barGate.hold();
     if (changed) {
       closeMenu(false);
       if (cur === 'home') unplan();   // the studio light's entrance, if it is still to come or playing, ends with the page
@@ -2466,11 +2670,12 @@
       $$('.view').forEach((v) => {
         const on = v.dataset.view === view;
         v.hidden = !on;
-        v.classList.remove('enter');
+        v.classList.remove('enter', 'in-place');
         if (on && !first && !reduce && !cut) {   // (in a cut the page rises as a whole: the cut's CSS)
           void v.offsetWidth;
           v.classList.add('enter');
-          v.addEventListener('animationend', function done(e) { if (e.target !== v) return; v.classList.remove('enter'); v.removeEventListener('animationend', done); });
+          if (again) v.classList.add('in-place');   // (a page met again comes in where it was left: no rise, CSS)
+          v.addEventListener('animationend', function done(e) { if (e.target !== v) return; v.classList.remove('enter', 'in-place'); v.removeEventListener('animationend', done); });
         }
       });
       if (view === 'home' && heroRests && !menuOpen) { heroRests = false; hero.resume(); }   // (held still by the cut that left home: its light again)
@@ -2487,8 +2692,17 @@
     // the new page's place (a group's, #services-exterior, once its page is built): in a cut it goes with the swap, so
     // nothing that follows the scroll (the wash above all) sees the page between the two; never under a finger (the
     // shade's swap has waited for the lift already; a view transition's update may come with one down)
-    const place = () => { if (changed && !first && !(r === 'services' && sub)) window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0); };
-    if (cut) whenLifted(place);
+    const place = () => {
+      if (again && r === 'home') {
+        // (on the first page of a load the wash can start only once this script has run: just after it, before a frame)
+        const go = () => { washOver(again); window.scrollTo(0, landY(again)); };
+        if (first) queueMicrotask(go); else go();
+        return;
+      }
+      if (again) { const y = landY(again); window.scrollTo(0, y); catchUpTo(y); return; }
+      if (changed && !first && !(r === 'services' && sub)) window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0);
+    };
+    if (cut && !late) whenLifted(place);
     let landed = false;
     const land = () => {
       if (landed) return;
@@ -2509,15 +2723,15 @@
         if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
         if (view === 'team' && window.AlchemistTeam) window.AlchemistTeam.mount($('#teamApp'));
         if (view === 'reviews' && window.AlchemistReviews) window.AlchemistReviews.mount($('#reviewsApp'));
-        if (view === 'content' && window.AlchemistContent) window.AlchemistContent.mount($('#contentApp'), r);
+        if (view === 'content' && window.AlchemistContent) window.AlchemistContent.mount($('#contentApp'), r, again && Array.isArray(again.o) ? { open: again.o } : null);
         if (view === 'gallery' && window.AlchemistGallery) window.AlchemistGallery.mount($('#galleryApp'));
         if (view === 'services') mountServices();
         if (view === 'home') startHero(first);
       }
       if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
       if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub);   // already booking: offered, never forced
-      if (!cut) place();
-      if (r === 'services' && sub) {
+      if (!cut) place(); else if (late) whenLifted(place);
+      if (r === 'services' && sub && !again) {
         const el = document.getElementById('svc-' + sub);
         const go = () => { chapterHold(); el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }); };
         if (el) requestAnimationFrame(() => (cut ? whenLifted(go) : go()));
@@ -2677,6 +2891,9 @@
   window.addEventListener('hashchange', () => {
     const to = parse().r, back = !linked;
     linked = false;
+    backing = 0;
+    meet(to);   // (Back set for the page coming, before the cut)
+    barGate.cut();   // (the bar is there through the change)
     if (dark && dark.m) {
       if (!dark.swapped) return;   // the shade's cut, still in the black: its swap shows the newest page
       finishDark(); render(false); return;   // (its page already swapped in: this one simply follows)
@@ -2698,14 +2915,29 @@
   });
   // A press in a cut ends it: a mouse's or a pen's at once. A finger only marks it quick (its page comes on the lift,
   // swapDark), and ends a page's view transition only once its update (the swap) has run; the light switch's at once.
+  // One that ends a page's view transition over Back is a press of Back too (the transition's picture took it).
+  let backHit = 0;
   document.addEventListener('pointerdown', (e) => {
     const touch = e.pointerType === 'touch';
-    if (vtNow && (!touch || !vtNow.route || vtNow.ran())) vtNow.skipTransition();
+    backHit = 0;
+    if (vtNow && (!touch || !vtNow.route || vtNow.ran())) {
+      if (vtNow.route && !barBack.classList.contains('off')) {
+        const b = barBack.getBoundingClientRect();
+        if (e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom) backHit = performance.now();
+      }
+      vtNow.skipTransition();
+    }
     if (!touch) { finishDark(); return; }
     const d = dark;
     if (!d) return;
     d.fast = d.touched = true;
     if (d.landed) lift(d);
+  }, true);
+
+  document.addEventListener('click', (e) => {
+    const t = backHit;
+    backHit = 0;
+    if (t && performance.now() - t < 1000 && !barBack.contains(e.target)) goBack();   // (on Back itself, its own click)
   }, true);
 
   const veil = $('#veil');
@@ -2722,6 +2954,7 @@
     // in-page scrolling on the home page
     if (a.dataset.scroll) {
       e.preventDefault();
+      barGate.hold();   // (a jump asked for: the bar stays)
       const go = () => {
         let y = 0;
         if (a.dataset.scroll === 'services') {
@@ -2739,6 +2972,7 @@
     const r = token.split('-')[0];
     if (!NAMES[r]) return;
     e.preventDefault();
+    barGate.cut();   // (a page chosen: the bar is there before the cut goes dark, Book's light or the same page's top)
     const wasOpen = menuOpen;
     // a page chosen in the menu: its gold line shoots across the row under the finger (220ms), and the panel holds a
     // breath (160ms, CSS .chose) so it is seen, while the page changes at once
