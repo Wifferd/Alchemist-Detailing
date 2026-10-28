@@ -281,6 +281,8 @@
           if (selected.has(it.code)) flash(btn, 'just', 600);   // its rim draws round once, from the touch, on the item just chosen
           wrap.classList.remove('has-error');
           const msg = wrap.querySelector('.choice-msg'); if (msg) { msg.classList.remove('has-error'); msg.textContent = msg.dataset.hint || ''; }
+          // and the list of several problems drops it, as for a typed field (display only)
+          if (opts.id) clearError(wrap.closest('.view') || document, opts.id);
           opts.onchange && opts.onchange(multi ? Array.from(selected) : it.code, it);
         },
       },

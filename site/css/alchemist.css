@@ -105,10 +105,11 @@
      change (under about .9s: the gold veil into booking) */
   --dur-panel: 450ms;
   --dur-page: .9s;
-  /* the top bar stepping out of the way as the page scrolls down, and back on the way up (the Services chapter bar
-     with it), by --bar-out: just clear of the screen (its shadow fades on the way), so the slide is seen from its
-     first frame */
+  /* the top bar stepping out of the way as the page scrolls down (--dur-bar-out, about 60% of its return), and back
+     on the way up (the Services chapter bar with it), by --bar-out: just clear of the screen (its shadow fades on the
+     way), on the feedback curve, so it answers from its first frame */
   --dur-bar: 360ms;
+  --dur-bar-out: 220ms;
   --bar-out: calc(-78px - env(safe-area-inset-top, 0px));
   /* the arrivals: a heading's line rises over --dur-line, the next one --line-gap after it (app.js LINE keeps the same
      numbers), the blocks after a head rise over --dur-rise, --stagger apart (60ms; 90ms on the public pages), a room's
@@ -328,8 +329,9 @@ img { height: auto; }
 a { color: inherit; }
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
-/* a heading (or main) focused by the router for screen-reader context is not a control: no ring around the page title */
-h1[tabindex="-1"]:focus-visible, main:focus-visible { outline: none; }
+/* a heading (or main) focused by the router for screen-reader context is not a control: no ring around the page title,
+   nor around the heading a page met again lands on (app.js placeBack) */
+:is(h1, h2, h3, h4)[tabindex="-1"]:focus-visible, main:focus-visible { outline: none; }
 ::selection { background: rgba(var(--gold-rgb), .35); color: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* the skip link: parked above the screen until a keyboard reaches it */
@@ -619,13 +621,13 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   z-index: 60;
   padding: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 0 calc(12px + env(safe-area-inset-left, 0px));
   pointer-events: none;
-  transition: transform var(--dur-bar) var(--ease-in-out);
+  transition: transform var(--dur-bar) var(--ease);
 }
 /* out of the way (app.js .away): scrolling down slides the whole bar up off the screen and the first move up brings it
    back; only a transform, so nothing on the page moves. Its shadow fades as it goes (it would hang at the screen's top).
    A page change brings back a bar that was away on the cut's own clock (.cutting), so it is there before the black.
    Under less motion it simply goes and comes (the .01ms rule) */
-.topbar.away { transform: translate3d(0, var(--bar-out), 0); }
+.topbar.away { transform: translate3d(0, var(--bar-out), 0); transition-duration: var(--dur-bar-out); }
 .topbar.cutting { transition-duration: var(--cut-out); }
 .topbar.away .bar { box-shadow: 0 18px 50px -20px transparent, inset 0 1px 0 rgba(var(--gold-pale-rgb), .07); }
 .bar {
@@ -650,6 +652,9 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   transition: background .5s var(--ease), border-color .5s var(--ease), box-shadow var(--dur-release) var(--ease);
   position: relative;
 }
+/* as the page first shows, the bar takes the glass of what is under it at once (the white studio's ivory over the
+   black hero), not by a fade from the plain glass: its colours change on their own only once the page is up */
+html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 /* the glass catches the studio light: over the hero, its top edge is brightest right above where the light bar is
    on the paint (app.js places .bar-light i after each of the hero's pictures, along the bar, and fades it toward the
    bar's ends), with a faint warm bloom under it. Only while the hero is under the bar (.over-hero); never over the
@@ -1708,15 +1713,17 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   box-shadow: 0 18px 50px -24px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(var(--gold-pale-rgb), .06);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
-  /* the top bar's slide: the two go and come back as one. Coming back it clears on the slide's own curve, so it is
-     never seen alone at the screen's top before the top bar's edge comes in; going, it fades at once (.away) */
-  transition: transform var(--dur-bar) var(--ease-in-out), opacity var(--dur-bar) var(--ease-in-out), background .5s var(--ease);
+  /* the top bar's slide: the two go and come back as one. Coming back it clears a little behind the slide (on the
+     slower start of the light's curve), so it is never seen alone at the screen's top before the top bar's edge comes
+     in; going, it fades at once (.away) */
+  transition: transform var(--dur-bar) var(--ease), opacity var(--dur-bar) var(--ease-in-out), background .5s var(--ease);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .svc-jump { background: rgba(var(--grey-8), .96); } }
 /* held under the top bar, it takes the scrolled top bar's deeper glass, so the two read as one header and a gold button
    passing under it shows only faintly (the lighter glass turned the whole strip gold) */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :where(:root:not([data-theme="light"])) .svc-jump.stuck { background: linear-gradient(180deg, rgba(var(--grey-16), .86), rgba(var(--grey-4), .86)); } }
-.svc-jump:is(.away, .menu-away) { transform: translateY(var(--bar-out)); opacity: 0; pointer-events: none; transition: transform var(--dur-bar) var(--ease-in-out), opacity var(--dur-bar) var(--ease), background .5s var(--ease); }
+.svc-jump:is(.away, .menu-away) { transform: translateY(var(--bar-out)); opacity: 0; pointer-events: none; transition: transform var(--dur-bar-out) var(--ease), opacity var(--dur-bar-out) var(--ease), background .5s var(--ease); }
+.svc-jump.cutting { transition-duration: var(--cut-out); }   /* the keyboard's focus coming in: with the top bar's .cutting */
 /* held under the top bar (.stuck from app.js), the two bars are one header: the page above the chapter bar and in its
    top corners is covered in the page colour, so no line of text shows sliced in the slit between them. It goes with
    the bar when the bar slides away, and the top bar floats again as on every other page */
@@ -1802,7 +1809,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .group-plate:is(.polish, .rinse)::before { background: var(--plate-corner), linear-gradient(180deg, rgba(var(--grey-5), .42) 0%, rgba(var(--grey-5), .06) 20%, rgba(var(--grey-5), .3) 48%, rgba(var(--grey-5), .9) 82%, var(--plate-foot) 100%); }
 /* Exterior (.rinse): water on paint (the owner's §4 and §21). At rest the photo is lit, as Bundles' ends. While its
    moment waits (app.js .wet) the caliper and the wheel lie dim and flat under a thin, cool sheet of water
-   (.rinse-film); once a third of the plate is on the screen the sheet runs off at the light's angle (.rinsing, 1.4s).
+   (.rinse-film); once a third of the plate is on the screen the sheet runs off at the light's angle (.rinsing, 2.4s:
+   water's pace, under about 1,800px a second at its fastest on a desk; app.js RUN keeps the same number).
    Its trailing edge is the crest that rinsed the foam off on home, a straight meniscus with body: a hot core inside a
    rounded highlight about 7px wide, a few glints on it, a darker refraction band just inside the water with a soft
    edge, and a fainter second reflection 12px behind it. Ahead of it the sheet is a cool tint with long sheens, so the
@@ -1831,7 +1839,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
        refraction band and its soft edge, the sheet's shade */
     linear-gradient(90deg, rgba(var(--water-rgb), 0) 0, rgba(var(--water-rgb), .05) calc(var(--tail) - 48px), rgba(var(--water-rgb), .07) calc(var(--tail) - 17px), rgba(var(--water-rgb), .2) calc(var(--tail) - 12px), rgba(var(--water-rgb), .08) calc(var(--tail) - 8px), rgba(var(--water-rgb), .3) calc(var(--tail) - 4px), rgba(var(--water-rgb), .68) calc(var(--tail) - 2px), var(--water-crest) calc(var(--tail) - .5px), var(--water-crest) calc(var(--tail) + .5px), rgba(var(--water-rgb), .62) calc(var(--tail) + 2px), rgba(var(--water-rgb), .22) calc(var(--tail) + 3.5px), rgba(var(--water-shade-rgb), .78) calc(var(--tail) + 5px), rgba(var(--water-shade-rgb), .72) calc(var(--tail) + 7.5px), rgba(var(--water-shade-rgb), .55) calc(var(--tail) + 15px), rgba(var(--water-shade-rgb), .5) calc(var(--tail) + 44px), rgba(var(--water-shade-rgb), .62) calc(var(--tail) + 140px));
 }
-.wet.rinsing .rinse-film { animation: rinseRun 1.4s var(--ease-in-out) both; }
+.wet.rinsing .rinse-film { animation: rinseRun 2.4s var(--ease-in-out) both; }
 @keyframes rinseRun { to { transform: rotate(calc(var(--au-angle) - 90deg)) translateX(var(--run)); } }
 /* without WebGL (and without JavaScript) the Interior plate's leather is its still, drawn once from the same scene
    (img/art/leather.webp); the moment plays over it just the same */
@@ -2620,7 +2628,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .page-name { font-size: 12.5px; letter-spacing: var(--tr-label); text-indent: var(--tr-label); }   /* the longest name (Appointments) stays on the bar's centre line */
   .hero .actions { flex-direction: column; align-items: stretch; width: min(100%, 320px); }
   .hero .sub { font-size: 14px; letter-spacing: .12em; text-indent: .12em; }   /* the phone's fits: tighter than the steps above, so the line holds */
-  .hero .place { font-size: 12px; letter-spacing: var(--tr-label); text-indent: 0; text-wrap: balance; max-width: 224px; margin-inline: auto; }   /* in px, not ch: the fallback font's narrower zero must not re-wrap the line; two lines, so no indent */
+  .hero .place { font-size: 12px; letter-spacing: var(--tr-label); text-indent: 0; text-wrap: balance; max-width: 244px; margin-inline: auto; }   /* in px, not ch: the fallback font's narrower zero must not re-wrap the line; two lines, so no indent */
+  .hero .place > span { white-space: nowrap; }   /* the line breaks after the dot: Parker, Texas · / Mobile within about 10 miles */
   .wash-title p:last-child { letter-spacing: .2em; text-wrap: balance; max-width: 210px; }   /* in px, as the hero's place line: two balanced lines (Exterior · Interior · / Bundles · Protection) in Archivo and in its fallback */
   .cannon { width: clamp(220px, 64vw, 300px); bottom: 2vh; }   /* the body of the cannon stays in the frame mid-sweep */
   .page { align-content: start; padding-top: calc(104px + env(safe-area-inset-top, 0px)); }
@@ -3120,6 +3129,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 /* a day of the month before or after that shares a week with this one: grey, its month in small capitals under the number */
 .cal-other { justify-self: center; width: 100%; max-width: 56px; aspect-ratio: 1; max-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); opacity: .6; font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums; user-select: none; }
 .cal-other small { font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-indent: var(--tr-label); text-transform: uppercase; }
+.cal-pad { justify-self: center; width: 100%; max-width: 56px; aspect-ratio: 1; max-height: 56px; }   /* an empty place after the month's last week: the grid keeps six weeks' height */
 /* a chosen day, and a chosen start time: gold poured from exactly where the finger landed (--px, --py, and the reach to
    the farthest edge, --cr: ui.js; the centre for a key press). It flows out and fills the shape in 380ms (the curve
    of the light, so the flow is seen and then settles) and stays, opaque, inside the shape (never spreading past it,
@@ -3297,7 +3307,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   /* what happens next, started at 1100ms: from 1500ms */
   .bk-sent.play-next > .sent-next { animation: sentFade var(--dur-line) var(--ease-unveil) 400ms backwards; }
 }
-@keyframes sealPress { from { opacity: 0; transform: scale(1.04); } }
+@keyframes sealPress { from { opacity: 0; transform: translateY(-2px); } }   /* the stamp lands in place: never larger than at rest */
 @keyframes sealFoil { from { --foil-top: 0%; } to { --foil-top: 112%; } }
 @keyframes sentFade { from { opacity: 0; } }
 @keyframes sentRow { from { opacity: 0; transform: translateY(6px); } }
@@ -3391,7 +3401,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   .sum-body { grid-template-columns: 1fr; gap: 2px 0; }
   .sum-body dt { margin-top: 8px; font-size: 12px; letter-spacing: var(--tr-label); text-transform: uppercase; }
   .cal-grid { gap: 4px; }   /* seven 44px days fit a 390px phone */
-  .cal-day, .cal-other { max-height: none; max-width: none; font-size: 13px; }
+  .cal-day, .cal-other, .cal-pad { max-height: none; max-width: none; font-size: 13px; }
   /* the start times (and their places while they load) in three even columns across the card, not a ragged wrap */
   .times .chips, .times-wait { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .times .chips .choice-item { min-width: 0; justify-content: center; padding-inline: 8px; }
@@ -3448,9 +3458,12 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .book-page:has(.acct-soon) { display: grid; align-content: center; }
 .acct-soon { width: min(100%, 600px); margin-inline: auto; display: grid; justify-items: center; text-align: center; padding-block: clamp(8px, 4vh, 48px); }
 .acct-soon .bk-preview { margin: 0 0 clamp(28px, 5vh, 44px); }
-.soon-mark { position: relative; display: grid; place-items: center; width: 116px; height: 116px; margin-bottom: 34px; border-radius: 50%; border: 1px solid var(--line-soft); background: radial-gradient(closest-side, rgba(var(--gold-rgb), .1), transparent 72%); }
-.soon-mark::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .05); }
+.soon-mark { position: relative; display: grid; place-items: center; width: 116px; height: 116px; margin-bottom: 34px; border-radius: 50%; background: radial-gradient(closest-side, rgba(var(--gold-rgb), .1), transparent 72%); }
 .soon-mark svg { width: 52px; height: 54px; overflow: visible; filter: drop-shadow(0 8px 22px rgba(var(--gold-rgb), .32)); }
+/* the monogram in the thin gold ring of the 404, the Standard and About (their #ringGrad), drawn and still: the
+   booking side stays calm */
+.soon-mark svg.soon-ring { position: absolute; inset: 0; width: 100%; height: 100%; filter: none; }
+.soon-ring circle { fill: none; stroke: url(#ringGrad); stroke-width: 1.2; }
 .soon-title { font-size: var(--t-6); line-height: 1.1; }
 .soon-text { margin: 22px 0 0; max-width: var(--m-centre); font-size: var(--t-4); line-height: var(--lh-4); color: var(--ink-2); text-wrap: pretty; }
 .soon-actions { margin-top: 36px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 34px; }
@@ -3468,7 +3481,6 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .acct-soon > :nth-child(5) { animation-delay: .32s; }
 @keyframes soonIn { from { opacity: 0; transform: translateY(12px); } }
 :where([data-theme="light"]) .soon-mark { background: radial-gradient(closest-side, rgba(var(--studio-gold-rgb), .1), transparent 72%); }
-:where([data-theme="light"]) .soon-mark::before { border-color: rgba(var(--studio-ink-rgb), .06); }
 :where([data-theme="light"]) .soon-mark svg { filter: drop-shadow(0 8px 18px rgba(var(--studio-gold-deep-rgb), .22)); }
 
 /* the next appointment, as the owner drew it (direction §25): the day, the date large, the time and where, the
@@ -4267,6 +4279,12 @@ a.adm-tile { text-decoration: none; color: inherit; }
 }
 @keyframes paintDriftIn { from { --hx: 46%; } to { --hx: 70%; } }
 @keyframes paintDrift { from { --hx: 30%; } to { --hx: 70%; } }
+/* home met again (app.js .met: Back, a link home, also after a reload of another page): the hero is there, set, as
+   the page shows, with no intro (the letters' rise and tilt, the lines' fade, the wordmark's sweep); the studio light,
+   the reflection's slow drift under a finger and Book Now's shine carry on. The first visit, and a load that opens on
+   home, play it all */
+.hero.met [data-in], .hero.met h1 .l1, .hero.met h1 .l1.split .ch { animation: none; opacity: 1; transform: none; filter: none; }
+@media (hover: none) and (prefers-reduced-motion: no-preference) { .hero.met h1 .l1 { animation: paintDrift 14s var(--ease-in-out) infinite alternate-reverse; } }   /* (under less motion it rests at 46%: below) */
 /* the drift rests while the hero is off the screen (.offscreen from app.js): no repaint of the gold text below it */
 html.ready .hero.offscreen h1 .l1 { animation-play-state: paused; }
 .hero-inner { will-change: transform, opacity; }
@@ -4619,6 +4637,9 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .tip-body p { margin: 0; max-width: var(--m-read); color: var(--ink-2); font-size: var(--t-3); line-height: var(--lh-5); }
 .tip .note-link { margin: 10px 0 -12px; }
 .nobr { white-space: nowrap; }
+/* a sentence of a short centred lead (the Services header's, the Table's, a page's): a line breaks between its
+   sentences, never after a sentence's first word; a sentence longer than the line wraps inside itself */
+.lead-s { display: inline-block; }
 /* the FAQ: a simple accordion drawn as the Tips are, on hairlines with no boxes; the open question's line turns gold.
    The answer's grid row grows from 0fr to 1fr (.32s) and shrinks back (.22s) before the item closes (.is-open from
    content.js; the plus turns into a cross, no overshoot) */
@@ -5047,7 +5068,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .topbar.scrolled .bar { background: rgba(var(--studio-panel-rgb), .94); border-color: rgba(var(--studio-ink-rgb), .08); }
 :where([data-theme="light"]) .topbar.over-wash .bar { background: rgba(var(--studio-panel-rgb), .94); }
 /* over the Services header's dark photo (.over-dark from app.js) the same, from the top of the page */
-:where([data-theme="light"]) .topbar.over-dark .bar { background: rgba(var(--studio-panel-rgb), .94); border-color: rgba(var(--studio-ink-rgb), .08); }
+:where([data-theme="light"]) .topbar.over-dark .bar, :where([data-theme="light"].top-dark) .topbar .bar { background: rgba(var(--studio-panel-rgb), .94); border-color: rgba(var(--studio-ink-rgb), .08); }   /* (html.top-dark: the head script's, as the page first paints) */
 :where([data-theme="light"]) .bar-light { display: none; }   /* solid there: no studio light in the glass */
 :where([data-theme="light"]) .icon-btn { background: linear-gradient(180deg, rgb(var(--studio-panel-rgb)), var(--studio-key-foot)); border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: inset 0 1px 0 #fff, 0 4px 14px -8px rgba(var(--studio-shade-rgb), .4); }
 /* the gold for icons and large numerals (--gold: 3.3:1 at worst, on the floor; the large-text floor is 3:1); small gold text is --gold-ink */

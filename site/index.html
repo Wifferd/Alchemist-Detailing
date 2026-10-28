@@ -59,7 +59,7 @@
 }
 </script>
 <link rel="stylesheet" href="css/alchemist.css">
-<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), the test site stays out of search, and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should the CDN script be slow */(function(d,h){h.classList.remove('no-js');try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#f8f5ee'}}catch(e){}if(/(^|\.)alchemist-detailing-test\./.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
+<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), a page opening at the top of Home or Services has its dark piece under the bar (html.top-dark, until app.js's observer answers), the test site stays out of search, and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should the CDN script be slow */(function(d,h){h.classList.remove('no-js');try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#f8f5ee'}}catch(e){}if(/^#?(home|services)?$/.test(location.hash))h.classList.add('top-dark');if(/(^|\.)alchemist-detailing-test\./.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
 </head>
 <body>
 <!-- BODY START -->
@@ -152,7 +152,7 @@
         <a class="btn btn-lg btn-gold shine" href="#book">Book Now <span class="arrow" aria-hidden="true">→</span></a>
         <a class="btn btn-lg btn-glass" href="#services" data-scroll="services">Explore Services</a>
       </div>
-      <p class="place" data-in style="--d:1350">Parker, Texas · Mobile within about 10 miles</p>
+      <p class="place" data-in style="--d:1350"><span>Parker, Texas ·</span> <span>Mobile within about 10 miles</span></p>
     </div>
     <a class="scroll-cue" href="#home" data-scroll="standard" aria-label="Scroll down">Scroll<span></span></a>
   </section>
@@ -342,7 +342,7 @@
     <div class="wrap page-head">
       <p class="eyebrow">Services</p>
       <h1 class="display gold-text">The Menu</h1>
-      <p>Professional-grade products, finished by hand. Prices are for standard-size vehicles, and you pay in person.</p>
+      <p><span class="lead-s">Professional-grade products, finished by hand.</span> <span class="lead-s">Prices are for <span class="nobr">standard-size</span> vehicles, and you pay in person.</span></p>
       <span class="rule" data-reveal></span>
     </div>
   </section>

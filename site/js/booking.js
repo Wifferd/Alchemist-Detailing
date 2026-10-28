@@ -1221,10 +1221,11 @@
       const cls = !inWindow ? 'out' : avail === false ? 'full' : avail === true ? 'open' : 'unknown';
       out.push(el('button.cal-day', { type: 'button', class: cls + (w.date === iso ? ' on' : ''), disabled: !inWindow || avail === false, dataset: { iso, l: d }, 'aria-pressed': w.date === iso ? 'true' : 'false', 'aria-label': longDate(iso) + (avail === false ? ', full' : ''), onclick: () => pickDay(iso) }, el('span', d)));
     }
-    // the rest of the last week from the next month, and a sixth week of it when the month fills only five: the grid
-    // is always six weeks tall, so it never changes height between months
-    const tail = 42 - firstDow - daysIn;
+    // the rest of the last week from the next month (the owner, Oct 11), then empty places: the grid is always six
+    // weeks tall, so it never changes height between months, with no extra week of days that can't be picked
+    const tail = (7 - (firstDow + daysIn) % 7) % 7;
     for (let i = 1; i <= tail; i++) out.push(other(new Date(yr, mo + 1, i)));
+    for (let i = firstDow + daysIn + tail; i < 42; i++) out.push(el('span.cal-pad', { 'aria-hidden': 'true' }));
     return out;
   }
   // The open and full days for the month on screen, for this booking's length and place (w.fit is part of the key,

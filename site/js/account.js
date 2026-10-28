@@ -81,7 +81,7 @@
   function comingSoon() {
     return el('div.acct-soon',
       !D.isLive ? el('p.bk-preview.draft', el('b', 'Preview'), ' — nothing is saved anywhere.') : null,
-      el('span.soon-mark', { 'aria-hidden': 'true', innerHTML: '<svg><use href="#ad-mark"/></svg>' }),
+      el('span.soon-mark', { 'aria-hidden': 'true', innerHTML: '<svg class="soon-ring" viewBox="0 0 116 116"><circle cx="58" cy="58" r="57"/></svg><svg><use href="#ad-mark"/></svg>' }),   // (the 404's and the Standard's thin gold ring)
       el('h1.display.soon-title', 'Online accounts are coming soon'),
       el('p.soon-text', 'Until then you can book without one: we call or text you to confirm. To check, change or cancel a booking, call us.'),
       el('div.soon-actions',

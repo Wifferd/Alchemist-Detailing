@@ -173,7 +173,7 @@
     const main = el('div.el-main', el('div.el-scroll', grid), legend), box = el('div.el-table', main, panel);
     container.replaceChildren(
       el('div.section-head', el('p.eyebrow', 'At a glance'), el('h2.display', { id: 'tableTitle' }, 'The Alchemist’s Table'),
-        el('p', 'Every service is an element. Pick one to see what goes into it.'), el('span.rule', { 'data-reveal': '' })),
+        el('p', el('span.lead-s', 'Every service is an element.'), ' ', el('span.lead-s', 'Pick one to see what goes into it.')), el('span.rule', { 'data-reveal': '' })),   // (a line breaks between its sentences: CSS .lead-s)
       box,
       el('p.el-note', 'Prices are for standard-size vehicles. Mobile service adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.'));
     transmute(box, main, grid, tiles, panel);
@@ -199,7 +199,8 @@
   // of 1.2s; at that rest Ed and Id, if they are only partly on the screen, are simply lit (.tm-rest). The panel's Au
   // rises into the light with the turn and its equation draws as Au floods (beside the grid), or as soon as the panel is
   // on the screen (under it, on a phone); its own Book Now shine waits meanwhile (CSS). Au's figure is the database's:
-  // its gold waits for the menu's answer (600ms at most), and without one Au is simply gold. Au is never left unlit:
+  // its gold waits for the menu's answer (600ms at most), and without one Au is simply gold, once Ed and Id have taken
+  // their light (so it still reads Ed + Id → Au). Au is never left unlit:
   // 2.5s after a fifth of it first comes on the screen, a turn that has not begun gives way to its gold fading in
   // (.tm-fade). A click or a key ends it all at once (clicks always pick), and so does the grid leaving the screen. Once
   // a visit (the tab's storage). Not under reduced motion, in forced colours or without JavaScript: the Table is at
@@ -255,7 +256,10 @@
       grid.classList.remove('tm-lit', 'tm-go', 'tm-rest');
       if (!panelSet && seen(panel) >= 0.3) setPanel(0, 400);   // with the panel in view: it sets now
     }
-    function settle() { if (pairOver && auOver) tilesDone(); }
+    function settle() {
+      if (menu === false && pairOver) gild();   // (the preview's Au: gold once Ed and Id have taken their light)
+      if (pairOver && auOver) tilesDone();
+    }
     // Au at rest: its own gold, the layer gone
     function auDone() {
       if (auOver) return;
@@ -268,9 +272,12 @@
       if (cv) { cv.stop(); cv = null; }
       settle();
     }
-    // Au simply gold, without the spread: fading in where it is on the screen, at once where it is not
-    function gild() {
+    // Au simply gold, without the spread: fading in where it is on the screen, at once where it is not. Without the
+    // menu's figure (the preview) never ahead of the pair, so it reads Ed + Id → Au: once their light is over (settle),
+    // or at the cap if their light has not even begun by then (Au is never left unlit)
+    function gild(cap) {
       if (!auWait || auGoing) return;
+      if (menu === false && !pairOver && !(cap && !turnAt)) return;
       auWait = false;
       if (seen(au) > 0) { au.classList.add('tm-fade'); later(auDone, TM.fade + 100); } else auDone();
     }
@@ -409,7 +416,7 @@
     // whatever is on the screen has changed
     function check() {
       if (ended) return;
-      if (auWait && !auSeen && seen(au) >= 0.2) { auSeen = true; later(gild, TM.cap); }
+      if (auWait && !auSeen && seen(au) >= 0.2) { auSeen = true; later(() => gild(true), TM.cap); }
       clearTimeout(restT);
       restT = later(rested, TM.rest);
       if (!lit && seen(grid) >= 0.35) light();

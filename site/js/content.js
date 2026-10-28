@@ -89,6 +89,13 @@
 
   // The phone number in running text is a tel: link (ui.js); the words around it are unchanged.
   const withPhone = (text) => text.split(PHONE).flatMap((part, i) => (i ? [U.tel(PHONE), part] : [part]));
+  // A page's centred lead: it never breaks at a hyphen ("owner-run"), and one of two sentences or more breaks between
+  // them, never after a sentence's first word (CSS .lead-s)
+  const lead = (text) => {
+    const part = (s) => withPhone(s).flatMap((x) => (typeof x === 'string' ? whole(x, 'nobr') : [x]));
+    const ss = text.split(/\.\s+(?=[A-Z(])/).map((x, i, all) => (i < all.length - 1 ? x + '.' : x));   // (no lookbehind: older Safari)
+    return ss.length < 2 ? part(text) : ss.flatMap((s, i) => (i ? [' '] : []).concat([el('span.lead-s', part(s))]));
+  };
 
   // The FAQ: a details element whose answer unfolds (grid rows 0fr -> 1fr, .32s) and folds (.22s) before it
   // closes. Opening sets `open` first, so the body exists, then .is-open a frame later so the rows transition;
@@ -398,7 +405,7 @@
       el('p.eyebrow', d.eyebrow),
       title,
       el('span.rule', { 'data-reveal': '' }),
-      el('p.bk-lead', withPhone(d.intro).flatMap((x) => (typeof x === 'string' ? whole(x, 'nobr') : [x]))),   // the centred lead never breaks at a hyphen ("owner-run")
+      el('p.bk-lead', lead(d.intro)),
       SHOW_DRAFT_BANNER ? el('div.bk-preview.draft', el('b', 'Draft'), ' — these words are a first draft for the owner to edit. Nothing here is final.') : null);
     const wrap = el('div.wrap.content-page', { class: page === 'contact' ? 'contact-page' : null, 'data-hold': mode === 'trace' ? '' : null });
     const turn = mode === 'trace' ? trace(mark, wrap, head) : null;

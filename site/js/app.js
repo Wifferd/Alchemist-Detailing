@@ -18,14 +18,26 @@
   // The headline is split into letters first (so the intro has them from its first frame).
   const unsplit = splitHeadline();
   let hero = null, heroStarted = false;
+  // Home met again (a page change back to it, also after a reload of another page this session: the heads' note, key
+  // 'hero'): the hero is there, set, as the page shows (.hero.met before the view is unhidden: CSS), with no intro and
+  // its studio light at rest; its light and Book Now's shine carry on. The note is written once the intro has played,
+  // or as home is left. A load that opens on home (first) greets with the intro as always: before this script runs
+  // the hero is still unlit, so a set hero would only snap in.
+  const heroSet = () => { try { return seenHeads(heroEl).has('hero'); } catch (e) { return false; } };
+  function heroMeet(first) { if (heroEl && (heroStarted || (!first && heroSet()))) heroEl.classList.add('met'); }
+  function heroSeen() { if (heroEl && heroStarted) markSeen(heroEl, 'hero'); }
   // The hero's shader is built the first time home opens (render), not for a visitor who lands on another page.
   function startHero(first) {
     if (heroStarted) return;
     heroStarted = true;
+    const met = !!heroEl && heroEl.classList.contains('met');   // (home first met after a reload of another page: the word whole at once)
+    if (met && unsplit) unsplit();
     // the page opened on home and the head script has let the intro go (a slow script): the letters are already
     // rising, so the studio light is simply at rest
     const late = first && root.classList.contains('ready');
     root.classList.remove('ready');   // home opened later: its intro waits for this compile too (the head script's 1.5s let it go)
+    const lastIn = $('.hero .place');   // (the intro's last line: once it has landed, the note)
+    if (!met && lastIn) lastIn.addEventListener('animationend', function end(e) { if (e.target !== lastIn) return; lastIn.removeEventListener('animationend', end); heroSeen(); });
     if (glOk && window.AlchemistHero) {
       const scenes = ['beads', 'gloss'];
       let last = null;
@@ -36,7 +48,7 @@
       // The studio light's entrance needs to know where the words are. They are read now, in page pixels, while the
       // page is being laid out for its first picture anyway (revealAbove reads it next), so no frame of the intro
       // has to lay it out again; the hero reads its canvas with them (hero-gl.js), and the glass bar its own box.
-      const plays = !late && !light.off;
+      const plays = !late && !met && !light.off;
       if (plays && heroWord && heroMono) spots = { w: pageBox(heroWord), m: pageBox(heroMono) };
       if (glassLight && glassBar) glassBox = barBox(glassBar.getBoundingClientRect());
       // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
@@ -49,6 +61,7 @@
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const held = p ? lightOn(p) : 0;
       root.classList.add('ready');
+      if (met) return;   // (no wordmark light to wait for)
       light.hold(held || 1450 + 1600 + 240);   // Book Now's shine crosses after the wordmark's light has (letterSweep: 1.45s, then 1.6s)
       if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
     }));
@@ -189,9 +202,10 @@
   // booking), a shine on the screen that would start crossing during a pass or another shine's crossing starts just
   // after it instead, a crossing apart from the next, and one that starts anyway (a late frame) steps back into its
   // rest, unseen, until the light ahead of it has gone. Its rest is longer that once; its rhythm is otherwise unchanged.
-  // The customer's own input (now: a service chosen, a booking step reached, the menu opened, a booking opened) waits
-  // for no shine: a shine crossing then fades out where it is and goes on from its rest, and a pass still playing
-  // stops for it. Only the arrivals wait for the shines.
+  // The customer's own input (now: a service chosen, a booking step reached, the menu opened, a booking opened), and
+  // Services' Protection bead moment at its sighting (its one chance to play), wait for no shine: a shine crossing then
+  // fades out where it is and goes on from its rest, and a pass still playing stops for it. Only the other arrivals
+  // wait for the shines.
   const AU_MS = { el: 1200, card: 1400, wide: 1800 };   // --au-dur, --au-dur-card, --au-dur-wide
   const reach = (r) => (38 + 19 * Math.min(4, r.height / Math.max(1, r.width))).toFixed(1) + '%';   // a sweep's --au-reach
   const CROSSING = { shine: 0.22, letterSweep: 1, veil: 1 };   // the part of each CSS light's run spent crossing (@keyframes)
@@ -538,7 +552,10 @@
     ['wheel', 'touchmove', 'keydown', 'pointerdown'].forEach((t) => window.addEventListener(t, () => { felt = performance.now(); }, { passive: true, capture: true }));
     window.addEventListener('resize', () => { topH = 0; });
     const show = () => set(false);
-    topbar.addEventListener('focusin', show);
+    // a bar that was away comes back on the cut's own clock (CSS .topbar.cutting): for a page change, and for the
+    // keyboard's focus coming into it, so the focused button is in place at once
+    const quick = () => { if (!away) return; topbar.classList.add('cutting'); clearTimeout(cutT); cutT = setTimeout(() => topbar.classList.remove('cutting'), 400); };
+    topbar.addEventListener('focusin', () => { quick(); show(); });
     // a jump the visitor asked for: the bar is there, and stays while the page gets there
     const hold = () => { held = performance.now() + 1200; run = 0; show(); };
     return {
@@ -549,10 +566,9 @@
       hold,
       // a page change: the same, and a bar that was away comes back on the cut's own clock (CSS .topbar.cutting: over
       // --cut-out), so it is in place as the shade or the page left reaches black
-      cut() {
-        if (away) { topbar.classList.add('cutting'); clearTimeout(cutT); cutT = setTimeout(() => topbar.classList.remove('cutting'), 400); }
-        hold();
-      },
+      cut() { quick(); hold(); },
+      // the keyboard's focus coming into the chapter bar while the two are away
+      focused() { quick(); show(); },
     };
   })();
 
@@ -639,6 +655,7 @@
     es.forEach((e) => { if (e.isIntersecting) underBar.add(e.target); else underBar.delete(e.target); });
     topbar.classList.toggle('over-dark', underBar.size > 0);
     topbar.classList.toggle('over-hero', [...underBar].some((el) => el.matches('.hero')));   // the studio light is under the glass
+    if (root.classList.contains('top-dark')) root.classList.remove('top-dark');   // (the head script's guess for the first paint: the observer's answer from now on)
   }, { rootMargin: '0px 0px -90% 0px' });
   darkTops.forEach((el) => darkIo.observe(el));
   // Under a finger there is no hover: once the row's light has crossed and the page moves again (at once where no light
@@ -1009,6 +1026,19 @@
     const f = document.fonts;
     if (f && f.status !== 'loaded') Promise.race([f.ready, new Promise((res) => setTimeout(res, 1000))]).then(() => headTurn(c));
     else headTurn(c);
+  }
+  // A head its own moment sends on that moment's clock (Exterior's title, as the rinse's crest leaves it behind): read
+  // and split now, while it is unseen (the moment's start lays the page out anyway), so when it is sent it only takes
+  // its classes, with none of headGo's frames to wait (three, on a busy page). ms: when it will be sent. With the fonts
+  // still on their way, or a hold on it, it simply takes headGo's way then.
+  function headReady(c, ms) {
+    const free = c && c.hasAttribute('data-head') && !heads.has(c) && !c.classList.contains('in') && !holds.some((x) => !x.open && x.test(c));
+    const h = free ? $('[data-hd="h"]', c) : null;
+    if (!h || (document.fonts && document.fonts.status !== 'loaded')) return () => headGo(c);
+    const key = headKey(h);
+    let n = 0;
+    try { const cut = lineCut(h); n = cut ? splitLines(h, cut, () => headDone(c), ms + LINE.at) : 0; } catch (e) { n = 0; }
+    return () => setHead(c, false, n, key);
   }
   const turn = new Set();   // the heads to set in the next frame
   function headTurn(c) {
@@ -1880,9 +1910,10 @@
     };
   }
   // Exterior (the owner's §4, §9 and §21: water on paint): the caliper and the wheel wait dim under a thin, cool sheet
-  // of water. Once a third of the plate is on the screen the sheet runs off at the light's angle (1.4s), its trailing
-  // edge one bright cool line, the crest that rinsed the foam off on home; behind it the paint is wet-black and lit.
-  // As the sheet clears, the index and EXTERIOR rise. Clear water only, never a dirty "before". CSS draws it and only
+  // of water. Once a third of the plate is on the screen the sheet runs off at the light's angle (2.4s: RUN), its
+  // trailing edge one bright cool line, the crest that rinsed the foam off on home; behind it the paint is wet-black and
+  // lit. The index and EXTERIOR rise as the crest passes the title's far corner, about halfway through the run, while it
+  // still clears the rest of the plate. Clear water only, never a dirty "before". CSS draws it and only
   // its transform moves; its layer goes once the sheet is off the plate. Not a gold light, so Bundles keeps the plates'
   // gold pass to itself.
   (function rinse() {
@@ -1920,20 +1951,39 @@
       film.remove();
       if (sized) sized.disconnect(); else window.removeEventListener('resize', place);
     }
-    // its turn has come: the sheet runs off; the index and the title rise as it clears the plate (it has long passed
-    // them, at the top left and the foot's left)
+    // the sheet's run (CSS rinseRun's 2.4s), and the share of its time at which its crest has gone a share f of its
+    // way (--ease-in-out)
+    const RUN = 2400;
+    function crestAt(f) {
+      const X = (s) => 3 * (1 - s) * (1 - s) * s * 0.65 + 3 * (1 - s) * s * s * 0.35 + s * s * s, Y = (s) => 3 * (1 - s) * s * s + s * s * s;
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 30; i++) { const s = (lo + hi) / 2; if (Y(s) < f) lo = s; else hi = s; }
+      return X((lo + hi) / 2);
+    }
+    // its turn has come: the sheet runs off; the index and the title rise the moment its crest has passed the title's
+    // far corner (on the run's own clock: the head is read and split now, unseen, so it sets then with no frames to
+    // wait), at about half its run, while it is still clearing the rest of the plate
     function run() {
       if (done) return 1;
       done = true;
       place();
+      const pr = plate.getBoundingClientRect(), far = Math.max(0, ...$$(':scope > *', cap).map((el) => { const r = el.getBoundingClientRect(); return (r.right - pr.left) * n[0] + (r.bottom - pr.top) * n[1]; }));
+      const way = parseFloat(film.style.getPropertyValue('--run')) || 1, bloom = 40;   // (the crest starts at -bloom along n: place)
+      const at = Math.round(RUN * crestAt(Math.min(1, Math.max(0, (far + bloom) / way))));
+      const title = headReady(cap, at);
       plate.classList.add('rinsing');
-      setTimeout(() => { plate.classList.add('risen'); headGo(cap); }, 1150);
+      setTimeout(() => { plate.classList.add('risen'); title(); }, at);
       film.addEventListener('animationend', clear, { once: true });
-      setTimeout(clear, 1700);   // should the end never come (a hidden page)
-      setTimeout(() => plate.classList.remove('wet', 'rinsing', 'risen'), 2600);
-      return roomTurn(plate, 1400);
+      setTimeout(clear, RUN + 300);   // should the end never come (a hidden page)
+      setTimeout(() => plate.classList.remove('wet', 'rinsing', 'risen'), RUN + 1200);
+      return roomTurn(plate, RUN);
     }
-    const arrive = () => light.pass(plate, { delay: 150, start: run, when: roomWhen(plate), miss: () => onceSeen(plate, { threshold: 0.33 }, arrive) });
+    // water, not gold: a turn that has still not come 300ms after the plate is a third on the screen (a light crossing
+    // ahead of it, the Table's turn) is let go of, and the sheet runs at once (the one gold pass at a time still holds)
+    const arrive = () => {
+      const late = setTimeout(() => { if (!done && roomWhen(plate)()) { light.stop(plate); run(); } }, 300);
+      light.pass(plate, { delay: 150, start: () => { clearTimeout(late); return run(); }, when: roomWhen(plate), miss: () => { clearTimeout(late); onceSeen(plate, { threshold: 0.33 }, arrive); } });
+    };
     // the photo first: it loads lazily, and on a page opened right here (#services-exterior) or on a slow phone it can
     // still be on its way, so the sheet waits until it is decoded (1.5s at most), never running off an empty plate
     const img = $('img', plate);
@@ -2064,10 +2114,11 @@
       return true;
     }
     // each sighting (the first, and one after a turn it missed): on a page that has only just opened here, before the
-    // stills' context is up, it waits for it 300ms at most, counted from this sighting. Queued, the Bead Test's title
-    // below waits for this plate's own; should its turn still not have come 300ms from the sighting (a light crossing
-    // ahead of it), the same rule: the photo comes up from black and the title rises. A turn missed (passed by) lets
-    // the Bead Test's title go, and the plate waits to be seen again
+    // stills' context is up, it waits for it 300ms at most, counted from this sighting, and then the photo comes up from
+    // black and the title rises. Its turn is taken at once, ahead of the arrivals (now: a Book Now shine still crossing
+    // gives way, fading where it is), so the bead moment is not forfeited to a shine's phase; the Bead Test's title below
+    // waits for this plate's own. A turn missed (passed by) lets the Bead Test's title go, and the plate waits to be seen
+    // again. (Should the turn somehow never come, the photo comes up 1.5s after the sighting: never a black plate.)
     function sighted() {
       const t = seenAt = performance.now();
       (function go() {
@@ -2075,14 +2126,17 @@
         if (beadsPlayed()) reveal();   // the beading has played this visit (the closing band): the photo comes up from black
         else if (m.room()) {
           beadHead.firm();
-          const late = setTimeout(() => { if (!begun && !done) { light.stop(plate); reveal(); } }, Math.max(0, 300 - (performance.now() - t)));
+          const late = setTimeout(() => { if (!begun && !done) { light.stop(plate); reveal(); } }, 1500);
           timers.push(late);
-          light.pass(plate, { start, when: roomWhen(plate), miss: () => { clearTimeout(late); beadHead.open(); onceSeen(plate, { threshold: 0.4 }, sighted); } });
+          light.pass(plate, { now: true, start, when: roomWhen(plate), miss: () => { clearTimeout(late); beadHead.open(); onceSeen(plate, { threshold: 0.4 }, sighted); } });
         }
         else if (performance.now() - t > 300) reveal();
         else later(50, go);
       })();
     }
+    // a quarter on the screen, on its way to the sighting: the shines on the screen do not start a crossing for the
+    // moment's length, so none is crossing as it comes
+    onceSeen(plate, { threshold: 0.25 }, () => { if (!done && !beadsPlayed()) light.hold(HAND.sweep[1] * 1000); });
     onceSeen(plate, { threshold: 0.4 }, sighted);
   })();
   // ---------------------------------------------------------------- home's closing band: protect it, then book
@@ -2464,7 +2518,12 @@
     // (a page change: the top bar comes back on the cut's clock, whichever listener hears it first)
     window.addEventListener('hashchange', () => { held = performance.now() + 1200; barGate.cut(); requestAnimationFrame(() => { edges(); soon(); }); });
     bar.addEventListener('click', hold);   // the same group again: no hashchange, the page still scrolls there
-    bar.addEventListener('focusin', () => { bar.classList.remove('away'); barGate.show(); });
+    let quickT = 0;
+    bar.addEventListener('focusin', () => {
+      if (bar.classList.contains('away')) { bar.classList.add('cutting'); clearTimeout(quickT); quickT = setTimeout(() => bar.classList.remove('cutting'), 400); }   // (in place at once, with the top bar)
+      bar.classList.remove('away');
+      barGate.focused();
+    });
     row.addEventListener('scroll', edges, { passive: true });
     new MutationObserver(() => bar.classList.toggle('menu-away', menu.classList.contains('on'))).observe(menu, { attributes: true, attributeFilter: ['class'] });
     const again = () => { measure(); edges(); if (at >= 0) place(spot(links[at])); soon(); };
@@ -2482,8 +2541,54 @@
   function focusEl(el, scroll) { el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: !scroll }); }
   function placeFocus(scope) {
     wantHeading = true;
+    wantBack = null;
     fromEl = document.activeElement;   // the link or button that brought them here
     requestAnimationFrame(() => { if (!focusHeading(scope) && wantHeading) focusEl(main); });
+  }
+  // A page met again (Back, Forward) lands where it was left, and the keyboard with it: on the thing that had the focus
+  // as the page was left, if it is still there and on the screen, or else on the first heading or focusable thing on
+  // the screen below the bars; never on the h1 above it, where the first Tab would take the page. The page's name is
+  // read out as for any page (#pageName). An app page's content still coming moves them on as it lands (as above).
+  const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+  const focusKey = (el) => el.tagName + ':' + (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  // (the page being left: the n-th of its focusable things has the focus, and its words, so a page built since with
+  // other things in it is not given the wrong one; read from the page's nodes only, so the page change lays nothing out)
+  function focusOf() {
+    const v = $$('.view').find((x) => !x.hidden), a = document.activeElement;
+    if (!v || !a || a === v || !v.contains(a)) return null;
+    const i = $$(FOCUSABLE, v).indexOf(a);
+    return i < 0 ? null : { i, t: focusKey(a) };
+  }
+  // the screen's top below the bars that are there: the top bar, and the Services chapter bar held under it
+  const barsEnd = () => [topbar, svcJump].reduce((m, el) => {
+    if (!el || el.closest('[hidden]')) return m;
+    const r = el.getBoundingClientRect();
+    return r.top < m + 8 && r.bottom > m ? r.bottom : m;
+  }, 0);
+  let wantBack = null;
+  function placeBack(scope, k) {
+    wantHeading = false;
+    wantBack = k;
+    fromEl = document.activeElement;
+    requestAnimationFrame(() => { if (!backFocus(scope) && wantBack) focusEl(main); });
+  }
+  function backFocus(scope) {
+    const k = wantBack;
+    if (!k) return false;
+    const a = document.activeElement;
+    if (a && a !== document.body && a !== main && a !== fromEl) { wantBack = null; return false; }   // (moved on meanwhile)
+    const top = barsEnd(), h = window.innerHeight;
+    const onScreen = (el) => { const r = el.getBoundingClientRect(); return r.bottom > top && r.top < h; };
+    const inView = (x) => { if (x.disabled || x.closest('[hidden], [aria-hidden="true"]') || !x.getClientRects().length) return false; const r = x.getBoundingClientRect(); return r.top >= top - 2 && r.top < h - 24; };
+    let el = k.f ? $$(FOCUSABLE, scope)[k.f.i] : null;
+    if (el && (el.disabled || focusKey(el) !== k.f.t || !onScreen(el))) el = null;
+    const first = scope.querySelector('[data-land]') || scope.querySelector('h1');   // (on the screen: a new page's own place)
+    if (!el && first && inView(first)) el = first;
+    if (!el) el = $$('h1, h2, h3, h4, ' + FOCUSABLE, scope).find(inView);
+    if (!el) return false;
+    wantBack = null;
+    if (el.matches(FOCUSABLE)) el.focus({ preventScroll: true }); else focusEl(el);
+    return true;
   }
   function focusHeading(scope) {
     if (!wantHeading) return false;
@@ -2547,9 +2652,11 @@
   // the place a page is left at (on home with the wash's length then: after render's fold, as memo.home; on the FAQ the
   // questions then open, which it shows open again before it is placed, so what was on the screen is there again)
   function placeOf(r, y) {
-    if (r === 'home') return { y, s: washSpare() };
+    const k = r === 'home' ? { y, s: washSpare() } : { y }, f = focusOf();
     const C = window.AlchemistContent, o = r === 'faq' && C && C.opened ? C.opened() : null;
-    return o && o.length ? { y, o } : { y };
+    if (o && o.length) k.o = o;
+    if (f) k.f = f;   // (where the keyboard was: placeBack)
+    return k;
   }
   // where a page met again lands now: home's wash may have given its pinned length back since, or have it again after
   // a reload, so what lies below the wash moves by the difference, and a place inside the pin, which never plays
@@ -2608,8 +2715,9 @@
   let backing = 0;
   const deep = () => { const e = coming || entry; return !!e && e.d > 0 && !stateless; };   // an earlier page of the site in the tab
   function backFor(r) {
-    const e = coming || entry, to = deep() ? e.p : 'home';
-    barBack.classList.toggle('off', !deep() && r === 'home');
+    const e = coming || entry, to = deep() ? e.p : 'home', off = !deep() && r === 'home';
+    if (off && document.activeElement === barBack) menuBtn.focus({ preventScroll: true });   // (it is going: the keyboard stays in the bar)
+    barBack.classList.toggle('off', off);
     if (barBack.hidden) barBack.hidden = false;   // (shown once the script runs; from its first style, so it does not fade in)
     barBack.setAttribute('aria-label', NAMES[to] ? 'Back to ' + NAMES[to] : 'Back');
   }
@@ -2636,9 +2744,10 @@
   // the app pages' content, the reveals, the focus, the pictures. Normally both run together, as always; in a cut
   // (cut: what the new page holds, cutHeld) the landing is a task of its own just after, while the page is still
   // unseen in the black, so neither part is one long task on a slow phone. A page change that comes before a cut's
-  // landing has run lets it land first.
+  // landing has run lets it land first. A page that follows one a cut has already swapped in (two changes in one cut:
+  // after) only fades in where it lands, so the pinned stage under home's wash never moves but with the scroll.
   let landing = null;   // a cut's landing still to come
-  function render(first, cut) {
+  function render(first, cut, after) {
     if (landing) landing();
     const { r, sub } = parse();
     // Leaving home with the wash finished: its pinned length goes now, while home is still laid out (every rect is
@@ -2664,7 +2773,8 @@
     if (changed || moved) barGate.hold();
     if (changed) {
       closeMenu(false);
-      if (cur === 'home') unplan();   // the studio light's entrance, if it is still to come or playing, ends with the page
+      if (cur === 'home') { unplan(); heroSeen(); }   // the studio light's entrance, if it is still to come or playing, ends with the page
+      if (view === 'home') heroMeet(first);   // (home met again: the hero set before it shows)
       if (cur === 'gallery' && window.AlchemistGallery && window.AlchemistGallery.unmount) window.AlchemistGallery.unmount();   // its scroll drift stops with the page
       risen();   // (a page still rising out of the last cut)
       $$('.view').forEach((v) => {
@@ -2674,7 +2784,7 @@
         if (on && !first && !reduce && !cut) {   // (in a cut the page rises as a whole: the cut's CSS)
           void v.offsetWidth;
           v.classList.add('enter');
-          if (again) v.classList.add('in-place');   // (a page met again comes in where it was left: no rise, CSS)
+          if (again || after) v.classList.add('in-place');   // (a page met again comes in where it was left: no rise, CSS)
           v.addEventListener('animationend', function done(e) { if (e.target !== v) return; v.classList.remove('enter', 'in-place'); v.removeEventListener('animationend', done); });
         }
       });
@@ -2740,7 +2850,7 @@
         const scope = $$('.view').find((v) => !v.hidden) || document;
         armReveals(scope);
         if (cut && cutHeld === cut) cut.scope = scope; else revealAbove(scope);   // (in a cut: as the page shows, cutGo)
-        if (!first) placeFocus(scope);
+        if (!first) { if (again) placeBack(scope, again); else placeFocus(scope); }   // (met again: where it was left)
         requestAnimationFrame(() => {
           if (view === 'home') { fitServices(); if (wash) wash.refresh(); }
           paintArt();
@@ -2896,7 +3006,7 @@
     barGate.cut();   // (the bar is there through the change)
     if (dark && dark.m) {
       if (!dark.swapped) return;   // the shade's cut, still in the black: its swap shows the newest page
-      finishDark(); render(false); return;   // (its page already swapped in: this one simply follows)
+      finishDark(); render(false, null, true); return;   // (its page already swapped in: this one simply follows, in place)
     }
     if (!cuts(cur, to)) { finishDark(); render(false); return; }
     if (!dark && !pictured(to)) { const open = menuOpen; if (open) closeMenu(false); blackOut(back, !open); }   // Back or Forward with the menu open, to or from home, or with no pictures
@@ -2978,6 +3088,9 @@
     // breath (160ms, CSS .chose) so it is seen, while the page changes at once
     if (wasOpen && !reduce && a.closest('nav') === menuNav) { a.classList.add('chosen'); menu.classList.add('chose'); }
     closeMenu(false);
+    // chosen by the keyboard: its focus leaves the closed (hidden) menu at once, for the page (main), until the page's
+    // heading takes it as the page lands (placeFocus)
+    if (wasOpen && menu.contains(a) && (e.detail === 0 || a.matches(':focus-visible'))) focusEl(main);
     const navigate = () => {
       if (location.hash.slice(1) === token) {   // same page: back to its top
         if (!token.includes('-')) {
@@ -3038,6 +3151,7 @@
       landed = [];
       const view = $$('.view').find((v) => !v.hidden) || main;
       focusHeading(view);
+      backFocus(view);
       desyncShine(view);
       $$('.shine', view).forEach((el) => ioAway.observe(el));
       // the booking step just reached (.fresh, booking.js) takes the gold light: along the line into it, then its number
