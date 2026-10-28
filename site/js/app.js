@@ -1631,7 +1631,7 @@
   // motion or in forced colours: the photos are simply there.
   const inspect = (() => {
     const on = !light.off;
-    const VARS = ['--ir', '--ie', '--iw', '--pvx', '--pvy', '--arm', '--ia', '--idur', '--ie0', '--ie1'];
+    const VARS = ['--ir', '--ie', '--iw', '--pvx', '--pvy', '--arm', '--ia', '--idur', '--ie0', '--ie1', '--ie0o', '--ie1o'];
     const boxOf = (tile) => (tile ? tile.querySelector(':scope > .insp') : null);
     // the light's parts in a photo (once): its shade, the light's glow and hot core, the pointer's light
     function prep(tile) {
@@ -1661,8 +1661,9 @@
     // the light crosses these photos (o.pick: those whose box it passes), from just outside the first one on the
     // screen to just past the last, on an arc through the part of them on the screen; returns how long it runs.
     // o.fade: their shade comes on with the light; o.max / o.min: the longest / shortest it may run; o.tight: under a
-    // finger, where only the light's core shows (half its reach, CSS), it starts and ends that core's width outside
-    // the photos rather than the whole glow's, so it spends its time on them; o.done: called once it has crossed them all.
+    // finger, where only the light's core shows (half its reach, CSS), it starts and ends a quarter of its reach inside
+    // the photos, the core coming on and going off there (.tight), so the visitor sees it travel the photos rather than
+    // its fast middle alone; o.done: called once it has crossed them all.
     const coarse = matchMedia('(hover: none), (pointer: coarse)');
     function cross(tiles, o) {
       o = o || {};
@@ -1683,7 +1684,7 @@
       const seen = Math.max(0, -top), band = Math.max(h * 0.3, Math.min(h, vh - top) - seen), rows = Math.min(bottom, vh) - Math.max(top, 0);
       // the light's reach (its glow fades out at R); the shade starts just past its core and is whole where its glow ends
       const R = Math.round(Math.min(260, Math.max(w * 0.42, rows > band + 8 ? rows * 0.36 : 0))), lead = Math.round(R * 0.9), soft = Math.round(R * 0.8);
-      const out = o.tight && coarse.matches ? R * 0.5 : R;
+      const tight = !!o.tight && coarse.matches, out = tight ? -R * 0.25 : R;
       const xs = Math.max(0, Math.min(...box.map((x) => x.r.left))) - out, xe = Math.min(vw, Math.max(...box.map((x) => x.r.left + x.w))) + out;
       const peak = seen + band * 0.38, rise = band * 0.16, half = (xe - xs) / 2;
       const arm = (half * half + rise * rise) / (2 * rise), ang = Math.asin(Math.min(1, half / arm)) * 180 / Math.PI;
@@ -1695,16 +1696,22 @@
         let left = box.length;
         box.forEach((x) => {
           const x0 = xs - x.r.left, x1 = xe - x.r.left, s = x.b.style, px = (n) => n.toFixed(1) + 'px';
+          // (.tight: the shade starts wholly over the photo and closes onto its place ahead of the light as the core comes
+          // on, and clears the photo as it goes off: CSS inspShadeEnds, from --ie0o and to --ie1o)
+          const e0 = x0 + lead - soft, e1 = x1 + lead - soft, e0o = tight ? Math.min(e0, -soft) : e0, e1o = tight ? Math.max(e1, x.w + 2) : e1;
           s.setProperty('--ir', R + 'px');
           s.setProperty('--ie', soft + 'px');
-          s.setProperty('--iw', px(Math.max(x.w, x.w - (x0 + lead - soft)) + 2));   // solid to the photo's right edge from its first place on
+          s.setProperty('--iw', px(Math.max(x.w, x.w - e0o) + 2));   // solid to the photo's right edge from its first place on
           s.setProperty('--pvx', px((xs + xe) / 2 - x.r.left));
           s.setProperty('--pvy', px(top - x.r.top + peak + arm));
           s.setProperty('--arm', px(arm));
           s.setProperty('--ia', ang.toFixed(3) + 'deg');
           s.setProperty('--idur', ms + 'ms');
-          s.setProperty('--ie0', px(x0 + lead - soft));
-          s.setProperty('--ie1', px(x1 + lead - soft));
+          s.setProperty('--ie0', px(e0));
+          s.setProperty('--ie1', px(e1));
+          s.setProperty('--ie0o', px(e0o));
+          s.setProperty('--ie1o', px(e1o));
+          x.b.classList.toggle('tight', tight);
           x.b.classList.add('go');
           if (o.fade && !x.b.classList.contains('wait')) x.b.classList.add('fade');
           x.b.classList.remove('wait', 'lift');
@@ -1716,7 +1723,7 @@
             if (e && (e.target !== shade || e.animationName !== 'inspShade')) return;
             shade.removeEventListener('animationend', end);
             clearTimeout(t);
-            x.b.classList.remove('go', 'fade', 'soft', 'dim');
+            x.b.classList.remove('go', 'tight', 'fade', 'soft', 'dim');
             VARS.forEach((k) => s.removeProperty(k));
             if (--left === 0 && o.done) o.done();
           };
@@ -1754,6 +1761,7 @@
   // light never hurries across the main photo to linger on the next one's edge)
   const stripShows = (r) => Math.min(r.right, innerWidth) - Math.max(r.left, 0) >= Math.max(24, r.width * 0.5);
   const stripTiles = () => $$('.work-item', workStrip);
+  const stripCoarse = matchMedia('(hover: none), (pointer: coarse)');   // (inspect's own test for a finger)
   const stripInView = () => stripTiles().filter((t) => stripShows(t.getBoundingClientRect()));
   const stripSeen = (f) => { const r = workStrip.getBoundingClientRect(), v = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0); return r.height > 0 && v >= Math.min(r.height, innerHeight) * f; };
   let stripStall = 0;
@@ -1782,7 +1790,9 @@
             started = true;
             clearTimeout(safe);
             stripLit = true;
-            const ms = inspect.cross(stripTiles(), { pick: stripShows, fade: true, tight: true, min: AU_MS.card });   // a card's time at least (1.4s), even across one photo
+            // a card's time at least (1.4s), even across one photo; under a finger the light's longest (1.8s), so its core is
+            // seen to travel the photo at a hand's pace
+            const ms = inspect.cross(stripTiles(), { pick: stripShows, fade: true, tight: true, min: stripCoarse.matches ? AU_MS.wide : AU_MS.card });
             requestAnimationFrame(() => inspect.lift(stripTiles()));   // (after the cross's own frame: the photos it does not reach)
             return ms;
           },
@@ -1972,7 +1982,7 @@
       const at = Math.round(RUN * crestAt(Math.min(1, Math.max(0, (far + bloom) / way))));
       const title = headReady(cap, at);
       plate.classList.add('rinsing');
-      setTimeout(() => { plate.classList.add('risen'); title(); }, at);
+      setTimeout(() => { plate.classList.add('risen'); held.delete(cap); title(); }, at);
       film.addEventListener('animationend', clear, { once: true });
       setTimeout(clear, RUN + 300);   // should the end never come (a hidden page)
       setTimeout(() => plate.classList.remove('wet', 'rinsing', 'risen'), RUN + 1200);
@@ -1995,7 +2005,8 @@
       else img.decode().then(once, load);
       setTimeout(once, 1500);
     }
-    onceSeen(plate, { threshold: 0.33 }, () => photo(arrive));
+    // from here the group's cards under the plate wait for its title (held: rise lets them follow it, 3s at most)
+    onceSeen(plate, { threshold: 0.33 }, () => { held.add(cap); photo(arrive); });
   })();
   // Protection (the owner's §11): at 40% on the screen the paint beads up live (the bead moment): the light comes up in
   // the left third of the paint while the drops form, then passes through them, and keeps going: it crosses the whole
@@ -2394,7 +2405,7 @@
       played = true;
       aim();
       plate.classList.add('on');
-      setTimeout(() => headGo(cap), 700);   // INTERIOR sets from behind its line as the view settles
+      setTimeout(() => { held.delete(cap); headGo(cap); }, 700);   // INTERIOR sets from behind its line as the view settles
       // each layer goes as soon as it has done its part (the seam once the door is shut, the black and the pools at
       // the lit state), so fewer are drawn over the leather; the classes go once the sentence has risen
       const drop = (sel) => $$(sel, plate).forEach((el) => el.remove());
@@ -2408,6 +2419,7 @@
     }
     const turn = () => { if (!played) light.pass(plate, { delay: 120, start: play, when: roomWhen(plate), miss: () => onceSeen(plate, { threshold: 0.35 }, turn) }); };
     onceSeen(plate, { threshold: 0.35 }, () => {
+      held.add(cap);   // the group's cards under the plate wait for INTERIOR from here (rise: 3s at most)
       if (!glOk || !leather || leather.dataset.done) { turn(); return; }
       let go = false;
       const once = () => { if (!go) { go = true; turn(); } };

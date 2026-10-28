@@ -93,14 +93,33 @@
       if (n === 0 && k !== 'all') return null;   // no photos of that kind yet (no interior photo): no chip
       return el('button.choice-item', { type: 'button', class: filter === k ? 'on' : '', 'aria-pressed': filter === k ? 'true' : 'false', onclick: () => { filter = k; renderGrid(); } }, el('span.choice-name', label + ' · ' + n));
     }).filter(Boolean));
-    const tall = fit(list, narrow.matches ? 2 : 3);
+    built = narrow.matches ? 2 : 3;
+    const tall = fit(list, built);
     body.replaceChildren(el('div.gal-grid', { id: 'galGrid' }, list.map((p, i) => el('figure.gal-tile', { class: tall[i] ? 'tall' : '', style: { '--i': i }, dataset: { key: p.key } },
       el('button.gal-btn', { type: 'button', 'aria-label': 'Open photo: ' + p.cap, onclick: () => open(i) },
         el('div.gal-media', el('img', { sizes: '(max-width: 720px) 50vw, 33vw', loading: 'lazy', decoding: 'async', srcset: srcset(p.key), src: src(p.key, 600), alt: p.alt, width: 600, height: 800 }))),
       el('figcaption', el('span', p.cap), el('i', 'View'))))));
     arm();
+    soon([...body.querySelectorAll('.gal-media img')]);
   }
-  narrow.addEventListener('change', () => { if (body) renderGrid(); });
+  // The browser's lazy loading leaves the last row on a computer unfetched until it is scrolled near (an empty tile on
+  // paper): once the first photo has arrived, the rest are asked for in the page's next quiet moment, as the home strip does
+  function soon(imgs) {
+    const go = () => { if (imgs[0] && imgs[0].isConnected) imgs.forEach((i) => { i.loading = 'eager'; }); };
+    const all = () => { if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 2000 }); else setTimeout(go, 600); };
+    if (!imgs.length) return;
+    if (imgs[0].complete && imgs[0].naturalWidth > 0) all(); else imgs[0].addEventListener('load', all, { once: true });
+  }
+  // A print never rebuilds the grid: the paper's narrower page matches the two-column width, and a rebuild would put
+  // new photos on it that have not loaded yet (empty tiles). The tiles on the screen print as they are, each photo
+  // asked for at once (a lazy one below the fold too)
+  const paper = window.matchMedia('print');
+  let printing = false, built = 0;
+  const forPrint = (on) => { printing = on; if (on && body) body.querySelectorAll('.gal-media img').forEach((i) => { i.loading = 'eager'; }); };
+  window.addEventListener('beforeprint', () => forPrint(true));
+  window.addEventListener('afterprint', () => forPrint(false));
+  if (paper.addEventListener) paper.addEventListener('change', (e) => forPrint(e.matches));
+  narrow.addEventListener('change', () => { if (body && !printing && !paper.matches && (narrow.matches ? 2 : 3) !== built) renderGrid(); });
 
   // The grid packs its tiles densely (grid-auto-flow: dense), so a tall tile can leave an empty cell behind
   // it. This places the tiles the way the browser will and drops tall flags from the end until nothing is

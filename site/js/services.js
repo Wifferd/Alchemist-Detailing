@@ -96,6 +96,8 @@
   // ---------------------------------------------------------------- the Alchemist's Table
   let table = null;   // the mounted Table: refresh() writes the elements' figures again (fromMenu)
   const same = (node, text) => { if (node.textContent !== text) node.textContent = text; };
+  // what a tile is called aloud: the service first, then its price and time (its number and symbol are its look)
+  const tileName = (e) => e.name + ', ' + e.price + ', ' + e.time;
   function mountTable(container) {
     let picked = 'au';
     const tiles = new Map();
@@ -103,11 +105,11 @@
     ELEMENTS.forEach((e) => {
       const au = e.key === 'au';
       const t = el('button.el-tile', {
-        type: 'button', class: (e.addon ? 'addon' : '') + (au ? ' au' : ''), 'aria-pressed': 'false', tabindex: -1,
+        type: 'button', class: (e.addon ? 'addon' : '') + (au ? ' au' : ''), 'aria-pressed': 'false', 'aria-label': tileName(e), tabindex: -1,
         dataset: { key: e.key }, style: { gridArea: e.key }, onclick: (ev) => pick(e.key, false, ev.detail > 0),
       },
-        el('span.meta.tnum', el('span', e.num), el('span', e.time)),
-        el('span.sym', { class: au ? null : 'gold-text' }, e.sym),
+        el('span.meta.tnum', { 'aria-hidden': 'true' }, el('span', e.num), el('span', e.time)),
+        el('span.sym', { class: au ? null : 'gold-text', 'aria-hidden': 'true' }, e.sym),
         el('span.nm', el('b', e.name), el('span.tnum', e.price)));
       tiles.set(e.key, t);
       list.push(t);
@@ -138,7 +140,7 @@
       const t = tiles.get(picked);
       t.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
       t.focus({ preventScroll: true });
-    } }, 'Back to the table ', el('span.arrow', { 'aria-hidden': 'true' }, '↑'));
+    } }, 'Back to the table ', el('span.arrow.up', { 'aria-hidden': 'true' }, '↑'));   // (Archivo draws ↑: .up keeps the glyph)
     const panel = el('aside.el-panel', { 'aria-label': 'The picked element' },
       el('div.top', el('span.eyebrow', 'Element'), pNo), pSym, pName, pEq, pDesc,
       el('div.el-facts', el('div', el('span', 'Price'), pPrice), el('div', el('span', 'Time'), pTime), el('div', el('span', 'Mobile'), pMobile)),
@@ -179,7 +181,7 @@
     transmute(box, main, grid, tiles, panel);
     table = {
       refresh() {
-        ELEMENTS.forEach((e) => { const t = tiles.get(e.key); put(t.querySelector('.meta span:last-child'), e.time); put(t.querySelector('.nm .tnum'), e.price); });
+        ELEMENTS.forEach((e) => { const t = tiles.get(e.key); put(t.querySelector('.meta span:last-child'), e.time); put(t.querySelector('.nm .tnum'), e.price); if (t.getAttribute('aria-label') !== tileName(e)) t.setAttribute('aria-label', tileName(e)); });
         put(miniTime, eb.time.replace(' min', '')); put(miniPrice, eb.price);
         pick(picked, false);   // the panel as it stands, with the new figures
       },

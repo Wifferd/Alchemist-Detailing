@@ -606,7 +606,25 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 }
 @media (hover: hover) and (pointer: fine) { .btn-glass:hover:not(:disabled, .pressed) { border-color: var(--gold); color: var(--gold-hi); transform: translateY(-2px); } }   /* a mouse only: a tap leaves no gold ring behind */
 .btn .arrow { transition: transform .35s var(--ease); }
-@media (hover: hover) and (pointer: fine) { .btn:hover .arrow { transform: translateX(4px); } }
+@media (hover: hover) and (pointer: fine) { .btn:hover .arrow { transform: translateX(4px); } .btn:hover .arrow.back { transform: translateX(-4px); } }
+/* the arrow after an action (→) and the booking's Back (←) are drawn, not set: the bar's Back arrow (its path, turned
+   round for →) in the words' own colour, through a mask on a 1em box. The fonts' latin subset has no arrows, so the
+   glyph came from whatever fallback face a device has, its shape and weight changing with it. The glyph stays in the
+   page unseen (the layout and the hovers keep it), and comes back on paper and in forced colours, where a painted
+   background shows nothing. (↑, Back to the table, is Archivo's own: .up keeps it) */
+:root {
+  --arrow-r: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='3 3 18 18'%3E%3Cpath d='M5 12h13.5M13 6l6 6-6 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --arrow-l: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='3 3 18 18'%3E%3Cpath d='M19 12H5.5M11 6l-6 6 6 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.arrow:not(.up) {
+  display: inline-block; flex: none; inline-size: 1em; block-size: 1em; vertical-align: -.125em;
+  overflow: hidden; text-indent: 2em; white-space: nowrap;
+  background: currentColor;
+  -webkit-mask: var(--arrow-r) 50% 50% / contain no-repeat; mask: var(--arrow-r) 50% 50% / contain no-repeat;
+}
+.arrow.back { -webkit-mask-image: var(--arrow-l); mask-image: var(--arrow-l); }
+@media print { .arrow:not(.up) { background: none; -webkit-mask: none; mask: none; text-indent: 0; overflow: visible; } }
+@media (forced-colors: active) { .arrow:not(.up) { background: none; -webkit-mask: none; mask: none; text-indent: 0; overflow: visible; } }
 /* disabled: dimmed, flat, no light. A disabled gold button drops to the panel grey, so it never reads as the
    thing to press (after the hovers, so a hover over it changes nothing) */
 .btn:disabled, .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
@@ -1018,6 +1036,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
    a dark halo under the tagline, Detailing, the place line (in full ink) and the scroll link, and a dark fill in
    the glass button, so its shape holds against the gold */
 .hero :is(.sub, h1 .l2, .place, .scroll-cue) { text-shadow: 0 1px 12px rgba(0, 0, 0, .85), 0 0 2px rgba(0, 0, 0, .6); }
+.hero .place > span + span::before { content: "· "; content: "· " / ""; }   /* the dot drawn between its two parts (not read), as the 404's sign-off */
 .hero .scroll-cue { color: var(--ink-2); }
 .hero .btn-glass { background: rgba(0, 0, 0, .42); }
 .hero [data-in] { opacity: 0; transform: translateY(14px); filter: blur(4px); animation: heroIn 1.1s var(--ease) forwards; animation-delay: calc(var(--d, 0) * 1ms + 250ms); }
@@ -1088,7 +1107,7 @@ section { position: relative; }
   text-wrap: balance;
 }
 .standard .statement em { font-style: normal; color: var(--gold-hi); }
-.standard .script { margin: 26px 0 0; }
+.standard .script { margin: 26px 0 0; text-wrap: balance; }   /* two even lines on a narrow phone, never gold ✦ alone */
 .standard h2.eyebrow { margin: 0; }
 .facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 34px; margin-top: 46px; color: var(--ink-2); font: 600 var(--fs-xs)/1.4 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; }
 .facts span { display: inline-flex; align-items: center; gap: 12px; }
@@ -1488,6 +1507,8 @@ section { position: relative; }
 .bead-bg { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; opacity: .22; pointer-events: none; }
 .cta-band.bead-arm > .bead-bg { opacity: 0; }
 .cta-band.bead-fade > .bead-bg { transition: opacity .8s var(--ease-in-out); }
+/* with WebGL off or no script, the beads' pre-rendered still (abstract drops on dark paint) at the same strength and calm */
+:is(.no-webgl, .no-js) .bead-bg { background: url(../img/art/water-beads.webp) 50% 50% / cover no-repeat; }
 .cta-band > canvas.live {
   position: absolute; left: 0; bottom: 0; z-index: -1; max-width: none; pointer-events: none;
   -webkit-mask-size: var(--band-w, 100%) var(--band-h, 100%); mask-size: var(--band-w, 100%) var(--band-h, 100%);
@@ -1564,11 +1585,11 @@ section { position: relative; }
 .page h1 { font-size: var(--fs-page); font-weight: var(--wght-display); letter-spacing: var(--tr-display); text-indent: var(--tr-display); }   /* the brand pages' title (see .page-head) */
 .page .rule { display: block; margin: 4px auto 0; }
 .page p { color: var(--ink-2); margin: 18px auto 0; max-width: 44ch; }
-.page p.eyebrow { color: var(--gold-ink); }   /* the 404's eyebrow is gold like every other (the rule above outranks .eyebrow) */
+.page p.eyebrow { color: var(--gold-ink); margin-bottom: var(--s-2); }   /* the 404's eyebrow is gold like every other (the rule above outranks .eyebrow), its title 16px under it as every head's */
 .page .actions { margin-top: 30px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
-/* a wider screen: the title a step smaller, so PAGE NOT FOUND sets on one line in the card (a phone keeps two). A
-   phone: the two ways on full width, one over the other, as on every other page */
-@media (min-width: 641px) { .page h1 { font-size: var(--t-7); } }
+/* the title a step smaller than a brand page's, at the section titles' size, so PAGE NOT FOUND sets on one line in the
+   card, on a phone too. A phone: the two ways on full width, one over the other, as on every other page */
+.page h1 { font-size: var(--fs-h2); }
 @media (max-width: 640px) { .page .actions { flex-direction: column; align-items: stretch; } .page .actions .btn { width: 100%; } }
 /* the 404 page (site/404.html): the emblem with the monogram symbol inside the ring, and one quiet line at the foot */
 .page .emblem { margin-bottom: 26px; }
@@ -1647,8 +1668,8 @@ html.vt-route::view-transition-group(bar), html.vt-route::view-transition-new(ba
 @keyframes viewInPlace { from { opacity: 0; } to { opacity: 1; } }
 .btn.launch, .btn.launch:hover { transform: scale(1.05); filter: brightness(1.15); box-shadow: 0 0 0 1px rgba(var(--gold-hi-rgb), .5), 0 0 60px -6px rgba(var(--gold-rgb), .8); }   /* Book Now swells a little as the light crosses (over its own hover lift) */
 .menu-close svg { width: 18px; height: 18px; }
-.no-webgl .hero, .no-hero-gl .hero { background: radial-gradient(70% 55% at 50% 42%, rgb(var(--grey-26)) 0%, rgb(var(--grey-7)) 60%, #000 100%); }
-.no-webgl .hero::after, .no-hero-gl .hero::after {
+.no-webgl .hero, .no-hero-gl .hero, .no-js .hero { background: radial-gradient(70% 55% at 50% 42%, rgb(var(--grey-26)) 0%, rgb(var(--grey-7)) 60%, #000 100%); }
+.no-webgl .hero::after, .no-hero-gl .hero::after, .no-js .hero::after {
   content: "";
   position: absolute;
   inset: -20%;
@@ -1659,6 +1680,7 @@ html.vt-route::view-transition-group(bar), html.vt-route::view-transition-new(ba
 }
 .ready:is(.no-webgl, .no-hero-gl) .hero::after, .ready:is(.no-webgl, .no-hero-gl) .bar-light i { animation-play-state: running; }
 @keyframes stripeIn { from { transform: translateX(-62%); } }
+.no-js .hero::after { animation: none; }   /* no script to start it: the light rests where it comes to rest */
 /* the glass edge rests above the stripe (118deg: right of the middle by the hero's half height less the bar's, times
    tan 28deg) and lights as the stripe settles */
 :is(.no-webgl, .no-hero-gl) .bar-light i { transform: translateX(calc((50svh - 43px) * .53)); animation: auFade .6s var(--ease) 2.6s 1 both paused; }
@@ -1996,7 +2018,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .saving b { color: var(--gold-hi); font-weight: 600; }
 .price-card .line { width: 44px; height: 1px; margin: 20px 0; background: linear-gradient(90deg, var(--gold), transparent); }
 .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; color: var(--ink-2); font-size: var(--t-2); }
-.checks li { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; }
+.checks li { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; text-wrap: balance; }   /* an item that wraps ends on more than one word */
 .checks li::before { content: ""; width: 12px; height: 7px; margin-top: 7px; border-left: 1.6px solid var(--gold); border-bottom: 1.6px solid var(--gold); transform: rotate(-45deg); }
 .price-card .btn { margin-top: auto; align-self: flex-start; }
 .price-card .checks { margin-bottom: 26px; }   /* the buttons of a pair share one baseline */
@@ -2095,7 +2117,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .su-part h4 { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font: 600 var(--fs-2xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink); }
 .su-part h4 small { font: 500 13px/1.3 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--muted); }
 .su-list { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; gap: 6px; }
-.su-list li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: var(--t-2); line-height: 1.5; color: var(--ink-2); }
+.su-list li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: var(--t-2); line-height: 1.5; color: var(--ink-2); text-wrap: balance; }   /* as the cards' checklists: never one word, or half a word, alone */
 .su-list li::before { content: "+"; font: 500 15px/1.35 var(--font-ui); color: var(--gold); }
 .su-time { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 4px 0 0; padding-top: 16px; border-top: 1px solid var(--hair); }
 .su-time span { font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
@@ -2629,7 +2651,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .hero .actions { flex-direction: column; align-items: stretch; width: min(100%, 320px); }
   .hero .sub { font-size: 14px; letter-spacing: .12em; text-indent: .12em; }   /* the phone's fits: tighter than the steps above, so the line holds */
   .hero .place { font-size: 12px; letter-spacing: var(--tr-label); text-indent: 0; text-wrap: balance; max-width: 244px; margin-inline: auto; }   /* in px, not ch: the fallback font's narrower zero must not re-wrap the line; two lines, so no indent */
-  .hero .place > span { white-space: nowrap; }   /* the line breaks after the dot: Parker, Texas · / Mobile within about 10 miles */
+  .hero .place > span { display: block; white-space: nowrap; }   /* its two parts one over the other (Parker, Texas / Mobile within about 10 miles), with no dot left at a line's end */
+  .hero .place > span + span::before { content: none; }
   .wash-title p:last-child { letter-spacing: .2em; text-wrap: balance; max-width: 210px; }   /* in px, as the hero's place line: two balanced lines (Exterior · Interior · / Bundles · Protection) in Archivo and in its fallback */
   .cannon { width: clamp(220px, 64vw, 300px); bottom: 2vh; }   /* the body of the cannon stays in the frame mid-sweep */
   .page { align-content: start; padding-top: calc(104px + env(safe-area-inset-top, 0px)); }
@@ -2793,9 +2816,12 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 @keyframes stepInL { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
 .bk-head { display: grid; gap: 12px; }
 .bk-title { font-size: var(--t-6); line-height: 1.1; outline: none; }
-/* under 390px the step titles shrink with the screen, so each holds one line on a 360px phone (the longest, Where
-   should we detail it?, keeps two balanced lines) */
+/* under 390px the step titles shrink with the screen, so each holds one line on a 360px phone */
 @media (max-width: 389px) { .bk-title { font-size: min(var(--t-6), 5.9vw); } }
+/* the booking questions read as sentences (the owner's headings pick: sentence case for the booking questions), in
+   the same light Archivo. Only the six step titles: the receipt's Thank you, the staff sign-ins and the accounts
+   title keep their capitals */
+[data-view="book"] .bk-head .bk-title { text-transform: none; letter-spacing: 0; word-spacing: normal; }
 .bk-h2 { margin: 0; font: 500 var(--t-3)/1.3 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: var(--tr-title); text-transform: uppercase; color: var(--ink); display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .bk-h2 small { font: 500 13px/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--muted); }
 .bk-grid { display: grid; gap: 22px; }
@@ -4826,7 +4852,19 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @media (hover: none), (pointer: coarse) {
   .insp.go > .insp-glow { display: none; }
   .insp-hot { --insp-hot-r: .5; background: var(--insp-hot-touch); }
+  /* the home strip's light under a finger starts and ends on the photo (app.js .tight): its core comes on over the
+     first part of its run, where it is all but still, and goes off over the last, on the pass's own curve and clock,
+     so it never pops on at full strength. Its shade starts wholly over the photo and closes onto its place just ahead
+     of the light as the core comes on (and clears the photo's right edge as it goes off), added to its travel, so
+     the exposure only ever rises under the light */
+  .insp.go.tight > .insp-hot { animation: inspArm var(--idur) var(--ease-in-out) both, inspCore var(--idur) var(--ease-in-out) both; }
+  @supports (animation-composition: add) {
+    .insp.go.tight > .insp-shade { animation: inspShade var(--idur) var(--ease-in-out) both, inspShadeEnds var(--idur) var(--ease-in-out) both; animation-composition: replace, add; }
+    .insp.go.tight.fade > .insp-shade { animation: inspShade var(--idur) var(--ease-in-out) both, inspShadeEnds var(--idur) var(--ease-in-out) both, inspFade var(--dur-release) var(--ease) both; animation-composition: replace, add, replace; }
+  }
 }
+@keyframes inspCore { from, to { opacity: 0; } 22%, 78% { opacity: 1; } }
+@keyframes inspShadeEnds { from { transform: translateX(calc(var(--ie0o) - var(--ie0))); } 22%, 78% { transform: translateX(0px); } to { transform: translateX(calc(var(--ie1o) - var(--ie1))); } }
 @media (hover: hover) and (pointer: fine) {
   .work-item > .insp > .insp-lamp { display: block; inset: 0; background: var(--insp-lamp); mix-blend-mode: overlay; opacity: 0; transform: translate(calc(var(--mx, 50%) - 50%), calc(var(--my, 50%) - 50%)); transition: opacity calc(var(--dur-release) * .6) var(--ease); }
   .glint > .insp > .insp-lamp { opacity: 1; transition: opacity var(--dur-release) var(--ease); }
@@ -5396,6 +5434,11 @@ html.vt-dim::view-transition-new(root) {
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: var(--print-rule); }
   :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band, .door) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid var(--print-line) !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; transition: none !important; }
+  /* the Gallery on paper: even rows, each tile whole, its photo inside its own frame (the screen's drift room reached
+   past the tile, so a page end pushed the photo onto the next page, over what follows) */
+  .gal-tile.tall { grid-row: auto; }
+  .gal-tile { break-inside: avoid; page-break-inside: avoid; }
+  .gal-media { inset: 0; will-change: auto; }
   .bk-sent :is(.mini-btn, .link, .bk-actions), .mark-pass { display: none !important; }
   .steps .step .n, .steps.in .step .n { background: none; box-shadow: none; border-color: currentColor; color: var(--gold-ink); }   /* How booking works: each number an outlined figure, with or without the background graphics */
   .footer::before { transform: none !important; }   /* the hairline drawn, wherever the sign-off had got to */

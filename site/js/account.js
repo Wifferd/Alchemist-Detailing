@@ -67,10 +67,10 @@
       body);
   }
   const STATUS = {
-    requested: ['Requested', 'We\'re reviewing it and will contact you to confirm.'],
+    requested: ['Requested', 'We’re reviewing it and will contact you to confirm.'],
     needs_information: ['Needs information', 'We have a question for you. Please call or wait for our text.'],
     confirmed: ['Confirmed', 'See you then.'], in_progress: ['In progress', 'Your detail is under way.'],
-    completed: ['Completed', 'Thank you.'], declined: ['Declined', 'We couldn\'t take this one. Call us if you\'d like to try another time.'],
+    completed: ['Completed', 'Thank you.'], declined: ['Declined', 'We couldn’t take this one. Call us if you’d like to try another time.'],
     cancelled: ['Cancelled', ''],
   };
 
@@ -362,7 +362,7 @@
           el('summary', el('span', 'Cancelled and declined ', el('span.tnum', '(' + off.length + ')')), el('span.appt-chev', { innerHTML: CHEV, 'aria-hidden': 'true' })),
           el('div.acct-fold-list', off.map((b) => card(b)))) : null),
       open.length ? el('section.acct-sec', el('h2.bk-h2', 'Past'), open.map((b) => card(b))) : null,
-      el('p.bk-note', 'To cancel or change a booking, call ', el('b', tel(phone)), '. We don\'t take cancellations online.'),
+      el('p.bk-note', 'To cancel or change a booking, call ', el('b', tel(phone)), '. We don’t take cancellations online.'),
       el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: () => { appts.list = null; renderAppointments(); } }, 'Refresh')));
     root.replaceChildren(shell('Appointments', 'Your details', body, all.some((b) => b.example)));
     // the card just pressed keeps its place on the screen (another one may have closed above it) and its head

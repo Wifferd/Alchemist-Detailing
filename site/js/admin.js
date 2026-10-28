@@ -89,7 +89,7 @@
       if (!D.isLive) { previewAct(name, args); }
       else await D.rpc(name, args);
       toast(okText || 'Done'); st.panel = null; await loadBookings(); render();
-    } catch (e) { toast(e.message || 'That didn\'t work.'); }
+    } catch (e) { toast(e.message || 'That didn’t work.'); }
   }
   function previewAct(name, args) {
     const b = PREVIEW.bookings.find((x) => x.id === (args.p_id || args.p_appointment));
@@ -477,7 +477,7 @@
     if (D.isLive && staff.role === 'admin') { const { data } = await sb().from('business_settings').select('*').eq('id', 1).maybeSingle(); if (data) s = data; }
     const rows = [['Start times', clock(s.first_start_min) + ' – ' + clock(s.last_start_min) + ', every ' + s.slot_step_min + ' min'], ['Jobs end by', clock(s.latest_end_min)], ['Closed every week', closuresText((settings && settings.weekly_closures) || s.weekly_closures)], ['Book ahead', s.min_days_ahead + ' to ' + s.max_days_ahead + ' days'], ['Hold', s.hold_hours + ' hours'],
       ['At once', (s.max_shop_jobs != null ? s.max_shop_jobs + ' driveway or ' + s.max_mobile_jobs + ' mobile' : '—')], ['Gaps', (s.shop_buffer_min != null ? s.shop_buffer_min + ' min driveway, ' + s.mobile_buffer_min + ' min mobile travel' : '—')],
-      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], ['Your address', s.shop_address ? 'On file (sent only with confirmed "Come to us" bookings)' : 'Not set']];
+      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], ['Your address', s.shop_address ? 'On file (sent only with confirmed “Come to us” bookings)' : 'Not set']];
     return el('div.bk-grid', el('p.bk-muted', 'Read-only for now. Ask Claude Code to change a value; the calendar note and closed days are under Calendar.'), el('dl.sum-body', rows.map(([k, v]) => [el('dt', k), el('dd', v)])));
   }
 

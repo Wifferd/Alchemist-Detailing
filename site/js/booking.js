@@ -182,7 +182,7 @@
         render();
       } catch (e) {
         mounted = false;   // the next visit tries again
-        root.replaceChildren(el('div.bk-loading', "The booking couldn't load. Call ", tel(phone || '(945) 361-7551'), ' to book.'));
+        root.replaceChildren(el('div.bk-loading', 'The booking couldn’t load. Call ', tel(phone || '(945) 361-7551'), ' to book.'));
       }
     })();
   }
@@ -341,7 +341,7 @@
   function renderNav() {
     const last = step === 6;
     return el('div.bk-nav',
-      step > 1 ? el('button.btn.btn-glass', { type: 'button', onclick: () => go(step - 1) }, '← Back') : el('a.btn.btn-glass', { href: '#home' }, 'Cancel'),
+      step > 1 ? el('button.btn.btn-glass', { type: 'button', onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Back') : el('a.btn.btn-glass', { href: '#home' }, 'Cancel'),   // the bar's Back arrow (CSS .arrow.back)
       el('div.bk-nav-mid', { 'aria-live': 'polite', 'aria-atomic': 'true' }, navTotal(null)),
       el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, onclick: () => (last ? send() : next()) },
         last ? 'Send Request' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
@@ -422,7 +422,7 @@
       if (!H.isValidName(c.first)) bad('first_name', 'Enter your first name using letters only.');
       if (c.last.trim() && !H.isValidName(c.last)) bad('last_name', 'Enter your last name using letters only, or leave it empty.');
       if (!H.normalizePhone(c.phone)) bad('phone', guest() ? 'Enter a 10-digit US mobile number, so we can reach you about the booking.' : 'Enter a 10-digit US phone number.');
-      else if (!guest() && !c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press "Send code" and confirm your phone to continue.');
+      else if (!guest() && !c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press “Send code” and confirm your phone to continue.');
       if (emailCodes() && c.email.trim() && !H.isValidEmail(c.email)) bad('email', 'Enter a valid email, or leave it empty.');
       else if (emailCodes() && c.email.trim() && c.emailState === 'sent') bad('email', 'Enter the email code, or press Skip.');
     }
@@ -438,12 +438,12 @@
       }
       if (!v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
       if (v.conditions.includes('other') && !s.notes.trim()) bad('special_request', 'Describe it in a few words.');
-      if (!v.damage.length) bad('damage', 'Choose "No known damage" or the damage you know of.');
+      if (!v.damage.length) bad('damage', 'Choose “No known damage” or the damage you know of.');
       const needsNote = menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code));
       if (needsNote && !v.damageNote.trim()) bad('damage_note', 'Describe the damage in a few words.');
     }
     if (n === 3) {
-      if (!l.type) bad('location_type', 'Choose "We come to you" or "Come to us".');
+      if (!l.type) bad('location_type', 'Choose “We come to you” or “Come to us”.');
       if (l.type === 'mobile') {
         if (!l.address.trim()) bad('address', 'Enter the street address where the vehicle will be.');
         if (!/^\d{5}$/.test(l.zip.trim())) bad('address_zip', 'Enter a 5-digit ZIP code.');
@@ -508,7 +508,7 @@
   }
 
   // ---------------------------------------------------------------- 01 Contact
-  const emailHint = () => (st.contact.emailState === 'confirmed' ? 'Confirmed ✓' : st.contact.emailState === 'skipped' ? 'We\'ll contact you by phone.' : 'For your confirmation. Phone is enough if you prefer.');
+  const emailHint = () => (st.contact.emailState === 'confirmed' ? 'Confirmed ✓' : st.contact.emailState === 'skipped' ? 'We’ll contact you by phone.' : 'For your confirmation. Phone is enough if you prefer.');
   function stepContact() {
     const c = st.contact;
     const box = el('div.bk-grid');
@@ -523,7 +523,7 @@
     if (guest()) {
       box.appendChild(field({
         id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: c.phone,
-        hint: 'We\'ll call or text this number to confirm your booking.',
+        hint: 'We’ll call or text this number to confirm your booking.',
         oninput: (e) => { c.phone = e.target.value; clearError(root, 'phone'); },
       }));
       box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off', value: c.website, oninput: (e) => { c.website = e.target.value; } })));
@@ -545,7 +545,7 @@
     box.appendChild(phoneField);
     if (c.phoneSent && !c.phoneConfirmed) {
       box.appendChild(field({
-        id: 'phone_code', label: 'Code from the text', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, hint: D.isLive ? 'Didn\'t get it? Check the number and press Resend.' : 'Preview: any 6 digits work.',
+        id: 'phone_code', label: 'Code from the text', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, hint: D.isLive ? 'Didn’t get it? Check the number and press Resend.' : 'Preview: any 6 digits work.',
         oninput: (e) => { clearError(root, 'phone_code'); if (e.target.value.replace(/\D/g, '').length === 6) confirmPhone(e.target.value); },
         onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmPhone(e.target.value); } },
         trailing: miniBtn('Confirm', () => confirmPhone(root.querySelector('#phone_code').value)),
@@ -676,12 +676,12 @@
     // Conditions: mandatory, with the fees that apply to interior services
     const feeOf = (o) => o.fee_code ? svc(o.fee_code) : null;
     inside.push(choices({
-      id: 'conditions', label: "What's the inside of the car like?", required: true, multi: true, value: v.conditions,
+      id: 'conditions', label: 'What’s the inside of the car like?', required: true, multi: true, value: v.conditions,
       hint: 'Choose everything that applies, or None. Fees apply with an interior service; Interior Deluxe and the Full Detail Bundle include the lighter ones.',
       items: menu.options.condition.map((o) => {
         const f = feeOf(o);
-        const sub = o.code === 'heavy_stains' ? 'If your car\'s condition is similar to the one listed, you may select it. If the selection turns out to be inaccurate, you will be charged ' + money(f.base_price_cents) + '.'
-          : o.code === 'other' ? 'Toothpaste, coffee, anything unusual: tell us in the notes below and we\'ll price it.' : null;
+        const sub = o.code === 'heavy_stains' ? 'If your car’s condition is similar to the one listed, you may select it. If the selection turns out to be inaccurate, you will be charged ' + money(f.base_price_cents) + '.'
+          : o.code === 'other' ? 'Toothpaste, coffee, anything unusual: tell us in the notes below and we’ll price it.' : null;
         return {
           code: o.code, label: o.label, exclusive: !!o.is_none, sub,
           priceText: f ? '+' + money(f.base_price_cents) : (o.is_none ? 'No fee' : (o.sends_to_review ? 'We price it' : null)),
@@ -1190,7 +1190,7 @@
       const b = switchBack;
       if (b) { Object.assign(s, { bundle: b.bundle, exterior: b.exterior, interior: b.interior, carried: b.carried }); st.quote = b.quote; }
       paintSwitch();
-      toast(q && q.error ? q.error.message : "Couldn't load that service's price. Try again.");
+      toast(q && q.error ? q.error.message : 'Couldn’t load that service’s price. Try again.');
       return;
     }
     updateNav();
@@ -1392,7 +1392,7 @@
       row.lastChild.addEventListener('animationend', off, { once: true });
       setTimeout(off, 450 + Math.min(w.times.length, 6) * 25);
     }
-    return [head, row, lost, el('p.choice-msg', { role: 'status' }, "Can't find a time? Call ", tel(phone), '.')];
+    return [head, row, lost, el('p.choice-msg', { role: 'status' }, 'Can’t find a time? Call ', tel(phone), '.')];
   }
 
   // ---------------------------------------------------------------- 06 Summary
@@ -1429,7 +1429,7 @@
         q ? priceLines(q, { mark: sigMark }) : null,
         s.notes.trim() ? el('p.sheet-notes', el('span', 'Notes'), s.notes.trim()) : null)));
     box.appendChild(el('div.sum-grid',
-      sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]),
+      sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we’ll use your phone)')] : null]),
       sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]),
       sec('Vehicle', 2, [
         ['Vehicle', vehicleText()],
@@ -1442,8 +1442,8 @@
     box.appendChild(el('section.bk-before', { 'aria-labelledby': 'bk-before-h' },
       el('h2.bk-h2', { id: 'bk-before-h' }, 'Before you send'),
       el('ul.bk-terms',
-        el('li', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request.'),
-        el('li', guest() ? 'We\'ll call or text you at ' : 'We\'ll contact you at ', el('span.tnum', phonePretty(c.phone)), ' to confirm.'),
+        el('li', heldPastStart(Date.now() + settings.hold_hours * 3600000, w.date, w.start) ? 'Sending holds this time while we review your request.' : 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request.'),
+        el('li', guest() ? 'We’ll call or text you at ' : 'We’ll contact you at ', el('span.tnum', phonePretty(c.phone)), ' to confirm.'),
         el('li', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.')),
       el('p.bk-muted', 'Questions? Call ', tel(phone), '.')));
     box.appendChild(el('div', { dataset: { field: 'submit' } }, el('p.choice-msg', { role: 'alert' })));
@@ -1484,13 +1484,29 @@
     }
   }
 
+  // A hold that runs to the request's own start or past it (a next-day request under a 24-hour hold) is not shown as an
+  // end time, which would read as held until after the detail has begun: the words say it is held while we review it.
+  // The start is the business's own day and minute (Parker's clock, settings.timezone), not the browser's. Display only.
+  function startsAt(date, min) {
+    const [y, m, d] = String(date || '').split('-').map(Number);
+    if (!y || !m || !d || min == null) return NaN;
+    const guess = Date.UTC(y, m - 1, d, Math.floor(min / 60), min % 60);
+    try {
+      const p = {};
+      new Intl.DateTimeFormat('en-US', { timeZone: settings.timezone || 'America/Chicago', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+        .formatToParts(new Date(guess)).forEach((x) => { p[x.type] = +x.value; });
+      return guess - (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - guess);   // the zone's wall clock at the guess, against the guess
+    } catch (e) { return NaN; }
+  }
+  function heldPastStart(ends, date, min) { const at = startsAt(date, min); return isFinite(ends) && isFinite(at) && ends >= at; }
+
   // ---------------------------------------------------------------- Request sent
   // The guest's only record of the booking (no confirmation text yet, no account to look again): what was booked, for
   // which car, when and where, the price lines as the database stored them, the reference set large with Copy, and
   // what happens next. It prints or saves to one page through the print stylesheet.
   function renderSent() {
     const r = st.receipt, q = st.quote;
-    const holdEnds = r.hold_expires_at ? new Date(r.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
+    const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
     const rec = r.lines && r.lines.length ? r : q;   // the database's own lines; the quote as it was sent, failing that
     const rv = r.vehicle;
     const vehicle = (rv && (rv.not_sure ? rv.description : [rv.year, rv.make, rv.model, rv.color && '· ' + rv.color].filter(Boolean).join(' '))) || vehicleText();

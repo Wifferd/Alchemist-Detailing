@@ -34,7 +34,7 @@
     await ready;
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Team sign-in', signIn()));
-    if (!['detailer', 'manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Team', el('div.bk-grid', el('p.bk-note', 'This account isn\'t on the team.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
+    if (!['detailer', 'manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Team', el('div.bk-grid', el('p.bk-note', 'This account isn’t on the team.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
     if (st.jobs == null) await loadJobs();
     const today = H().isoDate(H().todayLocal());
     const mine = st.jobs.filter((j) => ['confirmed', 'in_progress'].includes(j.status));
@@ -119,7 +119,7 @@
           el('button.btn.btn-glass', { type: 'button', onclick: () => { st.ask = { id: j.id, text: '' }; render(); } }, 'Ask the owner'),
           el('button.btn.btn-glass', { type: 'button', disabled: true, title: 'Needs the texting service (not set up yet)' }, 'Running late (soon)')),
         st.ask && st.ask.id === j.id ? el('div.adm-panel', el('h3.bk-h2', 'Message to the owner'),
-          field({ id: 'ask_text', label: 'What\'s up?', multiline: true, rows: 2, maxlength: 1000, value: st.ask.text, hint: 'Extra work, a problem with the car, anything. The owner sets any extra cost.', oninput: (e) => { st.ask.text = e.target.value; } }),
+          field({ id: 'ask_text', label: 'What’s up?', multiline: true, rows: 2, maxlength: 1000, value: st.ask.text, hint: 'Extra work, a problem with the car, anything. The owner sets any extra cost.', oninput: (e) => { st.ask.text = e.target.value; } }),
           el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => sendAsk(j) }, 'Send'), el('button.btn.btn-glass', { type: 'button', onclick: () => { st.ask = null; render(); } }, 'Back'))) : null) : null);
   }
   function photos(j) {
