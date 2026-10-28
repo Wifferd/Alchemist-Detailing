@@ -35,7 +35,7 @@ async def main():
         await pg.click('#bk-next'); await pg.wait_for_selector('[data-field="location_type"]'); await pg.click('[data-field="location_type"] [data-code="shop"]')
         await pg.click('#bk-next'); await pg.wait_for_selector('.svc-opt'); await pg.click('.svc-opt[data-code="signature_combo"]'); await pg.wait_for_timeout(300)
         await pg.click('#bk-next'); await pg.wait_for_selector('.cal-day.open')
-        days = await pg.query_selector_all('.cal-day.open'); await days[2].click()
+        days = await pg.query_selector_all('.cal-day.open'); await days[min(2, len(days) - 1)].click()   # (late in a month fewer days are open)
         await pg.wait_for_selector('.choice-item.time'); await (await pg.query_selector_all('.choice-item.time'))[0].click()
         await pg.click('#bk-next'); await pg.wait_for_selector('.sum'); await pg.click('#bk-next'); await pg.wait_for_selector('.bk-sent')
         # the guest is signed out after sending; sign in again on the account page (its own Send code: the receipt
