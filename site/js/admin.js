@@ -123,7 +123,7 @@
     if (D.isDown) return root.replaceChildren(U.outage(["The database can't be reached right now. Reload the page in a few minutes."]));
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Sign in', signIn()));
-    if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || phonePretty(staff.phone || '')) + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
+    if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || (staff.phone ? phonePretty(staff.phone) : staff.email) || 'this login') + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); st.mfa = null; st.mfaError = null; render(); } }, 'Sign out')))));
     if (staff.mfaRequired && staff.aal !== 'aal2') return root.replaceChildren(shell('Authenticator', mfaStep()));
     if (st.bookings == null) { try { await loadBookings(); } catch (e) { st.bookings = []; toast(e.message); } }
     const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, team: team, settings: settingsScreen, log: logScreen }[screen];
@@ -134,7 +134,7 @@
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — example data, nothing is saved. Names and bookings here are made up for the preview.') : null,
       nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; history.replaceState(null, '', '#admin-' + k); render(); } }, label))) : null,
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Admin'), el('h1.display.bk-title', title)),
-        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.bookings = null; render(); } }, 'Sign out')) : null),
+        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.mfa = null; st.mfaError = null; st.bookings = null; render(); } }, 'Sign out')) : null),
       body);
   }
   function signIn() {
@@ -173,9 +173,14 @@
   function mfaStep() {
     const box = el('div.bk-grid');
     if (!staff.hasAuthenticator) {
-      if (!st.mfa) { D.mfaEnroll().then((m) => { st.mfa = m; render(); }).catch((e) => toast(e.message)); return U.loading('Preparing your authenticator…'); }
+      // a failed start shows its message and a way to try again, never a spinner that stays (doc 43)
+      if (st.mfaError) return el('div.bk-grid', el('p.bk-note', st.mfaError), el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => { st.mfaError = null; render(); } }, 'Try again')));
+      if (!st.mfa) { D.mfaEnroll().then((m) => { st.mfa = m; render(); }).catch((e) => { st.mfaError = e.message; render(); }); return U.loading('Preparing your authenticator…'); }
       box.append(el('p.bk-note', 'One-time setup. Open an authenticator app (Google Authenticator, Authy, 1Password…), scan this code, then enter the 6-digit number it shows.'),
-        el('img.adm-qr', { src: st.mfa.qr, alt: 'Authenticator QR code' }), el('p.bk-muted', 'Or type the key: ', el('code', st.mfa.secret)));
+        el('img.adm-qr', { src: st.mfa.qr, alt: 'Authenticator QR code' }),
+        // on the phone that holds the app, the code can't be scanned from its own screen: the link opens the app
+        st.mfa.uri ? el('p.bk-muted', 'On this phone: ', el('a', { href: st.mfa.uri }, 'add it to your authenticator app')) : null,
+        el('p.bk-muted', 'Or type the key: ', el('code', st.mfa.secret)));
     } else box.append(el('p.bk-note', 'Enter the 6-digit code from your authenticator app.'));
     box.append(field({ id: 'mfa_code', label: 'Authenticator code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
       oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) go(e.target.value); }, trailing: miniBtn('Continue', () => go(box.querySelector('#mfa_code').value)) }));
