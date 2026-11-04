@@ -1276,6 +1276,8 @@ section { position: relative; }
 .book-page { min-height: 100vh; min-height: 100svh; padding: calc(104px + env(safe-area-inset-top, 0px)) var(--gutter) 60px; background: radial-gradient(60% 40% at 50% 0%, rgba(226, 185, 82, .08), transparent 70%); }
 .bk { width: min(100%, 920px); margin-inline: auto; display: grid; gap: 26px; padding: clamp(22px, 4vw, 44px) clamp(18px, 4vw, 48px) 0; border-radius: var(--r-xl); background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .012)); border: 1px solid rgba(255, 255, 255, .07); box-shadow: 0 40px 90px -50px rgba(0, 0, 0, .9); }
 .bk-loading { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 40vh; color: var(--ink-2); }
+.bk-down { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; min-height: 40vh; padding: 0 16px; text-align: center; color: var(--ink-2); }   /* the database can't be reached on the real site (doc 42) */
+.bk-down p { max-width: 34ch; margin: 0; font-size: 17px; line-height: 1.6; }
 .bk-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--gold); animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .bk-preview { padding: 10px 14px; border-radius: var(--r-sm); border: 1px dashed var(--line); background: rgba(226, 185, 82, .06); color: var(--ink-2); font-size: 13.5px; }

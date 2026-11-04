@@ -297,6 +297,9 @@
     init,
     get mode() { return mode; },
     get isLive() { return mode === 'live'; },
+    // On the site's own addresses, no answer from the database is an outage (a paused project, a network fault):
+    // the pages show the phone number instead of the preview, which would take requests that go nowhere. Read after init().
+    get isDown() { return mode !== 'live' && !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.deployed); },
     // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
     get guestBooking() { return !!(settingsCache && settingsCache.guest_booking); },
     helpers: { normalizePhone, isValidName, isValidEmail, isoDate, addDays, todayLocal, uuid },

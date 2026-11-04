@@ -54,6 +54,10 @@
   const tel = (raw) => el('a.tnum', { href: 'tel:+1' + digits(raw) }, raw);
 
   // The loading line: a reader hears it, and hears the screen arrive in its place.
+  // The database can't be reached on the real site (data.js isDown, doc 42): a calm, centred note, with a Call button
+  // when a phone number is given. `parts` is the sentence: strings and elements (a tel() link).
+  const outage = (parts, phone) => el('div.bk-down', { role: 'status' }, el('p', ...parts),
+    phone ? el('a.btn.btn-gold.shine', { href: 'tel:+1' + digits(phone) }, 'Call ', el('span.tnum', phone)) : null);
   const loading = (text) => el('div.bk-loading', { role: 'status', 'aria-live': 'polite' }, el('span.bk-spin', { 'aria-hidden': 'true' }), text);
   // The required star is drawn; the reader hears "required" (and the input carries aria-required).
   const star = () => [el('i', { 'aria-hidden': 'true' }, ' *'), el('span.sr-only', ' required')];
@@ -229,5 +233,5 @@
 
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce };
+  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, outage, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce };
 })();

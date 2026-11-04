@@ -155,7 +155,8 @@
         render();
       } catch (e) {
         mounted = false;   // the next visit tries again
-        root.replaceChildren(el('div.bk-loading', "The booking couldn't load. Call ", tel(phone || '(945) 361-7551'), ' to book.'));
+        const p = phone || '(945) 361-7551';
+        root.replaceChildren(U.outage(["The booking couldn't load. Call ", tel(p), ' to book.'], p));
       }
     })();
   }
@@ -184,6 +185,8 @@
   // (a code sent, a photo added) lands in place.
   function render() {
     root.innerHTML = '';
+    // the database can't be reached on the real site: the phone number, never the preview (doc 42)
+    if (D.isDown) { const p = phone || '(945) 361-7551'; root.appendChild(U.outage(["Online booking isn't available right now. Call ", tel(p), ' to book.'], p)); return; }
     if (st.receipt) { root.appendChild(renderSent()); renderedStep = 0; focusTitle(); return; }
     const moved = step !== renderedStep;
     const shell = el('div.bk',

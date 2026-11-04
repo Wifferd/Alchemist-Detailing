@@ -138,7 +138,7 @@
   // site has nothing real to compare yet.
   function compare(pairs) {
     const D = window.AlchemistData;
-    if (D && D.isLive && !pairs.some((p) => p.before)) return null;
+    if (D && (D.isLive || D.isDown) && !pairs.some((p) => p.before)) return null;
     const after = el('img.tm-after', { width: 1200, height: 1600, decoding: 'async', sizes: '(max-width: 1180px) 100vw, 1180px' });
     const before = el('div.tm-before');
     const range = el('input.tm-range', { type: 'range', min: 4, max: 96, step: 1, value: 46, 'aria-label': 'Compare before and after', oninput: () => slide(range.value) });

@@ -20,6 +20,8 @@
   const monthOf = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+  // The database can't be reached on the real site (doc 42): no preview sign-in, the phone number instead.
+  const downNote = () => U.outage(["Your account can't load right now. To book, or about a booking, call ", tel(phone), '.'], phone);
   function load() {
     if (ready) return ready;
     ready = (async () => {
@@ -92,6 +94,7 @@
     const root = roots.account; if (!root) return;
     if (acct.loading) root.replaceChildren(loading('Loading…'));
     await load();
+    if (D.isDown) { root.replaceChildren(downNote()); return; }
     await refreshSession();
     if (!session) { root.replaceChildren(shell('Your account', 'Account', signInBox(renderAccount))); return; }
     if (acct.loading) {
@@ -221,6 +224,7 @@
     const root = roots.appointments; if (!root) return;
     if (appts.list == null) root.replaceChildren(loading('Loading…'));
     await load();
+    if (D.isDown) { root.replaceChildren(downNote()); return; }
     await refreshSession();
     if (!session) { root.replaceChildren(shell('Appointments', 'Your details', el('div.bk-grid', D.guestBooking ? null : el('p.bk-muted', 'Sign in to see your upcoming and past details.'), signInBox(renderAppointments)))); return; }
     if (appts.list == null) {
