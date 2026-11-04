@@ -14,6 +14,10 @@
   var useTest = /[?&]project=test\b/.test(location.search) || /(^|\.)alchemist-detailing-test\./.test(location.hostname);
   window.ALCHEMIST_CONFIG = useTest ? TEST : LIVE;
   window.ALCHEMIST_CONFIG.project = useTest ? 'test' : 'live';
+  // The site's own addresses: the domain and every Vercel address (the test site and previews too). There, a
+  // database that can't be reached means booking is down, not a preview: the pages give the phone number instead
+  // (data.js isDown, doc 42). Anywhere else (a local copy, a claude.ai preview) the preview runs as before.
+  window.ALCHEMIST_CONFIG.deployed = /(^|\.)thealchemistdetailing\.com$/.test(location.hostname) || /\.vercel\.app$/.test(location.hostname);
   // Sign-in is by text code (Twilio Verify, set in Supabase). The optional email and its code show only once the
   // site can email codes (an email sender in Supabase): set this to true then.
   window.ALCHEMIST_CONFIG.emailCodes = false;

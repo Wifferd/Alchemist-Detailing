@@ -40,6 +40,8 @@
   const mains = (b) => (b.lines || []).filter((l) => !l.included && !/^cond_/.test(l.code));
   const names = (b) => mains(b).map((l) => l.name).join(' + ');
 
+  // The database can't be reached on the real site (doc 42): no preview sign-in, the phone number instead.
+  const downNote = () => U.outage(['Your account can’t load right now. To book, or about a booking, call ', tel(phone), '.'], phone);
   function load() {
     if (ready) return ready;
     ready = (async () => {
@@ -122,6 +124,7 @@
     const root = roots.account; if (!root) return;
     if (acct.loading) root.replaceChildren(loading('Loading…'));
     await load();
+    if (D.isDown) { root.replaceChildren(downNote()); return; }
     await refreshSession();
     if (!session) { root.replaceChildren(D.guestBooking ? comingSoon() : shell('Your account', 'Account', signInBox(renderAccount))); return; }
     if (acct.loading) {
@@ -343,6 +346,7 @@
     const root = roots.appointments; if (!root) return;
     if (appts.list == null) root.replaceChildren(loading('Loading…'));
     await load();
+    if (D.isDown) { root.replaceChildren(downNote()); return; }
     await refreshSession();
     if (!session) { root.replaceChildren(D.guestBooking ? comingSoon() : shell('Appointments', 'Your details', el('div.bk-grid', el('p.bk-muted', 'Sign in to see your upcoming and past details.'), signInBox(renderAppointments)))); return; }
     if (appts.list == null) {

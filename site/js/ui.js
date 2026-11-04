@@ -105,6 +105,11 @@
     return s;
   }
 
+  // The database can't be reached on the real site (data.js isDown, doc 42): a calm, centred note, with a Call button
+  // when a phone number is given. `parts` is the sentence: strings and elements (a tel() link).
+  const outage = (parts, phone) => el('div.bk-down', { role: 'status' }, el('p', ...parts),
+    phone ? el('a.btn.btn-gold.shine', { href: 'tel:+1' + digits(phone) }, telMark(), el('span', 'Call ', el('span.tnum', phone))) : null);   // the phone mark, as on every call button
+
   // The wait (every app page's "Loading…"): nothing for the first 300ms, where most waits end; then the small AD mark,
   // the Standard's fine gold ring drawing itself round it once and a head of light lapping it, twelve times at most (the
   // CSS). A reader hears the words, and hears the screen arrive in their place.
@@ -424,5 +429,5 @@
     return { held: () => held };
   }
 
-  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady };
+  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, outage, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady };
 })();

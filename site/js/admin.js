@@ -120,6 +120,8 @@
     if (!root) return;
     root.replaceChildren(U.loading('Loading…'));
     await ready;
+    // the database can't be reached on the real site (doc 42): no example data here
+    if (D.isDown) return root.replaceChildren(U.outage(['The database can’t be reached right now. Reload the page in a few minutes.']));
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Sign in', signIn()));
     if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || phonePretty(staff.phone || '')) + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));

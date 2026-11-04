@@ -1,0 +1,33 @@
+name: Keep the database awake
+
+# Supabase pauses a free project after about a week with little database activity, and while the live
+# project is paused nobody can book online (doc 42). Four times a day this asks each project for the
+# site's public settings: the same read-only call the site makes on every visit. The keys are the
+# publishable ones already in site/js/config.js. A brief error is tried again (up to 3 more times, 20 s apart);
+# a project that still doesn't answer turns the run red. (--fail, not --fail-with-body: with -o /dev/null the
+# latter can't retry, curl exits 23 after one try.)
+on:
+  schedule:
+    - cron: '17 1,7,13,19 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Live project (Alchemist Detailing)
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 --max-time 30 \
+            -X POST 'https://efpzprranvgujkblnwdj.supabase.co/rest/v1/rpc/get_public_settings' \
+            -H 'apikey: sb_publishable_xXeOpsbSMXPc7Jdn0MLSEQ_VU-pzasw' -H 'Content-Type: application/json' \
+            -d '{}' -o /dev/null -w 'HTTP %{http_code}\n'
+      - name: Test project (Alchemist Test)
+        if: always()
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 --max-time 30 \
+            -X POST 'https://wlmostaetntbpmfgyjst.supabase.co/rest/v1/rpc/get_public_settings' \
+            -H 'apikey: sb_publishable_lJPVu8gzF2H6gZLfVs4JZw_hI_H_GZH' -H 'Content-Type: application/json' \
+            -d '{}' -o /dev/null -w 'HTTP %{http_code}\n'

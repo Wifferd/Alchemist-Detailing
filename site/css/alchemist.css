@@ -2766,6 +2766,19 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 @keyframes ldLap { from { --ra: 0deg; opacity: 1; } to { --ra: 360deg; opacity: 1; } }
 :is(#adminApp, #teamApp) .ld-mark { display: none; }
 :is(#adminApp, #teamApp) .ld-text { animation: none; }
+/* the database can't be reached on the real site (doc 42, ui.js outage()): one calm line where the booking or the
+   account would be, centred in the page like the Account's coming-soon panel, and Call as the gold button (a phone:
+   full width within the gutter, as every page's main button). The staff consoles' note has no button. Still: the
+   booking side stays calm */
+.book-page:has(.bk-down) { display: grid; align-content: center; }
+.bk-down { width: min(100%, 600px); min-height: 40vh; margin-inline: auto; display: grid; justify-items: center; align-content: center; gap: var(--s-4); text-align: center; color: var(--ink-2); }
+.bk-down p { max-width: var(--m-centre); margin: 0; font-size: var(--t-4); line-height: var(--lh-4); text-wrap: pretty; }
+.bk-down p a { color: var(--gold-ink); white-space: nowrap; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.bk-down .btn { min-width: 210px; }
+@media (max-width: 640px) {
+  .bk-down { justify-items: stretch; }
+  .bk-down .btn { width: 100%; }
+}
 .bk-preview { padding: 10px 14px; border-radius: var(--r-sm); border: 1px dashed var(--line); background: rgba(var(--gold-rgb), .06); color: var(--ink-2); font-size: 13.5px; }
 .bk-preview b { color: var(--gold-ink); }
 /* the staff note on a draft page: a quiet pill under the title (the words are content.js's) */
