@@ -647,13 +647,38 @@
       return Object.assign({}, s, { role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
         hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
     },
+    // Team sign-in with an email and a password (doc 43), for the owner and managers until text codes work. The
+    // login is made in the Supabase dashboard (Authentication, Users, Add user): the site never creates one, and new
+    // sign-ups are closed at Supabase. The authenticator step follows exactly as after a text code.
+    async staffPasswordSignIn(email, password) {
+      await init();
+      const e = String(email || '').trim().toLowerCase();
+      if (!isValidEmail(e)) throw fail('invalid_input', 'Enter your email address.', 'staff_email');
+      if (!password) throw fail('invalid_input', 'Enter your password.', 'staff_password');
+      if (mode !== 'live') throw fail('unavailable', "The database can't be reached right now. Reload the page in a few minutes.", 'staff_password');
+      const { error } = await sb.auth.signInWithPassword({ email: e, password: String(password) });
+      if (error) {
+        const code = error.code || '';
+        if (code === 'email_not_confirmed') throw fail('not_confirmed', 'This login isn\'t confirmed yet. In Supabase, open Authentication, then Users, and confirm it.', 'staff_password');
+        if (error.status === 429 || /rate_limit/.test(code)) throw fail('too_many_requests', 'Too many tries. Wait a few minutes, then try again.', 'staff_password');
+        if (code === 'invalid_credentials' || error.status === 400) throw fail('bad_login', "That email and password don't match.", 'staff_password');
+        throw fail('unavailable', "We couldn't sign you in right now. Try again in a minute.", 'staff_password');
+      }
+      return api.session();
+    },
     previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; return previewStaff; },
 
     // Authenticator app (TOTP): enrol, then verify a code; later, challenge and verify.
     async mfaEnroll() {
-      const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Alchemist admin' });
-      if (error) throw fail('mfa_error', error.message, 'mfa_code');
-      return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret };
+      // A setup left half-way (a reload, a closed tab) leaves an unverified factor with the same name, and Supabase
+      // refuses a second one by that name: those are cleared first (allowed before the second step, doc 43).
+      const { data: had } = await sb.auth.mfa.listFactors().catch(() => ({ data: null }));
+      for (const f of ((had && had.all) || []).filter((x) => x.factor_type === 'totp' && x.status !== 'verified')) {
+        await sb.auth.mfa.unenroll({ factorId: f.id }).catch(() => {});
+      }
+      const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Alchemist admin', issuer: 'Alchemist Detailing' });
+      if (error) throw fail('mfa_error', "The authenticator setup couldn't start. Try again in a moment.", 'mfa_code');
+      return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
     },
     async mfaVerify(factorId, code) {
       const { data: ch, error: e1 } = await sb.auth.mfa.challenge({ factorId });
