@@ -1,6 +1,12 @@
 {
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "alchemist-detailing\\.vercel\\.app" }],
+      "destination": "https://thealchemistdetailing.com/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "alchemist-detailing\\.vercel\\.app" }],
       "destination": "https://thealchemistdetailing.com/:path*",
