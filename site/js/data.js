@@ -617,6 +617,24 @@
       return Object.assign({}, s, { role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
         hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
     },
+    // Team sign-in with an email and a password (doc 43), for the owner and managers until text codes work. The
+    // login is made in the Supabase dashboard (Authentication, Users, Add user): the site never creates one, and new
+    // sign-ups are closed at Supabase. The authenticator step follows exactly as after a text code.
+    async staffPasswordSignIn(email, password) {
+      await init();
+      const e = String(email || '').trim().toLowerCase();
+      if (!isValidEmail(e)) throw fail('invalid_input', 'Enter your email address.', 'staff_email');
+      if (!password) throw fail('invalid_input', 'Enter your password.', 'staff_password');
+      if (mode !== 'live') throw fail('unavailable', "The database can't be reached right now. Reload the page in a few minutes.", 'staff_password');
+      const { error } = await sb.auth.signInWithPassword({ email: e, password: String(password) });
+      if (error) {
+        const code = error.code || '';
+        if (code === 'email_not_confirmed') throw fail('not_confirmed', 'This login isn\'t confirmed yet. In Supabase, open Authentication, then Users, and confirm it.', 'staff_password');
+        if (error.status === 429 || /rate_limit/.test(code)) throw fail('too_many_requests', 'Too many tries. Wait a few minutes, then try again.', 'staff_password');
+        throw fail('bad_login', "That email and password don't match.", 'staff_password');
+      }
+      return api.session();
+    },
     previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; return previewStaff; },
 
     // Authenticator app (TOTP): enrol, then verify a code; later, challenge and verify.

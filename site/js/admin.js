@@ -140,13 +140,35 @@
   function signIn() {
     const s = st.signin;
     if (!D.isLive) return el('div.bk-grid', el('p.bk-note', 'Preview: pick a role to look around.'), el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => { D.previewStaffSignIn('admin'); render(); } }, 'Look around as the admin'), el('button.btn.btn-glass', { type: 'button', onclick: () => { D.previewStaffSignIn('manager'); render(); } }, 'As a manager')));
+    if (s.by !== 'phone') return passwordSignIn(s);
     const box = el('div.bk-grid', el('p.bk-note', 'Team sign-in: your phone code, then your authenticator app.'),
+      el('p.bk-muted', el('button.link', { type: 'button', onclick: () => { s.by = 'password'; render(); } }, 'Sign in with your email and password instead')),
       field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', value: s.phone, oninput: (e) => { s.phone = e.target.value; },
         trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendPhoneCode(s.phone); s.sent = true; render(); } catch (e) { showError(box, 'phone', e.message); } }) }),
       s.sent ? field({ id: 'phone_code', label: 'Code from the text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
         oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); }, trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
     async function confirm(code) { try { await D.verifyPhoneCode(s.phone, code); s.sent = false; render(); } catch (e) { showError(box, 'phone_code', e.message); } }
     return box;
+  }
+  // Email and password, then the authenticator app (doc 43). A real form, so a password manager can fill it and
+  // Enter signs in. The login itself is made in Supabase; there is no sign-up here.
+  function passwordSignIn(s) {
+    let busy = false;
+    const form = el('form.bk-grid', { novalidate: true, onsubmit: async (e) => {
+      e.preventDefault();
+      if (busy) return; busy = true;
+      clearError(form, 'staff_email'); clearError(form, 'staff_password');
+      const email = form.querySelector('#staff_email').value, password = form.querySelector('#staff_password').value;
+      s.email = email;
+      try { await D.staffPasswordSignIn(email, password); render(); }
+      catch (err) { busy = false; showError(form, err.hint === 'staff_email' ? 'staff_email' : 'staff_password', err.message); }
+    } },
+      el('p.bk-note', 'Team sign-in: your email and password, then your authenticator app.'),
+      field({ id: 'staff_email', label: 'Email', type: 'email', inputmode: 'email', autocomplete: 'username', required: true, value: s.email }),
+      field({ id: 'staff_password', label: 'Password', type: 'password', autocomplete: 'current-password', required: true }),
+      el('div.acct-actions', el('button.btn.btn-gold', { type: 'submit' }, 'Sign in')),
+      el('p.bk-muted', el('button.link', { type: 'button', onclick: () => { s.by = 'phone'; render(); } }, 'Use a text code instead')));
+    return form;
   }
   function mfaStep() {
     const box = el('div.bk-grid');
