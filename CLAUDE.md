@@ -107,6 +107,7 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 - `?noadapt` keeps the foam at full quality (it otherwise lowers its resolution on slow devices).
 - `window.__alchemist.goTo(p)` scrolls the wash to progress `p` below 0.85 (the release, `--wash-release`), for screenshots; `p` of 0.85 or more finishes and folds the wash at once and puts the cards at the top, so the tail (the water film and drops drying) can't be shot that way.
 - Reduced motion and no-WebGL both fall back to showing the services directly. Test both.
+- `tools/qa/` is the QA kit (page screens, the iPhone wash harness, the Back walks, `check_site.sh`; its `README.md` has the commands). Browser screenshots in the cloud container load Google Fonts only once the proxy's CA certificates (`/root/.ccr/ca-bundle.crt`) are trusted in `~/.pki/nssdb` (`certutil`, trust `C,,`); check `document.fonts.status`.
 
 ## Supabase
 
@@ -148,15 +149,17 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 
 ## Design system (in `site/css/alchemist.css`)
 
-- **Tokens:** `--bg #050505`, `--gold #d8a640`, `--gold-hi #f6d28a`, `--ink #f3eee4`, `--ink-2 #c8c1b4`, `--muted #8b8478`; gradients `--gold-grad` and `--gold-text`.
-- **Fonts:** Cinzel (display, uppercase), Manrope (interface), Cormorant Garamond italic (the logo tagline "Our chemicals make your car shine like gold ✦").
+- **Look C, "Hypercar":** the owner's choice on Oct 23 ("Do look C, you can tweak the gold colors saturation"), with the gold made "a little less dark" and "more vibrant" the same day (doc 39). It is on `design-build-wip` until the owner approves it for the live site; `main` still has the earlier look.
+- **Fonts:** Archivo (Google Fonts, variable `wdth` 100–125, `wght` 300–700) for everything, through `--font-display` (expanded capitals: `--wdth-display` 125%, 112% on a phone; `--wght-display` 300), `--font-title` (112%), `--font-ui` and `--font-ui-caps` (the plain width). Each carries its Arial-based metric fallback face (`Archivo Fallback`, `Archivo Caps Fallback`, `Archivo Semi Fallback`, `Archivo Title Fallback`, `Archivo Expanded Fallback`), so nothing moves when the font arrives. Cormorant Garamond italic 500 (`--font-script`) only for the logo tagline ("Our chemicals make your car shine like gold ✦") and the Table's element names (the Table's row numerals still use it too: an open minor, doc 39). Jost, Manrope and Cinzel are gone. Rules name the tokens, never a font.
+- **The gold** (one ramp of the AD monogram's warm hue, the same in both themes): `--au-900 #9c6c16`, `--au-700 #c08720`, `--au-600 #da9c30`, `--au-500 #f5ba4c`, `--au-300 #face78`, `--au-200 #fddd97`, `--au-100 #fff6dc`, `--au-50 #fffaf0`. `--gold` is `--au-500` and `--gold-hi` is `--au-200` (channels `--gold-rgb` 245, 186, 76 and `--gold-hi-rgb` 253, 221, 151). The polish's stops `--gold-s1` (`--au-700`), `--gold-s2 #eaab3f`, `--gold-s3` (`--au-300`), `--gold-s4` (255, 250, 240: `--au-50` as channels), `--gold-s5 #f9c157`, `--gold-s6` (`--au-600`) make `--gold-grad` and Book Now's `--gold-base` and `--gold-glare`. `--gold-text` runs `--au-50`, `--au-200`, `--au-500`, `--gold-t4 #d09227`, `--gold-t5 #fbca6a`. `--gold-ink` (small gold text) is `--gold`; ink on gold is `--on-gold #0d0903` (6.4:1). Light theme: `--gold #a16e10`; `--gold-hi`, `--gold-ink` and `--gold-deep` are `--studio-gold-ink #805707`; its own `--gold-text`; the polish is the same.
+- **Neutrals:** `--bg #000000`, `--bg-2 #0b0b0b`, `--panel #121212`, `--panel-2 #1c1c1c`, `--ink` rgb(244, 244, 244), `--ink-2 #c2c2c2`, `--muted #8f8f8f`. Light theme: `--bg #f8f5ee`, `--panel #fffdf8`, `--ink #111111`, `--ink-2 #444444`, `--muted #5e5e5e`. A rule holds no literal colour but pure black and white; every other colour is a token at the top of the file.
+- **Motion:** one light at `--au-angle` 118deg. Its passes cross a thing once when it arrives or changes, one at a time, through the `window.AlchemistLight` queue in `app.js` (`.au-run` while a pass plays, `.au-lit` after); Book Now's `.shine`, every 8 s, is the only light that repeats. Three curves only: `--ease` cubic-bezier(.2, .8, .2, 1), `--ease-in-out` cubic-bezier(.65, 0, .35, 1), `--ease-unveil` cubic-bezier(.16, 1, .3, 1) (`linear` only on scroll timelines); nothing bounces or overshoots. Durations are tokens: `--dur-press` 80ms, `--dur-release` 180ms, `--dur-panel` 450ms, `--dur-page` .9s, `--dur-bar` 360ms and `--dur-bar-out` 220ms, `--dur-line` 800ms with `--line-gap` 90ms, `--dur-rise` 600ms with `--stagger` 60ms, `--dur-room` 1.4s, `--au-dur` 1.2s, `--au-dur-card` 1.4s, `--au-dur-wide` 1.8s, `--au-dur-lap` 1.6s, `--dur-door` 1.1s, `--dur-run` 2.4s, `--cut-out` 200ms and `--cut-beat` 80ms. Moments play once (some once a visit) and stop off screen; each has a designed still under reduced motion, without WebGL, without JavaScript and in print.
 - **Shared pieces:**
-  - `.shine`: the gold light sweep.
-  - `.btn-gold` and `.btn-glass`.
-  - The glass `.topbar` with the page name in the middle.
-  - The smoked-glass `.menu`, items staggered 28 ms.
-  - `.svc-card` with `data-enter` up, side, grow or fade.
-  - `.price-card`.
+  - The glass `.topbar`: the menu, Back (`.bar-back`, the browser's own history, back to the exact place; doc 40), the page name in the middle, the AD mark and the account. It slides away while scrolling down (`.away`) and comes back on a move up; it always shows at the top of a page.
+  - The cut through black between pages (a view transition, `html.vt-route`): the page draws back over `--cut-out`, a `--cut-beat` of black, and the next page rises 14px (from above on Back).
+  - The menu cabinet (`.menu`): smoked glass, rows rising 28 ms apart, hairlines, a gold line drawn under the row chosen, one gold Book Now; nearly solid over the live wash.
+  - `.btn-gold` (Book Now: the polish, a reflection that slides with the page's scroll, a press) and `.btn-glass`. Gold means Book.
+  - `.svc-card` with `data-enter`; `.price-card`; the Services photo plates (`.group-plate`) and chapter bar.
   - The `.veil` gold transition into booking.
 - **One major animation per section.** Gold is a material, not a paint job. Respect `prefers-reduced-motion`.
 
