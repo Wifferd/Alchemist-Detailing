@@ -1578,7 +1578,13 @@
       const light = (lit = !lit);
       try { localStorage.setItem('ad.theme', light ? 'light' : 'dark'); } catch (e) { /* storage unavailable */ }
       if (!document.startViewTransition || reduce) { root.classList.add('theming'); apply(); setTimeout(() => root.classList.remove('theming'), 500); }   // (under reduced motion html.theming has no transitions: at once)
-      else if (still) { if (vtNow) vtNow.skipTransition(); apply(); }   // the still frame, at once (the cross-fade's transitions on every element would cost a slow device more)
+      else if (still) {   // the still frame, at once (the cross-fade's transitions on every element would cost a slow device more)
+        if (vtNow) vtNow.skipTransition();
+        apply();
+        // and every element's own colour transition the switch has just started ends at once, so no text lags its panel
+        // (finished here, in the switch's own style pass: a class to hold them off would cost the page a second one)
+        if (document.getAnimations && window.CSSTransition) document.getAnimations().forEach((a) => { if (a instanceof CSSTransition) a.finish(); });
+      }
       else transition(['vt-theme', light ? 'vt-lights' : 'vt-dim'], apply);   // a second press ends the first at once
     });
   })();

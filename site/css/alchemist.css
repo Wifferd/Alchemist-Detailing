@@ -765,7 +765,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 .bar-back.off { opacity: 0; visibility: hidden; transition-delay: 0s, 0s, 0s, 0s, var(--dur-release); }
 .bar-back[hidden] { display: none; }
 .bar-back svg { width: 16px; height: 16px; transition: transform var(--dur-bar) var(--ease); }
-.bar-back-word { color: var(--ink); font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; white-space: nowrap; transition: color var(--dur-release) var(--ease); }
+.bar-back-word { color: var(--ink); font: 500 var(--t-0)/1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: var(--tr-label); text-transform: uppercase; white-space: nowrap; transition: color var(--dur-release) var(--ease); }   /* the bar's label face: the page names' expanded capitals */
 @media (hover: hover) and (pointer: fine) {
   .bar-back:hover .bar-back-word { color: var(--gold-hi); }
   .bar-back:hover svg { transform: translateX(-3px); }
@@ -1268,7 +1268,9 @@ section { position: relative; }
   pointer-events: none;
 }
 .revealed .wash-services { pointer-events: auto; }
-.wash-services .wrap { padding: 0; transform-origin: 50% 50%; }
+/* the stage keeps the gutter itself, so the column is the text column's content box (.wrap less its gutters): the cards
+   start and end where the sections' words and the footer do, at every width */
+.wash-services .wrap { width: min(100%, var(--col) - 2 * var(--gutter)); padding: 0; transform-origin: 50% 50%; }
 .wash-bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: calc(.5 + var(--clean, 0) * .3); }
 .revealed .wash-bg { filter: blur(1.5px); }   /* once the cards are up, the backdrop steps back */
 .wash-stage .floor { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none; }   /* the light studio's warm-grey backdrop (see the light block) */
@@ -1321,7 +1323,10 @@ section { position: relative; }
 .svc-card .kind { font: 500 clamp(19px, 1.9vw, 24px)/1.1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: var(--tr-title); text-transform: uppercase; color: var(--ink); }
 .svc-card .from { margin-top: 10px; display: flex; align-items: baseline; gap: 8px; color: var(--muted); font: 600 11px/1 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; }
 .svc-card .price { font: 400 clamp(24px, 2.4vw, 32px)/1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: 0; font-variant-numeric: tabular-nums lining-nums; color: var(--gold); transition: color .45s var(--ease), text-shadow .45s var(--ease); }
-.svc-card .desc { margin: 12px 0 0; min-height: 4.5em; color: var(--ink-2); font-size: var(--t-2); line-height: 1.5; }
+.svc-card .desc { margin: 12px 0 0; min-height: 6em; color: var(--ink-2); font-size: var(--t-2); line-height: 1.5; }   /* room for four lines, the longest any card takes on the text column, so the four titles share one line */
+/* Protection's one line where its description is left off (a phone, a tablet): it is added to a detail, never booked
+   on its own (the Services page's words), in the price line's small capitals (its room: the 980px block) */
+.svc-card .svc-with { display: none; color: var(--ink-2); font: 600 var(--t-0)/1.3 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; }
 .svc-card .go { margin-top: 16px; display: inline-flex; align-items: center; gap: 10px; font: 600 var(--t-1)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink); }
 .svc-card .go .arrow { transition: transform .45s var(--ease); color: var(--gold); }
 /* lit: the veil lifts, the price brightens and a rim of gold light runs along the edge from the top-left corner */
@@ -1485,7 +1490,7 @@ section { position: relative; }
 /* ---------------------------------------------------------------- closing call to action */
 .cta-band {
   position: relative;
-  width: min(100% - 2 * var(--gutter), var(--col));
+  width: calc(min(100%, var(--col)) - 2 * var(--gutter));   /* the text column's content box, as the sections above */
   margin-inline: auto;
   border-radius: var(--r-xl);
   overflow: hidden;
@@ -1607,7 +1612,7 @@ section { position: relative; }
 a.bar-back { text-decoration: none; }   /* (the 404's Back is a link to home until its script finds a page of the site behind it) */
 .nf-mark { position: relative; width: 56px; height: 58px; filter: drop-shadow(0 6px 18px rgba(var(--gold-rgb), .25)); }
 .page .foot-line { margin-top: 34px; font: 600 var(--fs-xs)/1.7 var(--font-ui); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); text-wrap: balance; }
-.page .foot-line a { color: var(--ink-2); text-decoration: none; }
+.page .foot-line a { display: inline-block; padding-block: 5px; margin-block: -5px; color: var(--ink-2); text-decoration: none; }   /* the same line, a taller tap target (the margin keeps the line's height) */
 /* the sign-off: one line on a wide card (the sentences' 44ch cap is not for it), each part whole, the dots drawn
    between them (not read); on a phone its three parts stack, with no dot left hanging at a line's end */
 .page .foot-line { max-width: none; }
@@ -2627,6 +2632,10 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .svc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .svc-card { min-height: clamp(200px, 31svh, 300px); }
   .svc-card .desc, .svc-card .icon { display: none; }
+  /* every card keeps the room of Protection's line under its price (8px and one line; the other three leave it
+     empty), so the four titles, prices and Explores share their lines in both rows */
+  .svc-card .from { margin-bottom: calc(8px + 1.3 * var(--t-0)); }
+  .svc-card .svc-with { display: block; margin-top: calc(-1.3 * var(--t-0)); }   /* into that room, 8px under the price */
   .why-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .why-item:nth-child(odd) { border-left: 0; padding-left: 0; }
   .why-item:nth-child(even) { padding-right: 0; }
@@ -2659,10 +2668,10 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .why-item h3 { margin: 3px 0 6px; }
 }
 @media (max-width: 640px) {
-  .bar { height: 58px; --back-w: 60px; column-gap: 14px; padding: 0 6px; }   /* Back a size closer, the page name kept 14px clear of it */
+  .bar { height: 58px; --back-w: 66px; column-gap: 14px; padding: 0 6px; }   /* Back a size closer, the page name kept 14px clear of it */
   .bar-back { gap: 4px; padding: 0; }
   .bar-back svg { width: 14px; height: 14px; }
-  .bar-back-word { letter-spacing: var(--tr-title); }
+  .bar-back-word { letter-spacing: .1em; }   /* the label face, a little closer tracked */
   .menu { padding-top: calc(18px + env(safe-area-inset-top, 0px)); }   /* the menu's head row on the 58px bar's centre line */
   .page-name { font-size: 12.5px; letter-spacing: var(--tr-label); text-indent: var(--tr-label); }   /* the longest name (Appointments) stays on the bar's centre line */
   .hero .actions { flex-direction: column; align-items: stretch; width: min(100%, 320px); }
@@ -2701,28 +2710,28 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .wash { --wash-h: 380vh; }
 }
 /* beside Back on a phone under 440px, the longest page name (Appointments, app.js data-long) stays whole on the bar's
-   centre line: in the other names' capitals at the display headings' tracking, under 401px at the type's floor, and
-   under 375px untracked at the plain width (about 9px clear of Back on a 360px phone). The bar's columns may then
-   come as close as 8px, which only that name ever needs */
+   centre line: in the other names' expanded capitals at the display headings' tracking, under 401px at the type's
+   floor, and under 375px untracked (8px clear of Back on a 360px phone, a few px right of the centre line: the
+   balance below). The bar's columns may then come as close as 8px, which only that name ever needs */
 @media (max-width: 439px) {
   .bar { column-gap: 8px; }
   .page-name span[data-long] { letter-spacing: var(--tr-display); text-indent: var(--tr-display); }
 }
 @media (max-width: 400px) { .page-name span[data-long] { font-size: var(--t-0); } }
-@media (max-width: 374px) { .page-name span[data-long] { letter-spacing: 0; text-indent: 0; font-stretch: 100%; } }
+@media (max-width: 374px) { .page-name span[data-long] { letter-spacing: 0; text-indent: 0; } }
 /* a narrow phone (360-400px): the page name a size smaller and the monogram a little closer to the account button,
    so the longest name (Appointments) sits on the centre line with clear space on both sides */
 @media (max-width: 400px) {
   .page-name { font-size: 11.5px; }
-  /* Back at 56px: its arrow and word a size closer and the word at the display tracking, so they sit with room on
-     both sides (the arrow's drawing has its own space at the left: the word a pixel nearer the middle) */
-  .bar { --back-w: 56px; }
+  /* Back at 62px: its arrow a size closer, the word in the bar's label face, so they sit with room on both sides (the
+     arrow's drawing has its own space at the left: the word a pixel nearer the middle) */
+  .bar { --back-w: 62px; }
   .bar-back { gap: 3px; padding-right: 2px; }
   .bar-back svg { width: 12px; height: 12px; }
-  .bar-back-word { letter-spacing: var(--tr-display); }
   /* a 360px phone: the two-word titles beside a tag or a price keep one line at the label width, the tagline at a
      tighter tracking */
   .price-card h3, .addon-main b { font-stretch: var(--wdth-label); letter-spacing: .04em; }
+  .svc-card .svc-with { letter-spacing: .1em; }   /* Protection's line on one line in a 360px card */
   .hero .sub { letter-spacing: .07em; text-indent: .07em; }
   .bar-right { gap: 4px; }
   .brand-link { width: 38px; }
@@ -2792,6 +2801,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .bk-down p { max-width: var(--m-centre); margin: 0; font-size: var(--t-4); line-height: var(--lh-4); text-wrap: pretty; }
 .bk-down p a { color: var(--gold-ink); white-space: nowrap; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .bk-down .btn { min-width: 210px; }
+.bk-down .soon-mark { justify-self: center; margin: 0; }   /* the coming-soon panel's monogram, the block's gap under it */
+:is(#adminApp, #teamApp) .bk-down .soon-mark { display: none; }   /* (the consoles keep the words alone, as their wait) */
 @media (max-width: 640px) {
   .bk-down { justify-items: stretch; }
   .bk-down .btn { width: 100%; }
@@ -2799,7 +2810,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .bk-preview { padding: 10px 14px; border-radius: var(--r-sm); border: 1px dashed var(--line); background: rgba(var(--gold-rgb), .06); color: var(--ink-2); font-size: 13.5px; }
 .bk-preview b { color: var(--gold-ink); }
 /* the staff note on a draft page: a quiet pill under the title (the words are content.js's) */
-.bk-preview.draft { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 8px; max-width: 100%; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line-soft); background: rgba(var(--gold-rgb), .06); font-size: 12.5px; line-height: 1.4; }
+.bk-preview.draft { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px .25em; max-width: 100%; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line-soft); background: rgba(var(--gold-rgb), .06); font-size: 12.5px; line-height: 1.4; }
 
 /* progress: 01 ── 02 ── 03 … */
 .bk-progress { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-start; }
@@ -4920,7 +4931,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 
 /* ---------------------------------------------------------------- the gallery */
 .gal-page { padding-inline: var(--gutter); }
-.gal { width: min(100%, var(--col)); margin-inline: auto; display: grid; gap: 22px; }
+.gal { width: min(100%, var(--col) - 2 * var(--gutter)); margin-inline: auto; display: grid; gap: 22px; }   /* inside the page's gutter: the text column's content box */
 .gal .page-head { margin-bottom: var(--s-2); }
 .gal .work-foot { margin-top: var(--s-3); }   /* with the grid's gap, the actions stand apart from the photos, as on the other pages */
 .gal-filters { gap: 8px; }
@@ -5403,7 +5414,7 @@ html.vt-dim::view-transition-new(root) {
   .svc-card, [data-theme="light"] :is(.svc-card, .gold-card, .hero, .svc-top) { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); }
   /* the account's dark pieces print as ink on paper: no gold face, no drawing's light */
   .appt-next, .car-card, .acct .appt .appt-head, [data-theme="light"] .appt-next, [data-theme="light"] .acct .appt.st-completed .appt-head, .acct .appt.gold:is(.in, .settled) .appt-head, [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); color: var(--print-ink); background: #fff !important; box-shadow: none !important; }
-  .appt-au, .trk::after, .acct-soon .soon-mark, .insp { display: none !important; }
+  .appt-au, .trk::after, .acct-soon .soon-mark, .bk-down .soon-mark, .insp { display: none !important; }
   .acct-soon > * { animation: none !important; }
   html, body { background: #fff !important; color: var(--print-ink) !important; }
   /* the screen's own tools have nothing to say on paper: Contact's "Online" row (its link is hidden) and ZIP check,
@@ -5443,7 +5454,7 @@ html.vt-dim::view-transition-new(root) {
      Bead Test's foot and the Services cards' head keep whole. The Bead Test's panel (and its hint) is the screen's to
      play with: on paper its head's words say what it shows */
   :is(.section-head, .show-head, .page-head, .svc-head, .group-plate figcaption, h2, h3, .eyebrow, .use-keys) { break-after: avoid; page-break-after: avoid; }
-  :is(.section-head, .show-head, .page-head, .group-plate figcaption), .about-use, .bead-foot, .svc-head { break-inside: avoid; page-break-inside: avoid; }
+  :is(.section-head, .show-head, .page-head, .group-plate figcaption), .about-use, .bead-foot, .svc-head, .step-up { break-inside: avoid; page-break-inside: avoid; }
   .bead-cmp, .bead-hint, .bead-how { display: none !important; }
   /* the Why rows two by two as a wrapping row, not a grid (the print engine lets a page end between a heading and a
      grid's first row, but keeps it with a flex row) */
@@ -5458,7 +5469,7 @@ html.vt-dim::view-transition-new(root) {
   .plate-no, .step-up::before, .step-up::after { display: none !important; }
   /* the Ritual on paper: its five steps as a plain list, each with its own text (the screen opens one at a time) */
   .rit-scroll { overflow: visible !important; margin: 0 !important; padding: 0 !important; }
-  .rit-row { display: grid !important; min-width: 0 !important; height: auto !important; gap: 3mm; }
+  .rit-row { display: grid !important; grid-template-columns: 1fr 1fr; min-width: 0 !important; height: auto !important; gap: 3mm; }   /* two by two: the fifth never alone on a page */
   .rit { padding: 4mm 5mm !important; border: 1px solid var(--print-line) !important; background: #fff !important; color: var(--print-ink); break-inside: avoid; page-break-inside: avoid; }
   .rit img, .rit .shade, .rit .tag { display: none !important; }
   .rit .n { position: static; display: block; margin-bottom: 2mm; font-size: 20px; color: var(--studio-gold-ink); -webkit-text-stroke: 0; }
@@ -5469,6 +5480,13 @@ html.vt-dim::view-transition-new(root) {
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: var(--print-rule); }
   :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band, .door) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid var(--print-line) !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; transition: none !important; }
+  /* the FAQ on paper: every answer under its question (the screen opens one at a time; content.js opens the closed ones
+     for the print where a browser can't show a closed one's content), no + to press; and the screen's "Tap ..."
+     sentences left off, where everything is already open */
+  details.faq-item::details-content { content-visibility: visible; display: block; }
+  .faq-item .faq-body { grid-template-rows: 1fr !important; }
+  .faq-item { padding-inline: 5mm; }   /* inside its print frame (the cards' rule above), the words clear of the line */
+  .faq-item summary::after, .tap-only { display: none !important; }
   /* the Gallery on paper: even rows, each tile whole, its photo inside its own frame (the screen's drift room reached
    past the tile, so a page end pushed the photo onto the next page, over what follows) */
   .gal-tile.tall { grid-row: auto; }

@@ -106,8 +106,11 @@
   }
 
   // The database can't be reached on the real site (data.js isDown, doc 42): a calm, centred note, with a Call button
-  // when a phone number is given. `parts` is the sentence: strings and elements (a tel() link).
-  const outage = (parts, phone) => el('div.bk-down', { role: 'status' }, el('p', ...parts),
+  // when a phone number is given. `parts` is the sentence: strings and elements (a tel() link). Over it the monogram in
+  // its thin gold ring, still, as on the Account's coming-soon panel (a picture only: hidden from readers).
+  const outage = (parts, phone) => el('div.bk-down', { role: 'status' },
+    el('span.soon-mark', { 'aria-hidden': 'true', innerHTML: '<svg class="soon-ring" viewBox="0 0 116 116"><circle cx="58" cy="58" r="57"/></svg><svg><use href="#ad-mark"/></svg>' }),
+    el('p', ...parts),
     phone ? el('a.btn.btn-gold.shine', { href: 'tel:+1' + digits(phone) }, telMark(), el('span', 'Call ', el('span.tnum', phone))) : null);   // the phone mark, as on every call button
 
   // The wait (every app page's "Loading…"): nothing for the first 300ms, where most waits end; then the small AD mark,

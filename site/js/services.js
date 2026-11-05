@@ -141,7 +141,7 @@
       t.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
       t.focus({ preventScroll: true });
     } }, 'Back to the table ', el('span.arrow.up', { 'aria-hidden': 'true' }, '↑'));   // (Archivo draws ↑: .up keeps the glyph)
-    const panel = el('aside.el-panel', { 'aria-label': 'The picked element' },
+    const panel = el('section.el-panel', { 'aria-label': 'The picked element' },   // (a region in the page: an aside inside main would be a stray landmark)
       el('div.top', el('span.eyebrow', 'Element'), pNo), pSym, pName, pEq, pDesc,
       el('div.el-facts', el('div', el('span', 'Price'), pPrice), el('div', el('span', 'Time'), pTime), el('div', el('span', 'Mobile'), pMobile)),
       el('div.el-actions', pBook, back));
@@ -532,7 +532,7 @@
     });
     container.replaceChildren(
       el('div.show-head', el('div', el('p.eyebrow', 'How an exterior is done'), el('h2.display', { id: 'ritualTitle' }, 'The Ritual')),
-        el('p', 'The order every exterior detail follows. Deluxe adds the seal. Tap a step to open it.')),
+        el('p', 'The order every exterior detail follows. Deluxe adds the seal.', el('span.tap-only', ' Tap a step to open it.'))),   // (paper has every step open: the CSS leaves the tap off)
       el('div.rit-scroll', row));
   }
 

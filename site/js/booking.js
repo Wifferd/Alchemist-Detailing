@@ -1511,7 +1511,7 @@
   // what happens next. It prints or saves to one page through the print stylesheet.
   function renderSent() {
     const r = st.receipt, q = st.quote;
-    const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
+    const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: (settings && settings.timezone) || 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;   // (Parker's clock, as the appointment's)
     const rec = r.lines && r.lines.length ? r : q;   // the database's own lines; the quote as it was sent, failing that
     const rv = r.vehicle;
     const vehicle = (rv && (rv.not_sure ? rv.description : [rv.year, rv.make, rv.model, rv.color && '· ' + rv.color].filter(Boolean).join(' '))) || vehicleText();

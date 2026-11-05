@@ -128,6 +128,18 @@
     return d;
   }
 
+  // On paper every answer prints under its question (the print CSS shows a closed one's content through
+  // ::details-content). A browser without that pseudo-element opens the closed questions for the print and closes them
+  // again after it, with no fold to watch.
+  if (!(window.CSS && CSS.supports && CSS.supports('selector(::details-content)'))) {
+    let shut = [];
+    window.addEventListener('beforeprint', () => {
+      shut = root ? Array.from(root.querySelectorAll('details.faq-item:not([open])')) : [];
+      shut.forEach((d) => { d.open = true; });
+    });
+    window.addEventListener('afterprint', () => { shut.forEach((d) => { d.open = false; }); shut = []; });
+  }
+
   // Tips as journal entries: the number is the entry's one gold mark, the title and the words stay in ink.
   function tip([title, text], i) {
     const go = TIP_LINKS[title];
@@ -272,8 +284,8 @@
   // with the second. Then the site's light crosses the mark once (its turn in the light's queue: the head's one gold
   // light, so the title takes none of its own this time) and behind the light the owner's metallic logo is there, the
   // pen's line fading into its edge, and the ring closes round it in the second half of the crossing. The title, the
-  // lead and the words below follow once the ring has all but closed (the page waits for that: data-hold, app.js),
-  // about 2.6s into the pen's clock, and the photo waits until the title has set. A visitor who scrolls or types
+  // lead and the words below follow as the ring begins to close (the page waits for that: data-hold, app.js), about
+  // 2.2s into the pen's clock, and the photo waits until the title has set. A visitor who scrolls, types or taps
   // meanwhile has the page at once (the mark finishes on its own). Not under reduced motion or in forced colours, and
   // once a visit (the tab's own storage): the mark is simply there, the ring closed, as in print.
   // The pen is painted first, faintly (.warm), and its clock starts once the frames come on time, so the browser's
@@ -284,8 +296,8 @@
     parts: [[0, 0, 800, 'line'], [1, 830, 190, 'line'], [4, 1055, 90, 'line'], [5, 1110, 90, 'line'], [2, 1240, 290, 'spark'], [3, 1320, 290, 'spark']],
     kick: 1410,     // the kicker fades in as the second spark flashes (on the pen's own clock, from its first line)
     gild: 1610,     // the light's turn is asked for as the second spark settles
-    ring: 550,      // the ring closes in the second half of the light's crossing (CSS: 1s), about 96% closed when
-    release: 1000,  // the page follows, this long into the light's run (its core past the mark)
+    ring: 550,      // the ring closes in the second half of the light's crossing (CSS: 1s)
+    release: 550,   // and the page follows with it: mark, light, ring, then the title (its rise takes the ring's time)
     done: 1900,     // and all of it has settled this long after the light's start: the pen's layer goes
     warm: 600,      // the pen's faint first paint has this long at most to come through before its clock starts
     hold: 400,      // and its clock (the pen's, then the light's) is held back this much at most in all
@@ -311,7 +323,7 @@
     e.setAttribute('data-moment', '');
     const settle = () => { if (!e.hasAttribute('data-moment')) return; e.removeAttribute('data-moment'); e.dispatchEvent(new Event('release')); };
     setTimeout(settle, 6000);   // (should its end never come)
-    const INPUT = ['wheel', 'touchmove', 'keydown'];
+    const INPUT = ['wheel', 'touchmove', 'keydown', 'pointerdown'];   // (a tap hands the page over too)
     function release() {
       if (released) return;
       released = true;
