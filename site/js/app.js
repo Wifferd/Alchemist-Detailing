@@ -18,6 +18,7 @@
   // The headline is split into letters first (so the intro has them from its first frame).
   const unsplit = splitHeadline();
   let hero = null, heroStarted = false;
+  const STILL_T = 15.8;   // the reduced-motion hero's moment (s of the light's drift: hero-gl.js DRIFT)
   // Home met again (a page change back to it, also after a reload of another page this session: the heads' note, key
   // 'hero'): the hero is there, set, as the page shows (.hero.met before the view is unhidden: CSS), with no intro and
   // its studio light at rest; its light and Book Now's shine carry on. The note is written once the intro has played,
@@ -52,7 +53,12 @@
       if (plays && heroWord && heroMono) spots = { w: pageBox(heroWord), m: pageBox(heroMono) };
       if (glassLight && glassBar) glassBox = barBox(glassBar.getBoundingClientRect());
       // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
-      try { hero = window.AlchemistHero.start($('#heroGl'), { scene, still: reduce, studio: false, entrance: plays, onFrame: glass, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
+      // the canvas fades in over the CSS glow with its first picture (CSS .hero-gl.lit). Under less motion the hero is
+      // one still at a fixed, composed moment of the light's drift (STILL_T): the bar on the left of the paint, clear
+      // of the place line at every width from a 360px phone to a desk, never a random moment parked behind the words
+      const heroGl = $('#heroGl');
+      const onFrame = (h) => { if (!heroGl.classList.contains('lit')) heroGl.classList.add('lit'); glass(h); };
+      try { hero = window.AlchemistHero.start(heroGl, { scene, still: reduce, time: reduce ? STILL_T : null, studio: false, entrance: plays, onFrame, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
     }
     // The studio light's path is worked out now too, with the page laid out (arithmetic only: no frame carries it).
     const p = hero && hero.enter && spots ? plan() : null;
@@ -381,9 +387,16 @@
 
   // ---------------------------------------------------------------- the bar's page name
   const pageName = $('#pageName');
-  function setName(text) {
+  function setName(text, now) {
     const old = pageName.lastElementChild;
     if (old && old.textContent === text) return;
+    if (now) {   // the first page of a visit: its name is simply there (no roll from Home's)
+      const n = document.createElement('span');
+      n.textContent = text;
+      if (text.length > 10) n.dataset.long = '';
+      pageName.replaceChildren(n);
+      return;
+    }
     const n = document.createElement('span');
     n.textContent = text;
     n.className = 'in-start';
@@ -518,7 +531,26 @@
   const TRAVEL = 8;
   const barGate = (() => {
     let lastY = window.scrollY, held = performance.now() + 1200, felt = -1e9, tick = false, seen = null, away = false, topH = 0, run = 0, cutT = 0;
+    let owed = 0, ownSeen = [], ownT = -1e9;
     const ownScroll = () => !!washRest && performance.now() - washRest.state.tOwn < 1500 && washRest.state.own.some((y) => Math.abs(window.scrollY - y) < 1.5);
+    // The wash's own scrolls since the last scroll event (foam.js rest.own: its last four [y0, y1] pairs, newest
+    // last): what they moved the page, so a finger's move that lands after a fold in the same event counts only as
+    // itself (the fold's 2,363 px up is not the visitor scrolling up). The new pairs are the ones past the part of
+    // the list that was already there at the last event.
+    function ownMoved() {
+      const st = washRest && washRest.state;
+      if (!st || st.tOwn <= ownT) return 0;
+      const now = st.own, was = ownSeen;
+      let k = 1;
+      for (; k * 2 < now.length; k++) {
+        const keep = now.length - k * 2;
+        if (keep <= was.length && now.slice(0, keep).every((y, i) => y === was[was.length - keep + i])) break;
+      }
+      let d = 0;
+      for (let i = Math.max(0, now.length - k * 2); i + 1 < now.length; i += 2) d += now[i + 1] - now[i];
+      ownSeen = now.slice(); ownT = st.tOwn;
+      return d;
+    }
     // the keyboard's focus in a bar (Tab: :focus-visible), not a button a mouse or a finger has just pressed
     const focusIn = (el) => { const a = document.activeElement; if (!el || !a || !el.contains(a)) return false; try { return a.matches(':focus-visible'); } catch (e) { return true; } };
     const kept = () => { const t = performance.now(); return menuOpen || !!dark || !!vtNow || !!cutHeld || t < held || t - cutShown < 1200 || focusIn(topbar) || focusIn(svcJump); };
@@ -532,8 +564,8 @@
       const s = seen;
       seen = null;
       if (!s) return;
-      const dy = s.y - lastY;
-      lastY = s.y;
+      const dy = s.y - lastY - owed;   // (less the wash's own scrolls in the meantime)
+      lastY = s.y; owed = 0;
       if (s.own) return;
       if (s.y < topH || kept()) { run = 0; set(false); return; }
       if (dy > 0 && performance.now() - felt >= 700) { run = 0; return; }   // (down on its own: not the visitor)
@@ -546,6 +578,7 @@
       if (!topH) topH = topbar.offsetHeight;   // (read here, where the page has just been laid out; again after a resize)
       // (within the page's own range: an iPhone's rubber band past either end, and its spring back, are not a move)
       const max = document.documentElement.scrollHeight - window.innerHeight;
+      owed += ownMoved();
       seen = { y: Math.max(0, Math.min(window.scrollY, max)), own: ownScroll() };
       if (!tick) { tick = true; requestAnimationFrame(frame); }
     }, { passive: true });
@@ -1231,13 +1264,13 @@
   // it is whole and wholly on the screen, the gold light crosses "attention to every surface." (its turn in the
   // light's queue; .au-run on the <em>) and the words turn gold behind it, and stay gold. The script fades up 0.8s
   // after that light has begun (or the words have simply turned gold: .std-gold), the facts 0.2s after it, a line's gap
-  // apart (CSS), so the promise is never last; a phrase with no light 4.5s after the card set (left half on the
-  // screen, or a page that never calmed) simply turns gold then, and they follow it. The light needs a calm page: the
-  // pictures' compile (startHeavy) behind us and a few frames in a row with no stall (the wash below waking up, a slow
-  // phone); a page that is not calm within a moment and a half, or a phrase scrolled past, is simply gold, with no
-  // light. Not under reduced motion, for a second visit this session (the heads' note), without JavaScript or in
-  // print: the card is set.
-  const STD = { lines: 450, settle: 1500, calm: 3, stall: 100, cap: 4500 };   // the first line's start (--std-lines); how long the light waits for a calm page; how many frames, each under stall ms, make one; the phrase gold by then at the latest
+  // apart (CSS), so the promise is never last; a phrase with no light 2s after its lines are whole (left half on the
+  // screen, or a light held in the queue) simply turns gold then, and they follow it at once. The light needs a calm
+  // page: the pictures' compile (startHeavy) behind us and a few frames in a row with no stall (the wash below waking
+  // up, a slow phone); a page that is not calm within a moment and a half, or a phrase scrolled past, is simply gold,
+  // with no light, and no light comes after. Not under reduced motion, for a second visit this session (the heads'
+  // note), without JavaScript or in print: the card is set.
+  const STD = { lines: 450, settle: 1500, calm: 3, stall: 100, cap: 2000 };   // the first line's start (--std-lines); how long the light waits for a calm page; how many frames, each under stall ms, make one; the phrase gold by then at the latest, counted from its lines being whole (the light's whole wait for a calm page fits inside it)
   let stdArmed = false;
   function armStandard(scope) {
     const s = !stdArmed && scope.querySelector ? scope.querySelector('#standard') : null;
@@ -1268,12 +1301,6 @@
       requestAnimationFrame(() => {
         s.classList.add('in');
         $('.emblem', s).classList.add('in');
-        setTimeout(() => {   // (the phrase still waiting for its light: gold now, and the script and the facts after it)
-          if (s.classList.contains('std-gold')) return;
-          const em = $('.statement em', s);
-          if (em) em.classList.add('std-fade', 'au-lit');
-          s.classList.add('std-gold');
-        }, STD.cap);
         if (!n) setTimeout(() => stdLight(s), STD.lines + LINE.dur);   // faded in whole: its light once it has
         setTimeout(() => markSeen(s, key), 0);
       });
@@ -1284,15 +1311,18 @@
   function stdLight(s) {
     const em = $('.statement em', s);
     if (!em || em.classList.contains('au-lit')) { s.classList.add('std-gold'); return; }
-    const gold = () => { em.classList.add('std-fade', 'au-lit'); s.classList.add('std-gold'); };   // no light: the words simply turn gold (the script and facts follow)
+    const gold = () => { em.classList.add('std-fade', 'au-lit'); s.classList.add('std-now', 'std-gold'); };   // no light: the words simply turn gold (the script and facts follow at once)
     if (light.off) { gold(); return; }
+    setTimeout(() => { if (!s.classList.contains('std-gold')) gold(); }, STD.cap);   // (the phrase still waiting for its light)
     const ready = (t0) => {
+      if (em.classList.contains('au-lit')) return;   // (gold already, with no light: it stays so)
       if (!heavy || artBusy) { if (performance.now() - t0 < STD.settle) setTimeout(() => ready(t0), 100); else gold(); return; }
       let last = performance.now(), calm = 0;
       requestAnimationFrame(function frame(now) {
         calm = now - last < STD.stall ? calm + 1 : 0;
         last = now;
         // (on a screen so narrow that the phrase wraps, the band round the words stays off: the letters take the light)
+        if (em.classList.contains('au-lit')) return;
         if (calm >= STD.calm) {
           light.pass(em, { size: 'card', when: () => !em.classList.contains('au-lit'), miss: () => view.observe(em),
             start: () => { em.classList.toggle('std-wrap', em.getClientRects().length > 1); s.classList.add('std-gold'); } });   // (the script and the facts follow the light)
@@ -1396,18 +1426,45 @@
       setTimeout(() => { if (pressedEl !== el) el.classList.remove('released'); }, 180);
     }, 80);
   }
-  document.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const el = e.target.closest(PRESS);
-    if (!el || el.disabled || el.matches('.disabled, [aria-disabled="true"]')) return;   // disabled never presses
+  function pressOn(el) {
     release();
     pressedEl = el;
     el.classList.remove('released');
     el.classList.add('pressed');
     el.addEventListener('pointerleave', function leave() { if (pressedEl === el) release(); }, { once: true });
+  }
+  // A finger: a touch may be the start of a scroll, so it presses only once it is a tap (lifted first) or held still
+  // for 90ms; a move of over 8px, a scroll or the browser taking it for a pan (pointercancel) lets it go at once,
+  // with no hold and no spring, so nothing lights under a scrolling finger. A mouse and a pen press at once.
+  let touchEl = null, touchT = 0, touchX = 0, touchY = 0, touchOn = false;
+  function touchDrop() {
+    clearTimeout(touchT);
+    touchT = 0; touchEl = null;
+    if (touchOn && pressedEl) { pressedEl.classList.remove('pressed', 'released'); pressedEl = null; }
+    touchOn = false;
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const el = e.target.closest(PRESS);
+    if (!el || el.disabled || el.matches('.disabled, [aria-disabled="true"]')) return;   // disabled never presses
+    if (e.pointerType !== 'touch') { touchDrop(); pressOn(el); return; }
+    touchDrop();
+    touchEl = el; touchX = e.clientX; touchY = e.clientY;
+    touchT = setTimeout(() => { touchT = 0; if (touchEl === el) { touchOn = true; pressOn(el); } }, 90);
   }, { passive: true });
-  document.addEventListener('pointerup', release, { passive: true });
-  document.addEventListener('pointercancel', release, { passive: true });
+  document.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' && touchEl && Math.hypot(e.clientX - touchX, e.clientY - touchY) > 8) touchDrop();
+  }, { passive: true });
+  document.addEventListener('scroll', () => { if (touchEl) touchDrop(); }, { passive: true, capture: true });   // (a row's own scroll too)
+  document.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch' && touchEl) {
+      const el = touchEl, early = !!touchT;
+      clearTimeout(touchT); touchT = 0; touchEl = null; touchOn = false;
+      if (early) pressOn(el);   // a quick tap: its press shows now, held 80ms, then springs back
+    }
+    release();
+  }, { passive: true });
+  document.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch') touchDrop(); else release(); }, { passive: true });
 
   // A rim of gold light follows the pointer over cards (--mx/--my), and the hero wordmark's
   // reflection (--hx) follows it across the screen, like light on polished paint. Over a strip photo the inspection
@@ -2801,7 +2858,7 @@
         }
       });
       if (view === 'home' && heroRests && !menuOpen) { heroRests = false; hero.resume(); }   // (held still by the cut that left home: its light again)
-      setName(NAMES[r]);
+      setName(NAMES[r], first);
       if (footer) footer.classList.toggle('lean', r === 'contact');   // Contact carries the place, hours and phone itself: the footer keeps the brand and the pages
       if (footer) footer.classList.toggle('staff', r === 'admin' || r === 'team');   // the staff consoles are tools: one quiet line, no marketing footer (owner §26, §36)
       $$('nav a', menu).forEach((a) => {
@@ -3134,6 +3191,7 @@
   });
 
   render(true);
+  root.classList.remove('deep');   // (the head script's: Home kept unseen under a page opened directly, now shown)
   if (cur !== 'home') cutShown = performance.now();   // a page landed on directly: its settle counts from its first showing
   desyncShine(document);   // every shine on the site, the hidden pages' too, so none sweep together
   $$('.shine, .scroll-cue').forEach((el) => ioAway.observe(el));

@@ -344,7 +344,9 @@
   function renderNav() {
     const last = step === 6;
     return el('div.bk-nav',
-      step > 1 ? el('button.btn.btn-glass', { type: 'button', onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Back') : el('a.btn.btn-glass', { href: '#home' }, 'Cancel'),   // the bar's Back arrow (CSS .arrow.back)
+      // one step back, named for what it does (the bar's Back leaves the booking): "Previous", the step it returns to
+      // in its label (the steps' names don't all fit beside Send Request on a 360px phone)
+      step > 1 ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : el('a.btn.btn-glass', { href: '#home' }, 'Cancel'),
       el('div.bk-nav-mid', { 'aria-live': 'polite', 'aria-atomic': 'true' }, navTotal(null)),
       el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, onclick: () => (last ? send() : next()) },
         last ? 'Send Request' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
@@ -1524,7 +1526,8 @@
     sentDrawn = r;
     const sheet = el('section.sheet.sent-sheet', { 'aria-label': 'Your booking' },
       el('dl.sum-list',
-        el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min), minutes ? [' · ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
+        // (a phone breaks it after the date: "at 10:30 AM · about 1 h" stays together, so no line starts with the dot or "AM")
+        el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at\u00a0' + clock(r.start_min).replace(' ', '\u00a0'), minutes ? ['\u00a0· ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
         el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? 'We come to you · ' + r.address + ', ' + r.address_zip : 'Come to us · ' + settings.public_area + ' — we send the address with your confirmation')),   // in the summary's words
         vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
       rec ? priceLines(rec, { mark: sigMark }) : el('p.bk-muted', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents)));

@@ -8,7 +8,9 @@ CAP_MAX, default 12). Home: the hero, the screens down to the wash, the wash at 
 (window.__alchemist.goTo, where the site has it), the services once it is over, then the screens after it.
 Filters (environment): CAP_ROUTES=home,faq  CAP_THEMES=dark,light  CAP_SIZES=desk,phone  CAP_MAX=12
 Sizes: desk 1440x900; phone 390x844, touch, 2x pixels. Each screen waits for the fonts, the pictures in view and
-the sections' entrances (they rise as they come into view)."""
+the sections' entrances (they rise as they come into view).
+QA_DEPLOYED=1: the site opened as the real domain with the database refused (qalib), so the booking, account and
+staff pages show their outage notes; each page waits for its loading note to go (45s at most)."""
 import asyncio, os, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import qalib
@@ -95,6 +97,11 @@ async def main(site, out):
                             if r == 'home':
                                 await home(pg, out, name)
                             else:
+                                if qalib.deployed():   # the database's answer (none: the outage note) replaces the loading note
+                                    try:
+                                        await pg.wait_for_function("() => !document.querySelector('.view:not([hidden]) .bk-loading')", timeout=45000)
+                                    except Exception:
+                                        print('note: still loading', name, flush=True)
                                 await asyncio.sleep(1.2)   # a group route scrolls to its group once its page is built
                                 await slices(pg, out, name, await pg.evaluate('scrollY'), 0)
                             print('ok', name, flush=True)

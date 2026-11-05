@@ -486,12 +486,14 @@ async def one(browser, base, mode, scenario):
         await asyncio.sleep(1.2)
         await RUNS[scenario](r)
         await asyncio.sleep(0.3)
-        q = await pg.evaluate('({undos: __qa.undos, jumps: __qa.jumps, worst: __qa.worst, judged: __qa.judged, frames: __qa.frames, calls: __qa.calls.filter((c) => c.under).slice(0, 6), landedUnder: __qa.landedUnder, trace: __qa.trace})')
+        q = await pg.evaluate('({undos: __qa.undos, jumps: __qa.jumps, worst: __qa.worst, judged: __qa.judged, frames: __qa.frames, calls: __qa.calls.filter((c) => c.under).slice(0, 6), landedUnder: __qa.landedUnder, swallowed: __qa.swallowed || 0, trace: __qa.trace})')
         out.update(err=q['undos'] + len(q['jumps']), worst=q['worst'], undos=q['undos'], jumps=len(q['jumps']), bad=len(r.bad),
                    wash=await r.wash(), land=round(await pg.evaluate('scrollY')))
         fold = await pg.evaluate(FOLD_JS)
         if fold and out['wash']:
             out['wash']['how'] = fold['how']
+        if q['swallowed']:
+            out['taps'] = q['swallowed']   # (the hidden thumb's mouse and click events the probe kept from the page: wash_probe.js)
         if q['jumps']:
             out['jump'] = q['jumps'][:3]
         if q['calls']:

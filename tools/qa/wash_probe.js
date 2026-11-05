@@ -114,13 +114,20 @@
     if (!hidden) qa.fingers = e.touches.length;
     if (e.type === 'touchmove') moved();
     if (!qa.fingers && qa.pending) { qa.landedUnder++; qa.pending = 0; }   // lifted with no move after it: the scroll stays
-    if (hidden) { e.stopImmediatePropagation(); return; }
+    if (hidden) { qa.hiddenAt = now(); e.stopImmediatePropagation(); return; }
     // a flick armed by the harness: its momentum starts as the finger lifts, once the page has heard the lift
     if (e.type === 'touchend' && !qa.fingers && qa.armed) { const a = qa.armed; qa.armed = null; setTimeout(() => { qa.coasting = qa.coast(a.v, a.k, a.vmin); }); }
   };
   ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach((t) => W.addEventListener(t, onTouch, touchOpt));
   ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'gotpointercapture', 'lostpointercapture'].forEach((t) =>
     W.addEventListener(t, (e) => { if (qa.hidden && e.pointerType === 'touch') e.stopImmediatePropagation(); }, true));
+  // A hidden thumb that lands and lifts without moving is a tap to the browser: its click (and the mouse events before
+  // it) would reach the page and follow a link under the thumb (a card: the router's move scored as a wash jump). The
+  // page never hears that thumb, so it never hears its tap either: swallowed for 400ms after its last touch
+  qa.hiddenAt = -1e9; qa.swallowed = 0;
+  ['mousedown', 'mouseup', 'click', 'dblclick', 'auxclick', 'contextmenu'].forEach((t) => W.addEventListener(t, (e) => {
+    if (now() - qa.hiddenAt < 400) { e.preventDefault(); e.stopImmediatePropagation(); qa.swallowed++; }
+  }, true));
   ['wheel', 'keydown', 'mousedown'].forEach((t) => W.addEventListener(t, () => { qa.lastInput = now(); }, { capture: true, passive: true }));
   W.addEventListener('scroll', () => { const t = now(); if (t - Math.max(qa.lastInput, qa.lastMove) < 250) qa.lastMove = t; }, { capture: true, passive: true });
 

@@ -59,7 +59,7 @@
 }
 </script>
 <link rel="stylesheet" href="css/alchemist.css">
-<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), a page opening at the top of Home or Services has its dark piece under the bar (html.top-dark, until app.js's observer answers), the test site stays out of search, and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should the CDN script be slow */(function(d,h){h.classList.remove('no-js');try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#f8f5ee'}}catch(e){}if(/^#?(home|services)?$/.test(location.hash))h.classList.add('top-dark');if(/(^|\.)alchemist-detailing-test\./.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
+<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), a page opening at the top of Home or Services has its dark piece under the bar (html.top-dark, until app.js's observer answers), the test site stays out of search, a page opened directly at another page than Home keeps Home and the bar's name unseen until app.js shows that page (html.deep; let go after 3s should no script run), and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should the CDN script be slow */(function(d,h){h.classList.remove('no-js');if(/^(services|book|appointments|reviews|tips|faq|about|contact|account|admin|team|gallery)$/.test(location.hash.slice(1).split('-')[0])){h.classList.add('deep');setTimeout(function(){h.classList.remove('deep')},3000)}try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#f8f5ee'}}catch(e){}if(/^#?(home|services)?$/.test(location.hash))h.classList.add('top-dark');if(/(^|\.)alchemist-detailing-test\./.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
 </head>
 <body>
 <!-- BODY START -->
@@ -154,7 +154,7 @@
       </div>
       <p class="place" data-in style="--d:1350"><span>Parker, Texas</span> <span>Mobile within about 10 miles</span></p>
     </div>
-    <a class="scroll-cue" href="#home" data-scroll="standard" aria-label="Scroll down">Scroll<span></span></a>
+    <a class="scroll-cue" href="#home" data-scroll="standard" aria-label="Scroll down" data-in style="--d:1450">Scroll<span></span></a>
   </section>
 
   <section class="section standard" id="standard">

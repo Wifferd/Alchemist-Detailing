@@ -35,7 +35,7 @@
     // the database can't be reached on the real site (doc 42): no example data here
     if (D.isDown) return root.replaceChildren(U.outage(['The database can’t be reached right now. Reload the page in a few minutes.']));
     staff = await D.staffSession();
-    if (!staff) return root.replaceChildren(shell('Team sign-in', signIn()));
+    if (!staff) return root.replaceChildren(shell('Sign in', signIn()));   // (under its Team eyebrow, as Admin's)
     if (!['detailer', 'manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Team', el('div.bk-grid', el('p.bk-note', 'This account isn’t on the team.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
     if (st.jobs == null) await loadJobs();
     const today = H().isoDate(H().todayLocal());

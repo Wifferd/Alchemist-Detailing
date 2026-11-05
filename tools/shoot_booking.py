@@ -84,7 +84,7 @@ async def main():
         await days[min(3, len(days) - 1)].click()
         await pg.wait_for_selector('.choice-item.time', timeout=8000)
         times = await pg.query_selector_all('.choice-item.time')
-        await times[1].click()
+        await times[min(1, len(times) - 1)].click()   # (a day late in the preview week may have one time left)
         await shot(pg, '05-time', full=True)
         await pg.click('#bk-next')
         await pg.wait_for_selector('.sum')

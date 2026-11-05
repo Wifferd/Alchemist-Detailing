@@ -392,6 +392,7 @@
   // Leaving the Gallery (app.js): the scroll drift and the rise observer stop, and a resize no longer rebuilds the
   // grid, so no other page (the home wash least of all) pays for them. mount() starts them again.
   function unmount() {
+    if (isOpen) close();   // (a photo still open as the page goes: the page behind it is freed)
     if (window.__galDrift) window.removeEventListener('scroll', window.__galDrift);
     window.__galDrift = null;
     if (io) { io.disconnect(); io = null; }
@@ -401,10 +402,44 @@
 
   // ---------------------------------------------------------------- lightbox with previous / next
   let box = null, img = null, cap = null, desc = null, count = null, link = null, lastFocus = null, startX = null, showToken = 0;
+  // The open photo is a step of its own in the tab's history, at the same address (app.js's marks in the state are
+  // kept, and app.js hears only hashchange), so Back, a phone's swipe back too, closes it with the page where it was,
+  // as Back closes the menu; the next Back leaves the page. The X, Esc and the backdrop go back through that step;
+  // Forward onto it opens the photo again. Where the history can't be written (a sandboxed preview) they just close.
+  let isOpen = false, stepped = false, thenGo = null, backing = 0;
+  const lbOf = (s) => (s && typeof s === 'object' && s.lb) || null;
+  const withLb = (key) => { const s = history.state; const o = Object.assign({}, s && typeof s === 'object' ? s : null, { lb: key }); if (!key) delete o.lb; return o; };
+  // One Back of ours at a time: a second press before the history has answered (a double-click on the X, two taps
+  // behind a busy page) is the same press, never a second Back that would leave the page too. Should no answer come,
+  // the photo closes by itself
+  function goBack() {
+    if (backing) return;
+    backing = setTimeout(() => { backing = 0; if (isOpen) { stepped = false; close(); } follow(); }, 2000);
+    history.back();
+  }
+  // the services link, once the photo's step is gone: app.js follows it as any link
+  function follow() { if (thenGo) { const a = thenGo; thenGo = null; a.click(); } }
+  function dismiss() {
+    if (!isOpen || backing) return;
+    if (stepped && lbOf(history.state)) goBack(); else close();
+  }
+  window.addEventListener('popstate', () => {
+    clearTimeout(backing); backing = 0;
+    const lb = lbOf(history.state);
+    if (isOpen && !lb) {
+      stepped = false; close(); follow();
+    } else if (!isOpen && lb) {
+      const i = PHOTOS.findIndex((p) => p.key === lb);   // Forward onto a photo that was open: it opens again
+      if (i >= 0) { list = PHOTOS; stepped = true; open(i, true); }
+    }
+  });
+  window.addEventListener('hashchange', () => { if (isOpen) close(); });   // (a page change with a photo open: the page is freed)
+  // a reload with a photo open: the page comes back without it, so its step is passed back over, unseen
+  if (lbOf(history.state)) { try { history.back(); } catch (e) { /* not allowed here */ } }
   function ensureBox() {
     if (box) return;
-    box = el('div.lightbox.gal-box', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Photo', tabIndex: -1, hidden: true, onclick: (e) => { if (e.target === box) close(); } },
-      el('button.icon-btn.lightbox-x', { type: 'button', 'aria-label': 'Close', onclick: close }, icon('M6 6l12 12M18 6L6 18')),
+    box = el('div.lightbox.gal-box', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Photo', tabIndex: -1, hidden: true, onclick: (e) => { if (e.target === box) dismiss(); } },
+      el('button.icon-btn.lightbox-x', { type: 'button', 'aria-label': 'Close', onclick: dismiss }, icon('M6 6l12 12M18 6L6 18')),
       el('button.icon-btn.gal-prev', { type: 'button', 'aria-label': 'Previous photo', onclick: () => step(-1) }, icon('M15 6l-6 6 6 6')),
       el('button.icon-btn.gal-next', { type: 'button', 'aria-label': 'Next photo', onclick: () => step(1) }, icon('M9 6l6 6-6 6')),
       img = el('img', { alt: '' }),
@@ -413,12 +448,18 @@
       el('div.lightbox-foot',
         cap = el('p.lightbox-cap'), count = el('span.gal-count.tnum'),
         desc = el('p.lightbox-desc', { 'aria-hidden': 'true' }),
-        link = el('a.note-link.lightbox-go', { href: '#services', hidden: true, onclick: () => close() })));
+        link = el('a.note-link.lightbox-go', { href: '#services', hidden: true, onclick: (e) => {
+          // the photo's step goes first (Back closes the box), then the link, clicked again once it is gone (the
+          // router, app.js, hears only that second click): no stale step is left for Back to land on
+          if (backing) { e.preventDefault(); e.stopPropagation(); return; }   // (a second click while the first goes back)
+          if (!stepped || !lbOf(history.state)) { close(); return; }
+          e.preventDefault(); e.stopPropagation(); thenGo = link; goBack();
+        } })));
     box.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
     box.addEventListener('touchend', (e) => { if (startX == null) return; const dx = e.changedTouches[0].clientX - startX; if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1); startX = null; }, { passive: true });
     document.addEventListener('keydown', (e) => {
       if (box.hidden) return;
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') dismiss();
       if (e.key === 'ArrowRight') step(1);
       if (e.key === 'ArrowLeft') step(-1);
       if (e.key === 'Tab') {   // focus stays inside the open lightbox
@@ -445,13 +486,19 @@
       const g = groupOf(p);
       link.hidden = !g;
       if (g) { link.href = g[0]; link.replaceChildren(g[1], el('span.arrow', { 'aria-hidden': 'true' }, '→')); }
+      if (isOpen && stepped && lbOf(history.state)) { try { history.replaceState(withLb(p.key), ''); } catch (e) { /* kept as it was */ } }   // (Forward opens this one)
     };
     next.decode().then(go, go);
     [1, -1].forEach((d) => { const q = list[(current + d + list.length) % list.length]; if (q !== p) new Image().src = src(q.key, 1200); });
   }
   const outside = () => ['#main', '#topbar', '.footer'].map((s) => document.querySelector(s)).filter(Boolean);
-  function open(i) {
+  function open(i, again) {
     ensureBox();
+    if (!again) {
+      stepped = false;
+      try { history.pushState(withLb(list[(i + list.length) % list.length].key), ''); stepped = !!lbOf(history.state); } catch (e) { stepped = false; }
+    }
+    isOpen = true;
     lastFocus = document.activeElement;
     box.hidden = false;
     requestAnimationFrame(() => box.classList.add('on'));
@@ -467,8 +514,10 @@
   }
   function step(d) { show(current + d); }
   function close() {
+    if (!box) return;
+    isOpen = false;
     box.classList.remove('on');
-    setTimeout(() => { box.hidden = true; img.src = ''; }, 300);
+    setTimeout(() => { if (!isOpen) { box.hidden = true; img.src = ''; } }, 300);   // (unless it opened again meanwhile: Forward)
     U.holdPage(false);
     outside().forEach((n) => { n.inert = false; });
     if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });

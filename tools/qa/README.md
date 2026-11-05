@@ -5,6 +5,16 @@ Python, plus bash. Run everything from the repo root (`/home/user/alchemist-deta
 `site/`, talks to Supabase or deploys anything: every page runs in preview mode (the kit refuses requests to
 `*.supabase.co`).
 
+**The deployed-host mode** (`QA_DEPLOYED=1`, any script that uses `qalib`): the same local server, opened as the real
+domain, `thealchemistdetailing.com`, which Chromium maps to it (`--host-resolver-rules`), with `*.supabase.co` sent to a
+closed port. `config.js` then says `deployed`, so a database that can't be reached shows the outage notes (doc 42:
+`D.isDown`, `U.outage`, `.bk-down`) instead of the preview, as the live site would. On 127.0.0.1 a panel never sees
+them. `capture.py` waits up to 45 s for a page's loading note to go:
+
+```bash
+QA_DEPLOYED=1 CAP_ROUTES=book,account,appointments,gallery,admin,team CAP_MAX=2 python3 tools/qa/capture.py site $S/deployed
+```
+
 The browser is found by `qalib.chrome()`: `QA_CHROME` or `SHOOT_CHROME` if set, otherwise the Chromium in
 `/opt/pw-browsers` (this sandbox's Playwright is newer than its browsers, so Playwright's own path doesn't exist).
 WebGL runs in SwiftShader (no GPU here).
@@ -79,6 +89,10 @@ the mouse wheel (with a trackpad-like momentum) and clicks.
   them.
 - `chromium`: a Chromium phone: the same touch input, the engine's own flings, no undo.
 - `desk`: a computer, 1440x900.
+
+A hidden thumb that lands and lifts without moving is a tap to the browser. `wash_probe.js` keeps its click (and the
+mouse events before it) from the page for 400 ms after its last touch, so it never follows a link under the thumb (a
+router jump that used to be scored as a wash jump). The run line's `taps` counts the events it kept (a tap is about three: mousedown, mouseup, click).
 
 The harness's own scrolls (setup, the emulated momentum) run inside `__qa.own()` and are never counted. It never
 calls the page's own `progressTo` either, since that folds a finished wash.

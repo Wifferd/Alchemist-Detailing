@@ -1,6 +1,10 @@
 """Shared pieces of the QA kit: a local server for a site folder, the browser, the screen sizes, the routes,
 and waiting for a page's fonts and pictures. Every page the kit opens runs in preview mode: requests to Supabase
-are refused by the kit itself (it never talks to the live or the test project)."""
+are refused by the kit itself (it never talks to the live or the test project).
+
+The deployed-host mode (QA_DEPLOYED=1): the same local server, opened as the real domain (thealchemistdetailing.com,
+which Chromium maps to it), so config.js says deployed and a database that can't be reached shows the outage notes
+(data.js isDown, ui.js outage: doc 42) instead of the preview. Supabase is still refused."""
 import asyncio, contextlib, functools, glob, http.server, os, pathlib, socket, threading
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -20,6 +24,16 @@ GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftsh
 
 # requests the kit refuses: the database (preview mode, never the live project)
 BLOCK = ('supabase.co',)
+# the deployed-host mode: the domain mapped to the local server, Supabase to a closed port, neither through the proxy
+DEPLOYED_HOST = 'thealchemistdetailing.com'
+DEPLOYED_ARGS = [f'--host-resolver-rules=MAP {DEPLOYED_HOST} 127.0.0.1, MAP *.supabase.co 127.0.0.1:9',
+                 f'--proxy-bypass-list={DEPLOYED_HOST};*.supabase.co']
+
+
+def deployed():
+    return os.environ.get('QA_DEPLOYED') == '1'
+
+
 # failures that come from this sandbox, not from the site: the proxy refusing a host (supabase-js on jsDelivr,
 # sometimes a Google Fonts file) or its certificate
 ENV_ERRS = ('ERR_TUNNEL_CONNECTION_FAILED', 'ERR_PROXY', 'ERR_CERT', 'ERR_NAME_NOT_RESOLVED', 'ERR_INTERNET_DISCONNECTED')
@@ -51,7 +65,8 @@ class _Quiet(http.server.SimpleHTTPRequestHandler):
 
 @contextlib.contextmanager
 def serve(site_dir):
-    """Serves site_dir on a free local port; yields the base URL (ending in /)."""
+    """Serves site_dir on a free local port; yields the base URL (ending in /): 127.0.0.1, or the domain in the
+    deployed-host mode."""
     site_dir = str(pathlib.Path(site_dir).resolve())
     handler = functools.partial(_Quiet, directory=site_dir)
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
@@ -59,7 +74,7 @@ def serve(site_dir):
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
     try:
-        yield f'http://127.0.0.1:{srv.server_address[1]}/'
+        yield f'http://{DEPLOYED_HOST if deployed() else "127.0.0.1"}:{srv.server_address[1]}/'
     finally:
         srv.shutdown()
         srv.server_close()
@@ -72,7 +87,7 @@ def route_url(base, route, query=''):
 
 
 async def launch(p, gl=True, extra=()):
-    return await p.chromium.launch(executable_path=chrome(), args=(GL_ARGS if gl else ['--disable-gpu']) + list(extra))
+    return await p.chromium.launch(executable_path=chrome(), args=(GL_ARGS if gl else ['--disable-gpu']) + (DEPLOYED_ARGS if deployed() else []) + list(extra))
 
 
 async def context(browser, size, theme='dark', **kw):
