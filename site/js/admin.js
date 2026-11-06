@@ -125,6 +125,9 @@
     const sub = (location.hash.split('-')[1] || '').trim();
     if (SCREENS.some(([k]) => k === sub)) screen = sub;
     if (!ready) ready = (async () => { await D.init(); [settings, menu] = await Promise.all([D.settings(), D.menu()]); })();
+    // a note or link typed and not saved is let go on a new visit (a redraw, Refresh or the auto-refresh keep it,
+    // and its box shows it, so Save never stores text the box doesn't show)
+    st.noticeDraft = null; st.googleDraft = null;
     forget();
     render();
   }
@@ -146,6 +149,8 @@
     // a manager who types #admin-team or #admin-log: those screens are the admin's (the nav doesn't offer them)
     if (ADMIN_ONLY.includes(screen) && staff.role !== 'admin') return root.replaceChildren(shell(SCREENS.find(([k]) => k === screen)[1], el('div.bk-grid', el('p.bk-note', 'Only the admin sees this.'), el('div.acct-actions', el('a.btn.btn-glass', { href: '#admin-morning', onclick: (e) => { e.preventDefault(); screen = 'morning'; history.replaceState(null, '', '#admin-morning'); render(); } }, 'Back to Morning'))), true));
     if (st.bookings == null) { try { await loadBookings(); } catch (e) { st.bookings = []; toast(e.message); } }
+    // an Assign panel left open through a Refresh or a new visit (forget() lets the team list go): read it again
+    if (st.panel && st.panel.kind === 'assign' && st.staffList == null) { try { await loadStaff(); } catch (e) { st.staffList = []; toast(e.message); } }
     const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, team: team, settings: settingsScreen, log: logScreen }[screen];
     root.replaceChildren(shell(SCREENS.find(([k]) => k === screen)[1], await body(), true));
   }
@@ -299,19 +304,24 @@
     const p = st.panel;
     const close = () => { st.panel = null; render(); };
     const noteField = (label) => field({ id: 'p_note', label, multiline: true, rows: 2, maxlength: 1000, value: p.note || '', oninput: (e) => { p.note = e.target.value; } });
-    // Nothing reaches the customer from here (no texts yet, and a guest has no account): the owner calls or texts.
-    const callNote = () => el('p.bk-note', 'Nothing is sent from here. Call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', '. This only records it.');
+    // No text goes out from here (texts aren't set up): the owner calls or texts. A note on Decline, Cancel or Ask for
+    // info is not private, though: the database puts it in an account customer's notices and booking history
+    // (on_appointment_change, my_bookings); a guest booking has no account, so a guest never sees it.
+    const callNote = () => el('p.bk-note', 'No text is sent from here. Call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', '. This only records it.');
+    const seenNote = ' (the customer can read it if they booked with an account)';
     const box = el('div.adm-panel');
-    if (p.kind === 'decline') box.append(el('h3.bk-h2', 'Decline this request'), callNote(), noteField('Note (kept in the booking history)'), actions(() => act('decline_booking', { p_id: b.id, p_note: p.note || null }, 'Declined. Call or text the customer.'), 'Decline'));
-    if (p.kind === 'cancel') box.append(el('h3.bk-h2', 'Cancel this booking'), callNote(), noteField('Note (kept in the booking history)'), actions(() => act('cancel_booking', { p_id: b.id, p_note: p.note || null }, 'Cancelled. Call or text the customer.'), 'Cancel booking'));
-    if (p.kind === 'info') box.append(el('h3.bk-h2', 'Ask the customer for more information'), callNote(), noteField('What you need to know (kept in the booking history)'), actions(() => { if (!(p.note || '').trim()) return toast('Write what you need to know.'); act('ask_for_information', { p_id: b.id, p_note: p.note }, 'Marked as waiting for the customer. Call or text them.'); }, 'Mark as waiting'));
+    if (p.kind === 'decline') box.append(el('h3.bk-h2', 'Decline this request'), callNote(), noteField('Note' + seenNote), actions(() => act('decline_booking', { p_id: b.id, p_note: p.note || null }, 'Declined. Call or text the customer.'), 'Decline'));
+    if (p.kind === 'cancel') box.append(el('h3.bk-h2', 'Cancel this booking'), callNote(), noteField('Note' + seenNote), actions(() => act('cancel_booking', { p_id: b.id, p_note: p.note || null }, 'Cancelled. Call or text the customer.'), 'Cancel booking'));
+    if (p.kind === 'info') box.append(el('h3.bk-h2', 'Ask the customer for more information'), callNote(), noteField('What you need to know' + seenNote), actions(() => { if (!(p.note || '').trim()) return toast('Write what you need to know.'); act('ask_for_information', { p_id: b.id, p_note: p.note }, 'Marked as waiting for the customer. Call or text them.'); }, 'Mark as waiting'));
     if (p.kind === 'price') box.append(el('h3.bk-h2', b.price_pending ? 'Set the extra cost' : 'Extra cost'),
       el('p.bk-muted', b.price_pending ? 'Pending for: ' + pendingWords(b) + '. Enter the extra amount on top of the menu price (0 if none).' : 'Added on top of the menu price.'),
       el('div.bk-row.two', field({ id: 'p_cents', label: 'Extra amount ($)', inputmode: 'decimal', value: p.cents, oninput: (e) => { p.cents = e.target.value; } }), field({ id: 'p_note2', label: 'What for', optional: true, value: p.note, maxlength: 200, oninput: (e) => { p.note = e.target.value; } })),
       actions(() => {
-        // read as typed: "$1,200.50" is 1200.50; anything else is refused, never guessed ("1,200" was once $1.00)
-        const v = String(p.cents || '0').replace(/[$,\s]/g, '');
-        if (!/^\d{1,5}(\.\d{1,2})?$/.test(v)) return toast('Enter an amount like 25 or 25.50.');
+        // read as typed: "$1,200.50" is 1200.50; a comma only as a thousands mark ("12,50" is refused, never $1,250);
+        // anything else is refused, never guessed ("1,200" was once $1.00)
+        const raw = String(p.cents || '0').replace(/\s/g, '');
+        if (!/^\$?(\d{1,3}(,\d{3})+|\d{1,5})(\.\d{1,2})?$/.test(raw)) return toast('Enter an amount like 25 or 25.50.');
+        const v = raw.replace(/[$,]/g, '');
         act('set_extra_cost', { p_id: b.id, p_cents: Math.round(parseFloat(v) * 100), p_note: p.note || null }, 'Price set');
       }, 'Save price'));
     if (p.kind === 'lane') box.append(el('h3.bk-h2', 'Move to a lane'), choices({ id: 'p_lane', value: b.queue, size: 'chip', items: LANES.map(([c, l]) => ({ code: c, label: l })), onchange: (c) => { p.lane = c; } }), noteField('Note (optional)'), actions(() => act('set_booking_lane', { p_id: b.id, p_lane: p.lane || b.queue, p_note: p.note || null }, 'Moved'), 'Move'));
@@ -330,12 +340,18 @@
       // its field is left for anything but Save or Back, or on Enter, and the old chips stay, dimmed, until the
       // answer comes, so nothing moves under a press on Save; Save waits for it)
       const timesBox = el('div.adm-times');
+      // where staff_availability isn't on the database yet, the list is the customers' times (forCustomers): said so,
+      // since the team's rule takes more (today, and the times next to this booking)
+      const timesLabel = el('p.choice-label', p.forCustomers ? 'Times open to customers (the team can also type any start)' : 'Free times');
       const fillTimes = () => {
         const same = p.date === b.service_date;
         const listed = (p.times || []).filter((m) => !(same && m === b.start_min));
+        timesLabel.textContent = p.forCustomers ? 'Times open to customers (the team can also type any start)' : 'Free times';
         timesBox.removeAttribute('aria-busy'); timesBox.style.opacity = '';
         timesBox.replaceChildren(p.times == null ? el('p.bk-muted', 'Checking free times…')
-          : listed.length ? el('div.chips', listed.map((m) => chip(m))) : el('p.bk-muted', same ? 'None that day for this length. Keep the time, or type a start time below.' : 'None that day for this length. Type a start time below, or pick another day.'));
+          : listed.length ? el('div.chips', listed.map((m) => chip(m)))
+          : p.forCustomers ? el('p.bk-muted', 'No customer times that day for this length. ' + (same ? 'Keep the time, or type' : 'You can still type') + ' a start time below; the database checks it.')
+          : el('p.bk-muted', same ? 'None that day for this length. Keep the time, or type a start time below.' : 'None that day for this length. Type a start time below, or pick another day.'));
       };
       const askTimes = () => {
         const len = p.duration || b.duration_min, ask = p.date + ':' + len;
@@ -343,9 +359,12 @@
         const shown = timesBox.childNodes.length > 0;
         p.timesFor = ask; p.times = null;
         if (shown) { timesBox.setAttribute('aria-busy', 'true'); timesBox.style.opacity = '.45'; } else fillTimes();
-        D.staffTimes(b, p.date, len).then((t) => {
+        // kept, so a Save pressed while it is on its way waits for it (Safari doesn't focus a pressed button, so the
+        // Length field's blur can't tell that Save was pressed, and the request starts under the press)
+        p.asking = D.staffTimes(b, p.date, len).then((t) => {
           if (st.panel !== p || p.timesFor !== ask) return;
           p.times = t || [];
+          p.forCustomers = !!(t && t.forCustomers);
           // a chip picked for the old length that the new list doesn't have is let go (the Keep chip and a typed start stay)
           if (p.start != null && !p.other && !(p.date === b.service_date && p.start === b.start_min) && !p.times.includes(p.start)) p.start = null;
           fillTimes();
@@ -357,7 +376,17 @@
         onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); if (b.status !== 'in_progress') askTimes(); } } });
       // the database takes starts on its own grid only (open_starts, every slot_step_min): say so here, not "isn't free"
       const step = (settings && settings.slot_step_min) || 30;
-      const save = (ok) => actions(() => { if (b.status !== 'in_progress' && p.times == null) return toast('Wait for the free times.'); if (p.start == null) return toast('Pick a start time, or type one.'); if (p.start % step && p.start !== b.start_min) return toast('Start times go every ' + step + ' minutes, like 1 PM or 1:30 PM.'); act('set_booking_time', { p_id: b.id, p_date: p.date, p_start_min: p.start, p_duration_min: p.duration || null, p_note: null }, ok); }, 'Save');
+      const commit = (ok) => { if (p.start == null) return toast('Pick a start time, or type one.'); if (p.start % step && p.start !== b.start_min) return toast('Start times go every ' + step + ' minutes, like 1 PM or 1:30 PM.'); act('set_booking_time', { p_id: b.id, p_date: p.date, p_start_min: p.start, p_duration_min: p.duration || null, p_note: null }, ok); };
+      // the free times for a new length still on their way: Save waits for them (once), then checks the start against
+      // the new list; a day or length changed meanwhile drops the press
+      const save = (ok) => actions(() => {
+        if (b.status === 'in_progress' || p.times != null) return commit(ok);
+        if (!p.asking) return toast('Wait for the free times.');
+        if (p.saveWaiting) return;
+        const ask = p.timesFor;
+        p.saveWaiting = true;
+        p.asking.then(() => { p.saveWaiting = false; if (st.panel === p && p.timesFor === ask && p.times != null) commit(ok); });
+      }, 'Save');
       if (b.status === 'in_progress') {
         // a started job keeps its day and start; it can only get shorter
         box.append(el('h3.bk-h2', 'Change the length'), el('p.bk-muted', 'The job has started: it keeps its day and start (' + clock(b.start_min) + ') and can only get shorter.'), lenField, save('Length changed'));
@@ -366,7 +395,7 @@
       box.append(el('h3.bk-h2', 'Change the time'),
         el('div.bk-row.two', field({ id: 'p_date', label: 'Day', type: 'date', value: p.date, oninput: (e) => { p.date = e.target.value; p.start = null; p.other = ''; p.times = null; render(); } }), lenField),
         p.date === b.service_date ? el('div.chips', chip(b.start_min, 'Keep ' + clock(b.start_min))) : null,
-        el('p.choice-label', 'Free times'),
+        timesLabel,
         timesBox,
         field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start on the ' + (step === 30 ? 'hour or half hour' : step + '-minute mark') + '; the database checks it against the other jobs and the hours.', step: step * 60,
           // a cleared (or unfinished) entry picks nothing: Save then asks for a start, never the one that was cleared
@@ -393,10 +422,12 @@
     const today = H().isoDate(H().todayLocal()), tomorrow = H().isoDate(H().addDays(H().todayLocal(), 1));
     const all = st.bookings || [];
     const live = (b) => OPEN.includes(b.status);
+    // what holds time that day, the Calendar's rule: a request in the Spam lane holds none and stays in its lane
+    const holds = (b) => live(b) && !(['requested', 'needs_information'].includes(b.status) && b.queue === 'spam');
     const byHold = (a, b) => ((a.hold_expires_at || '') < (b.hold_expires_at || '') ? -1 : 1);
-    const todays = all.filter((b) => b.service_date === today && live(b));
+    const todays = all.filter((b) => b.service_date === today && holds(b));
     const needs = all.filter((b) => (b.status === 'requested' && b.queue !== 'spam') || b.price_pending && live(b)).sort(byHold);
-    const tmr = all.filter((b) => b.service_date === tomorrow && live(b));
+    const tmr = all.filter((b) => b.service_date === tomorrow && holds(b));
     const minutes = todays.reduce((a, b) => a + b.duration_min + (b.location_type === 'mobile' ? 10 : 0), 0);   // the 10-minute travel gap counts (doc 27, V-4)
     const needIds = new Set(needs.map((b) => b.id));
     // asked for information: the owner calls or texts, and the request stays in view (with its hold) until answered
@@ -496,7 +527,7 @@
       el('button.icon-btn.small', { type: 'button', 'aria-label': 'Later', onclick: () => { st.calDay = H().isoDate(H().addDays(start, days)); render(); } }, '›'),
       el('div.chips', mode('week', 'Week'), mode('day', 'Day'), el('button.link', { type: 'button', onclick: () => { st.calDay = null; render(); } }, 'Today')));
     const notice = el('section.acct-sec', el('h2.bk-h2', 'Note to customers', el('small', 'shown on the booking calendar')),
-      field({ id: 'customer_notice', label: 'Your note', optional: true, multiline: true, rows: 2, maxlength: 300, value: settings.customer_notice || '', hint: 'Display only. Empty hides it. Closed days are set above.', oninput: (e) => { st.noticeDraft = e.target.value; } }),
+      field({ id: 'customer_notice', label: 'Your note', optional: true, multiline: true, rows: 2, maxlength: 300, value: st.noticeDraft != null ? st.noticeDraft : (settings.customer_notice || ''), hint: 'Display only. Empty hides it. Closed days are set above.', oninput: (e) => { st.noticeDraft = e.target.value; } }),
       staff.role === 'admin' ? el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveNotice }, 'Save note')) : el('p.bk-muted', 'Only the admin can change it.'));
     const opened = (st.bookings || []).find((b) => b.id === st.open && b.service_date >= first && b.service_date <= last && !['requested', 'needs_information'].includes(b.status));
     return el('div.bk-grid', nav, el('div.cal-cols', { class: st.calMode }, cols), opened ? el('section.acct-sec', { id: 'cal-open' }, card(opened)) : null, notice);
@@ -516,7 +547,7 @@
     const text = (st.noticeDraft != null ? st.noticeDraft : settings.customer_notice || '').trim() || null;
     try {
       if (D.isLive) { const { error } = await sb().from('business_settings').update({ customer_notice: text, updated_at: new Date().toISOString() }).eq('id', 1); if (error) throw error; }
-      settings.customer_notice = text; toast('Note saved');
+      settings.customer_notice = text; st.noticeDraft = null; toast('Note saved');
     } catch (e) { toast(e.message || 'Not allowed'); }
   }
 
@@ -537,7 +568,7 @@
           el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => rv('reviewReply', r.id, st.panel.note, 'Reply saved') }, 'Save reply'), el('button.btn.btn-glass', { type: 'button', onclick: () => { st.panel = null; render(); } }, 'Back'))) : null));
     async function rv(fn, id, arg, ok) { try { await D[fn](id, arg); st.reviews = null; st.panel = null; toast(ok); render(); } catch (e) { toast(e.message); } }
     const link = el('section.acct-sec', el('h2.bk-h2', 'Google reviews link', el('small', 'shown on the Reviews page when set')),
-      field({ id: 'google_url', label: 'Link', optional: true, type: 'url', value: settings.google_reviews_url || '', hint: 'Starts with https://', oninput: (e) => { st.googleDraft = e.target.value; } }),
+      field({ id: 'google_url', label: 'Link', optional: true, type: 'url', value: st.googleDraft != null ? st.googleDraft : (settings.google_reviews_url || ''), hint: 'Starts with https://', oninput: (e) => { st.googleDraft = e.target.value; } }),
       staff.role === 'admin' ? el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveGoogle }, 'Save link')) : null);
     return el('div.bk-grid', groups.map(([k, title]) => { const list = st.reviews.filter((r) => r.status === k); return el('section.acct-sec', el('h2.bk-h2', title + ' \u00b7 ' + list.length), list.length ? list.map(card) : el('p.bk-empty', k === 'pending' ? 'No reviews waiting.' : '\u2014')); }), link);
   }
@@ -546,7 +577,7 @@
     if (text && !/^https:\/\//.test(text)) return toast('The link must start with https://');
     try {
       if (D.isLive) { const { error } = await sb().from('business_settings').update({ google_reviews_url: text, updated_at: new Date().toISOString() }).eq('id', 1); if (error) throw error; }
-      settings.google_reviews_url = text; toast('Link saved');
+      settings.google_reviews_url = text; st.googleDraft = null; toast('Link saved');
     } catch (e) { toast(e.message || 'Not allowed'); }
   }
 
@@ -635,7 +666,7 @@
     } else s.addressOnFile = false;
     const rows = [['Start times', clock(s.first_start_min) + ' – ' + clock(s.last_start_min) + ', every ' + s.slot_step_min + ' min'], ['Jobs end by', clock(s.latest_end_min)], ['Closed every week', closuresText((settings && settings.weekly_closures) || s.weekly_closures)], ['Book ahead', s.min_days_ahead + ' to ' + s.max_days_ahead + ' days'], ['Hold', s.hold_hours + ' hours'],
       ['At once', (s.max_shop_jobs != null ? s.max_shop_jobs + ' driveway or ' + s.max_mobile_jobs + ' mobile' : '—')], ['Gaps', (s.shop_buffer_min != null ? s.shop_buffer_min + ' min driveway, ' + s.mobile_buffer_min + ' min mobile travel' : '—')],
-      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], staff.role === 'admin' ? ['Your address', s.addressOnFile ? 'On file (sent only with confirmed "Come to us" bookings)' : 'Not set'] : ['Shop address', 'Only the admin sees it']];
+      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], staff.role === 'admin' ? ['Your address', s.addressOnFile ? 'On file (sent only with confirmed "Come to us" bookings)' : 'Not set'] : ['Shop address', 'Private: not shown here']];
     return el('div.bk-grid', el('p.bk-muted', 'Read-only for now. Ask Claude Code to change a value; the calendar note and closed days are under Calendar.'), el('dl.sum-body', rows.map(([k, v]) => [el('dt', k), el('dd', v)])));
   }
 

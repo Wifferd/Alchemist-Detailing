@@ -565,9 +565,13 @@
       if (mode === 'preview') return own(previewTimes(dateIso, duration, b.location_type));
       const { data, error } = await sb.rpc('staff_availability', { p_id: b.id, p_date: dateIso, p_duration: duration });
       if (!error) return data || [];
-      // a database without Migration 007 part 3 (no staff_availability yet): the customers' times, plus the booking's own start
+      // a database without Migration 007 part 3 (no staff_availability yet): the customers' times, plus the booking's own
+      // start, marked forCustomers so the console doesn't call them the free times (the booking still blocks its own
+      // neighbourhood there, and today is never in it)
       if (error.code !== 'PGRST202') throw fromDb(error);
-      return own(await rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: b.location_type }));
+      const t = own(await rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: b.location_type }));
+      t.forCustomers = true;
+      return t;
     },
 
     // Photos: re-encoded through a canvas first (strips location data, audit F-52).
