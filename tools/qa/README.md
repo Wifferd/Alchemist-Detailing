@@ -28,6 +28,7 @@ WebGL runs in SwiftShader (no GPU here).
 | `back_walk.py <site_dir\|url> <phone\|desk\|n360> <dark\|light> <scenario\|all> [out_dir]` | The Back button walks |
 | `smoke.py <site_dir\|url>` | Every route at desk and phone widths 360/390/440: errors, pictures, requests, sideways scroll |
 | `heads.py <site_dir> <out_dir> [label]` | The seven centred headings (the owner's Nov 5 answer): each title's offset from its column's centre, and a shot |
+| `budget.py <route> <site_a> <site_b> [walks] [out_dir]` | Hard rule 5's long tasks: a first visit on a phone (390x844, CPU slowed 4x) walked down a page, two sites in turn, each long task placed and (with a trace) split by cause |
 | `check_site.sh <out_dir> [wash]` | All of the checks in one go |
 | `wash_compare.py <baseline> <results>...` | Compares `wash.py` lines with the baseline |
 | `make_baseline.sh <scratch_dir> [commit]` | Writes `wash_baseline.txt` from the live site (main, 6dbb2c7) |
@@ -51,6 +52,10 @@ CAP_ROUTES=home,faq CAP_THEMES=dark CAP_SIZES=phone CAP_MAX=6 python3 tools/qa/c
 # the wash harness: one scenario, a list, or all; one mode, a list, or all
 python3 tools/qa/wash.py site ios fling
 python3 tools/qa/wash.py site ios,chromium,desk all
+
+# the long-task budget: Services on the live site (main, exported) against the working tree, 6 walks each, traced
+mkdir -p $S/live && git archive origin/main site | tar -x -C $S/live   # (once: the live site, b07fced on Nov 6)
+BUDGET_TRACE=1 BUDGET_WAIT=2.5 BUDGET_LABELS=live,head python3 tools/qa/budget.py services $S/live/site site 6 $S/budget
 
 # the Back walks
 python3 tools/qa/back_walk.py site phone dark owner $S/back
@@ -177,6 +182,44 @@ python3 tools/qa/heads.py site $S/heads after
 HEADS_REDUCE=1 HEADS_WIDTHS=1440,390 python3 tools/qa/heads.py site $S/heads after
 ```
 
+## budget.py
+
+Hard rule 5: on a 390x844 phone with the CPU slowed 4x, no new long task over 50 ms. Each walk is a first visit in a
+fresh browser (no cache, no storage): the page a visitor opens (no `?noadapt`), its fonts and the pictures in view
+settled, `BUDGET_IDLE` (2.5 s) for its opening, then a visitor's pace down to its foot: a 330 px drag lifted on a
+still finger (no fling, so both sites scroll the same distances), 0.75 s of reading, again. The two sites are walked
+in turn (A B B A A B ...), so they share the machine's load; `BUDGET_WAIT=2.5` waits (90 s at most) before each walk
+for the 1-minute load average to fall under 2.5. Each walk line gives the load at its start and end, `calib` (a fixed
+loop's time in the page: about 16-20 ms on a quiet machine at 4x; more means the machine was busy), the opening's
+long tasks and the walk's, each walk's as `ms@scrollY:block` (the block across the middle of the screen).
+
+**Read it like this.** The number that counts is the walk's long tasks from the page's own `longtask` observer, what
+the earlier panels counted. With `BUDGET_TRACE=1` the summary adds the trace's view, which is stricter: tasks over
+50 ms that are not garbage collection (the observer leaves V8's GC out, and it also misses some of the commit waits
+below), tasks over 30 ms (the ones a busier machine pushes over 50), the main thread's busy time, and the commit
+waits. Each traced task over 30 ms is split by self time into script, gc, style, layout, prepaint, paint, composite,
+animate, intersect, scroll, input, frame, decode, gpu and task, with its busiest events and the elements they name.
+Compare traced walks with traced walks: the trace has a cost of its own.
+
+**This sandbox's GPU is SwiftShader**, the CPU drawing for the GPU, on the same four cores as the page. Drawing that a
+phone's GPU does in a few ms takes 50 to 250 ms here: a live WebGL picture at plate size about 220 ms, a first
+drawing of a panel with big pictures and a wide blurred shadow 100 ms or more. The page's main thread doesn't run that
+work, but it waits for it: a frame's commit waits for its raster, and the raster waits behind the GPU process
+(`LayerTreeHost::WaitForCommitCompletion` in the trace, `commit waits` in the summary: [ms in all, how many over
+30 ms, the longest]). So in this harness a moment that keeps the GPU busy, or a big first drawing just as something
+comes on, shows as a long task. `BUDGET_TRACE=keep` keeps the trace; `BUDGET_CATS=viz,gpu.service,skia` and
+`BUDGET_TRACE_FROM=<scrollY>` show the GPU process's side (its `SkiaOutputSurfaceImplOnGpu::SwapBuffers`) for a part
+of the page; `BUDGET_TRACE=inval` adds which elements were invalidated and why.
+
+Other options: `BUDGET_RATE` (the slow-down), `BUDGET_THEME=light`, `BUDGET_ONLY=a|b` (one site), `BUDGET_QUERY`
+(`?noadapt`: every live scene at full quality, as the screenshot checks open the pages), `BUDGET_DUMP='js'` (a value
+read from the page at the end, kept in the walk's JSON).
+
+```bash
+BUDGET_TRACE=1 BUDGET_WAIT=2.5 BUDGET_LABELS=live,head python3 tools/qa/budget.py services $S/live/site site 6 $S/budget
+BUDGET_TRACE=keep BUDGET_TRACE_FROM=8300 BUDGET_CATS=viz,gpu.service,skia BUDGET_ONLY=b python3 tools/qa/budget.py services $S/live/site site 2 $S/budget-gpu
+```
+
 ## back_walk.py
 
 | Walk | What it checks |
@@ -280,3 +323,39 @@ is the only foam.js change allowed.
 runs, 0 undos, 0 jumps, every wash folded. `back_walk.py owner` on phone and desk: PASS. The full check with the
 wash on the working tree: 133 lines ok, 0 FAIL, 1 env line (jsDelivr refused by the proxy); its 33 wash lines all
 err 0.
+
+## The Services budget (Nov 6, 2026)
+
+`budget.py services`, live (origin/main, b07fced) against the design build, the two interleaved; load = the 1-minute
+load average at each walk's start and end (the walks' own load: one browser at a time, nothing else running).
+
+**Before** (99b2de4, 6 walks each, traced, load 0.61 to 3.05): live 0 long tasks in every walk; the design build
+1, 1, 3, 3, 1, 1 (10; 7 over 100 ms, the longest 176 ms), every one between scrollY 8,754 and 9,384, where the Bundles
+end and the Protection plate comes on.
+
+**What caused them**, each toggled on a copy, 3 or 4 walks a toggle:
+- Protection's live bead moment. In this sandbox each of its pictures is about 220 ms of SwiftShader work in the GPU
+  process (`SkiaOutputSurfaceImplOnGpu::SwapBuffers`), back to back for its 3.6 s: the page's frames starve and its
+  commits wait. No moment: 0, 1, 0. The moment with its first picture only: 1, 0, 0 (the one at the Interior).
+  Backdrop blur off (2, 3, 1) and the photo drawn ahead (3, 2, 1) changed nothing.
+- With the moment ended early, the Bead Test panel's first drawing as it rises (two 1400x900 pictures, two stills
+  under soft-light, a 90 px blurred shadow): commit waits of 150 to 250 ms at scrollY 9,318 to 9,384 in 6 of 10 walks
+  (and in 1 of 3 with no moment at all). Gone (the longest wait 4 to 8 ms) with no box shadows at all, with no shadow
+  on the panel (44 ms at most), with no shadow on the Book buttons, with the chapter bar's script off, and with the
+  panel a layer of its own from the start. Unchanged with blend modes, filters, masks, will-change, the scroll
+  timeline drifts, the backdrop blur, the fonts, eager pictures, the rinse, the cabin, the Table's moment, the chapter
+  bar's shadow, the seam's and badge's glow or text shadows off.
+- Smaller (40 to 58 ms frames): the Interior cabin's words and full stops lit on the main thread (inline spans, a
+  colour animation); the slow-device verdict's own frame (52 to 77 ms: the canvas removed, the photo and the titles
+  set in one frame); two price cards and their figures released in one frame under a plate's title.
+- Not kept: the scroll timeline drifts run only near the screen (main thread 7.3 s a walk either way).
+
+**After** (the fixes in app.js and alchemist.css, 8 walks each, traced, `BUDGET_WAIT=2`, load 1.34 to 3.14, median
+2.0): live 0 in every walk; the design build 0, 0, 1, 1, 0, 0, 0, 0 (2; none over 100 ms, the longest 70 ms), the
+longest commit wait 19 ms (before: 150 to 250 ms). The same tree alone, 4 walks: 1. Before the last two fixes (the
+verdict's frame, one card a frame), two interleaved runs: 1 in 6 against live's 2 in 6 (both live's own opening frame
+at the Table), and 4 in 6 against live's 0 in 6. What is left is a frame of 51 to 77 ms at a moment's turn (the Protection
+plate's photo and titles coming in, the Bundles plate's title setting, the Interior's cards, once a 47 ms commit wait
+at the Ritual): the design's frames carry more than live's (per second of the walk, style 1.6x, paint 1.35x,
+animation 1.9x), so a busier machine still pushes a few over 50 ms. In this sandbox the Protection plate shows its
+quick path (the photo up from black, the title rising); `?noadapt` plays the live beading as before.

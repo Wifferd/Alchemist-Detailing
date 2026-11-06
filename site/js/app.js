@@ -1158,14 +1158,26 @@
     headLast = c;
     headFree = t + LINE.at + (lines - 1) * LINE.gap + 520;   // its last line has all but landed
     setTimeout(() => markSeen(c, key), 0);
-    // the blocks under it that waited for it follow it, from the next frame (their wait for its lead is counted from
-    // its start, so they keep their time)
+    // the blocks under it that waited for it follow it, from the next frame, in order: RISE_MAX a frame, and one price
+    // card a frame (a card and its figure are a frame's painting on a slow phone: two together held the page up). Their
+    // wait for its lead is counted from its start, so they keep their time
     const fw = leadWaits.get(c);
     if (fw) { leadWaits.delete(c); fw.forEach((fn) => setTimeout(fn, now ? 0 : followHead(c))); }
     const w = waits.get(c);
     if (!w) return;
     waits.delete(c);
-    const go = () => { const list = [...w]; w.clear(); list.forEach((el) => rise(el)); };
+    const go = () => {
+      let n = 0, card = false;
+      for (const el of [...w]) {
+        const pc = el.matches('.price-card');
+        if (!now && (n >= RISE_MAX || (card && pc))) break;
+        w.delete(el);
+        rise(el);
+        n++;
+        card = card || pc;
+      }
+      if (w.size) requestAnimationFrame(go);
+    };
     if (now) go(); else requestAnimationFrame(go);
   }
   // A page's own moment that follows its heading (About's photo): it starts as the head's lead does, as the blocks
@@ -1977,7 +1989,8 @@
   // unmoved), travel(secs) (how far along that way the light is, 0 to 1; left out, the sweep's pass), light and sweep
   // (when the light comes up and when it passes: [from, to] in seconds; left out, BEAD's), before (the node the canvas
   // goes in front of), frame(secs, off) (after each picture; off: the light's offset then), lost() (the context was
-  // lost: it has stopped) }
+  // lost: it has stopped), slow() (the device can't draw it in time: it has stopped; given, the moment proves the
+  // device first: PROOF) }
   const BEAD = { light: [0.3, 1.9], form: [0.2, 2.4], sweep: [1.2, 2.8], roll: [1.6, 3.6], end: 4 };   // seconds
   const inOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const span = (secs, [a, b]) => Math.min(1, Math.max(0, (secs - a) / (b - a)));
@@ -1991,21 +2004,50 @@
   let beadsSeen = false;
   const beadsPlayed = () => { if (beadsSeen) return true; try { return sessionStorage.getItem(BEADS_KEY) === '1'; } catch (e) { return false; } };
   const beadsPlay = () => { beadsSeen = true; try { sessionStorage.setItem(BEADS_KEY, '1'); } catch (e) { /* storage unavailable: this page remembers */ } };
+  // A moment with a still to fall back on (o.slow) first proves that the device can draw it: its first picture goes up,
+  // and the next waits 100ms (four frames at least). A frame that comes 150ms or more late meanwhile, while the page
+  // itself was free (a message posted at the frame before came back within 50ms), means the graphics can't draw the
+  // paint in time (software graphics: each picture held the screen up for a fifth of a second): it draws no more, its
+  // canvas goes before it holds the page up (slowNow), and its owner shows its still instead. ?noadapt keeps every
+  // moment playing, as it keeps the hero and the foam at full quality (the screenshot checks)
+  const PROOF = { ms: 100, frames: 4, lag: 150, free: 50 }, adapt = !/[?&]noadapt/.test(location.search);
   function beadMoment(host, o) {
     const small = Math.min(window.innerWidth, window.innerHeight) < 700;
-    let cv = null, raf = 0, t0 = 0, last = 0, seen = true, W = 2, H = 2, way = sweepOf(0, 0);
+    let cv = null, raf = 0, t0 = 0, last = 0, seen = true, W = 2, H = 2, way = sweepOf(0, 0), proof = null;
     const watch = new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; });
     const sweep = (secs) => way.v0 + (way.v1 - way.v0) * (o.travel ? o.travel(secs) : inOut(span(secs, o.sweep || BEAD.sweep)));
     const at = (secs) => ({ live: true, studio: o.studio, intro: span(secs, o.light || BEAD.light), form: 1 - Math.pow(1 - span(secs, BEAD.form), 3), sweep: sweep(secs), sweepRange: way.range, roll: span(secs, BEAD.roll) });
     const draw = (secs) => window.AlchemistHero.art('beads', W, H, o.time + (o.run ? secs : 0), at(secs)) === cv;
     function stop() {
+      proof = null;
       cancelAnimationFrame(raf);
       watch.disconnect();
       if (cv) { cv.remove(); cv.classList.remove('live', 'on', 'settle'); cv.removeAttribute('style'); cv = null; }
       if (artHold) { artHold = false; paintArt(); }
     }
+    // the device can't draw it in time: no picture from this frame on; the canvas goes in a task of its own and the
+    // owner's still a frame after that, so neither lands on the frame that found it out, nor on the other
+    function slowNow() {
+      cancelAnimationFrame(raf);
+      proof = null;
+      setTimeout(() => { stop(); requestAnimationFrame(() => setTimeout(o.slow)); });
+    }
+    // how soon the page is free after a frame (proof.free, ms): a message posted now, and when it comes back
+    function ping(p) {
+      const sent = performance.now(), mc = new MessageChannel();
+      p.free = -1;
+      mc.port1.onmessage = () => { if (proof === p) p.free = performance.now() - sent; };
+      mc.port2.postMessage(0);
+    }
     function frame(now) {
       raf = requestAnimationFrame(frame);
+      if (proof) {
+        const p = proof, lag = p.prev && now - p.prev >= PROOF.lag && p.free >= 0 && p.free < PROOF.free;
+        if (lag && seen && !document.hidden) { slowNow(); return; }
+        p.prev = now;
+        if (++p.n < PROOF.frames || now - t0 < PROOF.ms) { ping(p); return; }
+        proof = null;   // proven: from here it draws on its own clock
+      }
       if (!seen || document.hidden || now - last < (small ? 31 : 15)) return;   // 30 fps on a phone, 60 elsewhere
       last = now;
       const secs = (now - t0) / 1000;
@@ -2033,6 +2075,7 @@
         host.insertBefore(cv, o.before || null);
         watch.observe(host);
         t0 = last = performance.now();
+        if (o.slow && adapt) ping(proof = { n: 0, prev: 0, free: -1 });
         raf = requestAnimationFrame(frame);
         return true;
       },
@@ -2141,6 +2184,8 @@
   // stops as soon as the edge has cleared the plate (4s at most). Its scene's time runs on with the moment. On a page
   // that has only just opened here (#services-protection), before the stills' context is up, it waits at most 300ms,
   // then the photo fades in and the title rises. A context lost on the way ends it at once: the photo and the title.
+  // A device whose graphics can't draw the paint in time (beadMoment's proof, its first picture) gets the photo coming
+  // up from black and the title, as on the quick path.
   const HAND = { sweep: [2.1, 3.7], close: [2.1, 2.8], soft: 0.14, lag: 0.035 };   // seconds; the edge's softness and its lag behind the bar's line (parts of the plate across the light)
   (function protection() {
     const plate = $('#svc-protection .group-plate');
@@ -2176,7 +2221,7 @@
     }
     // the light's way: up in its place until 2.1s, then across the paint and off it (one pass, --ease-in-out's curve)
     const travel = (secs) => inOut(span(secs, HAND.sweep));
-    const m = beadMoment(plate, { time: TIME, run: true, studio: false, path, travel, before: cap, frame: follow, lost: end });
+    const m = beadMoment(plate, { time: TIME, run: true, studio: false, path, travel, before: cap, frame: follow, lost: end, slow });
     // the edge each picture, just behind the bar's line on the plate's middle row; it comes in from beyond the plate's
     // near corner and closes up on the bar as the bar sets off (HAND.close), so it never shows ahead of the light
     function follow(secs, off) {
@@ -2200,6 +2245,13 @@
       plate.classList.remove('beading', 'crossing', 'handover', 'risen', 'quick');
       shade.remove();
       capGo();
+    }
+    // its paint comes too slowly on this device (beadMoment's slow, the canvas already gone): the moment's own timers
+    // go, and the photo comes up from the black with its title, as on its quick path
+    function slow() {
+      timers.forEach(clearTimeout);
+      light.stop(plate);
+      reveal();
     }
     // no moment: the photo fades in from the black paint and the title rises
     function reveal() {
