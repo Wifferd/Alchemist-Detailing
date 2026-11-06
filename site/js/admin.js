@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
-  const { el, money, minutesText, clock, longDate, shortDate, phonePretty, field, choices, miniBtn, showError, clearError, toast } = U;
+  const { el, money, minutesText, clock, longDate, shortDate, phonePretty, tel, field, choices, miniBtn, showError, clearError, toast } = U;
   const H = () => D.helpers;
 
   const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
@@ -20,11 +20,16 @@
   const roleOf = (r) => ROLE[r] || r;
   // a team member's name; the owner's own login has none on file (email only), so the email stands in
   const personName = (p) => (p && ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.email)) || 'Team member';
+  const laneOf = (q) => (LANES.find(([k]) => k === q) || [null, q])[1];
+  // what still holds time or needs doing
+  const OPEN = ['requested', 'needs_information', 'confirmed', 'in_progress'];
+  // the screens only the admin has (the nav doesn't list them for a manager)
+  const ADMIN_ONLY = ['team', 'log'];
   const pendingWords = (b) => (b.pending_reasons || []).map((c) => PENDING[c] || c).join(', ');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let root = null, staff = null, settings = null, menu = null, screen = 'morning', ready = null;
-  const st = { lane: 'requests', bookings: null, open: null, panel: null, calDay: null, calMode: 'week', staffList: null, customers: null, search: '', log: null, blocked: null, mfa: null, signin: { phone: '', sent: false } };
+  const st = { lane: 'requests', bookings: null, loadedAt: 0, open: null, panel: null, calDay: null, calMode: 'week', staffList: null, customers: null, search: '', log: null, blocked: null, mfa: null, signin: { phone: '', sent: false } };
 
   // ---------------------------------------------------------------- preview data (clearly marked examples)
   const PREVIEW = { bookings: [], staff: [], blocked: [], log: [], customers: [] };
@@ -67,6 +72,7 @@
       .select('*, items:appointment_items(code,name,kind,price_cents,mobile_cents,duration_min,included,sort), assignments:appointment_assignments(employee_id, profile:profiles!appointment_assignments_employee_id_fkey(first_name,last_name,email)), events:appointment_events(from_status,to_status,from_queue,to_queue,note,created_at)')
       .gte('service_date', from).is('anonymized_at', null).order('service_date').order('start_min');
     if (error) throw D.fail('load_failed', error.message);
+    st.loadedAt = Date.now();
     st.bookings = (data || []).map((b) => Object.assign(b, {
       items: (b.items || []).sort((x, y) => x.sort - y.sort),
       assignments: (b.assignments || []).map((a) => ({ employee_id: a.employee_id, name: personName(a.profile) })),
@@ -111,13 +117,22 @@
   }
 
   // ---------------------------------------------------------------- shell and gate
+  // Every visit to #admin reads the lists again (nothing alerts the owner to a new request, so a list kept from an
+  // earlier visit would hide it). Coming back to a tab left open does the same after a minute away.
+  function forget() { st.bookings = null; st.reviews = null; st.blocked = null; st.log = null; st.staffList = null; st.asks = null; }
   function mount(container) {
     root = container;
     const sub = (location.hash.split('-')[1] || '').trim();
     if (SCREENS.some(([k]) => k === sub)) screen = sub;
     if (!ready) ready = (async () => { await D.init(); [settings, menu] = await Promise.all([D.settings(), D.menu()]); })();
+    forget();
     render();
   }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !root || !root.isConnected || root.closest('[hidden]')) return;
+    if (st.bookings == null || Date.now() - st.loadedAt < 60000 || st.panel) return;   // not loaded yet, fresh, or a panel being filled in
+    forget(); render();
+  });
   async function render() {
     if (!root) return;
     root.replaceChildren(U.loading('Loading…'));
@@ -128,6 +143,8 @@
     if (!staff) return root.replaceChildren(shell('Sign in', signIn()));
     if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || (staff.phone ? phonePretty(staff.phone) : staff.email) || 'this login') + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); st.mfa = null; st.mfaError = null; render(); } }, 'Sign out')))));
     if (staff.mfaRequired && staff.aal !== 'aal2') return root.replaceChildren(shell('Authenticator', mfaStep()));
+    // a manager who types #admin-team or #admin-log: those screens are the admin's (the nav doesn't offer them)
+    if (ADMIN_ONLY.includes(screen) && staff.role !== 'admin') return root.replaceChildren(shell(SCREENS.find(([k]) => k === screen)[1], el('div.bk-grid', el('p.bk-note', 'Only the admin sees this.'), el('div.acct-actions', el('a.btn.btn-glass', { href: '#admin-morning', onclick: (e) => { e.preventDefault(); screen = 'morning'; history.replaceState(null, '', '#admin-morning'); render(); } }, 'Back to Morning'))), true));
     if (st.bookings == null) { try { await loadBookings(); } catch (e) { st.bookings = []; toast(e.message); } }
     const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, team: team, settings: settingsScreen, log: logScreen }[screen];
     root.replaceChildren(shell(SCREENS.find(([k]) => k === screen)[1], await body(), true));
@@ -135,9 +152,11 @@
   function shell(title, body, nav) {
     return el('div.bk.admin',
       !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — example data, nothing is saved. Names and bookings here are made up for the preview.') : null,
-      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; history.replaceState(null, '', '#admin-' + k); render(); } }, label))) : null,
+      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; st.bookings = null; st.asks = null; history.replaceState(null, '', '#admin-' + k); render(); } }, label))) : null,
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Admin'), el('h1.display.bk-title', title)),
-        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.mfa = null; st.mfaError = null; st.bookings = null; st.asks = null; render(); } }, 'Sign out')) : null),
+        staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')),
+          nav ? el('button.link', { type: 'button', onclick: () => { forget(); render(); } }, 'Refresh') : null,
+          el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.mfa = null; st.mfaError = null; st.bookings = null; st.asks = null; render(); } }, 'Sign out')) : null),
       body);
   }
   function signIn() {
@@ -147,7 +166,7 @@
     const box = el('div.bk-grid', el('p.bk-note', 'Team sign-in: your phone code, then your authenticator app.'),
       el('p.bk-muted', el('button.link', { type: 'button', onclick: () => { s.by = 'password'; render(); } }, 'Sign in with your email and password instead')),
       field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', value: s.phone, oninput: (e) => { s.phone = e.target.value; },
-        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendPhoneCode(s.phone); s.sent = true; render(); } catch (e) { showError(box, 'phone', e.message); } }) }),
+        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendPhoneCode(s.phone, null, { staff: true }); s.sent = true; render(); } catch (e) { showError(box, 'phone', e.message); } }) }),
       s.sent ? field({ id: 'phone_code', label: 'Code from the text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
         oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); }, trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
     async function confirm(code) { try { await D.verifyPhoneCode(s.phone, code); s.sent = false; render(); } catch (e) { showError(box, 'phone_code', e.message); } }
@@ -259,8 +278,14 @@
         admin && ['confirmed', 'in_progress', 'needs_information', 'requested'].includes(b.status) ? trig('cancel', 'Cancel booking', { cls: 'danger' }) : null),
       canDecide && b.price_pending ? el('p.bk-muted', 'Set the price first') : null,
       st.panel && st.panel.id === b.id ? panel(b) : null,
-      b.events && b.events.length ? el('details.adm-history', el('summary', 'History'), el('ul', b.events.map((e) => el('li', el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), ' · ', (e.from_status && e.to_status && e.from_status !== e.to_status) ? (STATUS[e.from_status] || e.from_status) + ' → ' + (STATUS[e.to_status] || e.to_status) : (e.to_queue ? 'Lane: ' + e.to_queue : 'Updated'), e.note ? el('i', ' — ' + e.note) : null)))) : null);
+      b.events && b.events.length ? el('details.adm-history', el('summary', 'History'), el('ul', b.events.map((e) => el('li', el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), ' · ', historyWords(e), e.note ? el('i', ' — ' + e.note) : null)))) : null);
     return body;
+  }
+  // one line of a booking's history: received, a status change, or a move to another lane
+  function historyWords(e) {
+    if (!e.from_status) return 'Request received';
+    if (e.to_status && e.from_status !== e.to_status) return (STATUS[e.from_status] || e.from_status) + ' → ' + (STATUS[e.to_status] || e.to_status);
+    return e.to_queue && e.to_queue !== e.from_queue ? 'Moved to ' + laneOf(e.to_queue) : 'Updated';
   }
   function priceLines(b) {
     const out = el('div.pr', (b.items || []).map((l) => el('div.pr-line', { class: l.included ? 'inc' : '' }, el('span', l.name, l.included ? el('small', ' · Included') : null), el('span.tnum', l.included ? '$0.00' : l.price_cents == null ? 'Pending' : money(l.price_cents)))));
@@ -274,35 +299,43 @@
     const p = st.panel;
     const close = () => { st.panel = null; render(); };
     const noteField = (label) => field({ id: 'p_note', label, multiline: true, rows: 2, maxlength: 1000, value: p.note || '', oninput: (e) => { p.note = e.target.value; } });
+    // Nothing reaches the customer from here (no texts yet, and a guest has no account): the owner calls or texts.
+    const callNote = () => el('p.bk-note', 'Nothing is sent from here. Call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', '. This only records it.');
     const box = el('div.adm-panel');
-    if (p.kind === 'decline') box.append(el('h3.bk-h2', 'Decline this request'), noteField('Reason (the customer may see it)'), actions(() => act('decline_booking', { p_id: b.id, p_note: p.note || null }, 'Declined'), 'Decline'));
-    if (p.kind === 'cancel') box.append(el('h3.bk-h2', 'Cancel this booking'), noteField('Reason'), actions(() => act('cancel_booking', { p_id: b.id, p_note: p.note || null }, 'Cancelled'), 'Cancel booking'));
-    if (p.kind === 'info') box.append(el('h3.bk-h2', 'Ask the customer for more information'), noteField('What do you need to know?'), actions(() => { if (!(p.note || '').trim()) return toast('Write what you need to know.'); act('ask_for_information', { p_id: b.id, p_note: p.note }, 'Sent back for information'); }, 'Send'));
+    if (p.kind === 'decline') box.append(el('h3.bk-h2', 'Decline this request'), callNote(), noteField('Note (kept in the booking history)'), actions(() => act('decline_booking', { p_id: b.id, p_note: p.note || null }, 'Declined. Call or text the customer.'), 'Decline'));
+    if (p.kind === 'cancel') box.append(el('h3.bk-h2', 'Cancel this booking'), callNote(), noteField('Note (kept in the booking history)'), actions(() => act('cancel_booking', { p_id: b.id, p_note: p.note || null }, 'Cancelled. Call or text the customer.'), 'Cancel booking'));
+    if (p.kind === 'info') box.append(el('h3.bk-h2', 'Ask the customer for more information'), callNote(), noteField('What you need to know (kept in the booking history)'), actions(() => { if (!(p.note || '').trim()) return toast('Write what you need to know.'); act('ask_for_information', { p_id: b.id, p_note: p.note }, 'Marked as waiting for the customer. Call or text them.'); }, 'Mark as waiting'));
     if (p.kind === 'price') box.append(el('h3.bk-h2', b.price_pending ? 'Set the extra cost' : 'Extra cost'),
       el('p.bk-muted', b.price_pending ? 'Pending for: ' + pendingWords(b) + '. Enter the extra amount on top of the menu price (0 if none).' : 'Added on top of the menu price.'),
       el('div.bk-row.two', field({ id: 'p_cents', label: 'Extra amount ($)', inputmode: 'decimal', value: p.cents, oninput: (e) => { p.cents = e.target.value; } }), field({ id: 'p_note2', label: 'What for', optional: true, value: p.note, maxlength: 200, oninput: (e) => { p.note = e.target.value; } })),
-      actions(() => { const cents = Math.round(parseFloat(p.cents || '0') * 100); if (!(cents >= 0)) return toast('Enter an amount.'); act('set_extra_cost', { p_id: b.id, p_cents: cents, p_note: p.note || null }, 'Price set'); }, 'Save price'));
+      actions(() => {
+        // read as typed: "$1,200.50" is 1200.50; anything else is refused, never guessed ("1,200" was once $1.00)
+        const v = String(p.cents || '0').replace(/[$,\s]/g, '');
+        if (!/^\d{1,5}(\.\d{1,2})?$/.test(v)) return toast('Enter an amount like 25 or 25.50.');
+        act('set_extra_cost', { p_id: b.id, p_cents: Math.round(parseFloat(v) * 100), p_note: p.note || null }, 'Price set');
+      }, 'Save price'));
     if (p.kind === 'lane') box.append(el('h3.bk-h2', 'Move to a lane'), choices({ id: 'p_lane', value: b.queue, size: 'chip', items: LANES.map(([c, l]) => ({ code: c, label: l })), onchange: (c) => { p.lane = c; } }), noteField('Note (optional)'), actions(() => act('set_booking_lane', { p_id: b.id, p_lane: p.lane || b.queue, p_note: p.note || null }, 'Moved'), 'Move'));
     if (p.kind === 'assign') box.append(el('h3.bk-h2', 'Who does this job?'),
       el('div.chips', (st.staffList || []).filter((s) => s.is_active).map((s) => { const on = b.assignments.some((a) => a.employee_id === s.id); return el('button.choice-item', { type: 'button', class: on ? 'on' : '', onclick: () => act(on ? 'unassign_employee' : 'assign_employee', { p_appointment: b.id, p_employee: s.id }, on ? 'Unassigned' : 'Assigned') }, el('span.choice-name', personName(s) + ' · ' + roleOf(s.role))); })),
       actions(null, null));
     if (p.kind === 'time') {
       // set_booking_time checks the new time with the team's rules (the booking itself left out, any day from today);
-      // the chips are only the times open to customers, so the current start and any typed start are offered too
+      // the chips are the free times under those same rules (staff_availability, Migration 007 part 3; where it isn't
+      // applied yet, the customers' times), and the current start and any typed start are offered too
       const typed = (v) => { const m = /^(\d{1,2}):(\d{2})/.exec(v || ''); return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
       const unmark = () => box.querySelectorAll('.choice-item.time').forEach((x) => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); });
       const chip = (m, label) => el('button.choice-item.time', { type: 'button', class: p.start === m ? 'on' : '', 'aria-pressed': p.start === m ? 'true' : 'false',
         onclick: (e) => { p.start = m; p.other = ''; const o = box.querySelector('#p_other'); if (o) o.value = ''; unmark(); e.currentTarget.classList.add('on'); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, label || clock(m));
-      // the customer times for the day and length now in the fields, drawn in place (a new length is asked again
-      // when its field is left for anything but Save or Back, and the old chips stay, dimmed, until the answer
-      // comes, so nothing moves under a press on Save)
+      // the free times for the day and length now in the fields, drawn in place (a new length is asked again when
+      // its field is left for anything but Save or Back, or on Enter, and the old chips stay, dimmed, until the
+      // answer comes, so nothing moves under a press on Save; Save waits for it)
       const timesBox = el('div.adm-times');
       const fillTimes = () => {
         const same = p.date === b.service_date;
         const listed = (p.times || []).filter((m) => !(same && m === b.start_min));
         timesBox.removeAttribute('aria-busy'); timesBox.style.opacity = '';
         timesBox.replaceChildren(p.times == null ? el('p.bk-muted', 'Checking free times…')
-          : listed.length ? el('div.chips', listed.map((m) => chip(m))) : el('p.bk-muted', 'None that day for this length. Keep the time, or type a start time below.'));
+          : listed.length ? el('div.chips', listed.map((m) => chip(m))) : el('p.bk-muted', same ? 'None that day for this length. Keep the time, or type a start time below.' : 'None that day for this length. Type a start time below, or pick another day.'));
       };
       const askTimes = () => {
         const len = p.duration || b.duration_min, ask = p.date + ':' + len;
@@ -310,15 +343,21 @@
         const shown = timesBox.childNodes.length > 0;
         p.timesFor = ask; p.times = null;
         if (shown) { timesBox.setAttribute('aria-busy', 'true'); timesBox.style.opacity = '.45'; } else fillTimes();
-        D.times(p.date, len, b.location_type).then((t) => { if (st.panel === p && p.timesFor === ask) { p.times = t || []; fillTimes(); } })
-          .catch(() => { if (st.panel === p && p.timesFor === ask) { p.times = []; fillTimes(); } });
+        D.staffTimes(b, p.date, len).then((t) => {
+          if (st.panel !== p || p.timesFor !== ask) return;
+          p.times = t || [];
+          // a chip picked for the old length that the new list doesn't have is let go (the Keep chip and a typed start stay)
+          if (p.start != null && !p.other && !(p.date === b.service_date && p.start === b.start_min) && !p.times.includes(p.start)) p.start = null;
+          fillTimes();
+        }).catch((e) => { if (st.panel === p && p.timesFor === ask) { p.times = []; fillTimes(); toast(e.message); } });
       };
       const lenField = field({ id: 'p_dur', label: 'Length (minutes)', inputmode: 'numeric', value: String(p.duration || b.duration_min),
         oninput: (e) => { p.duration = parseInt(e.target.value, 10) || b.duration_min; },
-        onblur: (e) => { if (b.status !== 'in_progress' && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.acct-actions'))) askTimes(); } });
+        onblur: (e) => { if (b.status !== 'in_progress' && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.acct-actions'))) askTimes(); },
+        onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); if (b.status !== 'in_progress') askTimes(); } } });
       // the database takes starts on its own grid only (open_starts, every slot_step_min): say so here, not "isn't free"
       const step = (settings && settings.slot_step_min) || 30;
-      const save = (ok) => actions(() => { if (p.start == null) return toast('Pick a start time, or type one.'); if (p.start % step && p.start !== b.start_min) return toast('Start times go every ' + step + ' minutes, like 1 PM or 1:30 PM.'); act('set_booking_time', { p_id: b.id, p_date: p.date, p_start_min: p.start, p_duration_min: p.duration || null, p_note: null }, ok); }, 'Save');
+      const save = (ok) => actions(() => { if (b.status !== 'in_progress' && p.times == null) return toast('Wait for the free times.'); if (p.start == null) return toast('Pick a start time, or type one.'); if (p.start % step && p.start !== b.start_min) return toast('Start times go every ' + step + ' minutes, like 1 PM or 1:30 PM.'); act('set_booking_time', { p_id: b.id, p_date: p.date, p_start_min: p.start, p_duration_min: p.duration || null, p_note: null }, ok); }, 'Save');
       if (b.status === 'in_progress') {
         // a started job keeps its day and start; it can only get shorter
         box.append(el('h3.bk-h2', 'Change the length'), el('p.bk-muted', 'The job has started: it keeps its day and start (' + clock(b.start_min) + ') and can only get shorter.'), lenField, save('Length changed'));
@@ -327,7 +366,7 @@
       box.append(el('h3.bk-h2', 'Change the time'),
         el('div.bk-row.two', field({ id: 'p_date', label: 'Day', type: 'date', value: p.date, oninput: (e) => { p.date = e.target.value; p.start = null; p.other = ''; p.times = null; render(); } }), lenField),
         p.date === b.service_date ? el('div.chips', chip(b.start_min, 'Keep ' + clock(b.start_min))) : null,
-        el('p.choice-label', 'Times open to customers'),
+        el('p.choice-label', 'Free times'),
         timesBox,
         field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start on the ' + (step === 30 ? 'hour or half hour' : step + '-minute mark') + '; the database checks it against the other jobs and the hours.', step: step * 60,
           // a cleared (or unfinished) entry picks nothing: Save then asks for a start, never the one that was cleared
@@ -353,22 +392,32 @@
   async function morning() {
     const today = H().isoDate(H().todayLocal()), tomorrow = H().isoDate(H().addDays(H().todayLocal(), 1));
     const all = st.bookings || [];
-    const live = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status);
+    const live = (b) => OPEN.includes(b.status);
+    const byHold = (a, b) => ((a.hold_expires_at || '') < (b.hold_expires_at || '') ? -1 : 1);
     const todays = all.filter((b) => b.service_date === today && live(b));
-    const needs = all.filter((b) => (b.status === 'requested' && b.queue !== 'spam') || b.price_pending && live(b)).sort((a, b) => (a.hold_expires_at || '') < (b.hold_expires_at || '') ? -1 : 1);
+    const needs = all.filter((b) => (b.status === 'requested' && b.queue !== 'spam') || b.price_pending && live(b)).sort(byHold);
     const tmr = all.filter((b) => b.service_date === tomorrow && live(b));
     const minutes = todays.reduce((a, b) => a + b.duration_min + (b.location_type === 'mobile' ? 10 : 0), 0);   // the 10-minute travel gap counts (doc 27, V-4)
-    // a booking that needs a decision opens under Needs you only; its copy under Today or Tomorrow is compact
-    const inNeeds = new Set(needs.map((b) => b.id));
+    const needIds = new Set(needs.map((b) => b.id));
+    // asked for information: the owner calls or texts, and the request stays in view (with its hold) until answered
+    const waiting = all.filter((b) => b.status === 'needs_information' && b.queue !== 'spam' && !needIds.has(b.id)).sort(byHold);
+    // a job left confirmed or started after its day stays here until it is started, completed or cancelled
+    const earlier = all.filter((b) => b.service_date < today && ['confirmed', 'in_progress'].includes(b.status));
+    // a booking that needs a decision opens under Needs you (or Waiting on the customer) only; its copy under Today
+    // or Tomorrow is compact
+    const inNeeds = new Set([...needs, ...waiting].map((b) => b.id));
     const tiles = el('div.adm-tiles',
       tile('today', todays.length, 'jobs today', minutesText(minutes) + ' booked', () => jump('today')),
       tile('needs', needs.length, 'need you', needs.length ? 'oldest hold: ' + (needs[0].hold_expires_at ? hoursLeft(needs[0].hold_expires_at) : '—') : 'all clear', () => jump('needs')),
       tile('tomorrow', tmr.length, 'tomorrow', '', () => jump('tomorrow')),
-      tile('admin-requests', all.filter((b) => b.queue === 'review' && live(b)).length, 'in review', '', () => { st.lane = 'review'; screen = 'requests'; history.replaceState(null, '', '#admin-requests'); render(); }));
+      // the Review lane's own count: requests waiting for a decision there (a confirmed booking keeps its lane)
+      tile('admin-requests', all.filter((b) => b.queue === 'review' && ['requested', 'needs_information'].includes(b.status)).length, 'in review', '', () => { st.lane = 'review'; screen = 'requests'; history.replaceState(null, '', '#admin-requests'); render(); }));
     if (st.asks == null) { try { await loadTeamAsks(); } catch (e) { st.asks = { reviews: [], jobs: [], error: e.message }; } }
     return el('div.bk-grid', tiles,
+      earlier.length ? section('Earlier, not finished', earlier, '', { id: 'earlier' }) : null,
       section('Today', todays, 'Nothing on today.', { id: 'today', compact: inNeeds }),
       section('Needs you', needs, 'No requests waiting.', { id: 'needs' }),
+      waiting.length ? section('Waiting on the customer', waiting, '', { id: 'waiting' }) : null,
       teamAsks(),
       section('Tomorrow', tmr, 'Nothing booked for tomorrow yet.', { id: 'tomorrow', compact: inNeeds }));
   }
@@ -425,12 +474,15 @@
     const days = st.calMode === 'day' ? 1 : 7;
     const start = st.calMode === 'day' ? base : H().addDays(base, -((base.getDay() + 6) % 7));   // back to Monday
     const first = H().isoDate(start), last = H().isoDate(H().addDays(start, days - 1));
-    const item = (b) => el('button.cal-item', { type: 'button', class: 'st-' + b.status + (isGold(b) ? ' gold' : '') + (st.open === b.id ? ' on' : ''), 'aria-expanded': st.open === b.id ? 'true' : 'false', title: name(b) + ' · ' + services(b) + ' · ' + vehicle(b), onclick: () => (st.open === b.id ? (st.open = null, st.panel = null, render()) : openBooking(b)) },
-      el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway')), isGold(b) ? el('span.rv-gold', 'Gold detail') : null);
+    // a request whose hold ran out no longer keeps the time from customers: it is dimmed and says so
+    const lapsed = (b) => ['requested', 'needs_information'].includes(b.status) && b.hold_expires_at && new Date(b.hold_expires_at) <= Date.now();
+    const item = (b) => el('button.cal-item', { type: 'button', class: 'st-' + b.status + (isGold(b) ? ' gold' : '') + (lapsed(b) ? ' lapsed' : '') + (st.open === b.id ? ' on' : ''), 'aria-expanded': st.open === b.id ? 'true' : 'false', title: name(b) + ' · ' + services(b) + ' · ' + vehicle(b) + (lapsed(b) ? ' · hold expired' : ''), onclick: () => (st.open === b.id ? (st.open = null, st.panel = null, render()) : openBooking(b)) },
+      el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway') + (lapsed(b) ? ' · hold expired' : '')), isGold(b) ? el('span.rv-gold', 'Gold detail') : null);
     const cols = [];
     for (let i = 0; i < days; i++) {
       const iso = H().isoDate(H().addDays(start, i)), past = iso < todayIso, today = iso === todayIso;
-      const items = (st.bookings || []).filter((b) => b.service_date === iso && !['declined', 'cancelled'].includes(b.status)).sort((a, b) => a.start_min - b.start_min);
+      // what holds time (and finished jobs); Spam requests hold none and stay in their lane
+      const items = (st.bookings || []).filter((b) => b.service_date === iso && !['declined', 'cancelled'].includes(b.status) && !(['requested', 'needs_information'].includes(b.status) && b.queue === 'spam')).sort((a, b) => a.start_min - b.start_min);
       const blocked = (st.blocked || []).find((x) => x.day === iso);
       cols.push(el('div.cal-col', { class: (blocked ? 'blocked' : '') + (past ? ' past' : today ? ' today' : ''), 'aria-current': today ? 'date' : null },
         el('h3.bk-h2', shortDate(iso), blocked ? el('small', ' closed') : null),
@@ -450,6 +502,10 @@
     return el('div.bk-grid', nav, el('div.cal-cols', { class: st.calMode }, cols), opened ? el('section.acct-sec', { id: 'cal-open' }, card(opened)) : null, notice);
   }
   async function toggleBlocked(iso, blocked) {
+    if (!blocked) {
+      const n = (st.bookings || []).filter((b) => b.service_date === iso && OPEN.includes(b.status) && b.queue !== 'spam').length;
+      if (n && !window.confirm(n + (n === 1 ? ' booking that day stays' : ' bookings that day stay') + ' booked: closing the day doesn\'t cancel or move them, and a request that day can\'t be confirmed until it is moved. Close the day anyway?')) return;
+    }
     try {
       if (!D.isLive) { if (blocked) PREVIEW.blocked = PREVIEW.blocked.filter((x) => x.day !== iso); else PREVIEW.blocked.push({ day: iso, reason: null }); }
       else { const q = blocked ? sb().from('blocked_days').delete().eq('day', iso) : sb().from('blocked_days').insert({ day: iso }); const { error } = await q; if (error) throw error; }
@@ -521,15 +577,20 @@
       el('p.bk-muted', 'The team: detailers, managers and the admin. Managers and the admin sign in with an authenticator code.'),
       (st.staffList || []).map((s) => el('div.veh', el('div.veh-main', el('b', [s.first_name, s.last_name].filter(Boolean).join(' ') || (s.phone ? phonePretty(s.phone) : s.email) || 'No name'), el('span.bk-muted', [roleOf(s.role), s.phone ? phonePretty(s.phone) : null, s.is_active ? null : 'inactive'].filter(Boolean).join(' · '))),
         admin && s.id !== staff.userId ? el('div.veh-actions',
-          el('button.link', { type: 'button', onclick: () => setRole(s) }, 'Change role'),
+          // the admin role isn't changed from here (set_user_role keeps one admin)
+          s.role !== 'admin' ? el('button.link', { type: 'button', onclick: () => setRole(s) }, 'Change role') : null,
           el('button.link', { type: 'button', onclick: () => setActive(s) }, s.is_active ? 'Deactivate' : 'Activate')) : null)),
-      admin ? el('section.acct-sec', el('h2.bk-h2', 'Add a team member'), el('p.bk-note', "Enter their mobile number and first name. They sign in with a text code, which works once texting is switched on (the texting service isn't connected yet, so the account can't sign in until then); managers add an authenticator the first time."),
+      admin ? el('section.acct-sec', el('h2.bk-h2', 'Add a team member'),
+        textCodes() ? el('p.bk-note', 'Enter their mobile number and first name. They sign in with a text code like everyone else; managers add an authenticator the first time.')
+          : el('p.bk-note', "Enter their mobile number and first name. Team members can't sign in until text codes are set up (Twilio): the account is ready for then, so don't assign them jobs yet. Managers add an authenticator the first time."),
         el('div.bk-row.two', field({ id: 't_phone', label: 'Mobile phone', type: 'tel', value: st.tPhone || '', oninput: (e) => { st.tPhone = e.target.value; } }), field({ id: 't_first', label: 'First name', value: st.tFirst || '', oninput: (e) => { st.tFirst = e.target.value; } })),
         choices({ id: 't_role', label: 'Role', size: 'chip', value: st.tRole || 'detailer', items: [{ code: 'detailer', label: 'Detailer' }, { code: 'manager', label: 'Manager' }], onchange: (c) => { st.tRole = c; } }),
         el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: addMember }, 'Create account'))) : null);
   }
   async function setRole(s) {
-    const next = { detailer: 'manager', manager: 'detailer', admin: 'admin' }[s.role];
+    const next = { detailer: 'manager', manager: 'detailer' }[s.role];
+    if (!next) return;
+    if (!window.confirm('Make ' + personName(s) + ' a ' + roleOf(next).toLowerCase() + '?' + (next === 'manager' ? ' Managers see every booking and customer once they add an authenticator.' : ''))) return;
     try { if (D.isLive) await D.rpc('set_user_role', { p_user: s.id, p_role: next }); else s.role = next; st.staffList = null; toast('Role: ' + roleOf(next)); render(); } catch (e) { toast(e.message); }
   }
   async function setActive(s) {
@@ -546,6 +607,9 @@
     } catch (e) { toast(e.message); }
   }
 
+  // Text codes work once Twilio Verify is connected (config.js textCodes); until then a phone-only team login can't sign in.
+  const textCodes = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.textCodes);
+
   // Hours closed every week (Migration 003), e.g. "Mon–Thu 4:00 PM – 8:00 PM · Fri 12:00 PM – 5:00 PM".
   function closuresText(list) {
     if (!list || !list.length) return 'None';
@@ -558,14 +622,20 @@
     });
     return groups.map((g) => (g.first === g.last ? DAY[g.first] : DAY[g.first] + '–' + DAY[g.last]) + ' ' + g.span).join(' · ');
   }
+  const SETTINGS_COLS = 'first_start_min,last_start_min,slot_step_min,latest_end_min,min_days_ahead,max_days_ahead,hold_hours,max_shop_jobs,max_mobile_jobs,shop_buffer_min,mobile_buffer_min,public_phone,public_area,mobile_radius_miles,require_mfa_for_managers';
   async function settingsScreen() {
-    let s = settings;
-    // the admin reads the whole row; a manager the working rules (get_public_settings has none of them), never the owner's address
-    const cols = staff.role === 'admin' ? '*' : 'first_start_min,last_start_min,slot_step_min,latest_end_min,min_days_ahead,max_days_ahead,hold_hours,max_shop_jobs,max_mobile_jobs,shop_buffer_min,mobile_buffer_min,public_phone,public_area,mobile_radius_miles,require_mfa_for_managers';
-    if (D.isLive) { const { data } = await sb().from('business_settings').select(cols).eq('id', 1).maybeSingle(); if (data) s = data; }
+    let s = Object.assign({}, settings);
+    if (D.isLive) {
+      // the working rules this screen shows (get_public_settings has none of them), never select('*'): the owner's
+      // home address stays in the database, for the admin too
+      const { data } = await sb().from('business_settings').select(SETTINGS_COLS).eq('id', 1).maybeSingle();
+      if (data) Object.assign(s, data);
+      // whether an address is on file, asked without reading it (the row comes back only when it is set)
+      if (staff.role === 'admin') { const { data: on } = await sb().from('business_settings').select('id').eq('id', 1).not('shop_address', 'is', null).maybeSingle(); s.addressOnFile = !!on; }
+    } else s.addressOnFile = false;
     const rows = [['Start times', clock(s.first_start_min) + ' – ' + clock(s.last_start_min) + ', every ' + s.slot_step_min + ' min'], ['Jobs end by', clock(s.latest_end_min)], ['Closed every week', closuresText((settings && settings.weekly_closures) || s.weekly_closures)], ['Book ahead', s.min_days_ahead + ' to ' + s.max_days_ahead + ' days'], ['Hold', s.hold_hours + ' hours'],
       ['At once', (s.max_shop_jobs != null ? s.max_shop_jobs + ' driveway or ' + s.max_mobile_jobs + ' mobile' : '—')], ['Gaps', (s.shop_buffer_min != null ? s.shop_buffer_min + ' min driveway, ' + s.mobile_buffer_min + ' min mobile travel' : '—')],
-      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], staff.role === 'admin' ? ['Your address', s.shop_address ? 'On file (sent only with confirmed "Come to us" bookings)' : 'Not set'] : ['Shop address', 'Only the admin sees it']];
+      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], staff.role === 'admin' ? ['Your address', s.addressOnFile ? 'On file (sent only with confirmed "Come to us" bookings)' : 'Not set'] : ['Shop address', 'Only the admin sees it']];
     return el('div.bk-grid', el('p.bk-muted', 'Read-only for now. Ask Claude Code to change a value; the calendar note and closed days are under Calendar.'), el('dl.sum-body', rows.map(([k, v]) => [el('dt', k), el('dd', v)])));
   }
 
@@ -578,17 +648,30 @@
   const LOG_REVIEW = { review_approved: 'Review published', review_hidden: 'Review hidden', review_pending: 'Review back to waiting' };
   function logText(e) {
     const o = e.old_value || {}, n = e.new_value || {}, i = { insert: 0, update: 1, delete: 2 }[e.action];
+    const ch = (k) => JSON.stringify(o[k]) !== JSON.stringify(n[k]);
+    // the booking's ref and the team member's name, when the console has them loaded
+    const refOf = (id) => { const b = id && (st.bookings || []).find((x) => x.id === id); return b ? ' · ' + b.ref : ''; };
+    const who = (id) => { const p = id && (st.staffList || []).find((x) => x.id === id); return p ? ' ' + personName(p) : ''; };
     if (LOG_REVIEW[e.action]) return LOG_REVIEW[e.action];
     if (e.target_type === 'appointments') {
       const ref = (n.ref || o.ref) ? ' · ' + (n.ref || o.ref) : '';
       if (e.action === 'insert') return 'New request' + ref;
       if (e.action === 'delete') return 'Booking removed' + ref;
-      if (o.status !== n.status) return (LOG_STATUS[n.status] || n.status) + ref;
-      if (o.queue !== n.queue) return 'Moved to ' + ((LANES.find(([k]) => k === n.queue) || [])[1] || n.queue) + ref;
-      if (o.service_date !== n.service_date || o.start_min !== n.start_min || o.duration_min !== n.duration_min) return 'Time changed' + ref;
-      if (o.extra_cost_cents !== n.extra_cost_cents) return 'Price set' + ref;
+      if (ch('status')) return (LOG_STATUS[n.status] || n.status) + ref;
+      if (ch('queue')) return 'Moved to ' + laneOf(n.queue) + ref;
+      if (ch('service_date') || ch('start_min') || ch('duration_min')) return 'Time changed' + ref;
+      if (ch('extra_cost_cents')) return 'Price set' + ref + (n.extra_cost_cents != null ? ' (' + money(n.extra_cost_cents) + ' extra)' : '');
+      if (n.anonymized_at && !o.anonymized_at) return 'Personal details removed' + ref;
       return 'Booking updated' + ref;
     }
+    if (e.target_type === 'appointment_assignments' && i != null) return LOG_TABLE.appointment_assignments[i] + who(n.employee_id || o.employee_id) + refOf(n.appointment_id || o.appointment_id);
+    if (e.target_type === 'blocked_days' && i != null) { const day = n.day || o.day; return LOG_TABLE.blocked_days[i] + (day ? ' · ' + shortDate(day) : ''); }
+    if (e.target_type === 'profiles' && e.action === 'update') {
+      if (ch('role')) return 'Role changed:' + (who(e.target_id) || ' a login') + ' is now ' + roleOf(n.role);
+      if (ch('is_active')) return (n.is_active ? 'Activated' : 'Deactivated') + (who(e.target_id) || ' a login');
+    }
+    if ((e.target_type === 'review_requests' || e.target_type === 'job_requests') && i != null) return LOG_TABLE[e.target_type][i] + refOf(n.appointment_id || o.appointment_id);
+    if (e.target_type === 'vehicles' && i != null) return ['Customer added a vehicle', 'Customer changed a vehicle', 'Customer removed a vehicle'][i];
     if (LOG_TABLE[e.target_type] && i != null) return LOG_TABLE[e.target_type][i];
     // the menu and the other settings tables
     return (['Added', 'Changed', 'Removed'][i] || e.action) + ' · ' + String(e.target_type || '').replace(/_/g, ' ');
@@ -598,9 +681,12 @@
       if (!D.isLive) { seedPreview(); st.log = PREVIEW.log; }
       else { const { data } = await sb().from('audit_log').select('id,action,target_type,target_id,created_at,actor_id,old_value,new_value').order('created_at', { ascending: false }).limit(100); st.log = data || []; }
     }
+    // who did it: a team member by name (a customer's own change, or the system's, has no team name)
+    if (st.staffList == null) { try { await loadStaff(); } catch (e) { st.staffList = []; } }
+    const by = (id) => { const p = id && (st.staffList || []).find((x) => x.id === id); return p ? ' · ' + personName(p) : ''; };
     // two columns (the time, what happened); the items are display: contents, so the roles say what they are
-    return el('div.bk-grid', el('p.bk-muted', 'The last 100 actions.'), st.log.length ? el('ul.adm-log', { role: 'list' }, st.log.map((e) => el('li', { role: 'listitem' }, el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), el('span', logText(e))))) : el('p.bk-empty', 'Nothing yet.'));
+    return el('div.bk-grid', el('p.bk-muted', 'The last 100 changes, newest first.'), st.log.length ? el('ul.adm-log', { role: 'list' }, st.log.map((e) => el('li', { role: 'listitem' }, el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), el('span', logText(e), el('small.bk-muted', by(e.actor_id)))))) : el('p.bk-empty', 'Nothing yet.'));
   }
 
-  window.AlchemistAdmin = { mount, refresh: () => { st.bookings = null; st.asks = null; } };
+  window.AlchemistAdmin = { mount, refresh: forget };
 })();

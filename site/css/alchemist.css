@@ -1762,11 +1762,13 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .cal-item small { color: var(--muted); font-size: 11px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* two lines of the services, the rest in the title */
 .cal-item .rv-gold { height: 20px; padding: 0 8px; font-size: 9.5px; justify-self: start; margin-top: 2px; }
 .cal-item.st-requested, .cal-item.st-needs_information { border-style: dashed; }
+.cal-item.lapsed { opacity: .55; }   /* a request whose hold ran out: it keeps no time from customers */
 .cal-item.gold { border-color: rgba(226, 185, 82, .5); }
 /* the log: the time in one column, what happened in the other */
 .adm-log { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; color: var(--ink-2); font-size: 14px; }
 .adm-log li { display: contents; }
 .adm-log .tnum { color: var(--muted); white-space: nowrap; }
+.adm-log small { font-size: inherit; }
 .admin .sum-body { grid-template-columns: 200px 1fr; max-width: 760px; }
 .bk-notice { display: grid; gap: 6px; padding: 14px 18px; border-radius: var(--r-md); border: 1px solid var(--line); background: radial-gradient(100% 120% at 0% 0%, rgba(226, 185, 82, .12), transparent 60%); }
 .bk-notice p { margin: 0; color: var(--ink); }
