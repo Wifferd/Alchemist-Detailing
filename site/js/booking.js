@@ -27,7 +27,7 @@
     vehicle_id: 2, vehicle_make: 2, vehicle_model: 2, vehicle_year: 2, vehicle_color: 2, vehicle_type: 2, vehicle_size: 2, vehicle_description: 2,
     modifications: 2, conditions: 2, stains: 2, damage: 2, damage_note: 2, photos: 2,
     location_type: 3, address: 3, address_zip: 3,
-    services: 4, bundle: 4, exterior: 4, interior: 4, addons: 4, special_request: 4,
+    services: 4, bundle: 4, exterior: 4, interior: 4, addons: 4, special_request: 2,   // the notes field is on step 02
     service_date: 5, start_min: 5,
   };
   const ICONS = {
@@ -40,6 +40,9 @@
   // ---------------------------------------------------------------- state
   let root = null, settings = null, menu = null, session = null, phone = null;
   let step = 1, farthest = 1, renderedStep = 0, busy = false, mounted = false;
+  // a phone confirmed with a code on this page: only that session is signed out once the request is in (a
+  // session that was here before, such as the owner's console sign-in, is left alone)
+  let signedInHere = false;
   const blank = {
     contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '' }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
@@ -165,7 +168,9 @@
   async function adopt(s) {
     session = s;
     const c = st.contact, v = st.vehicle;
-    if (s) {
+    // a session that books as a guest (no confirmed phone: the owner's email-and-password console sign-in) fills
+    // nothing in: its name and email are not the customer's, and a guest booking keeps no email
+    if (s && !guest()) {
       if (!c.first) c.first = s.firstName || '';
       if (!c.last) c.last = s.lastName || '';
       if (s.phone) c.phone = phonePretty(s.phone);
@@ -247,7 +252,17 @@
     render();
     focusTitle();
   }
-  function go(n) { if (!busy) show(n); }
+  // The step bar can jump past an edit that dropped the quote (a new vehicle type, place or condition): the quote
+  // is worked out again first, so the times and the Summary are for what is chosen now.
+  async function go(n) {
+    if (busy) return;
+    if (n >= 5 && mainsChosen() && !st.quote) {
+      const q = await refreshQuote();
+      if (!st.quote) { show(4); if (q && q.error) showDbError(q.error); return; }
+    }
+    if (n >= 5) syncWhen();
+    show(n);
+  }
 
   async function next() {
     const ok = await validate(step);
@@ -258,6 +273,9 @@
   }
 
   // ---------------------------------------------------------------- validation per step (the database checks again)
+  // The database turns away emoji, web addresses and < > in every text field (public.is_clean_text) with a
+  // message about links; the page says what it really is first.
+  const PLAIN = 'Please use plain text: no links, emoji or < >.';
   // Every problem a step has, so they can all be marked at once.
   function problems(n) {
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when, H = D.helpers;
@@ -273,24 +291,30 @@
     }
     if (n === 2) {
       if (!v.vehicleId) {
-        if (v.notSure) { if (!v.description.trim()) bad('vehicle_description', 'Describe the vehicle in a few words (no links).'); }
+        if (v.notSure) { if (!v.description.trim()) bad('vehicle_description', 'Describe the vehicle in a few words (no links).'); else if (!H.isCleanText(v.description)) bad('vehicle_description', PLAIN); }
         else {
           if (!v.make.trim()) bad('vehicle_make', 'Enter the vehicle make.');
+          else if (!H.isCleanText(v.make)) bad('vehicle_make', PLAIN);
           if (!v.model.trim()) bad('vehicle_model', 'Enter the vehicle model.');
+          else if (!H.isCleanText(v.model)) bad('vehicle_model', PLAIN);
+          if (v.color.trim() && !H.isCleanText(v.color)) bad('vehicle_color', PLAIN);
           if (v.year.trim() && !/^\d{4}$/.test(v.year.trim())) bad('vehicle_year', 'Enter a 4-digit year.');
           if (!v.type) bad('vehicle_type', 'Choose a vehicle type.');
         }
       }
       if (!v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
       if (v.conditions.includes('other') && !s.notes.trim()) bad('special_request', 'Describe it in a few words.');
+      else if (!H.isCleanText(s.notes)) bad('special_request', PLAIN);
       if (!v.damage.length) bad('damage', 'Choose "No known damage" or the damage you know of.');
       const needsNote = menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code));
       if (needsNote && !v.damageNote.trim()) bad('damage_note', 'Describe the damage in a few words.');
+      else if (!H.isCleanText(v.damageNote)) bad('damage_note', PLAIN);
     }
     if (n === 3) {
       if (!l.type) bad('location_type', 'Choose "We come to you" or "Come to us".');
       if (l.type === 'mobile') {
         if (!l.address.trim()) bad('address', 'Enter the street address where the vehicle will be.');
+        else if (!H.isCleanText(l.address)) bad('address', PLAIN);
         if (!/^\d{5}$/.test(l.zip.trim())) bad('address_zip', 'Enter a 5-digit ZIP code.');
         else if (!menu.zips.has(l.zip.trim())) bad('address_zip', zipHint());
       }
@@ -459,7 +483,7 @@
     const c = st.contact;
     try {
       session = await D.verifyPhoneCode(c.phone, code, { first: c.first.trim(), last: c.last.trim() });
-      c.phoneConfirmed = true;
+      c.phoneConfirmed = true; signedInHere = true;
       if (session && session.firstName && !c.first) c.first = session.firstName;
       try { st.vehicle.saved = await D.myVehicles(); } catch (e) { /* none */ }
       render(); toast('Phone confirmed');
@@ -738,11 +762,12 @@
 
   // ---------------------------------------------------------------- 05 Date and time
   function stepWhen() {
+    syncWhen();
     const w = st.when, q = st.quote;
     const box = el('div.bk-grid');
     const names = q ? q.lines.filter((l) => !l.included && !l.condition).map((l) => l.name).join(' + ') : '';
     box.appendChild(el('div.bk-chosen', el('div', el('span.eyebrow', 'Your service'), el('b', names), el('span.bk-muted', 'About ' + minutesText(q ? q.duration_min : 0) + (q && q.total_cents != null ? ' · ' + money(q.total_cents) : ' · price confirmed by us'))), el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')));
-    const today = D.helpers.todayLocal();
+    const today = D.helpers.todayIn(settings.timezone);   // the booking window counts from Parker's today, not the browser's
     const first = D.helpers.addDays(today, settings.min_days_ahead), last = D.helpers.addDays(today, settings.max_days_ahead);
     if (!w.month) w.month = new Date(first.getFullYear(), first.getMonth(), 1);
     if (settings.customer_notice) box.appendChild(el('div.bk-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', settings.customer_notice)));
@@ -788,15 +813,30 @@
     loadCalendar();
     return box;
   }
+  // The free days depend on the length and the place: another service, add-on or place starts the date step
+  // afresh (the days, and the times and start picked for the old ones), and a day already picked is asked again.
+  function syncWhen() {
+    const w = st.when, q = st.quote;
+    if (!q) return;
+    const sig = q.duration_min + ':' + st.location.type;
+    if (w.sig === sig) return;
+    const had = w.date;
+    Object.assign(w, { sig, calendar: {}, loaded: null, times: null, start: null });
+    if (had) pickDay(had);
+  }
   async function loadCalendar() {
     const w = st.when, q = st.quote;
     if (!q) return;
-    const from = D.helpers.isoDate(w.month > D.helpers.addDays(D.helpers.todayLocal(), settings.min_days_ahead) ? w.month : D.helpers.addDays(D.helpers.todayLocal(), settings.min_days_ahead));
+    syncWhen();
+    const sig = w.sig;
+    const today = D.helpers.todayIn(settings.timezone);
+    const from = D.helpers.isoDate(w.month > D.helpers.addDays(today, settings.min_days_ahead) ? w.month : D.helpers.addDays(today, settings.min_days_ahead));
     const days = Math.min(62, new Date(w.month.getFullYear(), w.month.getMonth() + 1, 0).getDate() + 7);
-    const key = from + ':' + days;
+    const key = sig + ':' + from + ':' + days;
     if (w.loaded === key) return;
     try {
       const rows = await D.calendar(from, days, q.duration_min, st.location.type);
+      if (w.sig !== sig) return;   // the service or place changed while this was on its way
       rows.forEach((r) => { w.calendar[r.day] = r.available; });
       w.loaded = key;
       root.querySelectorAll('.cal-day').forEach((b) => {
@@ -804,7 +844,7 @@
         if (!(iso in w.calendar) || b.classList.contains('out')) return;
         b.classList.remove('unknown'); b.classList.toggle('full', w.calendar[iso] === false); b.classList.toggle('open', w.calendar[iso] === true);
         b.disabled = w.calendar[iso] === false;
-        if (w.calendar[iso] === false) b.setAttribute('aria-label', longDate(iso) + ', full');
+        b.setAttribute('aria-label', longDate(iso) + (w.calendar[iso] === false ? ', full' : ''));
       });
     } catch (e) { toast(e.message); }
   }
@@ -814,6 +854,8 @@
     root.querySelectorAll('.cal-day').forEach((b) => { const on = b.dataset.iso === iso; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     clearError(root, 'service_date');
     const t = root.querySelector('#bk-times'); if (t) t.replaceChildren(...timesBlock());
+    if (!st.quote) await refreshQuote();
+    if (!st.quote) { w.times = []; return go(4); }   // nothing to measure the times by: back to the service
     try { w.times = await D.times(iso, st.quote.duration_min, st.location.type); }
     catch (e) { w.times = []; toast(e.message); }
     if (st.when.date !== iso) return;   // another day was picked meanwhile
@@ -854,7 +896,7 @@
       v.photos.length ? ['Photos', v.photos.length + ' added'] : null]));
     box.appendChild(sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]));
     box.appendChild(sec('Service', 4, [['Service', q ? q.lines.filter((x) => !x.included && !x.condition).map((x) => x.name).join(' + ') : ''], s.notes.trim() ? ['Notes', s.notes.trim()] : null]));
-    box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + ' at ' + clock(w.start) + ' · about ' + minutesText(q ? q.duration_min : 0) : '']]));
+    box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + (w.start != null ? ' at ' + clock(w.start) : ' · pick a start time') + ' · about ' + minutesText(q ? q.duration_min : 0) : '']]));
     box.appendChild(el('div.bk-summary-card', q ? priceLines(q) : null));
     box.appendChild(el('p.bk-note', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.'));
     box.appendChild(el('p.bk-note', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request. We\'ll contact you to confirm.'));
@@ -876,9 +918,9 @@
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
       window.scrollTo({ top: cardTop(), behavior: 'auto' });
       render();
-      // the guest is signed out once the request is in (audit, flow step 7)
-      try { await D.signOut(); } catch (e) { /* nothing to do */ }
-      session = null;
+      // a phone confirmed here is signed out once the request is in (audit, flow step 7); a session that was
+      // here before (an account, or the owner's console) stays
+      if (signedInHere) { try { await D.signOut(); } catch (e) { /* nothing to do */ } session = null; signedInHere = false; }
     } catch (e) {
       busy = false;
       if (e.code === 'slot_unavailable') { st.when.start = null; st.when.times = null; st.when.loaded = null; st.when.calendar = {}; }
@@ -890,7 +932,7 @@
   // ---------------------------------------------------------------- Request sent
   function renderSent() {
     const r = st.receipt;
-    const holdEnds = r.hold_expires_at ? new Date(r.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
+    const holdEnds = r.hold_expires_at ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: settings.timezone || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
     // the monogram, from the symbol in the page (an SVG element proper, so it draws)
     const mark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     mark.setAttribute('aria-hidden', 'true');

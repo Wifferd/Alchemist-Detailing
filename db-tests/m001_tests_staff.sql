@@ -143,9 +143,11 @@ select tst.setv('open_refs', (select string_agg(a.ref, ',' order by a.service_da
 select tst.ok(tst.getv('open_refs') like '%' || (select ref from public.appointments where id = tst.getv('s4')::uuid) || '%', 'open jobs: setup has an open job');
 select tst.login('00000000-0000-4000-8000-0000000000c1');
 set role authenticated;
-select tst.eq(tst.q('select count(*) from public.appointments'), '3', 'detailer: sees only the jobs assigned to them');
-select tst.ok(tst.q($q$select count(*) from public.appointments where contact_phone is not null$q$) = '3', 'detailer: assigned jobs in full, contact details included');
-select tst.eq(tst.q($q$select count(distinct appointment_id) from public.appointment_items$q$), '3', 'detailer: lines of assigned jobs only');
+-- Since Migration 007s (doc 28: no prices, no customer phone or email for a detailer) the booking tables are for
+-- managers only, and a detailer's jobs come through my_jobs(), which has no contact or price columns.
+select tst.ok(tst.q('select count(*) from public.my_jobs(current_date - 365)')::int between 1 and 3, 'detailer: my_jobs lists only the jobs assigned to them (confirmed, started or done)');
+select tst.eq(tst.q('select count(*) from public.appointments'), '0', 'detailer: no booking rows from the table (no contact details or prices; Migration 007s)');
+select tst.eq(tst.q($q$select count(*) from public.appointment_items$q$), '0', 'detailer: no booking lines from the table (no prices; Migration 007s)');
 select tst.eq(tst.q($q$select count(*) from public.appointment_assignments$q$), '3', 'detailer: own assignments only');
 select tst.eq(tst.q($q$select count(*) from public.profiles$q$), '1', 'detailer: no customer profiles');
 select tst.eq(tst.q($q$select string_agg(ref, ',' order by service_date, start_min) from public.open_jobs(60)$q$),

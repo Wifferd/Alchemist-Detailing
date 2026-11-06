@@ -120,7 +120,7 @@
         field({ id: 'first_name', label: 'First name', required: true, value: acct.first, autocomplete: 'given-name', maxlength: 40, oninput: (e) => { acct.first = e.target.value; clearError(root, 'first_name'); } }),
         field({ id: 'last_name', label: 'Last name', optional: true, value: acct.last, autocomplete: 'family-name', maxlength: 40, oninput: (e) => { acct.last = e.target.value; clearError(root, 'last_name'); } })),
       el('div.bk-row.two',
-        el('div.fld', el('span.fld-label', 'Mobile phone'), el('p.acct-static', el('span.tnum', phonePretty(session.phone || '') || '—'), el('small', ' confirmed ✓'))),
+        el('div.fld', el('span.fld-label', 'Mobile phone'), el('p.acct-static', session.phone ? [el('span.tnum', phonePretty(session.phone)), el('small', session.phoneConfirmed ? ' confirmed ✓' : ' (not confirmed)')] : el('span.bk-muted', 'None on file'))),
         el('div.fld', el('span.fld-label', 'Email'), el('p.acct-static', session.email || el('span.bk-muted', 'None on file')))),
       el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveProfile }, 'Save name'), el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))));
 
@@ -265,7 +265,7 @@
           el('dt', 'Vehicle'), el('dd', b.vehicle ? (b.vehicle.not_sure ? b.vehicle.description : [b.vehicle.year, b.vehicle.make, b.vehicle.model, b.vehicle.color && '· ' + b.vehicle.color].filter(Boolean).join(' ')) : ''),
           el('dt', 'Length'), el('dd', 'About ' + minutesText(b.duration_min)),
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
-          b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))] : null),
+          b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { timeZone: settings.timezone || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))] : null),
         el('div.bk-summary-card', priceLines(b)),
         b.status === 'completed' ? reviewBlock(b) : null,
         el('p.bk-muted', 'Payment in person after your detail. To cancel or change, call ', tel(phone), '.')) : null);
@@ -286,10 +286,12 @@
     }
     paintStars();
     const box = el('div.adm-panel', { dataset: { field: 'review' } }, el('h3.bk-h2', 'How was your detail?'), stars,
-      field({ id: 'review_body', label: 'A few words', required: true, multiline: true, rows: 3, maxlength: 1000, value: f.body, hint: 'Shown with your first name and last initial once the owner approves it. No links.', oninput: (e) => { f.body = e.target.value; } }),
-      el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: async () => {
+      field({ id: 'review_body', label: 'A few words', required: true, multiline: true, rows: 3, maxlength: 1000, value: f.body, hint: 'Shown with your first name and last initial once the owner approves it. No links or emoji.', oninput: (e) => { f.body = e.target.value; } }),
+      el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: async (ev) => {
+        // one press, one review: the button waits for the answer (a second press used to send a second one)
+        const btn = ev.currentTarget; if (btn.disabled) return; btn.disabled = true;
         try { await D.submitReview(b.id, f.rating, f.body); appts.form = null; appts.list = null; toast('Thank you! Your review is waiting for approval.'); renderAppointments(); }
-        catch (e) { if (!showError(roots.appointments, e.hint === 'body' ? 'review_body' : e.hint, e.message)) toast(e.message); }
+        catch (e) { btn.disabled = false; if (!showError(roots.appointments, e.hint === 'body' ? 'review_body' : e.hint, e.message)) toast(e.message); }
       } }, 'Send review'), el('button.btn.btn-glass', { type: 'button', onclick: () => { appts.form = null; renderAppointments(); } }, 'Cancel')));
     return box;
   }

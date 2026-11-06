@@ -59,7 +59,8 @@ begin
   perform tst.login(det, 'aal1');
   execute 'set local role authenticated';
   perform tst.ok(public.is_staff(), p || ': detailer at aal1 is staff');
-  perform tst.eq((select count(*)::text from public.appointments), n_det::text, p || ': detailer sees their assigned bookings');
+  -- since Migration 007s a detailer reads their bookings through my_jobs(), not the table (doc 28)
+  perform tst.eq((select count(*)::text from public.appointments), '0', p || ': detailer reads no bookings from the table (Migration 007s)');
   perform tst.eq((select count(*)::text from public.notifications), n_det_notes::text, p || ': detailer sees their notices');
   perform tst.ok((select count(*) >= 0 from public.open_jobs()), p || ': detailer: open_jobs answers');
   execute 'reset role';

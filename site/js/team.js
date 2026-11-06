@@ -37,12 +37,19 @@
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Team sign-in', signIn()));
     if (!['detailer', 'manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Team', el('div.bk-grid', el('p.bk-note', 'This account isn\'t on the team.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); render(); } }, 'Sign out')))));
+    // managers and the admin read team jobs only after their authenticator code (Migration 006): without it every
+    // list would be empty, so the page says what to do instead
+    if (['manager', 'admin'].includes(staff.role) && staff.mfaRequired && staff.aal !== 'aal2') {
+      return root.replaceChildren(shell('Authenticator', el('div.bk-grid', el('p.bk-note', 'Enter the code from your authenticator app first. It is asked on the Admin page.'),
+        el('div.acct-actions', el('a.btn.btn-gold', { href: '#admin' }, 'Go to the Admin page')))));
+    }
     if (st.jobs == null) await loadJobs();
     const today = H().isoDate(H().todayLocal());
     const mine = st.jobs.filter((j) => ['confirmed', 'in_progress'].includes(j.status));
     const todays = mine.filter((j) => j.service_date === today), later = mine.filter((j) => j.service_date > today), past = st.jobs.filter((j) => j.status === 'completed').slice(0, 10);
     root.replaceChildren(shell('My jobs',
       el('div.bk-grid',
+        st.jobsError ? el('p.bk-note', { role: 'alert' }, st.jobsError) : null,
         section('Today', todays, 'No jobs today.'),
         section('Coming up', later, 'Nothing assigned yet.'),
         openJobsSection(),
@@ -69,23 +76,39 @@
     return box;
   }
 
+  // A database error in words: the database's own sentence (P0001), never a raw one.
+  const said = (e, fallback) => (e && e.code === 'P0001' && (e.details || e.message)) || (e && e.isBooking && e.code !== 'unknown' && e.message) || fallback;
   async function loadJobs() {
+    st.jobsError = null;
     if (!D.isLive) { seed(); st.jobs = PREVIEW.slice(); return; }
-    // Only the columns a detailer needs: no price, no contact details (doc 28). The database limits rows to assigned jobs.
-    const { data, error } = await D.client().from('appointments')
-      .select('id,ref,service_date,start_min,duration_min,location_type,address,address_zip,status,vehicle_year,vehicle_make,vehicle_model,vehicle_color,vehicle_type,vehicle_size,vehicle_not_sure,vehicle_description,modifications,conditions,damage,damage_note,special_request,photo_paths, items:appointment_items(code,name,included,sort)')
-      .gte('service_date', H().isoDate(H().addDays(H().todayLocal(), -14))).order('service_date').order('start_min');
-    if (error) { toast(error.message); st.jobs = []; return; }
-    st.jobs = (data || []).map((j) => Object.assign(j, { items: (j.items || []).sort((a, b) => a.sort - b.sort) }));
+    const from = H().isoDate(H().addDays(H().todayLocal(), -14));
+    // my_jobs (Migration 007s): the jobs assigned to this login, with only what a detailer may see (doc 28: no
+    // price, no customer phone or email). The database decides both, not this page.
+    let { data, error } = await D.client().rpc('my_jobs', { p_from: from });
+    if (error && error.code === 'PGRST202') {
+      // a database without my_jobs yet: the same columns, and only this login's assignments (a manager's or the
+      // admin's read would otherwise list every booking as theirs)
+      ({ data, error } = await D.client().from('appointments')
+        .select('id,ref,service_date,start_min,duration_min,location_type,address,address_zip,status,vehicle_year,vehicle_make,vehicle_model,vehicle_color,vehicle_type,vehicle_size,vehicle_not_sure,vehicle_description,modifications,conditions,damage,damage_note,special_request,photo_paths, items:appointment_items(code,name,included,sort), mine:appointment_assignments!inner(employee_id)')
+        .eq('mine.employee_id', staff.userId).in('status', ['confirmed', 'in_progress', 'completed'])
+        .gte('service_date', from).order('service_date').order('start_min'));
+    }
+    if (error) { st.jobs = []; st.jobsError = said(error, "Your jobs couldn't load. Press Refresh, or call the owner."); return; }
+    st.jobs = (data || []).map((j) => Object.assign(j, { items: (j.items || []).slice().sort((a, b) => a.sort - b.sort) }));
   }
   async function loadOpenJobs() {
+    st.openJobsError = null;
     if (!D.isLive) { st.openJobs = [{ id: 'open-1', ref: 'AD-EXAMPL7', service_date: H().isoDate(H().addDays(H().todayLocal(), 3)), start_min: 720, duration_min: 60, area: 'Plano 75074', vehicle: '2020 Honda Civic (Blue)', services: ['Exterior Basic'], requested_by_me: false }]; return; }
-    try { st.openJobs = await D.rpc('open_jobs', { p_days: 14 }); } catch (e) { st.openJobs = []; }
+    try { st.openJobs = (await D.rpc('open_jobs', { p_days: 14 })) || []; }
+    catch (e) { st.openJobs = []; st.openJobsError = said(e, "Open jobs couldn't load. Press Refresh."); }
   }
+  // open_jobs lists every line by name, the condition fees too ("Pet hair"): those are not work to ask for
+  const openServices = (j) => { const fees = new Set(menu.services.filter((x) => /^cond_/.test(x.code)).map((x) => x.name)); return (j.services || []).filter((n) => !fees.has(n)).join(' + '); };
   function openJobsSection() {
     if (st.openJobs == null) { loadOpenJobs().then(render); return el('section.acct-sec', el('h2.bk-h2', 'Open jobs'), el('p.bk-muted', 'Checking…')); }
     return el('section.acct-sec', el('h2.bk-h2', 'Open jobs', el('small', 'confirmed, nobody assigned yet')),
-      st.openJobs.length ? st.openJobs.map((j) => el('div.veh', el('div.veh-main', el('b', shortDate(j.service_date) + ' · ' + clock(j.start_min) + ' · ' + minutesText(j.duration_min)), el('span.bk-muted', (j.services || []).join(' + ') + ' · ' + j.vehicle + ' · ' + j.area)),
+      st.openJobsError ? el('p.bk-note', { role: 'alert' }, st.openJobsError)
+        : st.openJobs.length ? st.openJobs.map((j) => el('div.veh', el('div.veh-main', el('b', shortDate(j.service_date) + ' · ' + clock(j.start_min) + ' · ' + minutesText(j.duration_min)), el('span.bk-muted', openServices(j) + ' · ' + j.vehicle + ' · ' + j.area)),
         el('div.veh-actions', j.requested_by_me ? el('span.bk-muted', 'Asked ✓') : el('button.link', { type: 'button', onclick: () => askForJob(j) }, 'Ask for this job')))) : el('p.bk-empty', 'None right now.'));
   }
   async function askForJob(j) {

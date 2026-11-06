@@ -72,13 +72,29 @@
     e.code = code; e.hint = hint || ''; e.isBooking = true;
     return e;
   }
-  // The database's errors arrive as { message: code, details: text, hint: field }.
+  // The database's own errors arrive as { code: 'P0001', message: code, details: text, hint: field }. Anything
+  // else never shows its raw text: a dropped connection carries a JavaScript stack in its details, and a table
+  // check its failing row. A vehicle field the table refused is named (its check, by name); the rest get the
+  // friendly line with the phone number.
+  const generic = () => 'Something went wrong. Please try again, or call ' + ((settingsCache && settingsCache.public_phone) || SEED.settings.public_phone) + '.';
+  const CHECKS = {
+    vehicles_make_ok: ['vehicle_make', 'Use letters, numbers and simple punctuation for the make (no links, emoji or < >).'],
+    vehicles_model_ok: ['vehicle_model', 'Use letters, numbers and simple punctuation for the model (no links, emoji or < >).'],
+    vehicles_color_ok: ['vehicle_color', 'Use plain words for the colour, up to 30 characters (no links, emoji or < >).'],
+    vehicles_year_ok: ['vehicle_year', 'Enter a year between 1900 and 2100.'],
+  };
   function fromDb(err) {
-    if (!err) return fail('unknown', 'Something went wrong. Please try again.', '');
+    if (!err) return fail('unknown', generic(), '');
     if (err.isBooking) return err;
-    const code = err.code === 'P0001' || /^[a-z_]+$/.test(err.message || '') ? err.message : 'unknown';
-    const text = err.details || (code === 'unknown' ? 'Something went wrong. Please try again, or call ' + SEED.settings.public_phone + '.' : err.message);
-    return fail(code, text, err.hint || '');
+    if (err.code === 'P0001') return fail(err.message || 'unknown', err.details || err.message || generic(), err.hint || '');
+    if (err.code === '23514') {
+      const m = /"([a-z_]+)"\s*$/.exec(err.message || '') || /"(vehicles_[a-z]+_ok)"/.exec(err.message || '');
+      const c = m && CHECKS[m[1]];
+      if (c) return fail('invalid_input', c[1], c[0]);
+    }
+    if (err.code === '23505') return fail('wrong_state', 'That was already saved. Thank you!', '');
+    try { console.error(err); } catch (e) { /* nothing to do */ }
+    return fail('unknown', generic(), '');
   }
   const roundHalfUp = (x) => Math.floor(x + 0.5);
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -90,9 +106,25 @@
     const n = d.length === 10 ? '1' + d : d.length === 11 && d[0] === '1' ? d : null;
     return n && /^1[2-9][0-8]\d[2-9]\d{6}$/.test(n) && !/^[2-9]11$/.test(n.slice(4, 7)) && !(n.slice(4, 7) === '555' && n.slice(7, 9) === '01') ? n : null;
   }
-  const isValidName = (s) => /^[A-Za-zÀ-ÖØ-öø-ÿ' .-]{1,40}$/.test(String(s || '').trim()) && /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(s);
+  // The database's rule (public.is_valid_name): letters in any alphabet, with ' or the curly ’ (an iPhone types it),
+  // spaces, dots and hyphens between; it also turns away junk words, which it explains itself.
+  const isValidName = (s) => { const t = String(s || '').trim(); return t.length >= 1 && t.length <= 40 && /^\p{L}([\p{L}'\u2019 .-]*[\p{L}.])?$/u.test(t); };
+  // The database's rule for free text (public.is_clean_text): no web addresses, no < or >, no emoji, no control characters.
+  const isCleanText = (t) => t == null || t === '' || (
+    !/(https?:|www\.|\b[a-z0-9_-]+\.(com|net|org|io|co|app|me|ly|info|xyz|ru|cn|site|shop|link)\b)/i.test(t)
+    && !/[<>]/.test(t)
+    && !/[\u{1F000}-\u{1FAFF}\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]/u.test(t)
+    && !/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(t));
   const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(s || '').trim());
   const todayLocal = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  // Today where the business is (business_settings.timezone, America/Chicago): the booking window counts from it,
+  // whatever time zone the browser is in.
+  const todayIn = (tz) => {
+    try {
+      const p = new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).split('-');
+      return new Date(+p[0], +p[1] - 1, +p[2]);
+    } catch (e) { return todayLocal(); }
+  };
   const isoDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
@@ -302,7 +334,7 @@
     get isDown() { return mode !== 'live' && !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.deployed); },
     // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
     get guestBooking() { return !!(settingsCache && settingsCache.guest_booking); },
-    helpers: { normalizePhone, isValidName, isValidEmail, isoDate, addDays, todayLocal, uuid },
+    helpers: { normalizePhone, isValidName, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
 
     async settings() { await init(); return settingsCache; },
 
@@ -381,8 +413,11 @@
         color: String(v.color || '').trim() || null, vehicle_type: v.vehicle_type, size: v.size || 'standard', modifications: v.modifications || [],
       };
       if (!row.make || row.make.length > 40) throw fail('invalid_input', 'Enter the vehicle make.', 'vehicle_make');
+      if (!isCleanText(row.make)) throw fail('invalid_input', CHECKS.vehicles_make_ok[1], 'vehicle_make');
       if (!row.model || row.model.length > 40) throw fail('invalid_input', 'Enter the vehicle model.', 'vehicle_model');
-      if (v.year && !/^\d{4}$/.test(String(v.year))) throw fail('invalid_input', 'Enter a 4-digit year.', 'vehicle_year');
+      if (!isCleanText(row.model)) throw fail('invalid_input', CHECKS.vehicles_model_ok[1], 'vehicle_model');
+      if (v.year && !(/^\d{4}$/.test(String(v.year)) && +v.year >= 1900 && +v.year <= 2100)) throw fail('invalid_input', 'Enter a year between 1900 and 2100.', 'vehicle_year');
+      if (row.color && (row.color.length > 30 || !isCleanText(row.color))) throw fail('invalid_input', CHECKS.vehicles_color_ok[1], 'vehicle_color');
       if (!row.vehicle_type) throw fail('invalid_input', 'Choose a vehicle type.', 'vehicle_type');
       if (mode === 'preview') {
         if (v.id) { const i = previewVehicles.findIndex((x) => x.id === v.id); if (i >= 0) previewVehicles[i] = Object.assign({}, previewVehicles[i], row); return previewVehicles[i]; }
@@ -412,7 +447,11 @@
       if (!n) throw fail('invalid_input', 'Enter a 10-digit US phone number.', 'phone');
       if (mode === 'preview') { await new Promise((r) => setTimeout(r, 600)); return { sent: true, preview: true }; }
       const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: { data: { first_name: names && names.first || undefined, last_name: names && names.last || undefined } } });
-      if (error) throw fail('code_not_sent', error.message || "We couldn't send the code. Check the number, or call " + settingsCache.public_phone + '.', 'phone');
+      if (error) {
+        // never GoTrue's own words ("Unsupported phone provider", "Signups not allowed for otp"): what to do instead
+        if (error.status === 429 || /rate_limit/.test(error.code || '')) throw fail('too_many_requests', 'Please wait a minute before asking for another code.', 'phone');
+        throw fail('code_not_sent', "We can't text a code to this number right now. Call " + settingsCache.public_phone + '.', 'phone');
+      }
       return { sent: true };
     },
 
@@ -427,7 +466,11 @@
         return previewSession;
       }
       const { error } = await sb.auth.verifyOtp({ phone: '+' + n, token: c, type: 'sms' });
-      if (error) throw fail('bad_code', "That code didn't match. Check the text and try again.", 'phone_code');
+      if (error) {
+        // Supabase answers a wrong code and an old one the same way (otp_expired), so the message names both
+        if (error.status === 429 || /rate_limit/.test(error.code || '')) throw fail('too_many_requests', 'Too many tries. Wait a minute, then try again.', 'phone_code');
+        throw fail('bad_code', "That code didn't match, or it has expired. Check the text, or press Resend for a new one.", 'phone_code');
+      }
       return api.session();
     },
 
@@ -549,7 +592,8 @@
     async signOut() {
       await init();
       if (mode === 'preview') { previewSession = null; previewStaff = null; return; }
-      await sb.auth.signOut();
+      // this browser only: signing out here never ends the same login on another device
+      await sb.auth.signOut({ scope: 'local' });
     },
 
     // ---- reviews (Migration 002 part 5) ----
@@ -570,6 +614,7 @@
       const v = String(body || '').trim();
       if (!(rating >= 1 && rating <= 5)) throw fail('invalid_input', 'Choose 1 to 5 stars.', 'rating');
       if (!v || v.length > 1000 || /https?:\/\/|www\./i.test(v)) throw fail('invalid_input', 'Write a few words (under 1,000 characters, no links).', 'body');
+      if (!isCleanText(v)) throw fail('invalid_input', 'Please leave out emoji, web addresses and the < > signs.', 'body');
       if (mode === 'preview') {
         const b = previewBookings.find((x) => x.id === appointmentId);
         if (previewReviews.some((r) => r.appointment_id === appointmentId)) throw fail('wrong_state', "You've already reviewed this detail. Thank you!", 'appointment');
