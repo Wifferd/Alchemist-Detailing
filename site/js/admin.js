@@ -316,7 +316,9 @@
       const lenField = field({ id: 'p_dur', label: 'Length (minutes)', inputmode: 'numeric', value: String(p.duration || b.duration_min),
         oninput: (e) => { p.duration = parseInt(e.target.value, 10) || b.duration_min; },
         onblur: (e) => { if (b.status !== 'in_progress' && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.acct-actions'))) askTimes(); } });
-      const save = (ok) => actions(() => { if (p.start == null) return toast('Pick a start time, or type one.'); act('set_booking_time', { p_id: b.id, p_date: p.date, p_start_min: p.start, p_duration_min: p.duration || null, p_note: null }, ok); }, 'Save');
+      // the database takes starts on its own grid only (open_starts, every slot_step_min): say so here, not "isn't free"
+      const step = (settings && settings.slot_step_min) || 30;
+      const save = (ok) => actions(() => { if (p.start == null) return toast('Pick a start time, or type one.'); if (p.start % step && p.start !== b.start_min) return toast('Start times go every ' + step + ' minutes, like 1 PM or 1:30 PM.'); act('set_booking_time', { p_id: b.id, p_date: p.date, p_start_min: p.start, p_duration_min: p.duration || null, p_note: null }, ok); }, 'Save');
       if (b.status === 'in_progress') {
         // a started job keeps its day and start; it can only get shorter
         box.append(el('h3.bk-h2', 'Change the length'), el('p.bk-muted', 'The job has started: it keeps its day and start (' + clock(b.start_min) + ') and can only get shorter.'), lenField, save('Length changed'));
@@ -327,7 +329,7 @@
         p.date === b.service_date ? el('div.chips', chip(b.start_min, 'Keep ' + clock(b.start_min))) : null,
         el('p.choice-label', 'Times open to customers'),
         timesBox,
-        field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start; the database checks it against the other jobs and the hours.',
+        field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start on the ' + (step === 30 ? 'hour or half hour' : step + '-minute mark') + '; the database checks it against the other jobs and the hours.', step: step * 60,
           // a cleared (or unfinished) entry picks nothing: Save then asks for a start, never the one that was cleared
           oninput: (e) => { p.other = e.target.value; const m = typed(p.other); p.start = m; unmark(); } }),
         save('Time changed'));

@@ -67,7 +67,7 @@
     const input = el(opts.multiline ? 'textarea' : 'input', {
       id: opts.id, name: opts.id, class: 'fld-input', type: opts.multiline ? null : (opts.type || 'text'),
       value: opts.multiline ? null : (opts.value || ''), placeholder: opts.placeholder || ' ', inputMode: opts.inputmode,
-      autocomplete: opts.autocomplete, maxLength: opts.maxlength, rows: opts.rows, 'aria-describedby': opts.id + '-msg',
+      autocomplete: opts.autocomplete, maxLength: opts.maxlength, rows: opts.rows, step: opts.step, 'aria-describedby': opts.id + '-msg',
       required: !!opts.required, 'aria-required': opts.required ? 'true' : null,
       oninput: opts.oninput, onblur: opts.onblur, onkeydown: opts.onkeydown,
     });
