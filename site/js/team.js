@@ -58,7 +58,7 @@
   }
   function shell(title, body) {
     return el('div.bk.admin',
-      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — example jobs, nothing is saved.') : null,
+      U.modeBanner('example jobs, nothing is saved.', D.isLive),
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Team'), el('h1.display.bk-title', title)),
         staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + (ROLE[staff.role] || staff.role)), el('button.link', { type: 'button', onclick: async () => { await D.signOut(); st.jobs = null; render(); } }, 'Sign out')) : null),
       body);

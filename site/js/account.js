@@ -44,7 +44,7 @@
 
   function shell(title, eyebrow, body) {
     return el('div.bk.acct',
-      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is saved anywhere.' + (D.guestBooking ? '' : ' Any 6-digit code works.')) : null,
+      U.modeBanner('nothing is saved anywhere.' + (D.guestBooking ? '' : ' Any 6-digit code works.'), D.isLive),
       el('header.bk-head', el('p.eyebrow', eyebrow), el('h1.display.bk-title', title)),
       body);
   }

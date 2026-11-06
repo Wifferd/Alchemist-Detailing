@@ -236,5 +236,11 @@
 
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, outage, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce };
+  // The strip at the top of the staff and account pages: "Preview" with example data, and "Test project" when the
+  // page talks to the test database (every address but the public ones, config.js), so practice requests and
+  // logins there are never taken for real ones. Nothing on the live project's public addresses.
+  const modeBanner = (previewText, isLive) => !isLive ? el('div.bk-preview', el('b', 'Preview'), ' — ' + previewText)
+    : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — practice data on the test database, not real bookings.') : null);
+
+  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, outage, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, modeBanner };
 })();
