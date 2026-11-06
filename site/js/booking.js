@@ -48,7 +48,7 @@
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
     service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '' }),
-    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, sig: null }),
+    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, sig: null, note: null, keep: null, fetching: null }),
   };
   const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
@@ -119,7 +119,7 @@
   function payload() {
     const v = st.vehicle, c = st.contact, l = st.location, s = st.service, w = st.when;
     const p = {
-      request_id: st.requestId, first_name: c.first.trim(), last_name: c.last.trim() || null,
+      request_id: st.requestId, first_name: D.helpers.cleanName(c.first), last_name: D.helpers.cleanName(c.last) || null,
       location_type: l.type, address: l.type === 'mobile' ? l.address.trim() : null, address_zip: l.type === 'mobile' ? l.zip.trim() : null,
       conditions: condsForQuote(), stains: [], damage: v.damage, damage_note: v.damageNote.trim() || null,
       special_request: s.notes.trim() || null, photos: payloadPhotos(),
@@ -170,18 +170,20 @@
   async function adopt(s) {
     session = s;
     const c = st.contact, v = st.vehicle;
-    // a session that books as a guest (no confirmed phone: the owner's email-and-password console sign-in) fills
-    // nothing in: its name and email are not the customer's, and a guest booking keeps no email
-    if (s && !guest()) {
+    // Only a session with a text-confirmed phone (a customer's account) fills anything in. Any other login (the
+    // owner's email-and-password console sign-in) books like a guest: its name and email are not the customer's,
+    // so nothing of it is copied into the request, whether or not guest booking is on.
+    if (s && s.phoneConfirmed) {
       if (!c.first) c.first = s.firstName || '';
       if (!c.last) c.last = s.lastName || '';
       if (s.phone) c.phone = phonePretty(s.phone);
-      c.phoneConfirmed = !!s.phoneConfirmed; c.phoneSent = false;
+      c.phoneConfirmed = true; c.phoneSent = false;
       if (s.email) { c.email = s.email; c.emailState = 'confirmed'; }
       try { v.saved = await D.myVehicles(); } catch (e) { v.saved = []; }
     } else {
       c.phoneConfirmed = false; c.phoneSent = false; v.saved = [];
-      if (c.emailState === 'confirmed') c.emailState = 'none';
+      // an email that came from a login is not one the customer typed
+      if (c.emailState === 'confirmed') { if (s) c.email = ''; c.emailState = 'none'; }
     }
     // A guest has no saved vehicles and can't send photos (both belong to an account): none are kept hidden
     if (guest()) { v.saved = []; v.photos = []; }
@@ -271,18 +273,18 @@
     if (!ok) return;
     farthest = Math.max(farthest, step + 1);
     if (step === 3 || step === 4) await refreshQuote();
-    go(step + 1);
+    await go(step + 1);
   }
 
   // ---------------------------------------------------------------- validation per step (the database checks again)
   // The database turns away emoji, web addresses and < > in every text field (public.is_clean_text) with a
-  // message about links; the page says what it really is first.
-  const PLAIN = 'Please use plain text: no links, emoji or < >.';
+  // message about links; the page says what it really is first (D.helpers.textProblem: what to change, or null).
   // Every problem a step has, so they can all be marked at once.
   function problems(n) {
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when, H = D.helpers;
     const out = [];
     const bad = (hint, text) => out.push({ hint, text });
+    const plain = (hint, text) => { const why = H.textProblem(text); if (why) bad(hint, why); };
     if (n === 1) {
       if (!H.isValidName(c.first)) bad('first_name', 'Enter your first name using letters only.');
       if (c.last.trim() && !H.isValidName(c.last)) bad('last_name', 'Enter your last name using letters only, or leave it empty.');
@@ -293,30 +295,30 @@
     }
     if (n === 2) {
       if (!v.vehicleId) {
-        if (v.notSure) { if (!v.description.trim()) bad('vehicle_description', 'Describe the vehicle in a few words (no links).'); else if (!H.isCleanText(v.description)) bad('vehicle_description', PLAIN); }
+        if (v.notSure) { if (!v.description.trim()) bad('vehicle_description', 'Describe the vehicle in a few words (no links).'); else plain('vehicle_description', v.description); }
         else {
           if (!v.make.trim()) bad('vehicle_make', 'Enter the vehicle make.');
-          else if (!H.isCleanText(v.make)) bad('vehicle_make', PLAIN);
+          else plain('vehicle_make', v.make);
           if (!v.model.trim()) bad('vehicle_model', 'Enter the vehicle model.');
-          else if (!H.isCleanText(v.model)) bad('vehicle_model', PLAIN);
-          if (v.color.trim() && !H.isCleanText(v.color)) bad('vehicle_color', PLAIN);
+          else plain('vehicle_model', v.model);
+          plain('vehicle_color', v.color);
           if (v.year.trim() && !/^\d{4}$/.test(v.year.trim())) bad('vehicle_year', 'Enter a 4-digit year.');
           if (!v.type) bad('vehicle_type', 'Choose a vehicle type.');
         }
       }
       if (!v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
       if (v.conditions.includes('other') && !s.notes.trim()) bad('special_request', 'Describe it in a few words.');
-      else if (!H.isCleanText(s.notes)) bad('special_request', PLAIN);
+      else plain('special_request', s.notes);
       if (!v.damage.length) bad('damage', 'Choose "No known damage" or the damage you know of.');
       const needsNote = menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code));
       if (needsNote && !v.damageNote.trim()) bad('damage_note', 'Describe the damage in a few words.');
-      else if (!H.isCleanText(v.damageNote)) bad('damage_note', PLAIN);
+      else plain('damage_note', v.damageNote);
     }
     if (n === 3) {
       if (!l.type) bad('location_type', 'Choose "We come to you" or "Come to us".');
       if (l.type === 'mobile') {
         if (!l.address.trim()) bad('address', 'Enter the street address where the vehicle will be.');
-        else if (!H.isCleanText(l.address)) bad('address', PLAIN);
+        else plain('address', l.address);
         if (!/^\d{5}$/.test(l.zip.trim())) bad('address_zip', 'Enter a 5-digit ZIP code.');
         else if (!menu.zips.has(l.zip.trim())) bad('address_zip', zipHint());
       }
@@ -326,6 +328,7 @@
       if (!w.date) bad('service_date', 'Choose a day.');
       else if (w.start == null) bad('start_min', 'Choose one of the start times shown.');
       else if (w.sig !== timeSig()) bad('start_min', 'Your service changed, so check the start time again.');
+      else if (!(w.times || []).includes(w.start)) bad('start_min', 'Choose one of the start times shown.');
     }
     return out;
   }
@@ -374,8 +377,9 @@
       setTimeout(() => { if (!showError(root, hint, text)) toast(text); }, 50);
       return false;
     }
-    // a refusal that belongs to no field (a limit, with the number to call) stays on the summary; elsewhere, a toast
-    if (!showError(root, hint || 'submit', text)) toast(text);
+    // a refusal that belongs to no step's field (a limit with the number to call, or a request already sent with
+    // another phone: hint request_id) stays on the summary; elsewhere, a toast
+    if (!showError(root, target ? hint : 'submit', text)) toast(text);
     return false;
   }
 
@@ -768,8 +772,13 @@
     syncWhen();
     const w = st.when, q = st.quote;
     const box = el('div.bk-grid');
-    const names = q ? q.lines.filter((l) => !l.included && !l.condition).map((l) => l.name).join(' + ') : '';
-    box.appendChild(el('div.bk-chosen', el('div', el('span.eyebrow', 'Your service'), el('b', names), el('span.bk-muted', 'About ' + minutesText(q ? q.duration_min : 0) + (q && q.total_cents != null ? ' · ' + money(q.total_cents) : ' · price confirmed by us'))), el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')));
+    // no quote (no service chosen, or it couldn't be priced): nothing to look up times for
+    if (!q) {
+      box.appendChild(el('div.bk-chosen', { dataset: { field: 'start_min' } }, el('div', el('span.eyebrow', 'Your service'), el('b', 'Choose a service first'), el('p.choice-msg', { role: 'status' })), el('button.link', { type: 'button', onclick: () => go(4) }, 'Choose')));
+      return box;
+    }
+    const names = q.lines.filter((l) => !l.included && !l.condition).map((l) => l.name).join(' + ');
+    box.appendChild(el('div.bk-chosen', el('div', el('span.eyebrow', 'Your service'), el('b', names), el('span.bk-muted', 'About ' + minutesText(q.duration_min) + (q.total_cents != null ? ' · ' + money(q.total_cents) : ' · price confirmed by us'))), el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')));
     const today = D.helpers.todayIn(settings.timezone);   // the booking window counts from Parker's today, not the browser's
     const first = D.helpers.addDays(today, settings.min_days_ahead), last = D.helpers.addDays(today, settings.max_days_ahead);
     if (!w.month) w.month = new Date(first.getFullYear(), first.getMonth(), 1);
@@ -814,6 +823,8 @@
     box.appendChild(cal);
     box.appendChild(el('div.times', { id: 'bk-times', dataset: { field: 'start_min' } }, w.date ? timesBlock() : el('p.bk-muted', 'Pick a day to see start times.')));
     loadCalendar();
+    // a day chosen whose times aren't here (a refusal cleared them): fetched again, never 'Checking times…' for good
+    if (w.date && w.times == null) loadTimes();
     return box;
   }
   // The free days depend on the length and the place: another service, add-on or place starts the date step
@@ -851,34 +862,55 @@
       });
     } catch (e) { toast(e.message); }
   }
+  // keep: a start picked before the service or place changed; it stays chosen if the day still has it
   async function pickDay(iso, keep) {
     const w = st.when;
-    w.date = iso; w.start = null; w.times = null;
+    w.date = iso; w.start = null; w.times = null; w.note = null; w.keep = keep == null ? null : keep;
     root.querySelectorAll('.cal-day').forEach((b) => { const on = b.dataset.iso === iso; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    clearError(root, 'service_date');
+    clearError(root, 'service_date'); clearError(root, 'start_min');
     const t = root.querySelector('#bk-times'); if (t) t.replaceChildren(...timesBlock());
+    await loadTimes();
+  }
+  // The start times of the chosen day, for the quote's length and the place, painted when they land (unless
+  // another day, length or place was chosen meanwhile). One fetch per day and length at a time.
+  async function loadTimes() {
+    const w = st.when, iso = w.date;
+    if (!iso) return;
     if (!st.quote) await refreshQuote();
     if (!st.quote) { w.times = []; return go(4); }   // nothing to measure the times by: back to the service
-    try { w.times = await D.times(iso, st.quote.duration_min, st.location.type); }
-    catch (e) { w.times = []; toast(e.message); }
-    if (st.when.date !== iso) return;   // another day was picked meanwhile
-    if (keep != null && w.start == null && w.times.includes(keep)) w.start = keep;
+    const sig = timeSig(), want = iso + ':' + sig;
+    if (w.fetching === want) return;   // already on its way
+    w.fetching = want;
+    let times;
+    try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
+    catch (e) { times = []; toast(e.message); }
+    if (w.fetching === want) w.fetching = null;
+    if (w.date !== iso || timeSig() !== sig) return;   // another day, length or place was picked meanwhile
+    w.times = times;
+    if (w.keep != null && w.start == null) {
+      if (times.includes(w.keep)) w.start = w.keep;
+      else w.note = 'The service length or place changed: please pick a start time again.';
+    }
+    w.keep = null;
     const t2 = root.querySelector('#bk-times'); if (t2) t2.replaceChildren(...timesBlock());
   }
+  // Every state has its message line, so an error for the start time always has somewhere to show; a note (a
+  // refusal, or a start that no longer fits) stays until a time or another day is chosen.
   function timesBlock() {
     const w = st.when;
     const head = el('h2.bk-h2', longDate(w.date));
-    if (w.times == null) return [head, el('p.bk-muted', 'Checking times…')];
-    if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.')];
+    const msg = (...fallback) => el('p.choice-msg', { role: 'status', class: w.note ? 'has-error' : null }, w.note || fallback);
+    if (w.times == null) return [head, el('p.bk-muted', 'Checking times…'), msg()];
+    if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.'), msg()];
     return [head, el('div.chips', w.times.map((m, i) => el('button.choice-item.time', {
       type: 'button', class: w.start === m ? 'on' : '', 'aria-pressed': w.start === m ? 'true' : 'false', dataset: { m }, style: { '--t': i },
       onclick: (e) => {
-        w.start = m; clearError(root, 'start_min');
+        w.start = m; w.note = null; clearError(root, 'start_min');
         root.querySelectorAll('.time').forEach((b) => { const on = +b.dataset.m === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
         flash(e.currentTarget, 'just', 600);
       },
     }, clock(m)))),
-      el('p.choice-msg', { role: 'status' }, "Can't find a time? Call ", tel(phone), '.')];
+      msg("Can't find a time? Call ", tel(phone), '.')];
   }
 
   // ---------------------------------------------------------------- 06 Summary
@@ -890,7 +922,7 @@
     const vt = (menu.vehicleTypes.find((t) => t.code === vf.type) || {}).name;
     const savedV = savedVehicle();
     const condLabels = hasInterior() ? v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ') : 'Not needed for an exterior-only service';
-    box.appendChild(sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]));
+    box.appendChild(sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() && !guest() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we\'ll use your phone)')] : null]));
     box.appendChild(sec('Vehicle', 2, [
       ['Vehicle', savedV ? [savedV.year, savedV.make, savedV.model, savedV.color && '· ' + savedV.color].filter(Boolean).join(' ') : v.notSure ? v.description : [v.year, v.make, v.model, v.color && '· ' + v.color].filter(Boolean).join(' ')],
       !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : 'Standard'].filter(Boolean).join(' · ')] : null,
@@ -899,8 +931,8 @@
       !savedV && v.modifications.length ? ['Modifications', v.modifications.map((m) => (menu.options.modification.find((o) => o.code === m) || {}).label).join(', ')] : null,
       v.photos.length ? ['Photos', v.photos.length + ' added'] : null]));
     box.appendChild(sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]));
-    box.appendChild(sec('Service', 4, [['Service', q ? q.lines.filter((x) => !x.included && !x.condition).map((x) => x.name).join(' + ') : ''], s.notes.trim() ? ['Notes', s.notes.trim()] : null]));
-    box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + (w.start != null ? ' at ' + clock(w.start) : ' · pick a start time') + ' · about ' + minutesText(q ? q.duration_min : 0) : '']]));
+    box.appendChild(sec('Service', 4, [['Service', q ? q.lines.filter((x) => !x.included && !x.condition).map((x) => x.name).join(' + ') : 'Choose a service first'], s.notes.trim() ? ['Notes', s.notes.trim()] : null]));
+    box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + (w.start != null ? ' at ' + clock(w.start) : ' · pick a start time') + (q ? ' · about ' + minutesText(q.duration_min) : '') : 'Choose a day and a start time']]));
     box.appendChild(el('div.bk-summary-card', q ? priceLines(q) : null));
     box.appendChild(el('p.bk-note', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.'));
     box.appendChild(el('p.bk-note', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request. We\'ll contact you to confirm.'));
@@ -927,7 +959,8 @@
       if (signedInHere) { try { await D.signOut(); } catch (e) { /* nothing to do */ } session = null; signedInHere = false; }
     } catch (e) {
       busy = false;
-      if (e.code === 'slot_unavailable') { st.when.start = null; st.when.times = null; st.when.loaded = null; st.when.calendar = {}; }
+      // the time is no longer free: the day stays chosen, its times load again (stepWhen), and the reason stays with them
+      if (e.code === 'slot_unavailable') { const w = st.when; w.start = null; w.times = null; w.loaded = null; w.calendar = {}; w.note = e.message; }
       render();
       showDbError(e);
     }

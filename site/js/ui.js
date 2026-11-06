@@ -86,6 +86,8 @@
   // Shows an error (text or nodes) under the field named by `hint`, marks the input, and brings it into view
   // with focus unless opts.quiet (the rest of a list of problems). A wrapper taller than the screen (the
   // conditions on a phone) would centre on nothing, so the message itself is brought in instead.
+  // Returns false when the text could not be shown (no such field, or no message line in it), so the caller
+  // falls back to a toast and the text is never lost.
   function showError(root, hint, text, opts) {
     const w = root.querySelector('[data-field="' + hint + '"]');
     if (!w) return false;
@@ -93,6 +95,7 @@
     const msg = msgOf(root, w, hint);
     if (msg) { msg.classList.add('has-error'); msg.replaceChildren(); append(msg, [text]); }
     w.querySelectorAll('.fld-input').forEach((i) => i.setAttribute('aria-invalid', 'true'));
+    if (!msg) return false;
     if (opts && opts.quiet) return true;
     const tall = w.getBoundingClientRect().height > window.innerHeight;
     (tall && msg ? msg : w).scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: tall ? 'nearest' : 'center' });

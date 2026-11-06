@@ -106,15 +106,30 @@
     const n = d.length === 10 ? '1' + d : d.length === 11 && d[0] === '1' ? d : null;
     return n && /^1[2-9][0-8]\d[2-9]\d{6}$/.test(n) && !/^[2-9]11$/.test(n.slice(4, 7)) && !(n.slice(4, 7) === '555' && n.slice(7, 9) === '01') ? n : null;
   }
-  // The database's rule (public.is_valid_name): letters in any alphabet, with ' or the curly ’ (an iPhone types it),
-  // spaces, dots and hyphens between; it also turns away junk words, which it explains itself.
-  const isValidName = (s) => { const t = String(s || '').trim(); return t.length >= 1 && t.length <= 40 && /^\p{L}([\p{L}'\u2019 .-]*[\p{L}.])?$/u.test(t); };
-  // The database's rule for free text (public.is_clean_text): no web addresses, no < or >, no emoji, no control characters.
-  const isCleanText = (t) => t == null || t === '' || (
-    !/(https?:|www\.|\b[a-z0-9_-]+\.(com|net|org|io|co|app|me|ly|info|xyz|ru|cn|site|shop|link)\b)/i.test(t)
-    && !/[<>]/.test(t)
-    && !/[\u{1F000}-\u{1FAFF}\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]/u.test(t)
-    && !/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(t));
+  // A name as it is sent: composed (NFC), so a name pasted or filled in with separate accent marks is the one the
+  // database checks, and trimmed.
+  const cleanName = (s) => String(s || '').normalize('NFC').trim();
+  // The database's rule (public.is_valid_name, ^[[:alpha:]]([[:alpha:]'’ .-]*[[:alpha:].])?$, 1 to 40 characters):
+  // letters in any alphabet, with ' or the curly ’ (an iPhone types it), spaces, dots and hyphens between; it also
+  // turns away junk words, which it explains itself.
+  const isValidName = (s) => { const t = cleanName(s); return t.length >= 1 && t.length <= 40 && /^\p{L}([\p{L}'\u2019 .-]*[\p{L}.])?$/u.test(t); };
+  // public.is_clean_text, the database's rule for notes, the vehicle, the address and reviews: no links or web
+  // addresses, no emoji, no < or >, no control characters. textProblem returns what to change, or null when the text
+  // is fine (checked to give the database's verdict on 102 of 102 test strings).
+  // The database's \m (start of a word) is written as "the start, or a character that isn't a letter, digit or _",
+  // never as a lookbehind: Safari before 16.4 (all of iOS 15) can't compile one, and this file would then not load.
+  // Like the database's ~*, only A to Z count as the same letter in either case (the "i" flag would also let the
+  // Kelvin sign and the long s stand for k and s), so the text is lowercased in ASCII only and tested without it.
+  const WORD = '[\\p{L}\\p{N}_]';
+  const LINKISH = new RegExp('(https?:|www\\.|(^|[^\\p{L}\\p{N}_])(?=' + WORD + ')[a-z0-9_-]+\\.(com|net|org|io|co|app|me|ly|info|xyz|ru|cn|site|shop|link)(?!' + WORD + '))', 'u');
+  function textProblem(t) {
+    const v = String(t == null ? '' : t);
+    if (!v) return null;
+    if (LINKISH.test(v.replace(/[A-Z]/g, (c) => c.toLowerCase()))) return 'Please take out the link or web address.';
+    if (/[<>]/.test(v) || /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/u.test(v) || /[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(v)) return 'Emoji and the < > signs can\'t be used here. Words only, please.';
+    return null;
+  }
+  const isCleanText = (t) => !textProblem(t);
   const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(s || '').trim());
   const todayLocal = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
   // Today where the business is (business_settings.timezone, America/Chicago): the booking window counts from it,
@@ -334,7 +349,7 @@
     get isDown() { return mode !== 'live' && !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.deployed); },
     // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
     get guestBooking() { return !!(settingsCache && settingsCache.guest_booking); },
-    helpers: { normalizePhone, isValidName, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
+    helpers: { normalizePhone, isValidName, cleanName, textProblem, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
 
     async settings() { await init(); return settingsCache; },
 
@@ -401,8 +416,8 @@
       await init();
       if (!isValidName(first)) throw fail('invalid_input', 'Enter your first name using letters only.', 'first_name');
       if (last && !isValidName(last)) throw fail('invalid_input', 'Enter your last name using letters only, or leave it empty.', 'last_name');
-      if (mode === 'preview') { if (previewSession) { previewSession.firstName = first.trim(); previewSession.lastName = (last || '').trim() || null; } return previewSession; }
-      await rpc('update_my_profile', { p_first_name: first.trim(), p_last_name: (last || '').trim() });
+      if (mode === 'preview') { if (previewSession) { previewSession.firstName = cleanName(first); previewSession.lastName = cleanName(last) || null; } return previewSession; }
+      await rpc('update_my_profile', { p_first_name: cleanName(first), p_last_name: cleanName(last) });
       return api.session();
     },
 
@@ -412,12 +427,14 @@
         make: String(v.make || '').trim(), model: String(v.model || '').trim(), year: v.year ? Number(v.year) : null,
         color: String(v.color || '').trim() || null, vehicle_type: v.vehicle_type, size: v.size || 'standard', modifications: v.modifications || [],
       };
+      // what to change, field by field, before the table's own checks (whose refusals fromDb names by check)
       if (!row.make || row.make.length > 40) throw fail('invalid_input', 'Enter the vehicle make.', 'vehicle_make');
-      if (!isCleanText(row.make)) throw fail('invalid_input', CHECKS.vehicles_make_ok[1], 'vehicle_make');
+      if (textProblem(row.make)) throw fail('invalid_input', textProblem(row.make), 'vehicle_make');
       if (!row.model || row.model.length > 40) throw fail('invalid_input', 'Enter the vehicle model.', 'vehicle_model');
-      if (!isCleanText(row.model)) throw fail('invalid_input', CHECKS.vehicles_model_ok[1], 'vehicle_model');
+      if (textProblem(row.model)) throw fail('invalid_input', textProblem(row.model), 'vehicle_model');
       if (v.year && !(/^\d{4}$/.test(String(v.year)) && +v.year >= 1900 && +v.year <= 2100)) throw fail('invalid_input', 'Enter a year between 1900 and 2100.', 'vehicle_year');
-      if (row.color && (row.color.length > 30 || !isCleanText(row.color))) throw fail('invalid_input', CHECKS.vehicles_color_ok[1], 'vehicle_color');
+      if (row.color && row.color.length > 30) throw fail('invalid_input', 'Keep the colour to 30 characters or fewer.', 'vehicle_color');
+      if (textProblem(row.color)) throw fail('invalid_input', textProblem(row.color), 'vehicle_color');
       if (!row.vehicle_type) throw fail('invalid_input', 'Choose a vehicle type.', 'vehicle_type');
       if (mode === 'preview') {
         if (v.id) { const i = previewVehicles.findIndex((x) => x.id === v.id); if (i >= 0) previewVehicles[i] = Object.assign({}, previewVehicles[i], row); return previewVehicles[i]; }
@@ -441,15 +458,21 @@
       return (await rpc('my_bookings')) || [];
     },
 
-    async sendPhoneCode(phone, names) {
+    // opts.staff: the team's sign-in (#admin, #team), which never makes a new account for a number typed there
+    // (shouldCreateUser false), so a stranger's number can't become a login once texting works.
+    async sendPhoneCode(phone, names, opts) {
       await init();
       const n = normalizePhone(phone);
       if (!n) throw fail('invalid_input', 'Enter a 10-digit US phone number.', 'phone');
       if (mode === 'preview') { await new Promise((r) => setTimeout(r, 600)); return { sent: true, preview: true }; }
-      const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: { data: { first_name: names && names.first || undefined, last_name: names && names.last || undefined } } });
+      const staff = !!(opts && opts.staff);
+      const data = { first_name: names && cleanName(names.first) || undefined, last_name: names && cleanName(names.last) || undefined };
+      const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: staff ? { shouldCreateUser: false } : { data } });
       if (error) {
         // never GoTrue's own words ("Unsupported phone provider", "Signups not allowed for otp"): what to do instead
         if (error.status === 429 || /rate_limit/.test(error.code || '')) throw fail('too_many_requests', 'Please wait a minute before asking for another code.', 'phone');
+        // a staff sign-in with a number no team account has: Supabase refuses to make one (shouldCreateUser false)
+        if (staff && error.code === 'otp_disabled') throw fail('code_not_sent', 'No team account uses that number.', 'phone');
         // texting not connected at Supabase yet (doc 36)
         if (/^(phone_provider_disabled|otp_disabled|sms_send_failed)$/.test(error.code || '')) throw fail('code_not_sent', "Text codes aren't working yet. Please call " + settingsCache.public_phone + '.', 'phone');
         throw fail('code_not_sent', "We can't text a code to this number right now. Call " + settingsCache.public_phone + '.', 'phone');
@@ -526,7 +549,25 @@
     async times(dateIso, duration, loc) {
       await init();
       if (mode === 'preview') return previewTimes(dateIso, duration, loc);
-      return rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: loc }) || [];
+      return (await rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: loc })) || [];
+    },
+
+    // Free start times for moving a booking (the console's Change time): the staff rule (today and any day ahead,
+    // the booking itself not in the way), plus its own start when the day stays and the length doesn't grow.
+    // b: the booking ({ id, service_date, start_min, duration_min, location_type }).
+    async staffTimes(b, dateIso, duration) {
+      await init();
+      const own = (list) => {
+        const t = (list || []).slice();
+        if (dateIso === b.service_date && duration <= b.duration_min && !t.includes(b.start_min)) { t.push(b.start_min); t.sort((x, y) => x - y); }
+        return t;
+      };
+      if (mode === 'preview') return own(previewTimes(dateIso, duration, b.location_type));
+      const { data, error } = await sb.rpc('staff_availability', { p_id: b.id, p_date: dateIso, p_duration: duration });
+      if (!error) return data || [];
+      // a database without Migration 007 part 3 (no staff_availability yet): the customers' times, plus the booking's own start
+      if (error.code !== 'PGRST202') throw fromDb(error);
+      return own(await rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: b.location_type }));
     },
 
     // Photos: re-encoded through a canvas first (strips location data, audit F-52).
@@ -591,11 +632,11 @@
       }
     },
 
-    async signOut() {
+    async signOut(opts) {
       await init();
       if (mode === 'preview') { previewSession = null; previewStaff = null; return; }
-      // this browser only: signing out here never ends the same login on another device
-      await sb.auth.signOut({ scope: 'local' });
+      // this browser only: signing out here never ends the same login on another device (opts may add to it)
+      await sb.auth.signOut(Object.assign({ scope: 'local' }, opts));
     },
 
     // ---- reviews (Migration 002 part 5) ----
@@ -615,8 +656,8 @@
       await init();
       const v = String(body || '').trim();
       if (!(rating >= 1 && rating <= 5)) throw fail('invalid_input', 'Choose 1 to 5 stars.', 'rating');
-      if (!v || v.length > 1000 || /https?:\/\/|www\./i.test(v)) throw fail('invalid_input', 'Write a few words (under 1,000 characters, no links).', 'body');
-      if (!isCleanText(v)) throw fail('invalid_input', 'Please leave out emoji, web addresses and the < > signs.', 'body');
+      if (!v || v.length > 1000) throw fail('invalid_input', 'Write a few words (under 1,000 characters).', 'body');
+      if (textProblem(v)) throw fail('invalid_input', textProblem(v), 'body');
       if (mode === 'preview') {
         const b = previewBookings.find((x) => x.id === appointmentId);
         if (previewReviews.some((r) => r.appointment_id === appointmentId)) throw fail('wrong_state', "You've already reviewed this detail. Thank you!", 'appointment');
