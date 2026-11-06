@@ -61,7 +61,7 @@
     if (!D.isLive) { seedPreview(); st.bookings = PREVIEW.bookings.slice(); return st.bookings; }
     const from = H().isoDate(H().addDays(H().todayLocal(), -30));
     const { data, error } = await sb().from('appointments')
-      .select('*, items:appointment_items(code,name,kind,price_cents,mobile_cents,duration_min,included,sort), assignments:appointment_assignments(employee_id, profile:profiles(first_name,last_name)), events:appointment_events(from_status,to_status,from_queue,to_queue,note,created_at)')
+      .select('*, items:appointment_items(code,name,kind,price_cents,mobile_cents,duration_min,included,sort), assignments:appointment_assignments(employee_id, profile:profiles!appointment_assignments_employee_id_fkey(first_name,last_name)), events:appointment_events(from_status,to_status,from_queue,to_queue,note,created_at)')
       .gte('service_date', from).is('anonymized_at', null).order('service_date').order('start_min');
     if (error) throw D.fail('load_failed', error.message);
     st.bookings = (data || []).map((b) => Object.assign(b, {
