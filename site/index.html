@@ -15,7 +15,6 @@
 <meta name="application-name" content="Alchemist Detailing">
 <meta name="apple-mobile-web-app-title" content="Alchemist">
 <link rel="canonical" href="https://thealchemistdetailing.com/">
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://efpzprranvgujkblnwdj.supabase.co" crossorigin>
 <link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -59,7 +58,7 @@
 }
 </script>
 <link rel="stylesheet" href="css/alchemist.css">
-<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), the test site stays out of search, and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should the CDN script be slow */(function(d,h){h.classList.remove('no-js');try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#faf8f4'}}catch(e){}if(/^alchemist-detailing-test[.-]/.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
+<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), every address but the public domain (the test site, previews, a local copy) stays out of search, and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should a script be slow */(function(d,h){h.classList.remove('no-js');try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#faf8f4'}}catch(e){}if(!/^(www\.)?thealchemistdetailing\.com$/.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
 </head>
 <body>
 <!-- BODY START -->
@@ -550,7 +549,7 @@
 
 <div class="veil" id="veil" aria-hidden="true"></div>
 <!-- BODY END -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" crossorigin="anonymous" defer></script>
+<script src="js/vendor/supabase-js-2.49.4.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" defer></script>
 <script src="js/config.js" defer></script>
 <script src="js/hero-gl.js" defer></script>
 <script src="js/foam.js" defer></script>
