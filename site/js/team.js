@@ -46,7 +46,7 @@
     if (st.jobs == null) await loadJobs();
     const today = H().isoDate(H().todayLocal());
     const mine = st.jobs.filter((j) => ['confirmed', 'in_progress'].includes(j.status));
-    const todays = mine.filter((j) => j.service_date === today), later = mine.filter((j) => j.service_date > today), past = st.jobs.filter((j) => j.status === 'completed').slice(0, 10);
+    const todays = mine.filter((j) => j.service_date === today), later = mine.filter((j) => j.service_date > today), past = st.jobs.filter((j) => j.status === 'completed').slice(-10).reverse();   // the newest done first (the list comes oldest first)
     root.replaceChildren(shell('My jobs',
       el('div.bk-grid',
         st.jobsError ? el('p.bk-note', { role: 'alert' }, st.jobsError) : null,
@@ -54,7 +54,7 @@
         section('Coming up', later, 'Nothing assigned yet.'),
         openJobsSection(),
         past.length ? section('Done recently', past, '') : null,
-        el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: () => { st.jobs = null; st.openJobs = null; render(); } }, 'Refresh')))));
+        el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: () => { st.jobs = null; st.openJobs = null; st.photos = {}; render(); } }, 'Refresh')))));
   }
   function shell(title, body) {
     return el('div.bk.admin',
@@ -70,7 +70,7 @@
     if (!D.isLive) return el('div.bk-grid', el('p.bk-note', 'Preview: look around as a detailer.'), el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => { D.previewStaffSignIn('detailer'); render(); } }, 'Look around')));
     const box = el('div.bk-grid', el('p.bk-note', 'Sign in with the phone number on your team account.'),
       field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', value: s.phone, oninput: (e) => { s.phone = e.target.value; },
-        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendPhoneCode(s.phone); s.sent = true; render(); } catch (e) { showError(box, 'phone', e.message); } }) }),
+        trailing: miniBtn(s.sent ? 'Resend' : 'Send code', async () => { try { await D.sendPhoneCode(s.phone, null, { staff: true }); s.sent = true; render(); } catch (e) { showError(box, 'phone', e.message); } }) }),
       s.sent ? field({ id: 'phone_code', label: 'Code from the text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); }, trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
     async function confirm(code) { try { await D.verifyPhoneCode(s.phone, code); s.sent = false; render(); } catch (e) { showError(box, 'phone_code', e.message); } }
     return box;
@@ -155,13 +155,27 @@
           field({ id: 'ask_text', label: 'What\'s up?', multiline: true, rows: 2, maxlength: 1000, value: st.ask.text, hint: 'Extra work, a problem with the car, anything. The owner sets any extra cost.', oninput: (e) => { st.ask.text = e.target.value; } }),
           el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: () => sendAsk(j) }, 'Send'), el('button.btn.btn-glass', { type: 'button', onclick: () => { st.ask = null; render(); } }, 'Back'))) : null) : null);
   }
+  // A signed link lasts 10 minutes: one older than 8 is signed again, and a picture that fails to load (it ran out
+  // while the job was open) is signed again once.
+  async function signedUrl(p, fresh) {
+    const c = st.photos[p];
+    if (!fresh && c && c.url && Date.now() - c.at < 8 * 60 * 1000) return c.url;
+    const { data } = await D.client().storage.from('vehicle-photos').createSignedUrl(p, 600);
+    st.photos[p] = { url: data ? data.signedUrl : null, at: Date.now() };
+    return st.photos[p].url;
+  }
   function photos(j) {
     const grid = el('div.bk-photo-grid');
     j.photo_paths.forEach(async (p) => {
       const fig = el('figure.bk-photo'); grid.appendChild(fig);
       if (!D.isLive) return;
-      if (!st.photos[p]) { const { data } = await D.client().storage.from('vehicle-photos').createSignedUrl(p, 600); st.photos[p] = data ? data.signedUrl : null; }
-      if (st.photos[p]) fig.appendChild(el('a', { href: st.photos[p], target: '_blank', rel: 'noopener' }, el('img', { src: st.photos[p], alt: 'Customer photo' })));
+      const url = await signedUrl(p);
+      if (!url) return;
+      let retried = false;
+      const img = el('img', { src: url, alt: 'Customer photo' });
+      const link = el('a', { href: url, target: '_blank', rel: 'noopener' }, img);
+      img.addEventListener('error', async () => { if (retried) return; retried = true; const u = await signedUrl(p, true); if (u) { img.src = u; link.href = u; } });
+      fig.appendChild(link);
     });
     return el('div.bk-photos', el('p.choice-label', 'Customer photos'), grid);
   }
