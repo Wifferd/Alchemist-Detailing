@@ -325,7 +325,9 @@
     }
     if (n === 4 && !mainsChosen()) bad('services', 'Choose a bundle, or an exterior and/or an interior service.');
     if (n === 5) {
-      if (!w.date) bad('service_date', 'Choose a day.');
+      // no service chosen (the step bar can come here after one was cleared): the date step has no days to offer
+      if (!st.quote) bad('start_min', 'Choose a service first.');
+      else if (!w.date) bad('service_date', 'Choose a day.');
       else if (w.start == null) bad('start_min', 'Choose one of the start times shown.');
       else if (w.sig !== timeSig()) bad('start_min', 'Your service changed, so check the start time again.');
       else if (!(w.times || []).includes(w.start)) bad('start_min', 'Choose one of the start times shown.');
@@ -893,6 +895,9 @@
     }
     w.keep = null;
     const t2 = root.querySelector('#bk-times'); if (t2) t2.replaceChildren(...timesBlock());
+    // a step-bar jump to the Summary doesn't wait for this re-check: the Summary is drawn again, so it shows the
+    // start that was kept (or asks for one) and never says one thing while Send sends another
+    else if (step === 6 && !busy && !st.receipt) render();
   }
   // Every state has its message line, so an error for the start time always has somewhere to show; a note (a
   // refusal, or a start that no longer fits) stays until a time or another day is chosen.
