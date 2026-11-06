@@ -48,7 +48,7 @@
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
     service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '' }),
-    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null }),
+    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, sig: null }),
   };
   const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
@@ -112,6 +112,8 @@
     st.quote = q && !q.error ? q : null;
     return q;
   }
+  // what the calendar and the start times were checked for: the job's length and where it is
+  const timeSig = () => (st.quote ? st.quote.duration_min + ':' + st.location.type : null);
   function invalidateQuotes() { quoteCache.clear(); st.quote = null; st.prices = {}; }
   const payloadPhotos = () => st.vehicle.photos.map((p) => p.name);
   function payload() {
@@ -323,6 +325,7 @@
     if (n === 5) {
       if (!w.date) bad('service_date', 'Choose a day.');
       else if (w.start == null) bad('start_min', 'Choose one of the start times shown.');
+      else if (w.sig !== timeSig()) bad('start_min', 'Your service changed, so check the start time again.');
     }
     return out;
   }
@@ -814,15 +817,15 @@
     return box;
   }
   // The free days depend on the length and the place: another service, add-on or place starts the date step
-  // afresh (the days, and the times and start picked for the old ones), and a day already picked is asked again.
+  // afresh (the days and the times checked for the old ones). A day already picked is asked again, and the
+  // start picked on it stays only if it still fits.
   function syncWhen() {
-    const w = st.when, q = st.quote;
-    if (!q) return;
-    const sig = q.duration_min + ':' + st.location.type;
-    if (w.sig === sig) return;
-    const had = w.date;
+    const w = st.when;
+    const sig = timeSig();
+    if (!sig || w.sig === sig) return;
+    const had = w.date, keep = w.start;
     Object.assign(w, { sig, calendar: {}, loaded: null, times: null, start: null });
-    if (had) pickDay(had);
+    if (had) pickDay(had, keep);
   }
   async function loadCalendar() {
     const w = st.when, q = st.quote;
@@ -848,7 +851,7 @@
       });
     } catch (e) { toast(e.message); }
   }
-  async function pickDay(iso) {
+  async function pickDay(iso, keep) {
     const w = st.when;
     w.date = iso; w.start = null; w.times = null;
     root.querySelectorAll('.cal-day').forEach((b) => { const on = b.dataset.iso === iso; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
@@ -859,6 +862,7 @@
     try { w.times = await D.times(iso, st.quote.duration_min, st.location.type); }
     catch (e) { w.times = []; toast(e.message); }
     if (st.when.date !== iso) return;   // another day was picked meanwhile
+    if (keep != null && w.start == null && w.times.includes(keep)) w.start = keep;
     const t2 = root.querySelector('#bk-times'); if (t2) t2.replaceChildren(...timesBlock());
   }
   function timesBlock() {

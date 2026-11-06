@@ -450,6 +450,8 @@
       if (error) {
         // never GoTrue's own words ("Unsupported phone provider", "Signups not allowed for otp"): what to do instead
         if (error.status === 429 || /rate_limit/.test(error.code || '')) throw fail('too_many_requests', 'Please wait a minute before asking for another code.', 'phone');
+        // texting not connected at Supabase yet (doc 36)
+        if (/^(phone_provider_disabled|otp_disabled|sms_send_failed)$/.test(error.code || '')) throw fail('code_not_sent', "Text codes aren't working yet. Please call " + settingsCache.public_phone + '.', 'phone');
         throw fail('code_not_sent', "We can't text a code to this number right now. Call " + settingsCache.public_phone + '.', 'phone');
       }
       return { sent: true };
