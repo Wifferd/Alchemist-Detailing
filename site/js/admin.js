@@ -394,7 +394,8 @@
       }
       box.append(el('h3.bk-h2', 'Change the time'),
         el('div.bk-row.two', field({ id: 'p_date', label: 'Day', type: 'date', value: p.date, oninput: (e) => { p.date = e.target.value; p.start = null; p.other = ''; p.times = null; render(); } }), lenField),
-        p.date === b.service_date ? el('div.chips', chip(b.start_min, 'Keep ' + clock(b.start_min))) : null,
+        // (box.append is the DOM's own: a null there would be written out as the word "null")
+        p.date === b.service_date ? el('div.chips', chip(b.start_min, 'Keep ' + clock(b.start_min))) : '',
         timesLabel,
         timesBox,
         field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start on the ' + (step === 30 ? 'hour or half hour' : step + '-minute mark') + '; the database checks it against the other jobs and the hours.', step: step * 60,
