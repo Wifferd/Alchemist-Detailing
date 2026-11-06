@@ -84,3 +84,82 @@ number.
   (for example $59.99) while the request waits in the Review lane. A customer may read that total as final.
 - **"Held until" time zone:** this time is shown in the visitor's own time zone with no zone named. The start
   times are Parker time. A visitor in another time zone sees the two on different clocks.
+
+---
+
+# Round 2: the merged code (`live-fixes-static` at c6aefcc), Nov 6 evening
+
+This branch was fast-forwarded to c6aefcc, so it now holds both sweeps. Same rules as round 1: test project only,
+with a guard against any request to live.
+
+## Bug found and fixed
+
+### 3. Admin "Other start time" promised any start, but the database takes only half-hour starts (fixed, b7e2034)
+
+- **Steps:** Admin, open a confirmed booking (AD-ZRU49UAS, Mon Nov 16, 2 PM, the only job that day), Change time,
+  type 13:15 in "Other start time", Save.
+- **What happened:** the hint said "Any start", but Save got "That time isn't free, or is outside opening hours."
+  (`set_booking_time` 400 `slot_unavailable`). The day was free. `set_booking_time` checks `slot_is_bookable`,
+  which accepts only the starts in `open_starts`, every `slot_step_min` (30 min). 13:30 saved straight away.
+- **Fix (`admin.js`, `ui.js`):**
+  - The box steps by the grid.
+  - Its hint says "Any start on the hour or half hour".
+  - Save on an off-grid start says "Start times go every 30 minutes, like 1 PM or 1:30 PM." and sends nothing. The
+    booking's own current start is still allowed.
+- **Proved:** 13:15 now gets that message. 14:00 then saves ("Time changed").
+- **For the lead:** if the owner wants truly any start for staff (13:15), that is a database change:
+  `set_booking_time` would need its own check instead of `slot_is_bookable`. Not changed here.
+
+## Passed on c6aefcc
+
+- **Booking:** 7 guest bookings plus the out-of-area check, the same scenarios as round 1, on phone and desktop:
+  AD-SSGEWWS2, AD-M7AJGFT7, AD-ZRU49UAS, AD-T9VNLJM9, AD-7ZSZ68EE, AD-MNDCLHBY, AD-ZWL58P82.
+  - Every receipt matched the `submit_guest_booking` reply.
+  - "Held until" now names the zone ("3:04 PM CST").
+  - Closed hours, buffers, mobile/shop capacity, condition fees, included items and held prices were all right.
+- **Service-change regressions:**
+  - Wednesday 3 PM, then Interior Deluxe: the time is cleared and 10 AM to 1 PM are offered.
+  - A 10 AM pick survives the same change.
+  - A step-bar jump to the Summary, then Send, goes back to step 05.
+- **Plain text:** notes with an emoji, `https://…`, `www.…` or `<b>` stop on step 02 with "Please use plain text: no
+  links, emoji or < >." The same goes for a make with an emoji (step 02) and an address with a link (step 03).
+  Nothing reaches the database. The browser rule matches `public.is_clean_text`.
+- **Admin sign-in:** email and password, then the authenticator code (TOTP), for the sweep admin and the sweep
+  manager.
+- **Admin screens:** every screen at 1280 and 390 px. No console errors, no failed requests (other than the
+  expected 400s below), no sideways scroll.
+  - Morning: the "From the team" section shows.
+  - Requests and Calendar: a booking opened from Customers → "Open booking" lands with its card under the calendar,
+    or in its lane under Requests.
+  - Settings: the admin sees "Your address: On file…"; the manager sees "Shop address: Only the admin sees it".
+  - Log reads in words ("New request · AD-…", "Time changed", "Cancelled").
+- **Admin actions, on Sweep bookings:**
+  - Confirm and Decline.
+  - Ask for info: an empty note is refused, then the request becomes Needs info and loses the Ask button.
+  - Set price (XL, $15), then Confirm.
+  - Move lane to Review.
+  - Assign Dana.
+  - Change time:
+    - "Keep" chip on the booking's own day.
+    - "Times open to customers" chips.
+    - An invalid typed time gives the database's message.
+    - A cleared box gives "Pick a start time, or type one."
+  - Start, then Change length: longer is refused ("A job in progress can only be made shorter."), 60 min saves.
+  - Complete.
+  - Cancel, on a request and on a confirmed booking.
+- **Button rules:**
+  - Move lane shows only on requested and needs-information bookings.
+  - Assign shows only on confirmed and started bookings.
+  - Set price and Cancel show for the admin only.
+
+## For the owner or lead to decide (not changed)
+
+- **Start and Complete work on any day.** AD-M7AJGFT7 is booked for Fri Nov 13; it was started and completed on
+  Nov 6. A mis-tap could mark a future job done. Limiting this to the job's own day would be a database change
+  (`start_booking`).
+- **A manager can't set prices.** On a price-pending request, a manager sees "Set the price first" but has no Set
+  price button (it's admin-only). The manager has to ask the owner.
+- **A manager opening #admin-log by its address** sees "Nothing yet" instead of being told the Log is for the admin.
+  #admin-team shows the list read-only. Neither screen is in the manager's menu.
+- **Admin times use the viewer's clock.** The Log and History show times in the viewer's time zone. That is right
+  for the owner in Texas.
