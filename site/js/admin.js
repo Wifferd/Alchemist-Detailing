@@ -430,7 +430,7 @@
     const holds = (b) => live(b) && !(['requested', 'needs_information'].includes(b.status) && b.queue === 'spam');
     const byHold = (a, b) => ((a.hold_expires_at || '') < (b.hold_expires_at || '') ? -1 : 1);
     const todays = all.filter((b) => b.service_date === today && holds(b));
-    const needs = all.filter((b) => (b.status === 'requested' && b.queue !== 'spam') || b.price_pending && live(b)).sort(byHold);
+    const needs = all.filter((b) => (b.status === 'requested' && b.queue !== 'spam') || (b.price_pending && holds(b))).sort(byHold);
     const tmr = all.filter((b) => b.service_date === tomorrow && holds(b));
     const minutes = todays.reduce((a, b) => a + b.duration_min + (b.location_type === 'mobile' ? 10 : 0), 0);   // the 10-minute travel gap counts (doc 27, V-4)
     const needIds = new Set(needs.map((b) => b.id));
