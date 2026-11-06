@@ -39,8 +39,9 @@ begin
   perform tst.ok((r2 ->> 'repeat')::boolean and r2 ->> 'ref' = r ->> 'ref', 'm005: the same request again returns the first booking');
   r2 := public.submit_guest_booking(p || jsonb_build_object('request_id', gen_random_uuid()));
   perform tst.ok((r2 ->> 'repeat')::boolean and r2 ->> 'ref' = r ->> 'ref', 'm005: the same booking sent again within minutes returns the first one');
-  r2 := public.submit_guest_booking(p || jsonb_build_object('phone', '(972) 555-3299', 'start_min', 780));
-  perform tst.ok(r2 ->> 'ref' is distinct from r ->> 'ref', 'm005: a request id with another phone is a new booking, not the first one''s receipt');
+  -- Migration 007: the same request id with another phone is refused (one request, one booking), never given the receipt
+  perform tst.err('select public.submit_guest_booking(' || quote_literal((p || jsonb_build_object('phone', '(972) 555-3299', 'start_min', 780))::text) || '::jsonb)',
+    'wrong_state', 'm005: a request id with another phone is refused, not booked again or given the first one''s receipt');
 
   perform tst.err($q$select public.submit_guest_booking(tst.booking('shop', '$q$ || v_sat || $q$', 780, '{"special_request":"m005 test","first_name":"Lena","phone":"555-1234"}'))$q$,
     'invalid_input', 'm005: a phone that is not a 10-digit US number is refused');
