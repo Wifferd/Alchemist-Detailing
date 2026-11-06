@@ -412,6 +412,8 @@
       if (!n) throw fail('invalid_input', 'Enter a 10-digit US phone number.', 'phone');
       if (mode === 'preview') { await new Promise((r) => setTimeout(r, 600)); return { sent: true, preview: true }; }
       const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: { data: { first_name: names && names.first || undefined, last_name: names && names.last || undefined } } });
+      // texting not connected at Supabase yet (doc 36): Supabase's own "Unsupported phone provider" means nothing to a reader
+      if (error && /^(phone_provider_disabled|otp_disabled|sms_send_failed)$/.test(error.code || '')) throw fail('code_not_sent', "Text codes aren't working yet. Please call " + settingsCache.public_phone + '.', 'phone');
       if (error) throw fail('code_not_sent', error.message || "We couldn't send the code. Check the number, or call " + settingsCache.public_phone + '.', 'phone');
       return { sent: true };
     },
