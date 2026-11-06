@@ -155,14 +155,18 @@
   }
 
   // ---------------------------------------------------------------- shell
-  // opts.pick: a route token from the Services page (#book-ed), taken in once the menu is here
+  // opts.pick: a route token from the Services page (#book-ed), taken in once the menu is here; opts.returning: the
+  // booking met again by Back or Forward (the router), not a new arrival
   function mount(container, opts) {
     root = container;
     if (opts && opts.pick) offered = opts.pick;
     if (mounted) {
       // the first visit's load is still on its way: it draws the booking when it lands
       if (!menu) { root.replaceChildren(loading('Loading the booking…')); return; }
-      if (st.receipt) reset(true);   // a receipt from an earlier visit: the next visit starts a fresh request
+      // a receipt from an earlier visit: a new arrival (Book Now, the menu) starts a fresh request; Back or Forward to
+      // it shows the receipt again, as it was left (doc 40), and takes no service in
+      if (st.receipt && !(opts && opts.returning)) reset(true);
+      if (st.receipt) offered = null;
       takeOffer();
       redraw();
       // signed in (the account page) or out since the last visit: the contact and the saved vehicles follow
@@ -387,7 +391,10 @@
     }
   }
 
-  let daysWait = false;   // step 05 waits for its open days to show the first one (revealDays)
+  // Step 05 waits for its open days to show the first one (revealDays), and watches the page meanwhile (watchTap): a
+  // finger, a wheel or a scroll since Continue, or days that come late, and the page stays where it is
+  let daysWait = false, daysTap = null;
+  function stopDaysWait() { daysWait = false; if (daysTap) { daysTap.end(); daysTap = null; } }
   // A step change: the page is brought to the top of the card first, plainly, so the page never shrinks under a
   // smooth scroll (the footer used to flash on Back); then the new step slides in and its title takes focus.
   function show(n) {
@@ -397,8 +404,8 @@
     window.scrollTo({ top: cardTop(), behavior: 'auto' });
     render();
     focusTitle();
-    daysWait = false;
-    if (n === 5) revealDays(true);
+    stopDaysWait();
+    if (n === 5) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
   }
   async function go(n) {
     if (busy) return;
@@ -971,19 +978,25 @@
   }
   async function updatePrices() {
     const s = st.service;
-    // a card's price is drawn again only when it changed, so a figure taking the light is never swapped under it
-    await mainPrices((code) => {
-      const elp = root.querySelector('#price-' + code), next = el('span', priceNodes(code));
-      if (elp && !(elp.firstChild && elp.textContent === next.textContent)) elp.replaceChildren(...next.childNodes);
-    });
-    const wrap = root.querySelector('.bk-services'); if (wrap) wrap.removeAttribute('aria-busy');
-    const q = await refreshQuote();
+    // from the pick (or the add-on) until the quote lands: may the page move for the bundle note (below)?
+    const tap = watchTap();
+    let q;
+    try {
+      // a card's price is drawn again only when it changed, so a figure taking the light is never swapped under it
+      await mainPrices((code) => {
+        const elp = root.querySelector('#price-' + code), next = el('span', priceNodes(code));
+        if (elp && !(elp.firstChild && elp.textContent === next.textContent)) elp.replaceChildren(...next.childNodes);
+      });
+      const wrap = root.querySelector('.bk-services'); if (wrap) wrap.removeAttribute('aria-busy');
+      q = await refreshQuote();
+    } finally { tap.end(); }
     if (q === STALE) return;   // a newer pick paints when its quote lands
     const box = root.querySelector('#bk-price'); const sug = root.querySelector('#bk-suggest');
     updateNav();
     if (!box) return;
     // the bundle note appearing after a pick (not as the step lands with it) is brought into view, once: on a phone
-    // it would open under the sticky bar, below the cards
+    // it would open under the sticky bar, below the cards. Only if the page stayed still and the quote came soon
+    // (watchTap): never under a finger put down meanwhile (doc 35); then the note simply waits under the cards
     const fresh = !!(sug && sug.dataset.painted && !sug.firstChild);
     if (sug) sug.dataset.painted = '1';
     if (!q) { box.replaceChildren(el('p.bk-muted', 'Choose a service to see the price.')); if (sug) sug.replaceChildren(); return; }
@@ -1001,7 +1014,7 @@
             const card = root.querySelector('.svc-opt[data-code="' + b.code + '"]');
             if (card) card.focus({ preventScroll: e.detail > 0 });
           } }, 'Switch to ' + b.name)));
-        if (fresh) sug.firstChild.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+        if (fresh && tap.still()) sug.firstChild.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
       }
     }
   }
@@ -1029,7 +1042,7 @@
     const grid = el('div.cal-grid', { role: 'group' });
     const arrow = (d, label, sign) => el('button.icon-btn.small', { type: 'button', 'aria-label': label, onclick: (e) => {
       const btn = e.currentTarget, had = document.activeElement === btn;
-      daysWait = false;   // the visitor is choosing a month: the page stays where it is
+      stopDaysWait();   // the visitor is choosing a month: the page stays where it is
       w.month = new Date(w.month.getFullYear(), w.month.getMonth() + d, 1);
       paintMonth(d);
       if (had && btn.disabled) (d < 0 ? nextBtn : prevBtn).focus({ preventScroll: true });
@@ -1127,7 +1140,8 @@
   // Step 05 just opened (a click, so no finger is on the glass): on a phone the month's open days can sit under the
   // sticky bar, so the page moves just enough to show the whole month, never so far that "Your service" goes under
   // the floating top bar; nothing moves when it is already in sight. The open days can land after the step is drawn
-  // (loadCalendar), so it waits for them once (wait, daysWait); a month change never moves the page.
+  // (loadCalendar), so it waits for them once (wait, daysWait), and moves only if the page stayed still and they came
+  // soon (daysTap); a month change never moves the page.
   function revealDays(wait) {
     const day = root.querySelector('.cal-day.on') || root.querySelector('.cal-day.open'), chosen = root.querySelector('.bk-chosen'), grid = root.querySelector('.cal-grid');
     if (!day) { daysWait = !!wait; return; }
@@ -1255,7 +1269,10 @@
         b.setAttribute('aria-label', longDate(iso) + (w.calendar[iso] === false ? ', full' : ''));
       });
       if (w.date && w.calendar[w.date] === false) dropDay('That day no longer fits this booking. Pick another.');
-      if (daysWait && step === 5) revealDays(false);
+      if (daysWait) {
+        if (step === 5 && daysTap && daysTap.still()) revealDays(false);
+        stopDaysWait();
+      }
     } catch (e) { toast(e.message); }
   }
   // The chosen day is marked (the gold circle), or none is; the customer's own pick pours (poured)

@@ -218,18 +218,28 @@
   const light = (() => {
     const off = reduce || window.matchMedia('(forced-colors: active)').matches;
     const q = [];
-    let cur = null, busyUntil = 0, timer = 0;
+    let cur = null, busyUntil = 0, timer = 0, cutEl = null;
+    // its box if el is on the screen (a pass reads its size from it: the reach of its sweep), or false
     const onScreen = (el) => {
       if (!el || !el.isConnected) return false;
       const r = el.getBoundingClientRect();
-      return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+      return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth && r;
     };
-    // the CSS lights now running on the screen ([animation, its timing]); none where the browser can't list them
+    // the CSS lights now running on the screen ([animation, its timing]); none where the browser can't list them. They
+    // are read once a task: the clock doesn't move within one, so a pass that starts (its own writes, then holdShines)
+    // never makes the browser work the page's styles out again just to list them; a light moved (currentTime) or a
+    // new task reads them afresh
+    let listed = null;
+    const relist = () => { listed = null; };
     function others(names) {
-      let all = [];
-      try { all = document.getAnimations ? document.getAnimations() : []; } catch (e) { /* older browsers: passes only */ }
-      return all.filter((a) => names[a.animationName] && a.playState === 'running' && a.currentTime != null && a.effect && onScreen(a.effect.target))
-        .map((a) => [a, a.effect.getComputedTiming()]);
+      if (!listed) {
+        let all = [];
+        try { all = document.getAnimations ? document.getAnimations() : []; } catch (e) { /* older browsers: passes only */ }
+        listed = all.filter((a) => CROSSING[a.animationName] && a.playState === 'running' && a.currentTime != null && a.effect && onScreen(a.effect.target))
+          .map((a) => [a, a.effect.getComputedTiming()]);
+        queueMicrotask(relist);
+      }
+      return listed.filter(([a]) => names[a.animationName]);
     }
     // ms until no other light is crossing anything (for a shine just starting: no other that started before it; for
     // one just back on the screen, none at all; for the customer's own input, firm: only the lights that can't give
@@ -252,6 +262,7 @@
         el.style.setProperty('--yield-at', getComputedStyle(el, '::after').transform);
         el.classList.add('yield');
         a.currentTime += (CROSSING.shine - t.progress) * t.duration + 20;
+        relist();
         setTimeout(() => { el.classList.remove('yield'); el.style.removeProperty('--yield-at'); }, 220);
       });
     }
@@ -265,7 +276,7 @@
       }).filter(([until]) => until < ms).sort((x, y) => x[0] - y[0]).forEach(([until, a, t], k) => {
         const at = ms + k * (t.duration * part + 240);   // when it starts crossing now
         // a shine at rest moves back within its rest (never into its crossing: then it keeps its time)
-        if (t.progress == null || at <= t.duration * (1 - part)) a.currentTime -= at - until;
+        if (t.progress == null || at <= t.duration * (1 - part)) { a.currentTime -= at - until; relist(); }
       });
     }
     // a shine starting its run (the crossing is its first 22%), or coming back on the screen part way across: it
@@ -279,7 +290,7 @@
       const t = a.effect.getComputedTiming(), p = t.progress;
       if (p == null || p >= CROSSING.shine) return;   // at rest: the start of its next run sees to it
       const wait = Math.max(busyUntil - performance.now(), crossing(a, seen));
-      if (wait > 0) { if (seen || p < 0.05) a.currentTime -= wait + 120 + p * t.duration; }
+      if (wait > 0) { if (seen || p < 0.05) { a.currentTime -= wait + 120 + p * t.duration; relist(); } }
       else holdShines(t.duration * (CROSSING.shine - p) + 240, a);
     }
     const onShine = (e) => { if (e.animationName === 'shine') settle(e.target, false); };
@@ -288,25 +299,30 @@
     function cut() {
       clearTimeout(cur.end);
       cur.el.classList.remove('au-run');
+      cutEl = cur.el;   // (should it play again in this same task, its light restarts: play)
       cur = null;
       busyUntil = performance.now();
     }
-    function play(it) {
+    // box: el's box as it was just found on the screen (next, pass), so its turn reads no layout of its own
+    function play(it, box) {
       if (cur) cut();
       cur = it;
       const el = it.el;
+      // a band that slides (sweep) starts and ends just outside its frame however tall the frame is (a phone's
+      // closing band, a tall card): the 118deg tilt needs more reach the taller the frame is for its width. Its size
+      // is read before anything below writes
+      const r = box || el.getBoundingClientRect();
       // its turn has come: a pass made of several lights (the service cards' row) lays them out now and says how long
       // they run in all
       if (it.start) it.ms = it.start() || it.ms;
       busyUntil = it.until = performance.now() + it.ms + 60;
       if (it.now) yieldShines();
       holdShines(it.ms + 240);
-      // a band that slides (sweep) starts and ends just outside its frame however tall the frame is (a phone's
-      // closing band, a tall card): the 118deg tilt needs more reach the taller the frame is for its width
-      const r = el.getBoundingClientRect();
       el.style.setProperty('--au-reach', reach(r));
-      el.classList.remove('au-run');
-      void el.offsetWidth;
+      // the light starts as its class lands with the next frame; only one still on the element, or cut short in this
+      // same task, is taken off and laid out first, so it starts again
+      if (el.classList.contains('au-run') || el === cutEl) { el.classList.remove('au-run'); void el.offsetWidth; }
+      cutEl = null;
       el.classList.add('au-run', 'au-lit');
       it.end = setTimeout(() => ended(it), it.ms + 60);
     }
@@ -324,7 +340,8 @@
         const wait = Math.max(it.at - now, now - it.at < 4000 ? crossing(null, false, it.now) : 0);
         if (wait > 0) { timer = setTimeout(next, wait + 40); return; }
         q.shift();
-        if (onScreen(it.el) && (!it.when || it.when())) play(it);
+        const box = onScreen(it.el);
+        if (box && (!it.when || it.when())) play(it, box);
         else if (it.miss) it.miss();
       }
     }
@@ -338,7 +355,8 @@
         const k = q.findIndex((it) => it.el === el);
         if (k >= 0) { if (!o.now) return; q.splice(k, 1); }   // already waiting: the customer's own input takes it ahead
         const it = { el, now: !!o.now, at: performance.now() + (o.delay || 0), ms: AU_MS[o.size] || AU_MS.el, when: o.when, miss: o.miss, start: o.start };
-        if (!o.delay && onScreen(el) && (it.now ? !crossing(null, false, true) : !cur && !q.length && !crossing())) { play(it); return; }   // nothing ahead of it: at once
+        const box = !o.delay && onScreen(el);
+        if (box && (it.now ? !crossing(null, false, true) : !cur && !q.length && !crossing())) { play(it, box); return; }   // nothing ahead of it: at once
         q.splice(it.now ? q.filter((x) => x.now).length : q.length, 0, it);   // the customer's own input, in order, ahead of the arrivals
         next();
       },
@@ -376,12 +394,16 @@
   // A brand page's title sets from behind its line first (the heads): its pass, inside the letters, waits until the
   // heading is whole again.
   const ARRIVE = '.svc-top, .book-page .page-head h1, .gold-card, .group-plate.polish';
+  const litKey = (h) => 'lit:' + headKey(h);   // (a title's light, in its page's note of the heads that have set)
   const arriveIo = new IntersectionObserver((es) => es.forEach((e) => {
     if (!e.isIntersecting) return;
     const el = e.target;
     arriveIo.unobserve(el);
     const title = el.matches('h1');
-    const pass = () => light.pass(el, { delay: title ? 200 : el.matches('.svc-top') ? 650 : 450, size: el.matches('.group-plate, .svc-top') ? 'wide' : 'el', miss: () => arriveIo.observe(el) });
+    // (a brand page's title notes its light as it starts: the page is built afresh each visit, and met again this
+    // visit its title is simply lit: armReveals)
+    const pass = () => light.pass(el, { delay: title ? 200 : el.matches('.svc-top') ? 650 : 450, size: el.matches('.group-plate, .svc-top') ? 'wide' : 'el', miss: () => arriveIo.observe(el),
+      start: title ? () => { markSeen(el, litKey(el)); } : null });
     if (title) afterHead(el.closest('[data-head]'), pass); else pass();
   }), { threshold: 0.35 });
 
@@ -681,16 +703,43 @@
   new IntersectionObserver((es) => overWash(es[es.length - 1].isIntersecting), { rootMargin: '-10% 0px -10% 0px' }).observe(washSection);
   washSection.addEventListener('washend', () => topbar.classList.remove('over-wash'));   // the canvas has stopped for good
   // While a dark piece is under the bar (the black hero, the Services header's photo), .over-dark: in the white studio
-  // the bar goes nearly solid ivory there (CSS), so it never reads as a grey band. The observed strip is the top tenth
-  // of the screen, the bar's; the two are on different pages, so whichever is in it counts.
+  // the bar goes nearly solid ivory there (CSS), so it never reads as a grey band. The observed strip is the bar's: from
+  // its top edge to the foot of the top tenth of the screen; the two are on different pages, so whichever is in it
+  // counts.
   const darkTops = [$('.hero'), $('.svc-top')].filter(Boolean), underBar = new Set();
-  const darkIo = new IntersectionObserver((es) => {
-    es.forEach((e) => { if (e.isIntersecting) underBar.add(e.target); else underBar.delete(e.target); });
+  function overDark() {
     topbar.classList.toggle('over-dark', underBar.size > 0);
     topbar.classList.toggle('over-hero', [...underBar].some((el) => el.matches('.hero')));   // the studio light is under the glass
-    if (root.classList.contains('top-dark')) root.classList.remove('top-dark');   // (the head script's guess for the first paint: the observer's answer from now on)
-  }, { rootMargin: '0px 0px -90% 0px' });
-  darkTops.forEach((el) => darkIo.observe(el));
+    if (root.classList.contains('top-dark')) root.classList.remove('top-dark', 'top-home');   // (the head script's guesses for the first paint: the observer's answer from now on)
+  }
+  // The strip starts at the bar's top edge (the bar's padding above it, with any notch: CSS), not the screen's: a hero
+  // whose foot is still in that gap has nothing under the glass. A piece counts only with some of its height in the
+  // strip: one whose edge just touches it (the hero's foot on the bar's top edge) is "intersecting" to the observer but
+  // has nothing under the bar. The second threshold makes the observer answer as the last of it leaves (a sliver to
+  // just touching), not only as it goes out of the strip. A new gap (a phone turned) makes a new observer.
+  let darkIo = null, barTop = -1;
+  function watchDark() {
+    const t = parseFloat(getComputedStyle(topbar).paddingTop) || 0;
+    if (t === barTop) return;
+    barTop = t;
+    if (darkIo) darkIo.disconnect();
+    darkIo = new IntersectionObserver((es) => {
+      es.forEach((e) => { if (e.isIntersecting && e.intersectionRect.height > 0) underBar.add(e.target); else underBar.delete(e.target); });
+      overDark();
+    }, { rootMargin: -t + 'px 0px -90% 0px', threshold: [0, 1e-6] });
+    darkTops.forEach((el) => darkIo.observe(el));
+  }
+  watchDark();
+  window.addEventListener('resize', watchDark);
+  // the observer's answer read at once, for a page a cut has just swapped in as its cover lifts (the observer's own
+  // comes a frame later): the dark pieces with some of their height between the bar's top edge and the foot of the
+  // top tenth of the screen, then set as the observer sets them
+  const darkTopsNow = () => darkTops.filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > barTop && r.top < window.innerHeight * 0.1; });
+  function setDarkTops(els) {
+    underBar.clear();
+    els.forEach((el) => underBar.add(el));
+    overDark();
+  }
   // Under a finger there is no hover: once the row's light has crossed and the page moves again (at once where no light
   // plays), the row scrolled to the middle of the screen is lit.
   let litArmed = false;
@@ -888,14 +937,19 @@
     due.add(el);
     if (!dueFrame) dueFrame = requestAnimationFrame(arrive);
   }
+  // At most RISE_MAX blocks and rooms go in a frame (a phone, slowed, would otherwise lay out and paint a whole page's
+  // worth in one); the rest follow in the next frames, in order, ahead of anything newer
+  const RISE_MAX = 4;
   function arrive() {
     const els = [...due].filter((el) => !el.classList.contains('in'));
     due.clear();
     els.forEach((el) => { if (el.hasAttribute('data-head')) headGo(el); });   // a head whose fonts are in joins this frame
     dueFrame = 0;
-    let wrote = false;
-    els.forEach((el) => { if (!el.hasAttribute('data-head')) { rise(el); wrote = true; } });
-    if (turn.size) { if (wrote) requestAnimationFrame(readHeads); else readHeads(); }
+    const blocks = els.filter((el) => !el.hasAttribute('data-head'));
+    blocks.slice(0, RISE_MAX).forEach((el) => rise(el));
+    if (turn.size) { if (blocks.length) requestAnimationFrame(readHeads); else readHeads(); }
+    // (asked after the heads' reading, so the next frame reads them before these blocks write)
+    if (blocks.length > RISE_MAX) { blocks.slice(RISE_MAX).forEach((el) => due.add(el)); dueFrame = requestAnimationFrame(arrive); }
   }
   // read: which heads set now (one at a time on the screen) and their lines; they set in the next frame
   function readHeads() {
@@ -973,7 +1027,13 @@
     desyncShine(scope);
     $$('.shine, .scroll-cue', scope).forEach((el) => ioAway.observe(el));
     if (reduce) return;
-    $$(ARRIVE, scope).forEach((el) => { if (!el.classList.contains('au-lit')) arriveIo.observe(el); });
+    $$(ARRIVE, scope).forEach((el) => {
+      const title = el.matches('h1');
+      // (a title lit already, as About's is by its mark's light, is noted too: met again, it takes none)
+      if (el.classList.contains('au-lit')) { if (title) markSeen(el, litKey(el)); return; }
+      if (title && seenHeads(el).has(litKey(el))) { el.classList.add('au-lit'); return; }   // its light has played this visit
+      arriveIo.observe(el);
+    });
     $$(ROOMS, scope).forEach((el) => { if (!el.classList.contains('in') && !el.hasAttribute('data-room')) { el.setAttribute('data-room', ''); io.observe(el); } });
     $$('.svc-top', scope).forEach((el) => { if (!el.classList.contains('in')) io.observe(el); });
     armHeads(scope);
@@ -1262,14 +1322,14 @@
   // draws round the monogram (its own 2s) as the mark fades up; the label fades in from 250ms; from 450ms the
   // statement sets line by line from behind its baseline (the heads' lines, its <em> kept), all of it in white. Once
   // it is whole and wholly on the screen, the gold light crosses "attention to every surface." (its turn in the
-  // light's queue; .au-run on the <em>) and the words turn gold behind it, and stay gold. The script fades up 0.8s
-  // after that light has begun (or the words have simply turned gold: .std-gold), the facts 0.2s after it, a line's gap
-  // apart (CSS), so the promise is never last; a phrase with no light 2s after its lines are whole (left half on the
-  // screen, or a light held in the queue) simply turns gold then, and they follow it at once. The light needs a calm
-  // page: the pictures' compile (startHeavy) behind us and a few frames in a row with no stall (the wash below waking
-  // up, a slow phone); a page that is not calm within a moment and a half, or a phrase scrolled past, is simply gold,
-  // with no light, and no light comes after. Not under reduced motion, for a second visit this session (the heads'
-  // note), without JavaScript or in print: the card is set.
+  // light's queue; .au-run on the <em>) and the words turn gold behind it, and stay gold. The script rises with the
+  // statement, 360ms after its last line starts as a head's lead does (--std-n, CSS), light or no light, and the facts
+  // 0.2s after it, a line's gap apart, so a reader moving on never passes an empty slot; a phrase with no light 2s
+  // after its lines are whole (left half on the screen, or a light held in the queue) simply turns gold then. The
+  // light needs a calm page: the pictures' compile (startHeavy) behind us and a few frames in a row with no stall (the
+  // wash below waking up, a slow phone); a page that is not calm within a moment and a half, or a phrase scrolled
+  // past, is simply gold, with no light, and no light comes after. Not under reduced motion, for a second visit this
+  // session (the heads' note), without JavaScript or in print: the card is set.
   const STD = { lines: 450, settle: 1500, calm: 3, stall: 100, cap: 2000 };   // the first line's start (--std-lines); how long the light waits for a calm page; how many frames, each under stall ms, make one; the phrase gold by then at the latest, counted from its lines being whole (the light's whole wait for a calm page fits inside it)
   let stdArmed = false;
   function armStandard(scope) {
@@ -1299,6 +1359,7 @@
       const whole = () => { if (s.classList.contains('in')) stdLight(s); else setTimeout(() => stdLight(s), STD.lines + LINE.dur); };
       try { const cut = lineCut(st); n = cut ? splitLines(st, cut, whole, STD.lines) : 0; } catch (e) { n = 0; }   // whatever happens, it shows
       requestAnimationFrame(() => {
+        if (n) s.style.setProperty('--std-n', n);   // (the script and the facts rise after its last line: CSS --std-tail)
         s.classList.add('in');
         $('.emblem', s).classList.add('in');
         if (!n) setTimeout(() => stdLight(s), STD.lines + LINE.dur);   // faded in whole: its light once it has
@@ -1311,7 +1372,7 @@
   function stdLight(s) {
     const em = $('.statement em', s);
     if (!em || em.classList.contains('au-lit')) { s.classList.add('std-gold'); return; }
-    const gold = () => { em.classList.add('std-fade', 'au-lit'); s.classList.add('std-now', 'std-gold'); };   // no light: the words simply turn gold (the script and facts follow at once)
+    const gold = () => { em.classList.add('std-fade', 'au-lit'); s.classList.add('std-now', 'std-gold'); };   // no light: the words simply turn gold (std-now)
     if (light.off) { gold(); return; }
     setTimeout(() => { if (!s.classList.contains('std-gold')) gold(); }, STD.cap);   // (the phrase still waiting for its light)
     const ready = (t0) => {
@@ -1325,7 +1386,7 @@
         if (em.classList.contains('au-lit')) return;
         if (calm >= STD.calm) {
           light.pass(em, { size: 'card', when: () => !em.classList.contains('au-lit'), miss: () => view.observe(em),
-            start: () => { em.classList.toggle('std-wrap', em.getClientRects().length > 1); s.classList.add('std-gold'); } });   // (the script and the facts follow the light)
+            start: () => { em.classList.toggle('std-wrap', em.getClientRects().length > 1); s.classList.add('std-gold'); } });
         } else if (now - t0 > STD.settle) gold();
         else requestAnimationFrame(frame);
       });
@@ -2902,7 +2963,7 @@
     const landOn = () => {
       if (changed) {
         // #book-ed and the like: a service chosen on Services (the Table's symbols), taken into the booking
-        if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'), { pick: sub });
+        if (view === 'book' && window.AlchemistBooking) window.AlchemistBooking.mount($('#bookApp'), { pick: sub, returning: !!again });
         if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
         if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
         if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
@@ -2993,10 +3054,30 @@
     v.classList.remove('cut-in', 'from-above');
     v.removeEventListener('animationend', fn);
   }
+  // The white studio's bar through the cut (CSS .topbar.shade): while the cover is up the bar is the cover's ivory,
+  // whatever has been laid out under it; as the cover lifts it takes the glass of what is under it then (read at once:
+  // the observer answers a frame later). Where its glass changes with the cut (Home's black hero: the smoked glass)
+  // the bar fades in with the cover, on its clock (.glass-in coming on, .glass-up lifting), so no dark slab sits on the
+  // cream and no ivory one on the black, in any frame. Nothing moves; in the dark theme the class changes nothing.
+  let glassT = 0;
+  const smoked = () => root.getAttribute('data-theme') === 'light' && !topbar.classList.contains('shade') &&
+    (root.classList.contains('top-home') || (topbar.classList.contains('over-hero') && !topbar.classList.contains('over-wash')));
+  function glassTo(on, under) {
+    if (topbar.classList.contains('shade') === on) return;
+    const was = smoked();
+    if (!on) setDarkTops(under || darkTopsNow());
+    topbar.classList.toggle('shade', on);
+    if (smoked() === was) return;
+    topbar.classList.remove('glass-in', 'glass-up');
+    topbar.classList.add(on ? 'glass-in' : 'glass-up');
+    clearTimeout(glassT);
+    glassT = setTimeout(() => topbar.classList.remove('glass-in', 'glass-up'), 700);
+  }
   function blackOut(back, bare) {   // (the click handler, as the page is chosen; the router, for Back and the like)
     if (dark) return;
     scrim.classList.toggle('bare', !!bare);
     scrim.classList.add('on', 'cut');
+    glassTo(true);
     const rests = cur === 'home' && !!hero && !!hero.pause;
     if (rests) hero.pause();
     const d = dark = { at: performance.now(), shown: 0, name: '', back: !!back, m: null, swapped: false, landed: false, fast: false, touched: onGlass(), t: 0, safe: 0, hero: rests };
@@ -3040,9 +3121,10 @@
   }
   // the shade goes; the hero's light comes back if home is still the page (Back in the black), and otherwise holds
   // still until home shows again (render)
-  function unshade(d) {
+  function unshade(d, under) {
     if (!menuOpen) scrim.classList.remove('on');
     setTimeout(() => { if (!dark && !menuOpen) scrim.classList.remove('cut', 'bare'); }, 600);   // (once the shade has lifted)
+    glassTo(false, under);   // (the bar's glass lifts with it)
     if (d.hero && !menuOpen) { if (cur === 'home') hero.resume(); else heroRests = true; }
   }
   function lift(d) {
@@ -3054,6 +3136,7 @@
     risen();
     // (home met at or past the wash: the shade lifts on it in place, so the pinned stage never moves but with the scroll)
     const inPlace = cur === 'home' && washSection.getBoundingClientRect().top < window.innerHeight;
+    const under = darkTopsNow();   // (what the bar's glass lifts onto: read with the wash, before anything is written)
     if (v && !d.fast && !inPlace) {
       v.classList.add('cut-in');
       v.classList.toggle('from-above', d.back);
@@ -3061,7 +3144,7 @@
       v.addEventListener('animationend', fn);
       rising = [v, fn];
     }
-    unshade(d);
+    unshade(d, under);
     cutGo(d.m);
   }
   // a click in the cut (the menu opened again, the next page): the page is there at once

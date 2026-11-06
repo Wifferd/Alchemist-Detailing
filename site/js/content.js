@@ -151,7 +151,7 @@
   }
 
   // About's photo is unveiled once, when its plate is first well on screen and the picture decoded (.unveiled; the CSS
-  // does the rest), and on the mark's opening only once the title has set after it (after: trace). It has its own
+  // does the rest), and on the mark's opening only once the page is released (after: trace). It has its own
   // observer, as the shared reveal settles at once whatever lands in a view another page has already opened, and Tips,
   // the FAQ and Contact share this one. Under reduced motion it is simply there.
   let unveiling = null;   // the last About's observer, let go when the page is built again
@@ -284,9 +284,9 @@
   // with the second. Then the site's light crosses the mark once (its turn in the light's queue: the head's one gold
   // light, so the title takes none of its own this time) and behind the light the owner's metallic logo is there, the
   // pen's line fading into its edge, and the ring closes round it in the second half of the crossing. The title, the
-  // lead and the words below follow as the ring begins to close (the page waits for that: data-hold, app.js), about
-  // 2.2s into the pen's clock, and the photo waits until the title has set. A visitor who scrolls, types or taps
-  // meanwhile has the page at once (the mark finishes on its own). Not under reduced motion or in forced colours, and
+  // lead and the words below follow as the light crosses the mark (the page waits for that: data-hold, app.js), about
+  // 1.6s into the pen's clock, and the photo comes with them, as the title's lead does. A visitor who scrolls, types or
+  // taps meanwhile has the page at once (the mark finishes on its own). Not under reduced motion or in forced colours, and
   // once a visit (the tab's own storage): the mark is simply there, the ring closed, as in print.
   // The pen is painted first, faintly (.warm), and its clock starts once the frames come on time, so the browser's
   // first drawing of the new layers lands on the black page and not on the first line; and a frame that comes late
@@ -297,7 +297,7 @@
     kick: 1410,     // the kicker fades in as the second spark flashes (on the pen's own clock, from its first line)
     gild: 1610,     // the light's turn is asked for as the second spark settles
     ring: 550,      // the ring closes in the second half of the light's crossing (CSS: 1s)
-    release: 550,   // and the page follows with it: mark, light, ring, then the title (its rise takes the ring's time)
+    release: 0,     // and the page follows as the light crosses the mark: the title rises under the light and the ring
     done: 1900,     // and all of it has settled this long after the light's start: the pen's layer goes
     warm: 600,      // the pen's faint first paint has this long at most to come through before its clock starts
     hold: 400,      // and its clock (the pen's, then the light's) is held back this much at most in all
@@ -306,7 +306,7 @@
   const traced = () => { try { return sessionStorage.getItem(TRACE_KEY) === '1'; } catch (e) { return false; } };   // storage unavailable: it plays
   // plays the trace on emblem e at the head of page (held until then); returns a promise of the photo's turn
   function trace(e, page, head) {
-    const L = window.AlchemistLight, A = window.AlchemistInspect, mark = e.querySelector('.em-mark');
+    const L = window.AlchemistLight, mark = e.querySelector('.em-mark');
     try { sessionStorage.setItem(TRACE_KEY, '1'); } catch (err) { /* storage unavailable: it may play again, which is harmless */ }
     // the pen comes in the page's first frame, out of the page change's own work, faint (.warm) until its clock starts
     // (out of a cut through black, its warm-up runs in the black and its clock starts once the page shows, app.js)
@@ -331,8 +331,8 @@
       page.removeAttribute('data-hold');
       page.dispatchEvent(new Event('release'));   // (also when the visitor has left About: what waited for it lets go)
       if (!page.isConnected) return;
-      // the photo's turn: once the title has set (its lines whole again)
-      requestAnimationFrame(() => { if (A && A.afterHead) A.afterHead(head, () => setTimeout(turn, 0)); else turn(); });
+      // the photo's turn: now, with the words (unveil: it comes as the title's lead does, app.js afterLead)
+      turn();
     }
     INPUT.forEach((t) => window.addEventListener(t, release, { passive: true }));
     setTimeout(release, 3800);   // should the frames or the light's turn never come: never an empty page
