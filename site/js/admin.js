@@ -340,13 +340,18 @@
       // its field is left for anything but Save or Back, or on Enter, and the old chips stay, dimmed, until the
       // answer comes, so nothing moves under a press on Save; Save waits for it)
       const timesBox = el('div.adm-times');
+      // the database takes starts on its own grid only (open_starts, every slot_step_min): the label and the hint
+      // under Other start say the same grid, and Save says so too, not "isn't free"
+      const step = (settings && settings.slot_step_min) || 30;
+      const stepText = 'on the ' + (step === 30 ? 'hour or half hour' : step + '-minute mark');
       // where staff_availability isn't on the database yet, the list is the customers' times (forCustomers): said so,
       // since the team's rule takes more (today, and the times next to this booking)
-      const timesLabel = el('p.choice-label', p.forCustomers ? 'Times open to customers (the team can also type any start)' : 'Free times');
+      const custLabel = 'Times open to customers (the team can also type another start ' + stepText + ')';
+      const timesLabel = el('p.choice-label', p.forCustomers ? custLabel : 'Free times');
       const fillTimes = () => {
         const same = p.date === b.service_date;
         const listed = (p.times || []).filter((m) => !(same && m === b.start_min));
-        timesLabel.textContent = p.forCustomers ? 'Times open to customers (the team can also type any start)' : 'Free times';
+        timesLabel.textContent = p.forCustomers ? custLabel : 'Free times';
         timesBox.removeAttribute('aria-busy'); timesBox.style.opacity = '';
         timesBox.replaceChildren(p.times == null ? el('p.bk-muted', 'Checking free times…')
           : listed.length ? el('div.chips', listed.map((m) => chip(m)))
@@ -374,8 +379,6 @@
         oninput: (e) => { p.duration = parseInt(e.target.value, 10) || b.duration_min; },
         onblur: (e) => { if (b.status !== 'in_progress' && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.acct-actions'))) askTimes(); },
         onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); if (b.status !== 'in_progress') askTimes(); } } });
-      // the database takes starts on its own grid only (open_starts, every slot_step_min): say so here, not "isn't free"
-      const step = (settings && settings.slot_step_min) || 30;
       const commit = (ok) => { if (p.start == null) return toast('Pick a start time, or type one.'); if (p.start % step && p.start !== b.start_min) return toast('Start times go every ' + step + ' minutes, like 1 PM or 1:30 PM.'); act('set_booking_time', { p_id: b.id, p_date: p.date, p_start_min: p.start, p_duration_min: p.duration || null, p_note: null }, ok); };
       // the free times for a new length still on their way: Save waits for them (once), then checks the start against
       // the new list; a day or length changed meanwhile drops the press
@@ -398,7 +401,7 @@
         p.date === b.service_date ? el('div.chips', chip(b.start_min, 'Keep ' + clock(b.start_min))) : '',
         timesLabel,
         timesBox,
-        field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start on the ' + (step === 30 ? 'hour or half hour' : step + '-minute mark') + '; the database checks it against the other jobs and the hours.', step: step * 60,
+        field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start ' + stepText + '; the database checks it against the other jobs and the hours.', step: step * 60,
           // a cleared (or unfinished) entry picks nothing: Save then asks for a start, never the one that was cleared
           oninput: (e) => { p.other = e.target.value; const m = typed(p.other); p.start = m; unmark(); } }),
         save('Time changed'));
