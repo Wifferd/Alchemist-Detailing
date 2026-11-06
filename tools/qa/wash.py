@@ -9,9 +9,14 @@ mode: ios       an iPhone (iOS 26.1 and earlier): a script's scroll under a fing
       desk      a computer: a mouse wheel (and its momentum) and clicks
 Each run prints one JSON line: mode, scenario, err (undos + jumps), worst (the largest jump, px), undos, jumps, bad
 (landing or wash checks that failed; the cut scenarios), wash (its state at the end), land (scrollY at the end),
-ms. A jump is a move over 400 px in one frame of what is on the screen that the visitor's input does not explain.
+fps (the page's frames a second during the scenario), ms. A jump is a move over 400 px in one frame of what is on the screen that the visitor's input does not explain.
 Touch goes through CDP (Input.dispatchTouchEvent): drags, and flings with a momentum tail. To keep a run quick in
-SwiftShader the pages draw at 1x pixel density (WASH_DPR to change it) and adapt their resolution (no ?noadapt)."""
+SwiftShader the pages draw at 1x pixel density (WASH_DPR to change it) and adapt their resolution (no ?noadapt).
+WASH_THEME=light opens the page in the light theme (every scenario but theme, which switches from dark itself).
+WASH_FOLD=1 adds after: once the run is scored, a wash not yet folded must still fold (a short drag held still,
+then lifted on a still page, is the proof iOS needs), within 20 s, with no undo or jump on the way.
+WASH_CPU=4 slows the page's CPU 4x through CDP (Emulation.setCPUThrottlingRate) once it has loaded, for the whole
+scenario and the after check: frames starved after a flick, as on a busy phone (the line then carries cpu)."""
 import asyncio, json, os, pathlib, sys, time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import qalib
@@ -20,6 +25,9 @@ from playwright.async_api import async_playwright
 PROBE = (pathlib.Path(__file__).resolve().parent / 'wash_probe.js').read_text()
 DT = 0.016
 DPR = float(os.environ.get('WASH_DPR', '1'))
+THEME = os.environ.get('WASH_THEME', 'dark')
+FOLD = os.environ.get('WASH_FOLD') == '1'
+CPU = float(os.environ.get('WASH_CPU', '1'))
 IPHONE_UA = ('Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) '
              'Version/18.6 Mobile/15E148 Safari/604.1')
 MODES = {
@@ -466,26 +474,63 @@ async def s_touchcut_home(r):
 
 RUNS = {name: globals()['s_' + name] for name in SCENARIOS}
 
+PIN_JS = """() => { const w = window.__alchemist && window.__alchemist.wash; const d = w && w.debug && w.debug().pin;
+  return d ? { fold: !!d.folded, creeping: !!d.creeping, how: d.last && d.last.mode, steps: d.steps } : null; }"""
+
+
+async def fold_after(r):
+    """WASH_FOLD=1: a wash the run left unfolded must still fold. Unless it is already creeping, a visitor's finger
+    drags 40 px, holds still 200 ms and lifts on a still page (the lift rest.proven() trusts); then up to 20 s."""
+    t0 = time.time()
+    st = await r.pg.evaluate(PIN_JS)
+    if not st:
+        return None
+    touched = False
+    if not st['fold'] and not st['creeping']:
+        touched = True
+        if r.mode == 'desk':
+            await r.slow(50)
+        else:
+            await r.stroke(40, 300, still=200)
+            await r.quiet()
+    while time.time() - t0 < 20:
+        st = await r.pg.evaluate(PIN_JS)
+        if st['fold']:
+            break
+        await asyncio.sleep(0.1)
+    await asyncio.sleep(0.5)
+    q = await r.pg.evaluate('({undos: __qa.undos, jumps: __qa.jumps.length, worst: __qa.worst})')
+    return dict(fold=st['fold'], how=st['how'], steps=st['steps'], touched=touched, s=round(time.time() - t0, 1), **q)
+
 
 async def one(browser, base, mode, scenario):
     t0 = time.time()
     ctx = await browser.new_context(ignore_https_errors=True, **MODES[mode])
     await ctx.route(lambda u: any(h in u for h in qalib.BLOCK), lambda rt: rt.abort())
     await ctx.add_init_script('window.__QA_CFG = ' + json.dumps({'mode': mode}) + ';\n' + PROBE)
+    if THEME == 'light':   # WASH_THEME=light: the page opens in the light theme (not for theme, which starts dark)
+        await ctx.add_init_script("try{localStorage.setItem('ad.theme','light')}catch(e){}")
     pg = await ctx.new_page()
     errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)[:160]))
     cdp = await ctx.new_cdp_session(pg)
     r = Run(pg, cdp, mode)
     out = {'mode': mode, 'scenario': scenario}
+    if THEME == 'light':
+        out['theme'] = 'light'
     try:
         await pg.goto(base + '#home')
         await qalib.ready(pg)
         await pg.wait_for_function('window.__alchemist && window.__alchemist.wash', timeout=15000)
         await qalib.settle(pg)
         await asyncio.sleep(1.2)
+        if CPU > 1:   # WASH_CPU: the page loaded at full speed; from here its CPU is slowed
+            await cdp.send('Emulation.setCPUThrottlingRate', {'rate': CPU})
+            out['cpu'] = CPU
+        f0, ts = await pg.evaluate('__qa.frames'), time.time()
         await RUNS[scenario](r)
         await asyncio.sleep(0.3)
+        fps = round((await pg.evaluate('__qa.frames') - f0) / (time.time() - ts), 1)   # the page's frames a second in the scenario
         q = await pg.evaluate('({undos: __qa.undos, jumps: __qa.jumps, worst: __qa.worst, judged: __qa.judged, frames: __qa.frames, calls: __qa.calls.filter((c) => c.under).slice(0, 6), landedUnder: __qa.landedUnder, swallowed: __qa.swallowed || 0, trace: __qa.trace})')
         out.update(err=q['undos'] + len(q['jumps']), worst=q['worst'], undos=q['undos'], jumps=len(q['jumps']), bad=len(r.bad),
                    wash=await r.wash(), land=round(await pg.evaluate('scrollY')))
@@ -503,6 +548,9 @@ async def one(browser, base, mode, scenario):
         if r.bad:
             out['why'] = r.bad
         out['frames'] = q['judged']
+        out['fps'] = fps
+        if FOLD and out['wash'] is not None:
+            out['after'] = await fold_after(r)   # (undos, jumps and worst there are the totals, the run's included)
     except Exception as e:
         out.update(err=-1, worst=-1, undos=-1, jumps=-1, bad=-1, wash=None, land=None, fail=str(e).split('\n')[0][:200])
     if errs:

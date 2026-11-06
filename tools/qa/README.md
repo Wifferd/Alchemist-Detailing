@@ -27,6 +27,7 @@ WebGL runs in SwiftShader (no GPU here).
 | `wash.py <site_dir> <mode> <scenario\|all>` | The iPhone-emulating scroll harness for the foam wash and page changes |
 | `back_walk.py <site_dir\|url> <phone\|desk\|n360> <dark\|light> <scenario\|all> [out_dir]` | The Back button walks |
 | `smoke.py <site_dir\|url>` | Every route at desk and phone widths 360/390/440: errors, pictures, requests, sideways scroll |
+| `heads.py <site_dir> <out_dir> [label]` | The seven centred headings (the owner's Nov 5 answer): each title's offset from its column's centre, and a shot |
 | `check_site.sh <out_dir> [wash]` | All of the checks in one go |
 | `wash_compare.py <baseline> <results>...` | Compares `wash.py` lines with the baseline |
 | `make_baseline.sh <scratch_dir> [commit]` | Writes `wash_baseline.txt` from the live site (main, 6dbb2c7) |
@@ -140,9 +141,41 @@ or a view swap aren't judged.
 2x) and lets the foam adapt its resolution (no `?noadapt`). On desk the page draws at about 3 to 6 frames a second
 here, so wheel ticks are sent as they come rather than one per page frame. A run is about 30 to 130 s.
 
+**Options:** `WASH_THEME=light` opens the page in the light theme (every scenario but `theme`, which switches from
+dark itself; the line then carries `"theme": "light"`). `WASH_FOLD=1` adds `after` once the run is scored: a wash the
+run left unfolded must still fold. Unless it is already creeping, a visitor's finger drags 40 px, holds still 200 ms
+and lifts on a still page (on iOS the lift `rest.proven()` trusts, 400 ms later), then up to 20 s: `after` gives
+`fold`, how, the steps, whether it touched, the seconds, and the run's undos, jumps and worst in total. A wash that
+ends a scenario unfolded is normal on iOS: after a fling the page last heard a lift and then the momentum's scroll,
+so nothing proves the glass free until the next lift. `WASH_CPU=2` slows the page's CPU 2x through CDP
+(`Emulation.setCPUThrottlingRate`) once it has loaded, for the scenario and `after` (the line carries `cpu`). It slows
+the page's own work, not SwiftShader's drawing in the GPU process, so on its own it starves no frames here; with
+the whole browser held to one core (`taskset -c 0 python3 tools/qa/wash.py ...`) it does: about 10 frames a second
+at 1.5x, 7 to 8 at 2x, 6 at 4x (12.7 on one core alone). Every line carries `fps`, the page's frames a second
+during the scenario. None of these options is on in `check_site.sh` (the baseline has none).
+
 **Taps:** a tap waits until its target holds still and nothing covers it, for 3 s at most. On a phone, the menu's
 panel slides shut over the bar's logo for about 0.75 s. A place is read only once the top bar is back: a small
 move up brings it back, as a visitor does to reach the menu, and moves the page a little.
+
+## heads.py
+
+The owner's Nov 5 answer, "Centre all seven": Home's 'Choose your finish' head (`svc`), the Ritual's and the Bead
+Test's heads (`ritual`, `bead`) and the four Services photo plates' captions (`exterior`, `interior`, `bundles`,
+`protection`) are centred at every width, the short note or line under the title. For each width (1440x900,
+1024x768, 440x956, 390x844, 360x780; 440 and under are touch phones) and theme it opens Home (the wash finished,
+the cards up) and Services, brings each head on screen, waits until it has set (its lines whole, its plate's
+moment over, 14 s at most: `set`, `waited`), then prints one JSON line and writes `{label}-{head}-{width}-{theme}.png`
+(a plate: the whole plate). `off` is the title's worst line's offset from its column's centre in px (the head's own
+content box; a plate's box for a plate), `lines` every line's, `lead` and `leadLines` the same for the note or the
+plate's line. A line's centre is its glyphs': the text's box less the tracking after its last letter. PASS when
+|off| <= 2. Filters: `HEADS_WIDTHS`, `HEADS_THEMES`, `HEADS_ONLY=svc,bead`; `HEADS_REDUCE=1` for reduced motion,
+`HEADS_NOGL=1` for WebGL off (the shots take `-rm`, `-nogl`).
+
+```bash
+python3 tools/qa/heads.py site $S/heads after
+HEADS_REDUCE=1 HEADS_WIDTHS=1440,390 python3 tools/qa/heads.py site $S/heads after
+```
 
 ## back_walk.py
 
@@ -211,3 +244,39 @@ On HEAD all three are 0.
 
 On a real iPhone that needs a frame gap of 150 ms or more right after a flick. That code is off limits for design
 work (doc 35), so this is a finding for the owner, not a change made here.
+
+## The starved-frame slide after the owner's Nov 5 OK (Nov 6, 2026)
+
+The owner approved one condition in rule (b): `&& t - s.tLift >= 400` (a lift counts once 400 ms have passed with
+no scroll). Mode `ios`, `WASH_FOLD=1`, one run at a time; load = the 1-minute load average as each run started.
+
+**The doc 35 set** (fling, slow, hold, decay and back_rest in both themes; theme from dark), the two sites
+interleaved run by run:
+- After (3cdfa37 plus the rule; from the 61st run on, the whole working tree with the centred heads): 125 runs at
+  load 0.72 to 8.51 (median 3.58; 92 under 4), 29 to 47 fps. 0 undos, 0 jumps, worst 0, every wash folded (35 by
+  the scenario's end, back_rest and theme; the other 90 after `after`'s lift).
+- Before (1f2863f, `git archive`): 110 runs at load 2.08 to 7.92 (median 3.58), 27.5 to 46 fps. One slide:
+  `back_rest` dark at load 3.29 and 28 fps, 15 undos (no scroll for 295 ms before the lift, the creep 152 ms
+  after it).
+
+**Starved on purpose** (the browser held to one core, `taskset -c 0`, and `WASH_CPU`; the load averages there,
+1.6 to 5.5, are mostly the harness's own queue on that core):
+
+| One core and | fps | Before (1f2863f) | After (the rule) |
+| --- | --- | --- | --- |
+| no throttle | 12.7 | theme: 0 undos (1 run) | |
+| CPU 1.5x | 7.6 to 10.4 | 5 of 6 slid: theme 3 of 3 (60 undos each), back_rest dark 2 of 2 (14, 19), back_rest light 0 of 1 | 0 of 7: theme 0 of 4, back_rest 0 of 3 |
+| CPU 2x | 6.9 to 8.4 | theme 60 undos, back_rest 22 | back_rest 0; theme 2 of 2 slid, 60 undos each |
+| CPU 4x | about 6 | theme 60 undos | theme 60 undos |
+
+In every slide: no jump (worst 0), and the wash still folded. Before, the creep began 151 to 249 ms after the lift.
+After, it began 416 to 457 ms after it, in `theme` only (the light theme's heavy frames): the page had heard no
+scroll for 0.86 to 2 s before the lift and none in the 400 ms after it. So the wait closes the slide for a page
+that stalls up to 400 ms after a flick; a longer stall still slides. Two of those runs started under load 4 (3.85
+at 2x, 3.95 at 4x), on the starved core. That is for the owner's iPhone check, not a change here: the one condition
+is the only foam.js change allowed.
+
+**Nothing else moved.** Modes `chromium` and `desk`, every scenario once with `WASH_FOLD=1` (load 1.4 to 3.9): 22
+runs, 0 undos, 0 jumps, every wash folded. `back_walk.py owner` on phone and desk: PASS. The full check with the
+wash on the working tree: 133 lines ok, 0 FAIL, 1 env line (jsDelivr refused by the proxy); its 33 wash lines all
+err 0.

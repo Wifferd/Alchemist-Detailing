@@ -116,7 +116,7 @@
       if (t - Math.max(s.tScroll, s.tInput, s.tStart, s.tLift, s.tEnd) < 150) return false;   // a finger that just landed is heard first
       if (Math.abs(window.scrollY - s.y) > 0.5) return false;                                  // moving, and the event is not in yet
       if (hasEnd && s.tEnd >= s.tScroll && s.tEnd > s.tStart) return true;                    // (a) (scrollend comes after the scroll events of its frame)
-      if (s.tLift > s.tScroll && s.tLift >= s.tStart) return true;                             // (b)
+      if (s.tLift > s.tScroll && s.tLift >= s.tStart && t - s.tLift >= 400) return true;      // (b) a lift counts once 400 ms pass with no scroll (owner's OK, Nov 5)
       if (hasEnd) return false;
       if (s.seenTouch || navigator.maxTouchPoints > 0) return false;                          // (c)
       return t - s.tScroll >= 300 && t - s.tInput >= 300;                                      // (d)

@@ -1300,10 +1300,12 @@ section { position: relative; }
   opacity: calc(1 - var(--clean, 0) * .1);
 }
 .svc-head[data-enter] { opacity: var(--r, 1); transform: translateY(calc((1 - var(--r, 1)) * 24px)); }
-.svc-head { display: flex; align-items: end; align-items: last baseline; justify-content: space-between; gap: 20px; margin-bottom: clamp(16px, 3vh, 30px); }
-.svc-head h2 { font-size: var(--fs-h2); }
-.svc-head > p { margin: 0; color: var(--ink-2); max-width: 40ch; font-size: var(--fs-md); }   /* the description; the eyebrow keeps the shared size */
-.svc-head .eyebrow { margin: 0 0 var(--s-2); }   /* the eyebrow's beat over the title, as in every section head */
+/* centred, as every section head (the owner's "Centre all seven", Nov 5): the title, and its note under it (a line to
+   each of its two sentences, .lead-s; a phone shows the title alone, below) */
+.svc-head { display: grid; justify-items: center; gap: var(--s-2); text-align: center; margin-bottom: clamp(16px, 3vh, 30px); }
+.svc-head h2 { font-size: var(--fs-h2); text-indent: var(--tr-section); }   /* its tracking on both sides: on the centre line */
+.svc-head > p { margin: 0; color: var(--ink-2); max-width: var(--m-centre); font-size: var(--fs-md); text-wrap: balance; }   /* the description; the eyebrow keeps the shared size */
+.svc-head .eyebrow { margin: 0 0 var(--s-2); text-indent: var(--tr-eyebrow); }   /* the eyebrow's beat over the title, as in every section head */
 .svc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(10px, 1.4vw, 18px); }
 .svc-card {
   --r: 1;
@@ -1906,9 +1908,11 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
    over the first 45% of the diagonal */
 .group-plate { --plate-corner: linear-gradient(160deg, rgba(var(--grey-5), .68) 0%, rgba(var(--grey-5), .68) 10.1%, rgba(var(--grey-5), .663) 13.1%, rgba(var(--grey-5), .62) 15.9%, rgba(var(--grey-5), .57) 18.5%, rgba(var(--grey-5), .51) 21.2%, rgba(var(--grey-5), .442) 23.8%, rgba(var(--grey-5), .374) 26.5%, rgba(var(--grey-5), .28) 29.1%, rgba(var(--grey-5), .187) 32%, rgba(var(--grey-5), .102) 34.9%, rgba(var(--grey-5), .043) 38%, rgba(var(--grey-5), .009) 41.4%, rgba(var(--grey-5), 0) 45%); }
 .group-plate::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--plate-corner), linear-gradient(180deg, rgba(var(--grey-5), .42) 0%, rgba(var(--grey-5), .06) 20%, rgba(var(--grey-5), .25) 48%, rgba(var(--grey-5), .9) 82%, var(--plate-foot) 100%); }
-.group-plate figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: grid; justify-items: start; gap: 14px; padding: clamp(22px, 4vw, 48px); color: var(--dark-ink); }
-.group-plate h2 { font-size: var(--fs-h1); font-weight: 300; line-height: var(--lh-1); color: var(--dark-ink); text-indent: 0; }
-.group-plate p { margin: 0; color: var(--photo-copy); max-width: 58ch; }
+/* the caption centred under the photo, as every section head (the owner's "Centre all seven", Nov 5): the title, then
+   its line; the capitals carry their tracking on both sides (a text-indent the size of it), so they sit on the centre */
+.group-plate figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: grid; justify-items: center; gap: 14px; padding: clamp(22px, 4vw, 48px); color: var(--dark-ink); text-align: center; }
+.group-plate h2 { font-size: var(--fs-h1); font-weight: 300; line-height: var(--lh-1); color: var(--dark-ink); text-indent: var(--tr-display); }
+.group-plate p { margin: 0; color: var(--photo-copy); max-width: 58ch; text-wrap: balance; }
 .group-plate p:not(.plate-no, .motto) { font-size: var(--t-4); line-height: var(--lh-4); }   /* the plate's one line, at the lead size */
 /* the index: the group's mark, its number of the four, and a short gold line */
 .plate-no { position: absolute; z-index: 1; top: clamp(20px, 3.4vw, 40px); left: clamp(22px, 4vw, 48px); margin: 0; display: flex; align-items: center; gap: 9px; font: 600 var(--fs-xs)/1 var(--font-ui-caps); font-variant-numeric: tabular-nums lining-nums; letter-spacing: var(--tr-label); color: rgba(var(--dark-ink-rgb), .84); }
@@ -1917,7 +1921,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .plate-no i { font-style: normal; }
 .plate-no::after { content: ""; width: 44px; height: 1px; margin-left: 9px; background: linear-gradient(90deg, var(--gold-t5), rgba(var(--gold-rgb), 0)); }
 /* Interior carries the owner's line under its title (his animation direction, §12), in the hero's tracked capitals */
-.group-plate .motto { margin: -4px 0 0; font: 600 var(--fs-xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-eyebrow); text-transform: uppercase; color: var(--plate-motto); }
+.group-plate .motto { margin: -4px 0 0; font: 600 var(--fs-xs)/1.3 var(--font-ui-caps); letter-spacing: var(--tr-eyebrow); text-indent: var(--tr-eyebrow); text-transform: uppercase; color: var(--plate-motto); }
 .group-plate .motto i { font-style: normal; color: var(--au-500); }
 /* Protection: the beading moment (the owner's §11; app.js). While .beading the photo and the title wait under black
    paint and a live canvas of the paint lies over the plate (.live): the drops form, a few roll, the gold light passes
@@ -2241,12 +2245,13 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .table-sec { padding-block: clamp(40px, 7vh, 72px); }
 .table-sec + .svc-group { border-top: 1px solid rgba(255, 255, 255, .05); }
 .table-sec .section-head { margin-bottom: var(--s-5); }
-/* a head for the pieces that live inside a group: title left, the lead on the right */
-.show-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 48px; margin-bottom: clamp(28px, 5vh, 48px); }
-.show-head > div { display: grid; gap: var(--s-2); }
-.show-head h2 { font-size: var(--t-6); }
-.show-head p:not(.eyebrow) { margin: 0; max-width: var(--m-centre); color: var(--ink-2); font-size: var(--t-4); line-height: var(--lh-4); }
-.show-head p.eyebrow { margin: 0; }   /* the Ritual's and the Bead Test's eyebrows: the shared size and tracking, like every section head */
+/* a head for the pieces that live inside a group (the Ritual's, the Bead Test's): centred, as every section head, the
+   lead under the title (the owner's "Centre all seven", Nov 5) */
+.show-head { display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; margin-bottom: clamp(28px, 5vh, 48px); }
+.show-head > div { display: grid; gap: var(--s-2); justify-items: center; }
+.show-head h2 { font-size: var(--t-6); text-indent: var(--tr-display); }   /* its tracking on both sides: on the centre line */
+.show-head p:not(.eyebrow) { margin: 0; max-width: var(--m-centre); color: var(--ink-2); font-size: var(--t-4); line-height: var(--lh-4); text-wrap: balance; }
+.show-head p.eyebrow { margin: 0; text-indent: var(--tr-eyebrow); }   /* the Ritual's and the Bead Test's eyebrows: the shared size and tracking, like every section head */
 
 /* the Alchemist's Table: a 4 x 2 grid of element tiles with column heads (the groups) and row heads (the tiers);
    grid areas carry the layout, so the phone can reflow the same markup into two columns */
@@ -2601,10 +2606,6 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .plate-no { top: 18px; left: 20px; }
   .plate-no svg { width: 20px; height: 20px; margin-right: 5px; }
   .svc-top { min-height: 56svh; padding-top: calc(112px + env(safe-area-inset-top, 0px)); }
-  /* the Ritual's and the Bead Test's heads stack here: centred, as every section head (the owner's choice) */
-  .show-head { justify-content: center; text-align: center; }
-  .show-head > div { justify-items: center; }
-  .show-head p:not(.eyebrow) { margin-inline: auto; }
 }
 /* a phone: the chapter bar under the 58px top bar, the four names alone in one sideways row */
 @media (max-width: 640px) {
@@ -2659,8 +2660,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .why-item:nth-child(n + 3) { border-top: 1px solid var(--hair); }
   .foot-grid { grid-template-columns: 1fr 1fr; }
   .foot-grid > div:first-child { grid-column: 1 / -1; }
-  .svc-head > p { display: none; }
-  .svc-head { justify-content: center; text-align: center; }   /* the title alone here: centred, as every section head */
+  .svc-head > p { display: none; }   /* the title alone here (centred at every width, above) */
   .svc-notes { grid-template-columns: 1fr; }
 }
 /* a short phone (an iPhone SE): the four cards and the note keep one screen, so the eyebrow over the title steps aside */
