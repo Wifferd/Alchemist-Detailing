@@ -102,8 +102,16 @@
     try { st.openJobs = (await D.rpc('open_jobs', { p_days: 14 })) || []; }
     catch (e) { st.openJobs = []; st.openJobsError = said(e, "Open jobs couldn't load. Press Refresh."); }
   }
-  // open_jobs lists every line by name, the condition fees too ("Pet hair"): those are not work to ask for
-  const openServices = (j) => { const fees = new Set(menu.services.filter((x) => /^cond_/.test(x.code)).map((x) => x.name)); return (j.services || []).filter((n) => !fees.has(n)).join(' + '); };
+  // open_jobs lists every line by name with no flags: the condition fees too ("Pet hair"), which are not work to ask
+  // for, and the lines a service includes (Steam Cleaning in Interior Deluxe, and so in the Full Detail Bundle), which
+  // are marked "(included)" as My jobs marks them, from the menu's bundle parts and includes
+  const openServices = (j) => {
+    const byName = new Map(menu.services.map((x) => [x.name, x])), names = j.services || [], mains = new Set(), incl = new Set();
+    names.forEach((n) => { const s = byName.get(n); if (s && s.kind !== 'addon') [s.code].concat(menu.bundleParts[s.code] || []).forEach((c) => mains.add(c)); });
+    mains.forEach((c) => (menu.includes[c] || []).forEach((i) => incl.add(i)));
+    return names.filter((n) => { const s = byName.get(n); return !(s && /^cond_/.test(s.code)); })
+      .map((n) => { const s = byName.get(n); return n + (s && s.kind === 'addon' && incl.has(s.code) ? ' (included)' : ''); }).join(' + ');
+  };
   function openJobsSection() {
     if (st.openJobs == null) { loadOpenJobs().then(render); return el('section.acct-sec', el('h2.bk-h2', 'Open jobs'), el('p.bk-muted', 'Checking…')); }
     return el('section.acct-sec', el('h2.bk-h2', 'Open jobs', el('small', 'confirmed, nobody assigned yet')),

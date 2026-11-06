@@ -328,7 +328,8 @@
         el('p.choice-label', 'Times open to customers'),
         timesBox,
         field({ id: 'p_other', label: 'Other start time', optional: true, type: 'time', value: p.other || '', hint: 'Any start; the database checks it against the other jobs and the hours.',
-          oninput: (e) => { p.other = e.target.value; const m = typed(p.other); if (m != null) { p.start = m; unmark(); } } }),
+          // a cleared (or unfinished) entry picks nothing: Save then asks for a start, never the one that was cleared
+          oninput: (e) => { p.other = e.target.value; const m = typed(p.other); p.start = m; unmark(); } }),
         save('Time changed'));
       askTimes();
     }
