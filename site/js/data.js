@@ -629,6 +629,7 @@
           value_cents: q.value_cents, bundle_savings_cents: q.bundle_savings_cents, mobile_cents: q.mobile_cents,
           price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
           created_at: created.toISOString(), preview: true, shop_address: null, team: [], history: [],
+          conditions: (p.conditions || []).slice(),   // as my_bookings returns them (Migration 008 part 3)
         };
         previewBookings.unshift(r);
         return r;

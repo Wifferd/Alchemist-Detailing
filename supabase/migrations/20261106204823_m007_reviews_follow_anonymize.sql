@@ -1,4 +1,4 @@
--- Applied to the test project only, on Nov 6, 2026 (version 20261106204823). Live waits for the owner's decision (PROPOSED, doc 45).
+-- Test project: Nov 6, 2026 (version 20261106204823). Live: Nov 7, 2026 (version 20261107043010), the owner's answer 4 (doc 46).
 -- Migration 007, part 6: a booking whose personal details are removed takes its review off the Reviews page.
 --
 -- anonymize_customer and anonymize_booking (Migration 001) came before the reviews table (Migration 002) and

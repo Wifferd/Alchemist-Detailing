@@ -11,6 +11,9 @@
   // Today in Parker (business_settings.timezone), not the device's own date: a phone or laptop on another clock
   // must not show tomorrow's jobs as Today.
   const bizToday = () => H().todayIn(settings && settings.timezone);
+  // a job's day as the database names it in start_booking and complete_booking ("Fri, Nov 13", with the year when it
+  // isn't this year's)
+  const jobDay = (iso) => shortDate(iso) + (iso.slice(0, 4) !== H().isoDate(bizToday()).slice(0, 4) ? ', ' + iso.slice(0, 4) : '');
 
   const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
   const LANES = [['requests', 'Requests'], ['review', 'Review'], ['spam', 'Spam']];
@@ -110,8 +113,20 @@
     if (name === 'decline_booking') { ev('declined', args.p_note); b.status = 'declined'; }
     if (name === 'ask_for_information') { ev('needs_information', args.p_note); b.status = 'needs_information'; }
     if (name === 'cancel_booking') { ev('cancelled', args.p_note); b.status = 'cancelled'; }
-    if (name === 'start_booking') { ev('in_progress'); b.status = 'in_progress'; }
-    if (name === 'complete_booking') { ev('completed', args.p_note); b.status = 'completed'; }
+    // the database's day rule (doc 46, Migration 008): Start on the job's own day only, Complete on that day or later
+    // (Parker's date), refused in the database's own words
+    const today = H().isoDate(bizToday());
+    if (name === 'start_booking') {
+      if (b.status !== 'confirmed') throw D.fail('wrong_state', 'Only confirmed bookings can be started.');
+      if (b.service_date > today) throw D.fail('wrong_state', 'This job is on ' + jobDay(b.service_date) + '. Start it on that day.');
+      if (b.service_date < today) throw D.fail('wrong_state', 'This job was on ' + jobDay(b.service_date) + '. A job is started only on its own day: complete it, or change its time.');
+      ev('in_progress'); b.status = 'in_progress';
+    }
+    if (name === 'complete_booking') {
+      if (!['confirmed', 'in_progress'].includes(b.status)) throw D.fail('wrong_state', 'Only confirmed or started bookings can be completed.');
+      if (b.service_date > today) throw D.fail('wrong_state', 'This job is on ' + jobDay(b.service_date) + '. It can be completed on that day or later.');
+      ev('completed', args.p_note); b.status = 'completed';
+    }
     if (name === 'set_booking_lane') { b.queue = args.p_lane; }
     if (name === 'set_booking_time') { b.service_date = args.p_date; b.start_min = args.p_start_min; if (args.p_duration_min) b.duration_min = args.p_duration_min; }
     if (name === 'set_extra_cost') { b.extra_cost_cents = args.p_cents; b.extra_cost_note = args.p_note || null; b.price_pending = false; b.pending_reasons = []; b.total_cents = b.value_cents - b.bundle_savings_cents + b.mobile_cents + args.p_cents; }
@@ -252,6 +267,19 @@
   function detail(b) {
     const canDecide = ['requested', 'needs_information'].includes(b.status);
     const admin = staff.role === 'admin';
+    // the price is the owner's to set (doc 28): the admin has Set price; a manager waits for the owner
+    const priceFirst = admin ? 'Set the price first' : 'The owner sets the price first';
+    // Start on the job's own day only, Complete on that day or later, Parker's date (doc 46; start_booking and
+    // complete_booking check the same). A confirmed job whose day has passed can't be started any more, but
+    // complete_booking still takes it, so it gets Complete (or it would stay under "Earlier, not finished").
+    const todayIso = H().isoDate(bizToday());
+    const onDay = b.service_date === todayIso, dayCome = b.service_date <= todayIso;
+    const canStart = b.status === 'confirmed' && onDay;
+    const canComplete = (b.status === 'in_progress' && dayCome) || (b.status === 'confirmed' && b.service_date < todayIso);
+    const dayLine = b.status === 'confirmed' && !dayCome ? 'Start opens on ' + jobDay(b.service_date) + '.'
+      : b.status === 'in_progress' && !dayCome ? 'Complete opens on ' + jobDay(b.service_date) + '.'
+      : b.status === 'confirmed' && !onDay ? 'Not started on its day (' + jobDay(b.service_date) + '): complete it if it was done, or change its time.'
+      : null;
     const notes = [b.special_request && ['Notes', b.special_request], b.damage_note && ['Damage note', b.damage_note]].filter(Boolean);
     // a button that opens a panel: marked (.on, aria-expanded) while its panel is open, a second press closes it;
     // o.state builds the panel's starting values, o.before loads what it needs
@@ -275,18 +303,19 @@
           el('dt', 'Ref'), el('dd.tnum', b.ref)),
         el('div.bk-summary-card', priceLines(b))),
       el('div.adm-actions',
-        canDecide ? el('button.btn.btn-gold', { type: 'button', disabled: b.price_pending, title: b.price_pending ? 'Set the price first' : '', onclick: () => act('confirm_booking', { p_id: b.id }, 'Confirmed') }, 'Confirm') : null,
+        canDecide ? el('button.btn.btn-gold', { type: 'button', disabled: b.price_pending, title: b.price_pending ? priceFirst : '', onclick: () => act('confirm_booking', { p_id: b.id }, 'Confirmed') }, 'Confirm') : null,
         canDecide ? trig('decline', 'Decline') : null,
         b.status === 'requested' ? trig('info', 'Ask for info') : null,
-        ['confirmed'].includes(b.status) ? el('button.btn.btn-glass', { type: 'button', onclick: () => act('start_booking', { p_id: b.id }, 'Started') }, 'Start') : null,
-        ['in_progress'].includes(b.status) ? el('button.btn.btn-gold', { type: 'button', onclick: () => act('complete_booking', { p_id: b.id }, 'Completed') }, 'Complete') : null,
+        canStart ? el('button.btn.btn-glass', { type: 'button', onclick: () => act('start_booking', { p_id: b.id }, 'Started') }, 'Start') : null,
+        canComplete ? el('button.btn.btn-gold', { type: 'button', onclick: () => act('complete_booking', { p_id: b.id }, 'Completed') }, 'Complete') : null,
         !['completed', 'declined', 'cancelled'].includes(b.status) ? trig('time', b.status === 'in_progress' ? 'Change length' : 'Change time', { state: () => ({ date: b.service_date, start: b.start_min, times: null }) }) : null,
         admin && !['completed', 'declined', 'cancelled'].includes(b.status) ? trig('price', b.price_pending ? 'Set price' : 'Extra cost', { cls: b.price_pending ? 'attention' : '', state: () => ({ cents: b.extra_cost_cents != null ? (b.extra_cost_cents / 100).toFixed(2) : '', note: b.extra_cost_note || '' }) }) : null,
         // the database assigns only confirmed or started jobs (assign_employee), and moves only requests between lanes (set_booking_lane)
         ['confirmed', 'in_progress'].includes(b.status) ? trig('assign', 'Assign', { before: () => (st.staffList ? null : loadStaff()) }) : null,
         ['requested', 'needs_information'].includes(b.status) ? trig('lane', 'Move lane') : null,
         admin && ['confirmed', 'in_progress', 'needs_information', 'requested'].includes(b.status) ? trig('cancel', 'Cancel booking', { cls: 'danger' }) : null),
-      canDecide && b.price_pending ? el('p.bk-muted', 'Set the price first') : null,
+      canDecide && b.price_pending ? el('p.bk-muted', priceFirst) : null,
+      dayLine ? el('p.bk-muted', dayLine) : null,
       st.panel && st.panel.id === b.id ? panel(b) : null,
       b.events && b.events.length ? el('details.adm-history', el('summary', 'History'), el('ul', b.events.map((e) => el('li', el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), ' · ', historyWords(e), e.note ? el('i', ' — ' + e.note) : null)))) : null);
     return body;
@@ -312,7 +341,7 @@
     // No text goes out from here (texts aren't set up): the owner calls or texts. A note on Decline, Cancel or Ask for
     // info is not private, though: the database puts it in an account customer's notices and booking history
     // (on_appointment_change, my_bookings); a guest booking has no account, so a guest never sees it.
-    const callNote = () => el('p.bk-note', 'No text is sent from here. Call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', '. This only records it.');
+    const callNote = () => el('p.bk-note', 'No text is sent from here. Call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', '. The note is kept in the booking history.');
     const seenNote = ' (the customer can read it if they booked with an account)';
     const box = el('div.adm-panel');
     if (p.kind === 'decline') box.append(el('h3.bk-h2', 'Decline this request'), callNote(), noteField('Note' + seenNote), actions(() => act('decline_booking', { p_id: b.id, p_note: p.note || null }, 'Declined. Call or text the customer.'), 'Decline'));
@@ -441,7 +470,8 @@
     const needIds = new Set(needs.map((b) => b.id));
     // asked for information: the owner calls or texts, and the request stays in view (with its hold) until answered
     const waiting = all.filter((b) => b.status === 'needs_information' && b.queue !== 'spam' && !needIds.has(b.id)).sort(byHold);
-    // a job left confirmed or started after its day stays here until it is started, completed or cancelled
+    // a job left confirmed or started after its day stays here until it is completed or cancelled (Start is only on
+    // the job's own day)
     const earlier = all.filter((b) => b.service_date < today && ['confirmed', 'in_progress'].includes(b.status));
     // a booking that needs a decision opens under Needs you (or Waiting on the customer) only; its copy under Today
     // or Tomorrow is compact
@@ -662,6 +692,18 @@
     });
     return groups.map((g) => (g.first === g.last ? DAY[g.first] : DAY[g.first] + '–' + DAY[g.last]) + ' ' + g.span).join(' · ');
   }
+  // Whether the owner's address is on file: true, false, or null when it couldn't be checked. The admin-only
+  // database function answers yes or no (the address column is the admin's alone, doc 46); a database without it
+  // yet is asked the old way, where the row comes back only when the address is set (the address itself never).
+  async function addressOnFile() {
+    const { data, error } = await sb().rpc('shop_address_on_file');
+    if (!error) return data === true;
+    if (error.code === 'PGRST202' || /could not find|not found|does not exist/i.test(error.message || '')) {
+      const { data: on, error: e2 } = await sb().from('business_settings').select('id').eq('id', 1).not('shop_address', 'is', null).maybeSingle();
+      return e2 ? null : !!on;
+    }
+    return null;
+  }
   const SETTINGS_COLS = 'first_start_min,last_start_min,slot_step_min,latest_end_min,min_days_ahead,max_days_ahead,hold_hours,max_shop_jobs,max_mobile_jobs,shop_buffer_min,mobile_buffer_min,public_phone,public_area,mobile_radius_miles,require_mfa_for_managers';
   async function settingsScreen() {
     let s = Object.assign({}, settings);
@@ -670,12 +712,12 @@
       // home address stays in the database, for the admin too
       const { data } = await sb().from('business_settings').select(SETTINGS_COLS).eq('id', 1).maybeSingle();
       if (data) Object.assign(s, data);
-      // whether an address is on file, asked without reading it (the row comes back only when it is set)
-      if (staff.role === 'admin') { const { data: on } = await sb().from('business_settings').select('id').eq('id', 1).not('shop_address', 'is', null).maybeSingle(); s.addressOnFile = !!on; }
+      // whether an address is on file, asked without reading it; the admin only (a manager never asks)
+      if (staff.role === 'admin') s.addressOnFile = await addressOnFile();
     } else s.addressOnFile = false;
     const rows = [['Start times', clock(s.first_start_min) + ' – ' + clock(s.last_start_min) + ', every ' + s.slot_step_min + ' min'], ['Jobs end by', clock(s.latest_end_min)], ['Closed every week', closuresText((settings && settings.weekly_closures) || s.weekly_closures)], ['Book ahead', s.min_days_ahead + ' to ' + s.max_days_ahead + ' days'], ['Hold', s.hold_hours + ' hours'],
       ['At once', (s.max_shop_jobs != null ? s.max_shop_jobs + ' driveway or ' + s.max_mobile_jobs + ' mobile' : '—')], ['Gaps', (s.shop_buffer_min != null ? s.shop_buffer_min + ' min driveway, ' + s.mobile_buffer_min + ' min mobile travel' : '—')],
-      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], staff.role === 'admin' ? ['Your address', s.addressOnFile ? 'On file (sent only with confirmed "Come to us" bookings)' : 'Not set'] : ['Shop address', 'Private: not shown here']];
+      ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], staff.role === 'admin' ? ['Your address', s.addressOnFile ? 'On file (sent only with confirmed "Come to us" bookings)' : s.addressOnFile === false ? 'Not set' : "Couldn't check right now"] : ['Shop address', 'Private: not shown here']];
     return el('div.bk-grid', el('p.bk-muted', 'Read-only for now. Ask Claude Code to change a value; the calendar note and closed days are under Calendar.'), el('dl.sum-body', rows.map(([k, v]) => [el('dt', k), el('dd', v)])));
   }
 

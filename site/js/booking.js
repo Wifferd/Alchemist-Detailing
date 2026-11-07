@@ -50,14 +50,14 @@
     service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '' }),
     when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, sig: null, note: null, keep: null, fetching: null }),
   };
-  const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: null, direction: 1, prices: {} };
+  const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
 
   // A fresh request: everything but who is booking (names, phone and email stay typed in; the phone is confirmed
   // again unless the session still holds it) and the saved vehicles.
   function reset(keepContact) {
     const c = st.contact;
-    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: D.helpers.uuid(), direction: 1, prices: {} });
+    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, requestId: D.helpers.uuid(), direction: 1, prices: {} });
     if (keepContact) {
       c.phoneSent = false; c.phoneConfirmed = !!(session && session.phoneConfirmed);
       if (c.emailState !== 'skipped' && !(session && session.email)) c.emailState = 'none';
@@ -72,6 +72,9 @@
   const hasExterior = () => !!(st.service.bundle || st.service.exterior);
   const mainsChosen = () => !!(st.service.bundle || st.service.exterior || st.service.interior);
   const condsForQuote = () => hasInterior() ? st.vehicle.conditions : [];
+  // the "Other" condition (with an interior service): the owner prices it, so every total on the page says the price
+  // is confirmed before the appointment (doc 46). The quote can't tell: "Other" adds no line.
+  const otherCond = () => condsForQuote().includes('other');
   const canHaveAddon = (code) => {
     const needs = menu.addonRules[code] || 'any_main';
     if (needs === 'exterior') return hasExterior();
@@ -226,7 +229,7 @@
     const last = step === 6;
     return el('div.bk-nav',
       step > 1 ? el('button.btn.btn-glass', { type: 'button', onclick: () => go(step - 1) }, '← Back') : el('a.btn.btn-glass', { href: '#home' }, 'Cancel'),
-      el('div.bk-nav-mid', st.quote && step >= 4 && step < 6 ? el('span.bk-nav-total.tnum', st.quote.total_cents == null ? 'Price confirmed before your appointment' : 'Total ' + money(st.quote.total_cents)) : null),
+      el('div.bk-nav-mid', st.quote && step >= 4 && step < 6 ? el('span.bk-nav-total.tnum', st.quote.total_cents == null || otherCond() ? 'Price confirmed before your appointment' : 'Total ' + money(st.quote.total_cents)) : null),
       el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, onclick: () => (last ? send() : next()) },
         last ? 'Send Request' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
   }
@@ -758,7 +761,7 @@
     if (!box) return;
     if (!q) { box.replaceChildren(el('p.bk-muted', 'Choose a service to see the price.')); if (sug) sug.replaceChildren(); return; }
     if (q.error) { box.replaceChildren(el('p.bk-muted', q.error.message)); if (sug) sug.replaceChildren(); return; }
-    box.replaceChildren(priceLines(q, { withTime: true }));
+    box.replaceChildren(priceLines(q, { withTime: true, otherCondition: otherCond() }));
     if (sug) {
       sug.replaceChildren();
       if (q.suggestion) {
@@ -780,7 +783,7 @@
       return box;
     }
     const names = q.lines.filter((l) => !l.included && !l.condition).map((l) => l.name).join(' + ');
-    box.appendChild(el('div.bk-chosen', el('div', el('span.eyebrow', 'Your service'), el('b', names), el('span.bk-muted', 'About ' + minutesText(q.duration_min) + (q.total_cents != null ? ' · ' + money(q.total_cents) : ' · price confirmed by us'))), el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')));
+    box.appendChild(el('div.bk-chosen', el('div', el('span.eyebrow', 'Your service'), el('b', names), el('span.bk-muted', 'About ' + minutesText(q.duration_min) + (q.total_cents != null && !otherCond() ? ' · ' + money(q.total_cents) : ' · price confirmed by us'))), el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')));
     const today = D.helpers.todayIn(settings.timezone);   // the booking window counts from Parker's today, not the browser's
     const first = D.helpers.addDays(today, settings.min_days_ahead), last = D.helpers.addDays(today, settings.max_days_ahead);
     if (!w.month) w.month = new Date(first.getFullYear(), first.getMonth(), 1);
@@ -938,7 +941,7 @@
     box.appendChild(sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]));
     box.appendChild(sec('Service', 4, [['Service', q ? q.lines.filter((x) => !x.included && !x.condition).map((x) => x.name).join(' + ') : 'Choose a service first'], s.notes.trim() ? ['Notes', s.notes.trim()] : null]));
     box.appendChild(sec('Date and time', 5, [['When', w.date ? longDate(w.date) + (w.start != null ? ' at ' + clock(w.start) : ' · pick a start time') + (q ? ' · about ' + minutesText(q.duration_min) : '') : 'Choose a day and a start time']]));
-    box.appendChild(el('div.bk-summary-card', q ? priceLines(q) : null));
+    box.appendChild(el('div.bk-summary-card', q ? priceLines(q, { otherCondition: otherCond() }) : null));
     box.appendChild(el('p.bk-note', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.'));
     box.appendChild(el('p.bk-note', 'Sending holds this time for ' + settings.hold_hours + ' hours while we review your request. We\'ll contact you to confirm.'));
     box.appendChild(el('div', { dataset: { field: 'submit' } }, el('p.choice-msg', { role: 'alert' })));
@@ -954,7 +957,7 @@
     if (veil && !reduce) { veil.classList.remove('run'); void veil.offsetWidth; veil.classList.add('run'); }
     try {
       const r = await D.submit(payload(), { guest: guest() });
-      st.receipt = r;
+      st.receipt = r; st.receiptOther = otherCond();
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
       window.scrollTo({ top: cardTop(), behavior: 'auto' });
@@ -990,8 +993,9 @@
       el('dl.sum-body.sent-body',
         el('dt', 'When'), el('dd', longDate(r.service_date) + ' at ' + clock(r.start_min)),
         el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? r.address + ', ' + r.address_zip : settings.public_area + ' — we send the address with your confirmation'),
-        el('dt', 'Price'), el('dd', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents)),
+        el('dt', 'Price'), el('dd', r.total_cents == null || st.receiptOther ? 'We confirm the price before your appointment' : money(r.total_cents)),
         holdEnds ? [el('dt', 'Held until'), el('dd', holdEnds)] : null),
+      st.receiptOther ? el('p.bk-muted', U.otherConditionNote(r.total_cents)) : null,
       el('p.bk-note', 'What happens next: we review your request and contact you at ', el('span.tnum', phonePretty(st.contact.phone)), ' to confirm. You pay in person after your detail.'),
       el('div.bk-actions',
         el('a.btn.btn-gold.shine', { href: '#home' }, 'Back to home'),

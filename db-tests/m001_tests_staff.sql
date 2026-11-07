@@ -11,8 +11,10 @@ select tst.setv('n_all', (select count(*) from public.appointments)::text);
 -- ---------------------------------------------------------------- admin stores the private address
 select tst.login('00000000-0000-4000-8000-0000000000a1', 'aal2');
 set role authenticated;
-select tst.eq(tst.q($q$update public.business_settings set shop_address = '4321 Example Lane, Parker, TX 75002' returning shop_address$q$),
-              '4321 Example Lane, Parker, TX 75002', 'admin: stores the private address');
+-- (Migration 008: no API role reads the address back, the admin included, so the update returns 1; the
+-- customer's own confirmed booking shows it further down.)
+select tst.eq(tst.q($q$update public.business_settings set shop_address = '4321 Example Lane, Parker, TX 75002' returning 1$q$),
+              '1', 'admin: stores the private address');
 
 -- ---------------------------------------------------------------- manager: confirm, decline, ask, time, lanes
 reset role;
@@ -38,6 +40,10 @@ select tst.err(format('select public.set_booking_lane(%L, %L)', tst.getv('b3')::
 select tst.ok((public.set_booking_lane((tst.getv('d2')::jsonb ->> 'id')::uuid, 'review')).hold_expires_at > now(), 'lanes: out of Spam holds time again');
 select tst.ok((select 'staff' = any (review_reasons) from public.appointments where id = (tst.getv('d2')::jsonb ->> 'id')::uuid), 'lanes: a manual move to Review is marked');
 select tst.err(format('select public.set_booking_lane(%L, %L)', tst.getv('b1'), 'spam'), 'wrong_state', 'lanes: only undecided requests change lanes');
+-- Migration 008: a job is started only on its own day, so b1 (booked 3 days ahead) moves to today first.
+reset role;
+update public.appointments set service_date = tst.d(0) where id = tst.getv('b1')::uuid;
+set role authenticated;
 select tst.eq((public.start_booking(tst.getv('b1')::uuid)).status::text, 'in_progress', 'start: confirmed job started');
 select tst.eq((public.complete_booking(tst.getv('b1')::uuid)).status::text, 'completed', 'complete: job completed');
 select tst.err(format('select public.complete_booking(%L)', tst.getv('b1')), 'wrong_state', 'complete: only once');

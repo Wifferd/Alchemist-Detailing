@@ -201,7 +201,9 @@
 
   // The price breakdown shared by the booking (a quote), the summary, the account and the appointments (a
   // booking row): the lines, bundle savings, the mobile fee, an extra the owner added, and the total or the
-  // "we confirm" note with its reason. opts.withTime adds the length and the payment line.
+  // "we confirm" note with its reason. opts.withTime adds the length and the payment line. opts.otherCondition (the
+  // caller knows the booking's conditions; a quote doesn't say) marks a booking with the "Other" condition: the lines
+  // stay, the total row says we confirm the price, and a note gives the menu price so far (doc 46).
   function priceLines(q, opts) {
     opts = opts || {};
     const rows = (q.lines || []).map((l) => el('div.pr-line', { class: l.included ? 'inc' : '' },
@@ -214,12 +216,18 @@
     if (q.location_type === 'mobile') out.appendChild(el('div.pr-line', el('span', 'Mobile service'), el('span.tnum', money(q.mobile_cents))));
     if (q.extra_cost_cents) out.appendChild(el('div.pr-line', el('span', 'Extra' + (q.extra_cost_note ? ' · ' + q.extra_cost_note : '')), el('span.tnum', money(q.extra_cost_cents))));
     const pending = q.total_cents == null;
-    out.appendChild(el('div.pr-total', el('span', pending ? 'Price' : 'Total'), el('span.tnum', pending ? 'We confirm the price before your appointment' : money(q.total_cents))));
+    const other = !!opts.otherCondition;
+    out.appendChild(el('div.pr-total', el('span', pending || other ? 'Price' : 'Total'), el('span.tnum', pending || other ? 'We confirm the price before your appointment' : money(q.total_cents))));
     const why = Array.isArray(q.pending_reasons) ? q.pending_reasons : [];
     if (pending && why.length) out.appendChild(el('p.bk-muted', why.includes('xl') ? 'XL vehicles are priced by us before the appointment.' : 'WetGloss on this vehicle type is priced by us before the appointment.'));
+    if (other) out.appendChild(el('p.bk-muted', otherConditionNote(q.total_cents)));
     if (opts.withTime) out.appendChild(el('p.bk-muted', 'About ' + minutesText(q.duration_min) + '. Payment in person after your detail.'));
     return out;
   }
+
+  // The "Other" condition's note, with the menu price so far when there is one (none while XL, or WetGloss on a
+  // vehicle type it has no price for, holds the price too).
+  const otherConditionNote = (cents) => (cents != null ? 'Menu price so far: ' + money(cents) + '. ' : '') + 'You chose “Other” for the car\'s condition, so we confirm the final price before your appointment.';
 
   // A small inline button inside a field box (Send code, Confirm, Change).
   const miniBtn = (label, onclick, attrs) => el('button.mini-btn', Object.assign({ type: 'button', onclick }, attrs || {}), label);
@@ -242,5 +250,5 @@
   const modeBanner = (previewText, isLive) => !isLive ? el('div.bk-preview', el('b', 'Preview'), ' — ' + previewText)
     : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — practice data on the test database, not real bookings.') : null);
 
-  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, outage, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, modeBanner };
+  window.AlchemistUI = { el, append, money, minutesText, clock, longDate, shortDate, phonePretty, tel, outage, loading, star, field, choices, roving, flash, priceLines, otherConditionNote, miniBtn, showError, clearError, toast, debounce, modeBanner };
 })();

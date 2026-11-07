@@ -11,6 +11,8 @@ select tst.login('00000000-0000-4000-8000-0000000000d6');
 set role authenticated;
 select tst.err($q$select public.submit_review(tst.getv('m002a')::uuid, 5, 'Great')$q$, 'wrong_state', 'm002r: no review before the detail is done');
 reset role;
+-- Migration 008: a job is completed on its day or later, so m002a (booked 45 days ahead) moves to today first.
+update public.appointments set service_date = tst.d(0) where id = tst.getv('m002a')::uuid;
 select tst.login('00000000-0000-4000-8000-0000000000a1', 'aal2');
 set role authenticated;
 select public.complete_booking(tst.getv('m002a')::uuid);
