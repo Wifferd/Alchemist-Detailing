@@ -16,6 +16,10 @@
   // the 200+ gold rule (doc 22): a completed detail of $200 or more makes the booking, and the customer, Gold
   const isGold = (b) => b.status === 'completed' && b.total_cents != null && b.total_cents >= 20000;
   const isLive = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= D.helpers.isoDate(D.helpers.todayLocal());
+  // a request with the "Other" condition, not yet confirmed: the owner prices it, so the total is "to be confirmed"
+  // (doc 46); once confirmed, the total shows. Needs the booking's conditions, which my_bookings returns only once the
+  // database adds them; without them the total shows as before.
+  const otherPending = (b) => Array.isArray(b.conditions) && b.conditions.includes('other') && ['requested', 'needs_information'].includes(b.status);
   const byWhen = (a, b) => (a.service_date === b.service_date ? a.start_min - b.start_min : a.service_date < b.service_date ? -1 : 1);
   const monthOf = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -266,7 +270,7 @@
           el('dt', 'Length'), el('dd', 'About ' + minutesText(b.duration_min)),
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
           b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { timeZone: settings.timezone || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))] : null),
-        el('div.bk-summary-card', priceLines(b)),
+        el('div.bk-summary-card', priceLines(b, { otherCondition: otherPending(b) })),
         b.status === 'completed' ? reviewBlock(b) : null,
         el('p.bk-muted', 'Payment in person after your detail. To cancel or change, call ', tel(phone), '.')) : null);
     return c;
