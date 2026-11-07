@@ -79,21 +79,31 @@
   const menu = $('#menu'), scrim = $('#scrim'), menuBtn = $('#menuBtn'), main = $('#main');
   const footer = $('.footer'), topbar = $('#topbar');
   let menuOpen = false;
-  // The team's door: Requests in the menu, there only while a team member is signed in on this browser (the admin
-  // or a manager: the Admin page's requests; a detailer: My jobs, the Team page). Customers and visitors never see it.
-  const door = $('#teamDoor');
-  const DOOR = { admin: '#admin-requests', manager: '#admin-requests', detailer: '#team' };
+  // The team's door, there only while a team member is signed in on this browser; customers and visitors never see
+  // it. A detailer: My jobs in the list (the Team page). The admin or a manager: Switch sides, the last thing in the
+  // menu (doc 49), across to the Admin screen last open in this tab (else Requests), and back to the website page
+  // last open (else Home). Remembered in this page only.
+  const door = $('#teamDoor'), swap = $('#switchSide');
+  const side = { site: '#home', staff: '#admin-requests' };
   let doorSeq = 0;
   function showDoor(s) {
-    const href = s && s.active !== false && DOOR[s.role];
-    if (href) door.setAttribute('href', href);
-    if (href) door.firstChild.nodeValue = s.role === 'detailer' ? 'My jobs ' : 'Requests ';   // a detailer's door opens their jobs
-    door.hidden = !href;
+    const role = s && s.active !== false ? s.role : null;
+    door.hidden = role !== 'detailer';
+    swap.hidden = role !== 'admin' && role !== 'manager';
     markDoor();
   }
-  function markDoor() {   // the current page while the visitor is on its page (Admin or Team)
-    const on = !door.hidden && (door.getAttribute('href') || '').slice(1).split('-')[0] === cur;
+  function note(t) {   // a page token (no '#'), kept as its side's last page
+    const r = t.split('-')[0];
+    if (r === 'admin') side.staff = '#' + t;
+    else if (NAMES[r] && r !== 'team') side.site = '#' + t;
+  }
+  function markDoor() {   // My jobs is the current page on the Team page; Switch sides points to the other side
+    const on = !door.hidden && door.getAttribute('href').slice(1) === cur;
     if (on) door.setAttribute('aria-current', 'page'); else door.removeAttribute('aria-current');
+    const staff = cur === 'admin' || cur === 'team';
+    swap.setAttribute('href', staff ? side.site : side.staff);
+    swap.setAttribute('aria-label', staff ? 'Switch sides, back to the website' : 'Switch sides, to Requests');
+    swap.lastElementChild.textContent = staff ? 'Website' : 'Requests';
   }
   // Who is signed in, read again; only the newest read counts, and a read that fails changes nothing
   async function checkDoor() {
@@ -539,7 +549,7 @@
   function parse() {
     const h = decodeURIComponent((location.hash || '').slice(1));
     const [r, sub] = h.split('-');
-    return NAMES[r] ? { r, sub: sub || null } : { r: 'home', sub: null };
+    return NAMES[r] ? { r, sub: sub || null, t: h } : { r: 'home', sub: null, t: 'home' };
   }
   function fillPage(r) {
     const d = PAGES[r];
@@ -567,7 +577,7 @@
     prim.firstChild.textContent = label + ' ';
   }
   function render(first) {
-    const { r, sub } = parse();
+    const { r, sub, t } = parse();
     // Leaving home with the wash finished: its pinned length goes now, while home is still laid out (every rect is
     // zero once it is hidden), with no scroll; home's position is stored in the shorter layout.
     const shift = cur === 'home' && r !== 'home' ? (wash ? wash.foldNow({ scroll: false }) : washPin ? washPin.now({ scroll: false }) : 0) : 0;
@@ -604,7 +614,8 @@
       document.title = r === 'home' ? HOME_TITLE : NAMES[r] + ' · Alchemist Detailing';
     }
     cur = r;
-    if (door) markDoor();
+    note(t);
+    if (swap) markDoor();   // (no door, rather than no page, should a cached page lack it)
     if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
     if (r === 'services' && sub) {
       const el = document.getElementById('svc-' + sub);
@@ -623,7 +634,11 @@
       });
     }
   }
-  window.addEventListener('hashchange', () => render(false));
+  window.addEventListener('hashchange', (e) => {
+    // the page being left, as it was last (the Admin page changes its screen without a hashchange)
+    try { note(decodeURIComponent(new URL(e.oldURL).hash.slice(1))); } catch (err) { /* the one noted before stays */ }
+    render(false);
+  });
 
   const veil = $('#veil');
   veil.addEventListener('animationend', () => veil.classList.remove('run'));   // one pass, then the light rests hidden
@@ -689,7 +704,7 @@
   // The door follows sign-in and sign-out anywhere on the site (the Admin and Team pages, the account page, another
   // tab). A token refresh is the same person: the item stays as it is. A visitor with no stored login costs nothing:
   // the data layer isn't started for it.
-  if (door && window.AlchemistData) {
+  if (swap && window.AlchemistData) {
     const D = window.AlchemistData;
     D.onAuth((event, signedIn) => {
       if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;   // the load is read below

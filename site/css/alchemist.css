@@ -312,7 +312,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   width: min(92vw, max(34vw, 420px));
   display: flex;
   flex-direction: column;
-  padding: calc(22px + env(safe-area-inset-top, 0px)) clamp(22px, 3vw, 40px) calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: calc(22px + env(safe-area-inset-top, 0px)) clamp(22px, 3vw, 40px) 0;   /* the bottom's room is the foot's own */
   background:
     radial-gradient(120% 60% at 0% 0%, rgba(226, 185, 82, .10), transparent 60%),
     linear-gradient(180deg, rgba(14, 14, 14, .92), rgba(4, 4, 4, .95));
@@ -373,10 +373,17 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
    the role on the account page's team card */
 .team-tag { display: inline-block; padding: 5px 8px 4px; border: 1px solid rgba(216, 166, 64, .45); border-radius: 999px; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--gold-ink); white-space: nowrap; }
 .menu nav a .team-tag { margin-left: 14px; }
-.menu-foot { margin-top: auto; padding-top: 26px; display: grid; gap: 14px; }
+/* the bottom padding (with the home bar's inset) is inside the foot, so a scrolled menu always ends below its last item */
+.menu-foot { margin-top: auto; padding: 26px 0 calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 14px; }
 .menu-foot .btn { width: 100%; }
 .menu-foot .call { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-2); text-decoration: none; font: 600 14px/1 var(--font-ui); letter-spacing: .06em; }
 .menu-foot .call:hover { color: var(--gold-hi); }
+/* Switch sides (the admin and a manager, doc 49): the menu's last item, glass with a gold hairline, the two-way
+   arrows and the team tag naming where it goes (Requests or Website) */
+.switch-side { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 8px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--ink-2); font: 700 11px/1 var(--font-ui); letter-spacing: .18em; text-transform: uppercase; text-decoration: none; touch-action: manipulation; transition: border-color .3s var(--ease), color .3s var(--ease); }
+.switch-side svg { flex: none; color: var(--gold-ink); }
+.switch-side .team-tag { margin-left: 4px; }
+.switch-side:hover { border-color: var(--gold); color: var(--gold-hi); }
 
 /* ---------------------------------------------------------------- hero */
 .hero {
@@ -2342,6 +2349,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .btn-glass { background: #fff; border-color: rgba(20, 18, 12, .22); color: var(--ink); }
 :where([data-theme="light"]) .btn-glass::after { background: linear-gradient(118deg, transparent 40%, rgba(184, 144, 44, .1) 50%, transparent 60%); }
 :where([data-theme="light"]) .theme-btn, :where([data-theme="light"]) .mini-btn { background: #fff; border-color: rgba(20, 18, 12, .22); }
+:where([data-theme="light"]) .switch-side { background: #fff; }
 :where([data-theme="light"]) .mini-btn { background: rgba(184, 144, 44, .1); border-color: var(--gold); }
 :where([data-theme="light"]) .menu { background: radial-gradient(120% 60% at 0% 0%, rgba(184, 144, 44, .1), transparent 60%), linear-gradient(180deg, rgba(255, 253, 248, .96), rgba(241, 237, 229, .97)); box-shadow: 30px 0 80px -30px rgba(40, 30, 10, .3); }
 :where([data-theme="light"]) .menu nav a { border-bottom-color: rgba(20, 18, 12, .06); }
