@@ -125,6 +125,7 @@
   function openMenu() {
     if (menuOpen) return;
     menuOpen = true;
+    menu.scrollTop = 0;   // it keeps its scroll while hidden: it opens at the top, the X and the first item in view
     press(menuBtn);
     setTimeout(() => {
       menu.classList.add('on');

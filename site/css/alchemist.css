@@ -373,15 +373,17 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
    the role on the account page's team card */
 .team-tag { display: inline-block; padding: 5px 8px 4px; border: 1px solid rgba(216, 166, 64, .45); border-radius: 999px; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--gold-ink); white-space: nowrap; }
 .menu nav a .team-tag { margin-left: 14px; }
-/* the bottom padding (with the home bar's inset) is inside the foot, so a scrolled menu always ends below its last item */
-.menu-foot { margin-top: auto; padding: 26px 0 calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 14px; }
+/* the bottom padding (with the home bar's inset) is inside the foot, so a scrolled menu always ends below its last item;
+   its one column never grows wider than the foot */
+.menu-foot { margin-top: auto; padding: 26px 0 calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .menu-foot .btn { width: 100%; }
 .menu-foot .call { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-2); text-decoration: none; font: 600 14px/1 var(--font-ui); letter-spacing: .06em; }
 .menu-foot .call:hover { color: var(--gold-hi); }
 /* Switch sides (the admin and a manager, doc 49): the menu's last item, glass with a gold hairline, the two-way
-   arrows and the team tag naming where it goes (Requests or Website) */
-.switch-side { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 8px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--ink-2); font: 700 11px/1 var(--font-ui); letter-spacing: .18em; text-transform: uppercase; text-decoration: none; touch-action: manipulation; transition: border-color .3s var(--ease), color .3s var(--ease); }
+   arrows and the team tag naming where it goes (Requests or Website); on a narrow screen the tag drops below */
+.switch-side { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; min-height: 48px; padding: 8px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--ink-2); font: 700 11px/1 var(--font-ui); letter-spacing: .18em; text-transform: uppercase; text-decoration: none; touch-action: manipulation; transition: border-color .3s var(--ease), color .3s var(--ease); }
 .switch-side svg { flex: none; color: var(--gold-ink); }
+.switch-side span { white-space: nowrap; }
 .switch-side .team-tag { margin-left: 4px; }
 .switch-side:hover { border-color: var(--gold); color: var(--gold-hi); }
 

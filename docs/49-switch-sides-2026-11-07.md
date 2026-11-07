@@ -28,15 +28,17 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 **How it looks:**
 
 - A full-width glass button like "Light mode", with a thin gold edge, a small two-way-arrows icon, the words "Switch sides" and the gold tag (the Admin screen it goes to, or "Website").
-- 48 px tall, so it is easy to tap.
+- 48 px tall, so it is easy to tap. On a very narrow screen (under about 346 px wide, for example a phone with its page zoomed in) the gold tag moves under the words and the button grows to 62 px, so nothing spills past the menu's edge.
 - Works in dark and light mode and with reduced motion. It is never marked as the current page.
 - Screen readers hear the same place the tag shows: "Switch sides, to Requests" (or "to Calendar", "to the Admin page" and so on) or "Switch sides, back to the website". It is the last stop when tabbing through the menu.
 
 **Room at the bottom of the menu:**
 
 - The menu's bottom spacing (including the space for the iPhone home bar) now sits inside the menu's foot. So when the menu scrolls, it always ends below Switch sides, and the home bar can't cover it.
-- **On a phone, Switch sides is below the bottom edge when the menu opens: scroll down inside the menu to reach it.** The menu's list is long (eleven pages, then Light mode, Book Now and the phone number), so on an iPhone in Safari the screen ends around Light mode. How far to scroll, measured with Safari's usual space for the page: about 210 px on a 390-wide iPhone with the toolbars showing, about 170 px with them tucked away, about 140 px on a 430-wide iPhone, and about 320 px on a small iPhone SE. On a 1280 × 900 computer screen it doesn't scroll.
-- Before this change, "Requests · Team" sat right under Account, so it showed as soon as the menu opened on most phones. Moving it to the very bottom (the owner's words) is what adds the scroll. See the question at the end.
+- **On a phone, Switch sides is below the bottom edge when the menu opens: scroll down inside the menu to reach it.** The menu's list is long (eleven pages, then Light mode, Book Now and the phone number), so on an iPhone in Safari the screen ends around Light mode. How far to scroll, measured with Safari's usual space for the page: about 210 px on a 390-wide iPhone with the toolbars showing, about 170 px with them tucked away, about 140 px on a 430-wide iPhone, and about 320 px on a small iPhone SE.
+- **On a computer it depends on the window's height.** At 1280 × 900 and taller, Switch sides shows as soon as the menu opens (with about 24 px to spare). On most laptop windows it is just below the bottom edge too, and nothing hints that the menu scrolls (a Mac hides scroll bars until you scroll): about 30 px at 1280 × 800, 40 px in Chrome on a 13-inch MacBook (1440 × 789), about 95 px on a 1920 × 1080 screen at 125 % (1536 × 730), 105 px at 1280 × 720, and 165 px on a 1366 × 768 laptop (1366 × 657), where Book Now and the phone number are below the edge as well (they already were before this change).
+- The menu always opens at its top, with the close X and Home in view, also right after Switch sides was used.
+- Before this change, "Requests · Team" sat right under Account, so it showed as soon as the menu opened on most phones and on every laptop window measured. Moving it to the very bottom (the owner's words) is what adds the scroll. See the question at the end.
 
 **Kept as it was:**
 
@@ -46,7 +48,7 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 - The typed addresses /admin, /requests and /team.
 - The "Are you sure?" step before Confirm, and everything about bookings.
 
-**Files:** `site/index.html` (the button in the menu's foot; the detailer's item is now always "My jobs" to `#team`), `site/js/app.js` (`showDoor`, `note`, `markDoor`, `SCREEN` for the Admin screens' names on the tag, and the router remembers each side's last page, including Admin screens that change without a new address), `site/css/alchemist.css` (`.switch-side`, and the bottom spacing moved into `.menu-foot`).
+**Files:** `site/index.html` (the button in the menu's foot; the detailer's item is now always "My jobs" to `#team`), `site/js/app.js` (`showDoor`, `note`, `markDoor`, `SCREEN` for the Admin screens' names on the tag, the router remembers each side's last page, including Admin screens that change without a new address, and `openMenu` opens the menu at its top), `site/css/alchemist.css` (`.switch-side`, the bottom spacing moved into `.menu-foot`, whose one column can't grow wider than the foot), `site/js/data.js` (a comment only).
 
 ## How it was checked
 
@@ -85,9 +87,17 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 - Live mode against the test database (its recorded answers): the Sweep admin through /admin at 390 × 844, after the Calendar screen, saw "Calendar" on the website side and landed on Calendar.
 - The menu was measured at the heights Safari really gives a page (the figures under "Room at the bottom of the menu"), and the wording about the memory and the round trip was corrected.
 
+**After the second review (same day):**
+
+- **The menu reopened scrolled to its bottom.** Tapping Switch sides leaves the menu scrolled down, and it used to open again where it was left: on a 390-wide iPhone in Safari the close X, the logo, Home and Services were out of view, and with the keyboard on a laptop the focus started on Home without Home being visible. Now the menu always opens at its top. Checked in preview mode with the admin at six phone sizes (390 × 664, 430 × 740, 390 × 844 with and without the iPhone's notch and home bar emulated, 360 × 640 with them, 375 × 553), three round trips each: every reopen was at the top with the X, the logo and Home in view, where before it was 19 to 317 px down. With the keyboard at 1366 × 657 and 1280 × 720 (Tab to Switch sides, Enter, open the menu again): the focus is on Home and in view, and so is the X.
+- **This doc said the menu doesn't scroll on a computer.** True at 1280 × 900, but on most laptop windows Switch sides is just below the edge. Corrected under "Room at the bottom of the menu" (measured at eight window sizes) and added to the question below.
+- **Very narrow screens.** At about 300 px wide or less (a phone with its page zoomed in a lot, or a folding phone's cover screen) the button was wider than the menu's foot and pushed Light mode, Book Now, the phone number and itself past the edge, and from about 346 px "Switch sides" broke onto two lines. Now the tag moves under the words instead. Measured with the site's real fonts from 430 down to 260 px wide, with the shortest and the longest screen name on the tag (Requests, Customers): nothing goes past the foot's edge, "Switch sides" stays on one line, the button stays 48 px where everything fits on one row (346 px and wider with Requests, 360 px and wider with Customers) and is 62 px when the tag drops below. The same with the stand-in font a phone shows before the real one loads.
+- **A code comment** (`data.js`) still called the menu item "Requests"; corrected. Nothing changes on the site.
+- The preview walk ran again at 360 × 640, 390 × 844 and 1280 × 900, dark and light, and once with motion (six runs): 52 checks per run, now including "the menu opens at its top after Switch sides", all passed, with no page errors. The four screenshot tools at 390 × 844 ran clean, the single-file preview builds and Switch sides works in it, and every site script parses. Live mode wasn't run again: nothing about signing in or the database changed.
+
 ## Open for the owner
 
-1. **Pin Switch sides to the bottom edge of the menu?** On the owner's iPhone, Switch sides is below the bottom edge when the menu opens, so they scroll down inside the menu to reach it. Pinned, it would show as soon as the menu opens, and the list would scroll behind it. Recommendation: yes, since doc 47 began with the owner not finding the way back to the Admin page. Until they answer, it stays as built: the last thing in the menu.
+1. **Pin Switch sides to the bottom edge of the menu?** On the owner's iPhone, Switch sides is below the bottom edge when the menu opens, so they scroll down inside the menu to reach it, and on most laptop windows it is just below the edge too (about 30 to 165 px). The menu opens at its top every time, so that scroll comes with every trip. Pinned, it would show as soon as the menu opens, and the list would scroll behind it. Recommendation: yes, since doc 47 began with the owner not finding the way back to the Admin page. Until they answer, it stays as built: the last thing in the menu.
 
 ## Noticed along the way (not changed)
 

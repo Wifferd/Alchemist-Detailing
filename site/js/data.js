@@ -721,8 +721,8 @@
       let aal = 'aal1', nextLevel = 'aal1';
       try { const { data } = await sb.auth.mfa.getAuthenticatorAssuranceLevel(); aal = data.currentLevel; nextLevel = data.nextLevel; } catch (e) { /* no MFA support */ }
       const { data: factors } = await sb.auth.mfa.listFactors().catch(() => ({ data: null }));
-      // roleUnknown: the profile read failed (a weak connection), so 'customer' is a guess; the menu's Requests keeps
-      // what it showed rather than take it for a customer
+      // roleUnknown: the profile read failed (a weak connection), so 'customer' is a guess; the menu's team item
+      // (Switch sides or My jobs) keeps what it showed rather than take it for a customer
       return Object.assign({}, s, { roleUnknown: !!profErr, role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
         hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
     },
