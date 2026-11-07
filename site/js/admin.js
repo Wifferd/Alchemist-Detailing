@@ -147,6 +147,8 @@
     if (D.isDown) return root.replaceChildren(U.outage(["The database can't be reached right now. Reload the page in a few minutes."]));
     staff = await D.staffSession();
     if (!staff) return root.replaceChildren(shell('Sign in', signIn()));
+    // a detailer (the footer's Team sign-in, or /admin typed): the Admin page isn't theirs, their jobs are on Team
+    if (staff.role === 'detailer') return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'The Admin page is for the owner and managers. Your jobs are on the Team page.'), el('div.acct-actions', el('a.btn.btn-gold.shine', { href: '#team' }, 'Open my jobs ', el('span.arrow', { 'aria-hidden': 'true' }, '→')), el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); st.mfa = null; st.mfaError = null; render(); } }, 'Sign out')))));
     if (!['manager', 'admin'].includes(staff.role)) return root.replaceChildren(shell('Admin', el('div.bk-grid', el('p.bk-note', 'This account is not a manager or the admin. Signed in as ' + (staff.firstName || (staff.phone ? phonePretty(staff.phone) : staff.email) || 'this login') + '.'), el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: async () => { await D.signOut(); st.mfa = null; st.mfaError = null; render(); } }, 'Sign out')))));
     if (staff.mfaRequired && staff.aal !== 'aal2') return root.replaceChildren(shell('Authenticator', mfaStep()));
     // a manager who types #admin-team or #admin-log: those screens are the admin's (the nav doesn't offer them)

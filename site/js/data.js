@@ -297,6 +297,8 @@
   let previewSession = null;
   const previewBookings = [];   // receipts made in this preview, newest first
   const previewVehicles = [];
+  const authListeners = [];
+  const authEvent = (event, signedIn) => authListeners.forEach((fn) => { try { fn(event, signedIn); } catch (e) { /* one listener never stops the others */ } });
 
   // A busy page (shaders compiling on a slow phone) can run the timer before an answer that has already
   // arrived, so the timer gives up only after a further moment with the call still open.
@@ -326,6 +328,9 @@
           } catch (e) { /* one more try, then the preview */ }
         }
         if (mode !== 'live') { sb = null; mode = 'preview'; }
+        // sign-in, sign-out (in this tab or another) and token refreshes, passed on to onAuth's listeners outside
+        // supabase-js's own lock (a listener may read the session again)
+        if (sb) sb.auth.onAuthStateChange((event, s) => { setTimeout(() => authEvent(event, !!s), 0); });
       }
       if (mode === 'preview') settingsCache = Object.assign({}, SEED.settings, /[?&]guest=0\b/.test(location.search) ? { guest_booking: false } : {});
       return mode;
@@ -638,7 +643,7 @@
 
     async signOut(opts) {
       await init();
-      if (mode === 'preview') { previewSession = null; previewStaff = null; return; }
+      if (mode === 'preview') { previewSession = null; previewStaff = null; authEvent('SIGNED_OUT', false); return; }
       // this browser only: signing out here never ends the same login on another device (opts may add to it)
       await sb.auth.signOut(Object.assign({ scope: 'local' }, opts));
     },
@@ -696,6 +701,15 @@
     rpc(name, args) { return rpc(name, args); },
     fail,
 
+    // fn(event, signedIn) on each sign-in and sign-out: Supabase's own events in live mode (SIGNED_IN, SIGNED_OUT,
+    // TOKEN_REFRESHED, MFA_CHALLENGE_VERIFIED, ...), the preview's staff sign-in and sign-out in preview mode
+    onAuth(fn) { authListeners.push(fn); },
+    // Whether this browser keeps a login at all (supabase-js stores it under sb-<project>-auth-token), read without
+    // starting the data layer: a visitor's page makes no request to find out.
+    hasStoredLogin() {
+      const cfg = window.ALCHEMIST_CONFIG;
+      try { return !!(cfg && cfg.supabaseUrl && localStorage.getItem('sb-' + new URL(cfg.supabaseUrl).hostname.split('.')[0] + '-auth-token')); } catch (e) { return false; }
+    },
     // Who is signed in, with their role and whether the authenticator step is done.
     async staffSession() {
       await init();
@@ -728,7 +742,7 @@
       }
       return api.session();
     },
-    previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; return previewStaff; },
+    previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; authEvent('SIGNED_IN', true); return previewStaff; },
 
     // Authenticator app (TOTP): enrol, then verify a code; later, challenge and verify.
     async mfaEnroll() {

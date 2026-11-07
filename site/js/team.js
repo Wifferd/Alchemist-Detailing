@@ -52,6 +52,8 @@
     root.replaceChildren(shell('My jobs',
       el('div.bk-grid',
         st.jobsError ? el('p.bk-note', { role: 'alert' }, st.jobsError) : null,
+        // the owner and managers see their own jobs here; booking requests are on the Admin page
+        ['manager', 'admin'].includes(staff.role) ? el('p.bk-note', 'Booking requests are on the Admin page: ', el('a', { href: '#admin-requests' }, 'Open Requests'), '.') : null,
         section('Today', todays, 'No jobs today.'),
         section('Coming up', later, 'Nothing assigned yet.'),
         openJobsSection(),

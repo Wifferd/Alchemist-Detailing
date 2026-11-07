@@ -89,12 +89,32 @@
     return box;
   }
 
+  // ---------------------------------------------------------------- a team login on the account page
+  // The account page is a customer's. A team member signed in on this browser (the owner, a manager, a detailer)
+  // finds the way back to the team's pages here instead: who is signed in, Open Requests and Sign out.
+  const TEAM = { admin: ['Owner', '#admin-requests'], manager: ['Manager', '#admin-requests'], detailer: ['Team', '#team'] };
+  async function teamCard(root) {
+    let s = null;
+    try { s = await D.staffSession(); } catch (e) { return false; }
+    const t = s && s.active !== false && TEAM[s.role];
+    if (!t) return false;
+    root.replaceChildren(shell('Your account', 'Account', el('div.bk-grid',
+      el('section.acct-sec', el('h2.bk-h2', 'Signed in'),
+        el('p.acct-who', el('b', s.firstName || s.email || (s.phone ? phonePretty(s.phone) : 'Team member')), el('span.team-tag', t[0])),
+        el('p.bk-note', s.role === 'detailer' ? 'This is a team login. Your jobs are on the Team page.' : 'This is a team login. Booking requests are on the Admin page.'),
+        el('div.acct-actions',
+          el('a.btn.btn-gold.shine', { href: t[1] }, 'Open Requests ', el('span.arrow', { 'aria-hidden': 'true' }, '→')),
+          el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))))));
+    return true;
+  }
+
   // ---------------------------------------------------------------- account
   async function renderAccount() {
     const root = roots.account; if (!root) return;
     if (acct.loading) root.replaceChildren(loading('Loading…'));
     await load();
     if (D.isDown) { root.replaceChildren(downNote()); return; }
+    if (await teamCard(root)) return;   // a team login: the way to the team's pages, not a customer account
     await refreshSession();
     if (!session) { root.replaceChildren(shell('Your account', 'Account', signInBox(renderAccount))); return; }
     if (acct.loading) {

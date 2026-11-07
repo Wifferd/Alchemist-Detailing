@@ -79,6 +79,28 @@
   const menu = $('#menu'), scrim = $('#scrim'), menuBtn = $('#menuBtn'), main = $('#main');
   const footer = $('.footer'), topbar = $('#topbar');
   let menuOpen = false;
+  // The team's door: Requests in the menu, there only while a team member is signed in on this browser (the admin
+  // or a manager: the Admin page's requests; a detailer: the Team page). Customers and visitors never see it.
+  const door = $('#teamDoor');
+  const DOOR = { admin: '#admin-requests', manager: '#admin-requests', detailer: '#team' };
+  let doorSeq = 0;
+  function showDoor(s) {
+    const href = s && s.active !== false && DOOR[s.role];
+    if (href) door.setAttribute('href', href);
+    door.hidden = !href;
+    markDoor();
+  }
+  function markDoor() {   // the current page while the visitor is on its page (Admin or Team)
+    const on = !door.hidden && (door.getAttribute('href') || '').slice(1).split('-')[0] === cur;
+    if (on) door.setAttribute('aria-current', 'page'); else door.removeAttribute('aria-current');
+  }
+  // Who is signed in, read again; only the newest read counts, and a read that fails changes nothing
+  async function checkDoor() {
+    const n = ++doorSeq;
+    let s;
+    try { s = await window.AlchemistData.staffSession(); } catch (e) { return; }
+    if (n === doorSeq) showDoor(s);
+  }
   function press(btn) {
     btn.classList.add('pressed', 'ringing');
     setTimeout(() => btn.classList.remove('pressed'), 170);
@@ -580,6 +602,7 @@
       document.title = r === 'home' ? HOME_TITLE : NAMES[r] + ' · Alchemist Detailing';
     }
     cur = r;
+    if (door) markDoor();
     if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
     if (r === 'services' && sub) {
       const el = document.getElementById('svc-' + sub);
@@ -661,6 +684,18 @@
   });
 
   render(true);
+  // The door follows sign-in and sign-out anywhere on the site (the Admin and Team pages, the account page, another
+  // tab). A token refresh is the same person: the item stays as it is. A visitor with no stored login costs nothing:
+  // the data layer isn't started for it.
+  if (door && window.AlchemistData) {
+    const D = window.AlchemistData;
+    D.onAuth((event, signedIn) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;   // the load is read below
+      if (!signedIn) { doorSeq++; showDoor(null); return; }
+      checkDoor();
+    });
+    if (D.hasStoredLogin()) checkDoor();
+  }
   desyncShine(document);   // every shine on the site, the hidden pages' too, so none sweep together
   $$('.shine, .scroll-cue').forEach((el) => ioAway.observe(el));
   // The app pages build their content later (once the data layer has answered) and rebuild it as the visitor
