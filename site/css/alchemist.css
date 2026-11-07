@@ -1265,14 +1265,17 @@ section { position: relative; }
 .wash.washed .wash-stage { position: relative; }
 .foam-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
 /* once the pin has let go (foam.js .wash-finished) the drying film fades into the page at the stage's foot as the frame
-   does (::before, 80-100%), so the stage's lower edge never cuts it with a line. No mask during the wash itself */
+   does (::before, 80-100%), so the stage's lower edge never cuts it with a line. No mask during the wash itself. The
+   fade starts already soft (93%: a feather of about 60px on a phone, where the frame already darkens the backdrop):
+   --fg-fade animates on the main thread, so a long task at the release holds its first frame while the compositor
+   scrolls the foot up, and a first frame at 100% would show the cut */
 @property --fg-fade { syntax: "<length-percentage>"; inherits: false; initial-value: 100%; }
 .wash.wash-finished .foam-gl {
   -webkit-mask-image: linear-gradient(180deg, #000 var(--fg-fade), transparent);
   mask-image: linear-gradient(180deg, #000 var(--fg-fade), transparent);
   animation: fgFade var(--dur-panel) var(--ease) both;
 }
-@keyframes fgFade { from { --fg-fade: 100%; } to { --fg-fade: 80%; } }
+@keyframes fgFade { from { --fg-fade: 93%; } to { --fg-fade: 80%; } }
 .cannon {
   position: absolute;
   z-index: 5;   /* in front of the foam it sprays */
@@ -1301,7 +1304,14 @@ section { position: relative; }
 /* the stage keeps the gutter itself, so the column is the text column's content box (.wrap less its gutters): the cards
    start and end where the sections' words and the footer do, at every width */
 .wash-services .wrap { width: min(100%, var(--col) - 2 * var(--gutter)); padding: 0; transform-origin: 50% 50%; }
-.wash-bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: calc(.5 + var(--clean, 0) * .3); }
+/* the backdrop still carries its own copy of the frame's fade (::before, 0-18% and 80-100%), so no frame can show it
+   bare with a hard edge while the frame above it is still being drawn (the stage's top first coming on); a static mask
+   on a still drawn once, and at rest it lies under the frame's own bands */
+.wash-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: calc(.5 + var(--clean, 0) * .3);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, #000 80%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 18%, #000 80%, transparent);
+}
 .revealed .wash-bg { filter: blur(1.5px); }   /* once the cards are up, the backdrop steps back */
 .wash-stage .floor { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none; }   /* the light studio's warm-grey backdrop (see the light block) */
 .wash-shade {
@@ -2763,8 +2773,10 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
    the type's floor, so each keeps its 14px */
 @media (max-width: 439px) {
   .page-name span[data-long] { letter-spacing: var(--tr-display); text-indent: var(--tr-display); font-stretch: normal; }
-  .menu nav a { min-height: 44px; }   /* a full 44px row on a phone (the panel scrolls, under its mask, if they don't all fit) */
 }
+/* the menu's rows a full 44px on a phone, up to 440px wide (the panel scrolls, under its mask, if they don't all fit).
+   A computer keeps the type's own rows (42.9px at the type's floor), so its list still fits a window 648px tall */
+@media (max-width: 440px) { .menu nav a { min-height: 44px; } }
 @media (max-width: 400px) { .page-name span[data-long] { font-size: var(--t-0); } }
 @media (max-width: 374px) {
   .page-name span { font-size: var(--t-0); letter-spacing: var(--tr-display); text-indent: var(--tr-display); }
@@ -3301,6 +3313,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 /* step 06: summary */
 .sum { display: grid; align-content: start; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
 .sum-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sum-head > .link { min-width: 44px; justify-content: center; }   /* Edit: a full 44px target, its short word centred in it */
 .sum-body { margin: 0; display: grid; grid-template-columns: 150px 1fr; gap: 8px 18px; font-size: 15px; }
 .sum-body dt { color: var(--muted); }
 :where(:root:not([data-theme="light"])) .sum-body dt { color: var(--ink-2); }   /* on a dark panel the grey falls under 4.5:1 */
@@ -5399,13 +5412,12 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* ---- the toggle: the studio lights (app.js theme, a view transition: html.vt-theme). To Light (vt-lights) a soft
    white softbox band crosses the page at 118deg in the light's own time (--au-dur, 1.2s), from its first frame
    (--lights 14%: the band's edge at the screen's corner) to the far corner, the ivory showroom behind it, the old
-   page ahead, the light's own white (--panel) in the band. To Dark (vt-dim) the dark closes in from the edges over
-   .6s on the last pool of light at the centre (its soft edge a share of its radius, so the pool stays light, not a
-   grey haze, as it closes); the lit page under it simply holds (no fade of its own) until the dark covers it, so the
-   centre shrinks into the dark with no black between, however late a frame (the dark's mask moves with the page's own
-   frames, a fade would run on without them). --lights moves the masks' stops. Without
-   view transitions every colour cross-fades under html.theming (.42s); under reduced motion the switch is instant.
-   The sun becomes a moon in the button. */
+   page ahead, the light's own white (--panel) in the band. To Dark (vt-dim) the lights go out along the line they came
+   on: the dark page follows the same 118deg edge across in .6s, with no white band and no pool of light left behind;
+   the lit page under it simply holds (no fade of its own) until the dark covers it, so there is no black between,
+   however late a frame (the dark's mask moves with the page's own frames, a fade would run on without them).
+   --lights moves the masks' stops. Without view transitions every colour cross-fades under html.theming (.42s); under
+   reduced motion the switch is instant. The sun becomes a moon in the button. */
 @property --lights { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
 html.vt-lights::view-transition { background: var(--panel); }
 html.vt-lights::view-transition-new(root) {
@@ -5422,11 +5434,10 @@ html.vt-lights::view-transition-old(root) {
 html.vt-dim::view-transition { background: var(--bg); }
 html.vt-dim::view-transition-old(root) { animation: none; }   /* (none, not left out: the browser's own fade would come back) */
 html.vt-dim::view-transition-new(root) {
-  -webkit-mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) * .65), #000 var(--lights));
-  mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) * .65), #000 var(--lights));
-  animation: lightsOff .6s var(--ease-in-out) both;
+  -webkit-mask-image: linear-gradient(var(--au-angle), #000 calc(var(--lights) - 20%), transparent calc(var(--lights) - 2%));
+  mask-image: linear-gradient(var(--au-angle), #000 calc(var(--lights) - 20%), transparent calc(var(--lights) - 2%));
+  animation: lightsOn .6s var(--ease-in-out) both;
 }
-@keyframes lightsOff { from { --lights: 160%; } to { --lights: 0%; } }
 @media (prefers-reduced-motion: no-preference) {
   html.theming, html.theming *, html.theming *::before, html.theming *::after { transition: background-color .42s var(--ease), background .42s var(--ease), color .42s var(--ease), border-color .42s var(--ease), box-shadow .42s var(--ease), opacity .42s var(--ease) !important; transition-delay: 0s !important; }
 }

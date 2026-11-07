@@ -358,13 +358,32 @@
     };
     // (the page just opened out of the cut through black, app.js: they rise once it shows)
     const shown = (fn) => (window.AlchemistCut ? window.AlchemistCut.after(fn) : fn());
+    const land = (t) => { t.classList.add('in'); inspRise(t); settle(t); };
     io = new IntersectionObserver((es) => es.forEach((e) => {
       if (!e.isIntersecting) return;
       const t = e.target;
       io.unobserve(t);
-      shown(() => { t.classList.add('in'); inspRise(t); settle(t); });
+      shown(() => { if (!t.classList.contains('in')) land(t); });
     }), { threshold: 0.15 });
     tiles.forEach((t) => io.observe(t));
+    // a tile the keyboard reaches before it has landed (a fast Tab as the page arrives) is there at once, with no fade,
+    // so its focus ring is never unseen, as app.js does for the [data-rise] blocks (a click's focus is not
+    // :focus-visible: those tiles still rise as they enter)
+    const grid = tiles.length ? tiles[0].parentElement : null;
+    if (grid) grid.addEventListener('focusin', (e) => {
+      const t = e.target.closest('.gal-tile');
+      if (!t || t.classList.contains('settled')) return;
+      let kb = false;
+      try { kb = e.target.matches(':focus-visible'); } catch (err) { /* older browsers: they rise as before */ }
+      if (!kb) return;
+      if (io) io.unobserve(t);
+      t.style.transition = 'none';
+      if (!t.classList.contains('in')) land(t);
+      t.classList.add('settled');
+      getComputedStyle(t).opacity;   // the landed state now, so the transition can come back without playing
+      t.style.removeProperty('transition');
+      inspLand(t);
+    });
     if (fine) tiles.forEach((t) => {
       t.addEventListener('pointermove', (e) => {
         const r = t.getBoundingClientRect();

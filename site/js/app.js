@@ -1579,18 +1579,27 @@
   // only writes and never meets a layout read after another frame's writes (a head's lines); past 900px it rests.
   if (heroInner && !reduce) {
     let ticking = false, y = 0, shown = -1;
+    // a hero button with keyboard focus shows at full strength, wherever the fade has got to (Tab can land on it with
+    // the hero half scrolled away); a click's focus is not :focus-visible, so a click on Explore still fades as it goes
+    const keyed = () => {
+      const a = document.activeElement;
+      if (!a || !heroInner.contains(a)) return false;
+      try { return a.matches(':focus-visible'); } catch (e) { return true; }
+    };
+    const frame = () => {
+      shown = y;
+      heroInner.style.transform = 'translateY(' + (y * 0.18).toFixed(1) + 'px)';
+      heroInner.style.opacity = keyed() ? '1' : String(Math.max(0, 1 - y / 700));
+      ticking = false;
+    };
+    const queue = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
     window.addEventListener('scroll', () => {
       if (cur !== 'home') return;
       y = Math.min(window.scrollY, 900);
-      if (ticking || y === shown) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        shown = y;
-        heroInner.style.transform = 'translateY(' + (y * 0.18).toFixed(1) + 'px)';
-        heroInner.style.opacity = String(Math.max(0, 1 - y / 700));
-        ticking = false;
-      });
+      if (y !== shown) queue();
     }, { passive: true });
+    heroInner.addEventListener('focusin', queue);
+    heroInner.addEventListener('focusout', queue);
   }
   // The browser's view transitions: a page change (the router) and the light switch (below), one at a time, each
   // keyed to its own classes on html (vt-route, vt-theme). Each is timed to its first frame (the screen holds still
@@ -1631,7 +1640,7 @@
   // Light mode (the white studio, doc 29): a toggle in the menu, remembered on this device (the head script applies the
   // saved theme before the first paint). Where the browser has view transitions the studio lights come on: a soft white
   // softbox band crosses the page at the site's 118deg and leaves the ivory showroom behind it (1.2s, the light's own
-  // time); back to Dark, the light dims from the edges in (.6s; CSS vt-lights, vt-dim). Otherwise every colour
+  // time); back to Dark, the lights go out along the same line (.6s; CSS vt-lights, vt-dim). Otherwise every colour
   // cross-fades under html.theming (CSS). Under reduced motion, and on a device slow to take the browser's pictures
   // (still, above), the switch is instant: its still frame.
   (function theme() {
