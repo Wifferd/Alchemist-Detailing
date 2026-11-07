@@ -174,6 +174,8 @@ All four are non-destructive: none contains a delete, drop or truncate.
   - On the live domain, `config.js` is the new allowlist.
   - The self-hosted `site/js/vendor/supabase-js-2.49.4.js` is served byte-identical to the repository and matches the pinned SRI hash.
   - The public domain sends no `X-Robots-Tag`; the test site sends `X-Robots-Tag: noindex, nofollow`.
+- **Browser sweep, round 3 (Nov 7, on 5a266a3, test project only):** no new bugs. 4 guest bookings on phone and desktop (a curly apostrophe and Nguyễn stored as typed; a price held for WetGloss on a convertible with "Other"), the service-change and step-bar cases, the plain-text checks, a slot taken from a second tab (the times reload with the reason), the lost reply with a corrected phone (refused, one booking), the public pages with the self-hosted supabase-js, and Admin as admin and manager (Free times from `staff_availability`, Extra cost "1,200" and "12,50", Spam hidden, expired holds dimmed, Close day warning, the Log in words, "Only the admin sees this" for a manager). Report: the round 3 section of `docs/e2e-report-2026-11-06.md` on the branch `live-e2e-fixes`.
+- **One more fix after round 3: d43e081.** Admin and the Team page took "Today" from the device's own clock, so a device on another time zone (UTC after 6 PM in Texas) showed tomorrow's jobs as Today. Both now use Parker's date (`todayIn(business_settings.timezone)`), as booking already did. Both Vercel projects deployed it (READY).
 
 ## Still open for the owner
 
@@ -192,6 +194,7 @@ These questions were sent to the owner. No answer yet. Nothing below has been ch
 
 - **A reused request id gets the first receipt, even if that booking was cancelled.** This matters only if an id were ever reused, and the site makes a new one every time.
 - **The Log and History show times on the viewer's clock.** That is right for the owner in Texas.
+- **"New request" lines in the Log name no person,** because a guest has no account. The booking's name is in the request itself.
 - **Change time takes only starts on the hour or half hour,** because the database allows only those. Any start for staff (such as 1:15 PM) would be a database change. PROPOSED, only if he wants it.
 - **Guests can't leave a review while accounts are off.** Another way, such as the Google reviews link once he has one, is his call. PROPOSED.
 
