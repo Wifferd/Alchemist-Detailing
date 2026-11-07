@@ -141,6 +141,7 @@
   --daylight-rgb: 255, 247, 236;
   --courtesy-rgb: 204, 197, 186;
   --room-black: #030303;
+  --paper: #fff;   /* pure white: the printed page, a QR code's ground, the cross on a dark photo button, the studio's cards */
   /* grain for the large gold glows, so their long soft ramps never band: about 3% noise, used as a mask (where the glow
      is, it varies its strength by a few percent; where there is no glow it does nothing) */
   --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .12 0 0 0 .9'/></filter><rect width='160' height='160' filter='url(%23g)'/></svg>");
@@ -333,8 +334,11 @@ button { font: inherit; color: inherit; }
 /* a heading (or main) focused by the router for screen-reader context is not a control: no ring around the page title,
    nor around the heading a page met again lands on (app.js placeBack) */
 :is(h1, h2, h3, h4)[tabindex="-1"]:focus-visible, main:focus-visible { outline: none; }
-::selection { background: rgba(var(--gold-rgb), .35); color: #fff; }
+::selection { background: rgba(var(--gold-rgb), .35); color: var(--ink); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* a how-to line's verb for the pointer at hand: Tap on a touch screen, Click with a mouse (print leaves both off) */
+.click-only { display: none; }
+@media (hover: hover) and (pointer: fine) { .tap-only { display: none; } .click-only { display: inline; } }
 /* the skip link: parked above the screen until a keyboard reaches it */
 .skip { position: fixed; top: 12px; left: 12px; z-index: 200; padding: 10px 14px; border-radius: 12px; background: var(--bg); color: var(--gold-hi); border: 1px solid var(--gold); font: 600 var(--fs-sm)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; text-decoration: none; transform: translateY(-200%); }
 .skip:focus-visible { transform: none; }
@@ -652,16 +656,17 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .topbar.away { transform: translate3d(0, var(--bar-out), 0); transition-duration: var(--dur-bar-out); }
 .topbar.cutting { transition-duration: var(--cut-out); }
 /* the page's own colour behind the bar, in the bar's layer (it slides with it): mid-page, the lines scrolling up meet
-   it above the pill and fade out there, never showing sliced in the strip over the bar. It ends where the Services
-   chapter bar is held (--jt). Not at the top of a page, nor over the hero, the wash or the Services header, which keep
-   their full-bleed top; it fades as the bar goes away */
+   it above the pill and fade out there, never showing sliced in the strip over the bar. Solid from the screen's top
+   edge to the bar's middle (the page's --bg: the studio's cream in the light theme), then gone just under the bar,
+   where the Services chapter bar is held (--jt). Not at the top of a page, nor over the hero, the wash or the Services
+   header, which keep their full-bleed top; it fades as the bar goes away */
 .topbar::before {
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
   z-index: -1;
   height: calc(82px + env(safe-area-inset-top, 0px));
-  background: linear-gradient(180deg, rgba(0, 0, 0, .92) calc(43px + env(safe-area-inset-top, 0px)), rgba(0, 0, 0, 0));
+  background: linear-gradient(180deg, var(--bg) 0 60%, transparent);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-bar) var(--ease);
@@ -1475,7 +1480,7 @@ section { position: relative; }
    while the card waits to rise, so without motion, without JavaScript and in print it is simply drawn */
 .door[data-rise]:not(.in) .line { transform: scaleX(0); }
 .door.in .line { transition: transform var(--dur-door) var(--ease) calc(var(--after, 0ms) + var(--k, 0) * 120ms + .35s); }
-.door-line { max-width: 28ch; font: 400 var(--t-5)/1.35 var(--font-ui); letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }
+.door-line { font: 400 var(--t-5)/1.35 var(--font-ui); letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }   /* to its column's width, balanced: the two doors fill their halves alike either side of the hairline */
 .door-nobr { white-space: nowrap; }
 .door-text { margin-top: 12px; max-width: var(--m-read); font-size: var(--t-3); line-height: 1.6; color: var(--ink-2); text-wrap: pretty; }
 /* the quiet action (the .note-link look), at the card's foot so the two cards' actions share a line */
@@ -1934,7 +1939,10 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
    .quick: the photo fades in from the black and the title rises. Reduced motion, forced colours and no WebGL never set
    .beading: the still photo and its title. */
 .group-plate > canvas.live { inset: auto auto 0 0; max-width: none; transform: none; object-fit: fill; background: var(--room-black); filter: none; transition: opacity .8s var(--ease-in-out); }
-.group-plate.beading { background: var(--room-black); }   /* black paint while it waits, in both themes */
+/* black paint while it waits, in both themes, warm where the light will come up (the left third) and with no hairline
+   round it, so the wait reads as the paint in the dark, never as an empty frame; the line is back once the photo is
+   (at once: a fading border would draw the plate again every frame) */
+.group-plate.beading { background: radial-gradient(60% 45% at 28% 40%, rgba(var(--gold-rgb), .1), transparent 70%), var(--room-black); border-color: transparent; }
 .group-plate.beading > img { opacity: 0; }
 .group-plate.beading.quick > img { transition: opacity .8s var(--ease-in-out); }
 .group-plate.beading:is(.crossing, .handover) > img { opacity: 1; }
@@ -2218,7 +2226,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   :is(.addon-go, .note-link):hover .arrow { transform: translateX(4px); }
   .el-back:hover .arrow { transform: translateY(-3px); }
 }
-:is(.addon-go, .note-link, .el-back):focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+:is(.addon-go, .note-link, .el-back):focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 4px; }   /* the site's one ring colour (the studio's is set below) */
 /* the text links' line: 1px of gold 4px under the words' baseline, drawn in from the left on hover and on keyboard
    focus (and on a phone's lit card). It stops where the arrow's gap begins: the arrow keeps a 1em box, so the line ends
    in the same place whichever font draws the arrow. The words sit on the link's centre line, so their baseline is
@@ -2493,6 +2501,9 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
      that held the page up for a fifth of a second) */
   will-change: transform, opacity;
 }
+/* waiting to rise it is all but clear, not clear: a layer at 0 is never drawn, so its pictures would first be decoded
+   and drawn as it comes on; at .002 (nothing the eye can see) they are drawn while it is still below the screen */
+@media (prefers-reduced-motion: no-preference) { .bead-cmp[data-rise]:not(.in) { opacity: .002; } }
 .bead-pane { position: relative; overflow: hidden; color: var(--dark-ink); }
 .bead-pane img, .bead-pane canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .bead-pane.bare img { object-position: 30% 50%; }
@@ -2733,16 +2744,20 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .price-grid { grid-template-columns: 1fr; }
   .wash { --wash-h: 380vh; }
 }
-/* beside Back on a phone under 440px, the longest page name (Appointments, app.js data-long) stays whole on the bar's
-   centre line: in the other names' expanded capitals at the display headings' tracking, under 401px at the type's
-   floor, and under 375px untracked (8px clear of Back on a 360px phone, a few px right of the centre line: the
-   balance below). The bar's columns may then come as close as 8px, which only that name ever needs */
+/* beside Back on a phone under 440px, the longest page name (Appointments, app.js data-long) stays whole, at least
+   14px clear of Back (the bar's column gap): in the plain width at the display headings' tracking, under 401px at the
+   type's floor, and under 375px untracked (there it sits a little right of the centre line: the wider group on the
+   left leaves it no more room). Under 375px every other name is set closer too, at the display headings' tracking at
+   the type's floor, so each keeps its 14px */
 @media (max-width: 439px) {
-  .bar { column-gap: 8px; }
-  .page-name span[data-long] { letter-spacing: var(--tr-display); text-indent: var(--tr-display); }
+  .page-name span[data-long] { letter-spacing: var(--tr-display); text-indent: var(--tr-display); font-stretch: normal; }
+  .menu nav a { min-height: 44px; }   /* a full 44px row on a phone (the panel scrolls, under its mask, if they don't all fit) */
 }
 @media (max-width: 400px) { .page-name span[data-long] { font-size: var(--t-0); } }
-@media (max-width: 374px) { .page-name span[data-long] { letter-spacing: 0; text-indent: 0; } }
+@media (max-width: 374px) {
+  .page-name span { font-size: var(--t-0); letter-spacing: var(--tr-display); text-indent: var(--tr-display); }
+  .page-name span[data-long] { letter-spacing: 0; text-indent: 0; }
+}
 /* a narrow phone (360-400px): the page name a size smaller and the monogram a little closer to the account button,
    so the longest name (Appointments) sits on the centre line with clear space on both sides */
 @media (max-width: 400px) {
@@ -2758,7 +2773,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .svc-card .svc-with { letter-spacing: .1em; }   /* Protection's line on one line in a 360px card */
   .hero .sub { letter-spacing: .07em; text-indent: .07em; }
   .bar-right { gap: 4px; }
-  .brand-link { width: 38px; }
+  .brand-link { width: 44px; margin-inline: -3px; }   /* 38px of the bar's row, a 44px target (its edges reach 3px into the gaps beside it) */
   .brand-link svg { width: 30px; height: 30px; }
 }
 
@@ -2868,7 +2883,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .bk-carry-act { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
 .bk-carry-act .mini-btn { max-width: 100%; margin: 0; padding-block: 8px; white-space: normal; line-height: 1.35; text-align: left; }   /* an answer that names two services wraps on a phone */
 .bk-carry.ask:focus { outline: none; }   /* the question takes the focus when it comes up; a keyboard sees the ring */
-.bk-carry.ask:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.bk-carry.ask:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
 
 .bk-body { min-height: 300px; padding-bottom: 8px; }
 .bk-step { display: grid; gap: 26px; }
@@ -3072,7 +3087,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
 .bk-photo { position: relative; margin: 0; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .1); }
 .bk-photo img { width: 100%; height: 100%; object-fit: cover; }
-.bk-photo-x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .7); color: #fff; cursor: pointer; font-size: 16px; line-height: 1; }
+.bk-photo-x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .7); color: var(--paper); cursor: pointer; font-size: 16px; line-height: 1; }
 .bk-photo-add { aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: 12px; border: 1px dashed var(--line); color: var(--gold-ink); cursor: pointer; font-size: 26px; }
 .bk-photo-add .small { font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; }
 .bk-photo-add input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -3613,7 +3628,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   .car-add:hover { border-color: var(--gold); color: var(--gold-hi); }
   .car-add:hover .car-plus { border-color: var(--gold); transform: rotate(90deg); }
 }
-:where([data-theme="light"]) .car-card { background: #fff; border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .35), 0 0 0 1px rgba(var(--studio-ink-rgb), .05); }
+:where([data-theme="light"]) .car-card { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .35), 0 0 0 1px rgba(var(--studio-ink-rgb), .05); }
 :where([data-theme="light"]) .car-actions { border-top-color: rgba(var(--studio-ink-rgb), .08); }
 :where([data-theme="light"]) .car-add { background: rgba(var(--studio-gold-rgb), .04); box-shadow: none; border-color: var(--line); }
 :where([data-theme="light"]) .car-card.asking { border-color: rgba(var(--studio-danger-rgb), .45); }
@@ -3626,7 +3641,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .hist-fig span { max-width: 10ch; font: 600 var(--fs-2xs)/1.35 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); }
 .hist-last { flex: 1 1 220px; margin: 0; display: grid; gap: 6px; font-size: var(--fs-md); color: var(--ink); }
 .hist-last span { font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
-:where([data-theme="light"]) .hist { background: #fff; border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .3); }
+:where([data-theme="light"]) .hist { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .3); }
 
 /* the booking cards */
 .appt { border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, rgb(var(--grey-17)), rgb(var(--grey-11))); overflow: hidden; }
@@ -3755,7 +3770,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 @keyframes trkGlow { 50% { box-shadow: 0 0 0 6px rgba(var(--gold-hi-rgb), .22), 0 0 22px rgba(var(--gold-hi-rgb), .9); } }
 :where([data-theme="light"]) .trk li:not(:last-child)::before { background: rgba(var(--studio-ink-rgb), .14); }
 :where([data-theme="light"]) .trk li.run::before { background: linear-gradient(90deg, var(--gold), rgba(var(--studio-gold-rgb), .5)); }
-:where([data-theme="light"]) .trk-dot { border-color: rgba(var(--studio-ink-rgb), .3); background: #fff; }
+:where([data-theme="light"]) .trk-dot { border-color: rgba(var(--studio-ink-rgb), .3); background: var(--studio-card); }
 @media (max-width: 560px) {
   .trk { grid-template-columns: 1fr; }
   .trk li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; padding: 0 0 16px 26px; }
@@ -3975,7 +3990,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .adm-panel { display: grid; gap: 14px; padding: 16px; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .3); animation: viewIn .4s var(--ease) both; }
 .adm-history summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .adm-history ul { margin: 8px 0 0; padding: 0 0 0 18px; color: var(--ink-2); font-size: 13.5px; display: grid; gap: 4px; }
-.adm-qr { width: 200px; height: 200px; border-radius: 12px; background: #fff; padding: 8px; }
+.adm-qr { width: 200px; height: 200px; border-radius: 12px; background: var(--paper); padding: 8px; }
 /* the console's calendar head: earlier, the visible range, later, then the Week / Day chips and Today */
 .admin .cal-head { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; }
 .admin .cal-head .bk-h2 { justify-content: center; text-align: center; }
@@ -5131,6 +5146,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
   --floor: #e5dfd4;
   --panel: #fffdf8;
   --panel-2: #f9f6ef;
+  --studio-card: var(--paper);   /* the white cards, keys and fields on the cream page */
   --glass: rgba(255, 253, 248, .7);
   --glass-strong: rgba(255, 253, 248, .92);
   --hair: rgba(17, 17, 17, .08);
@@ -5171,7 +5187,6 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* ---- the chrome: bar, buttons, menu */
 :where([data-theme="light"]) .bar { background: rgba(255, 255, 255, .72); border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 18px 50px -24px rgba(var(--studio-shade-rgb), .25); }
 :where([data-theme="light"]) .topbar.away .bar { box-shadow: 0 18px 50px -24px transparent; }   /* (its shadow fades as it goes, as in the dark) */
-:where([data-theme="light"]) .topbar::before { background: linear-gradient(180deg, rgba(var(--studio-bg-rgb), .92) calc(43px + env(safe-area-inset-top, 0px)), rgba(var(--studio-bg-rgb), 0)); }   /* the scrim over the bar: the cream page's */
 /* scrolled, the bar is nearly solid ivory (the chapter bar's): a translucent white blurred over a dark photo (a group
    plate, the Ritual, a gallery tile) reads as a grey band. Colours only, nothing moves */
 :where([data-theme="light"]) .topbar.scrolled .bar { background: rgba(var(--studio-panel-rgb), .94); border-color: rgba(var(--studio-ink-rgb), .08); }
@@ -5197,7 +5212,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @keyframes glassUp { from { opacity: 0; } }
 [data-theme="light"] .topbar.glass-in .bar { animation: glassOn var(--cut-out) var(--ease-in-out) both; }   /* (the cover's own: cutDark) */
 [data-theme="light"] .topbar.glass-up .bar { animation: glassUp var(--cut-up) var(--ease) both; }   /* (the cover's lift: .scrim.cut:not(.on)) */
-:where([data-theme="light"]) .icon-btn { background: linear-gradient(180deg, rgb(var(--studio-panel-rgb)), var(--studio-key-foot)); border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: inset 0 1px 0 #fff, 0 4px 14px -8px rgba(var(--studio-shade-rgb), .4); }
+:where([data-theme="light"]) .icon-btn { background: linear-gradient(180deg, rgb(var(--studio-panel-rgb)), var(--studio-key-foot)); border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: inset 0 1px 0 var(--studio-card), 0 4px 14px -8px rgba(var(--studio-shade-rgb), .4); }
 /* the gold for icons and large numerals (--gold: 3.3:1 at worst, on the floor; the large-text floor is 3:1); small gold text is --gold-ink */
 [data-theme="light"] :is(.icon-btn, .amount, .adm-tile b, .el-row i, .tip-no) { color: var(--gold); }
 @media (max-width: 720px) { [data-theme="light"] .el-row i { color: var(--gold-ink); } }   /* the Table's row numerals are 22px on a phone, not large text: the deep gold (5.6:1) */
@@ -5208,7 +5223,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .btn-gold.pressed:not(.launch) { box-shadow: 0 6px 16px -12px rgba(var(--studio-gold-deep-rgb), .5), inset 0 1px 0 rgba(var(--au-rim-rgb), .55), inset 0 -1px 0 rgba(var(--au-shadow-rgb), .4); }   /* the press: the shadow under it tightens as it goes in */
 /* the glass button: frosted ivory over the page in the bar buttons' bevel (white at the lit top edge, a warm grey
    towards the foot, a faint lower edge, a soft contact shadow), no blur */
-:where([data-theme="light"]) .btn-glass { background: linear-gradient(180deg, rgba(var(--studio-glass-hi-rgb), .94), rgba(var(--studio-glass-lo-rgb), .8)); border-color: rgba(var(--studio-ink-rgb), .14); color: var(--ink); box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(var(--studio-ink-rgb), .06), 0 8px 18px -12px rgba(var(--studio-shade-rgb), .35); }
+:where([data-theme="light"]) .btn-glass { background: linear-gradient(180deg, rgba(var(--studio-glass-hi-rgb), .94), rgba(var(--studio-glass-lo-rgb), .8)); border-color: rgba(var(--studio-ink-rgb), .14); color: var(--ink); box-shadow: inset 0 1px 0 var(--studio-card), inset 0 -1px 0 rgba(var(--studio-ink-rgb), .06), 0 8px 18px -12px rgba(var(--studio-shade-rgb), .35); }
 :where([data-theme="light"]) .btn-glass::after { background: linear-gradient(118deg, transparent 40%, rgba(var(--studio-gold-rgb), .1) 50%, transparent 60%); }
 :where([data-theme="light"]) .mini-btn { background: rgba(var(--studio-gold-rgb), .1); border-color: var(--gold); }
 /* the menu: frosted ivory glass with a white lit edge, dense enough that the gold current page keeps 4.5:1 over a black photo; nearly solid where the browser has no blur */
@@ -5255,7 +5270,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 [data-theme="light"] .hero :focus-visible { outline-color: var(--gold-hi); }
 /* ---- the wash stage: white falling to the floor, a warm-grey backdrop behind the foam (.floor, fading as the
    rinse clears, --clean from foam.js), the beads picture multiplied in faintly, a thin cream veil */
-:where([data-theme="light"]) .wash-stage { background: linear-gradient(180deg, #fff 0%, var(--bg) 58%, var(--floor) 100%); }
+:where([data-theme="light"]) .wash-stage { background: linear-gradient(180deg, var(--studio-card) 0%, var(--bg) 58%, var(--floor) 100%); }
 :where([data-theme="light"]) .wash-stage .floor { background: radial-gradient(70% 55% at 50% 42%, var(--studio-floor-hi), var(--studio-floor-lo) 70%); opacity: calc((1 - var(--clean, 0)) * .85); }   /* darker while the foam is on, so thin foam has something to be thin against */
 :where([data-theme="light"]) .wash-bg { opacity: calc(.06 + var(--clean, 0) * .08); mix-blend-mode: multiply; }
 :where([data-theme="light"]) .wash-shade { background: linear-gradient(180deg, var(--bg) 0%, rgba(var(--studio-bg-rgb), .55) 16%, rgba(var(--studio-bg-rgb), .35) 62%, var(--bg) 100%); opacity: 1; }
@@ -5270,15 +5285,15 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :where([data-theme="light"]) .svc-jump { background: rgba(var(--studio-panel-rgb), .97); } }
 :where([data-theme="light"]) .svc-card { border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 44px 54px -42px rgba(var(--studio-ink-rgb), .6), 0 2px 0 rgba(255, 255, 255, .5) inset, 0 0 0 1px rgba(var(--studio-ink-rgb), .06); }
 /* ---- surfaces: white cards with a contact shadow and a hairline ring; nested things one step warmer */
-:where([data-theme="light"]) :is(.price-card, .addon-list, .appt, .page .card, .adm-tile, .cal-col, .bk-more) { background: #fff; border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .35), 0 0 0 1px rgba(var(--studio-ink-rgb), .06); }
+:where([data-theme="light"]) :is(.price-card, .addon-list, .appt, .page .card, .adm-tile, .cal-col, .bk-more) { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .35), 0 0 0 1px rgba(var(--studio-ink-rgb), .06); }
 :where([data-theme="light"]) .bk { background: var(--panel); border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: 0 40px 90px -50px rgba(var(--studio-shade-rgb), .35), 0 0 0 1px rgba(var(--studio-ink-rgb), .04); }
 :where([data-theme="light"]) :is(.bk-note, .bk-chosen, .acct-static, .bk-summary-card, .adm-panel, .cal-item, .veh, .veh-form, .rv-reply, .bk-suggest) { background: var(--stone); border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: none; }   /* inside a panel: the soft grey */
-:where([data-theme="light"]) .price-card.featured, :where([data-theme="light"]) .appt.adm.gold { background: radial-gradient(120% 70% at 100% 0%, rgba(var(--studio-gold-rgb), .12), transparent 60%), #fff; border-color: var(--line); }
-:where([data-theme="light"]) .appt.gold { background: #fff; border-color: var(--line); }
+:where([data-theme="light"]) .price-card.featured, :where([data-theme="light"]) .appt.adm.gold { background: radial-gradient(120% 70% at 100% 0%, rgba(var(--studio-gold-rgb), .12), transparent 60%), var(--studio-card); border-color: var(--line); }
+:where([data-theme="light"]) .appt.gold { background: var(--studio-card); border-color: var(--line); }
 :where([data-theme="light"]) .bk-suggest, :where([data-theme="light"]) .bk-notice { background: radial-gradient(100% 120% at 0% 0%, rgba(var(--studio-gold-rgb), .12), transparent 60%), var(--stone); border-color: var(--line); }
 :where([data-theme="light"]) .bk-preview { background: rgba(var(--studio-gold-rgb), .08); }
 :where([data-theme="light"]) .bk-nav { background: linear-gradient(180deg, rgba(var(--studio-panel-rgb), .9), rgba(var(--studio-nav-foot-rgb), .97)); border-top-color: rgba(var(--studio-ink-rgb), .08); }
-:where([data-theme="light"]) .cta-band { background: linear-gradient(180deg, #fff, var(--bg-2)); border-color: var(--line-soft); box-shadow: 0 30px 60px -40px rgba(var(--studio-ink-rgb), .4); }
+:where([data-theme="light"]) .cta-band { background: linear-gradient(180deg, var(--studio-card), var(--bg-2)); border-color: var(--line-soft); box-shadow: 0 30px 60px -40px rgba(var(--studio-ink-rgb), .4); }
 :where([data-theme="light"]) .cta-band::before { background: radial-gradient(70% 90% at 50% 0%, rgba(var(--studio-gold-rgb), .16), transparent 60%); }
 :where([data-theme="light"]) .bead-bg { opacity: .12; mix-blend-mode: multiply; }
 /* the closing band's moment in the white studio: the cream paint laid on the ivory (multiply), up to .3, resting at the still's .12 */
@@ -5289,30 +5304,30 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) :is(.foot-grid, .sum, .acct-sec, .pr-total, .appt-body, .svc-group + .svc-group) { border-color: rgba(var(--studio-ink-rgb), .08); }
 :where([data-theme="light"]) .work-progress { background: rgba(var(--studio-ink-rgb), .1); }
 :where([data-theme="light"]) :is(.work-item, .gal-tile) { border-color: rgba(var(--studio-ink-rgb), .1); }
-:where([data-theme="light"]) .step .n { background: #fff; border-color: rgba(var(--studio-ink-rgb), .14); box-shadow: 0 0 0 6px var(--bg); }
+:where([data-theme="light"]) .step .n { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .14); box-shadow: 0 0 0 6px var(--bg); }
 /* ---- controls: inputs with a 3:1 border, chips and cards on a hairline, the ink focus ring kept */
-:where([data-theme="light"]) .fld-box { background: #fff; border-color: var(--border-strong); box-shadow: inset 0 1px 2px rgba(var(--studio-shade-rgb), .06); }
+:where([data-theme="light"]) .fld-box { background: var(--studio-card); border-color: var(--border-strong); box-shadow: inset 0 1px 2px rgba(var(--studio-shade-rgb), .06); }
 :where([data-theme="light"]) .fld-box { --fld-rim: var(--gold-deep); }   /* the focused rim in the deep gold, 3:1 and more on white (an error's danger still wins) */
 [data-theme="light"] .fld-box:focus-within { box-shadow: 0 0 18px -8px rgba(var(--studio-gold-rgb), .45); }
-:where([data-theme="light"]) .bk-toggle input { background: #fff; border-color: var(--border-strong); }
-:where([data-theme="light"]) .star-pick button { background: #fff; border-color: var(--border-strong); }
-:where([data-theme="light"]) :is(.choice-item, .cal-day.open) { background: #fff; border-color: var(--border-strong); }
-:where([data-theme="light"]) :is(.adm-nav a, .appt-status) { background: #fff; border-color: rgba(var(--studio-ink-rgb), .22); }
+:where([data-theme="light"]) .bk-toggle input { background: var(--studio-card); border-color: var(--border-strong); }
+:where([data-theme="light"]) .star-pick button { background: var(--studio-card); border-color: var(--border-strong); }
+:where([data-theme="light"]) :is(.choice-item, .cal-day.open) { background: var(--studio-card); border-color: var(--border-strong); }
+:where([data-theme="light"]) :is(.adm-nav a, .appt-status) { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .22); }
 :where([data-theme="light"]) .choice-item { box-shadow: 0 1px 2px rgba(var(--studio-ink-rgb), .05); }
-:where([data-theme="light"]) .svc-opt { background: var(--sheen, none), #fff; border-color: rgba(var(--studio-ink-rgb), .22); box-shadow: 0 1px 2px rgba(var(--studio-ink-rgb), .05); }
+:where([data-theme="light"]) .svc-opt { background: var(--sheen, none), var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .22); box-shadow: 0 1px 2px rgba(var(--studio-ink-rgb), .05); }
 :where([data-theme="light"]) .bk-progress .num { background: var(--panel); border-color: rgba(var(--studio-ink-rgb), .22); }
 :where([data-theme="light"]) .bk-progress li + li::before { background: rgba(var(--studio-ink-rgb), .14); }
 :where([data-theme="light"]) .cal-key::before { border-color: rgba(var(--studio-ink-rgb), .25); }
 :where([data-theme="light"]) .cal-day::before { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(var(--studio-gold-rgb), .25) 6px 8px); }
 :where([data-theme="light"]) .sig { border-color: rgba(var(--studio-ink-rgb), .32); }
 :where([data-theme="light"]) .sig.lg { border-color: rgba(var(--studio-ink-rgb), .4); }
-:where([data-theme="light"]) .sig.lg.au { border-color: rgba(var(--studio-gold-deep-rgb), .35); box-shadow: 0 0 0 3px #fff, 0 0 0 4px rgba(var(--studio-gold-rgb), .55), 0 14px 26px -14px rgba(var(--studio-gold-deep-rgb), .5); }
+:where([data-theme="light"]) .sig.lg.au { border-color: rgba(var(--studio-gold-deep-rgb), .35); box-shadow: 0 0 0 3px var(--studio-card), 0 0 0 4px rgba(var(--studio-gold-rgb), .55), 0 14px 26px -14px rgba(var(--studio-gold-deep-rgb), .5); }
 :where([data-theme="light"]) .lineup.has-step .step-up { border-color: rgba(var(--studio-ink-rgb), .1); }
-:where([data-theme="light"]) .sw-tile { background: #fff; border-color: var(--border-strong); box-shadow: 0 1px 2px rgba(var(--studio-ink-rgb), .05); }
+:where([data-theme="light"]) .sw-tile { background: var(--studio-card); border-color: var(--border-strong); box-shadow: 0 1px 2px rgba(var(--studio-ink-rgb), .05); }
 [data-theme="light"] :is(.svc-opt-price:empty, .sw-price:empty, .time-ph) { --au-slot: rgba(var(--studio-ink-rgb), .06); --au-wait: rgba(var(--studio-glow-rgb), .3); }
 :where([data-theme="light"]) :is(.bk-carry, .bk-before) { background: var(--stone); border-color: rgba(var(--studio-ink-rgb), .1); }
 :where([data-theme="light"]) .bk-carry.ask { background: radial-gradient(100% 160% at 0% 0%, rgba(var(--studio-gold-rgb), .12), transparent 60%), var(--stone); border-color: var(--line); }
-:where([data-theme="light"]) .sheet { background: #fff; border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .35), 0 0 0 1px rgba(var(--studio-ink-rgb), .04); }
+:where([data-theme="light"]) .sheet { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: 0 24px 40px -34px rgba(var(--studio-ink-rgb), .35), 0 0 0 1px rgba(var(--studio-ink-rgb), .04); }
 :where([data-theme="light"]) .sheet-top { background: var(--panel-2); }
 :where([data-theme="light"]) .bk-terms li::before { box-shadow: none; }
 :where([data-theme="light"]) .cal-col.blocked { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(var(--studio-gold-rgb), .16) 8px 10px); }
@@ -5342,7 +5357,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 /* the console's statuses by form in the studio: confirmed filled with the deep gold's tint, a request hollow on white,
    Review in a dark amber (6.8:1) */
 [data-theme="light"] .appt.adm-row:is(.st-confirmed, .st-in_progress) .appt-status { background: rgba(var(--studio-gold-rgb), .16); border-color: rgba(var(--studio-gold-deep-rgb), .5); color: var(--gold-ink); }
-[data-theme="light"] .appt.adm-row:is(.st-requested, .st-needs_information) .appt-status { background: #fff; border-color: rgba(var(--studio-ink-rgb), .3); color: var(--ink-2); }
+[data-theme="light"] .appt.adm-row:is(.st-requested, .st-needs_information) .appt-status { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .3); color: var(--ink-2); }
 [data-theme="light"] .appt.adm-row .appt-status.review { border-color: rgba(var(--studio-review-rgb), .45); color: rgb(var(--studio-review-rgb)); }
 [data-theme="light"] .cal-item.gold { border-color: rgba(var(--studio-gold-rgb), .6); }
 [data-theme="light"] .star-pick button.on { text-shadow: none; box-shadow: 0 0 0 3px rgba(var(--studio-gold-rgb), .14); }
@@ -5354,7 +5369,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .adm-actions .btn.danger { border-color: rgba(var(--studio-danger-rgb), .4); color: var(--danger-text); }
 :where([data-theme="light"]) .adm-actions .btn.danger.on { background: rgba(var(--studio-danger-rgb), .07); }
 @media (hover: hover) and (pointer: fine) { :where([data-theme="light"]) .adm-actions .btn.danger:hover:not(:disabled) { background: rgba(var(--studio-danger-rgb), .07); } }
-:where([data-theme="light"]) .cal-col.today { background: linear-gradient(rgba(var(--studio-gold-rgb), .06), rgba(var(--studio-gold-rgb), .06)), #fff; }
+:where([data-theme="light"]) .cal-col.today { background: linear-gradient(rgba(var(--studio-gold-rgb), .06), rgba(var(--studio-gold-rgb), .06)), var(--studio-card); }
 /* ---- the gold light in the studio: across white things it is a warm gold sheen (a screen blend vanishes on white);
    the photo pieces and the Gold card keep the dark light */
 [data-theme="light"] .appt.au-run .appt-glow::after { opacity: 1; background: linear-gradient(var(--au-angle), transparent 40%, rgba(var(--studio-glow-rgb), .05) 46%, rgba(var(--studio-glow-rgb), .16) 50%, rgba(var(--studio-glow-rgb), .05) 54%, transparent 60%); }
@@ -5372,8 +5387,9 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
    white softbox band crosses the page at 118deg in the light's own time (--au-dur, 1.2s), from its first frame
    (--lights 14%: the band's edge at the screen's corner) to the far corner, the ivory showroom behind it, the old
    page ahead, the light's own white (--panel) in the band. To Dark (vt-dim) the dark closes in from the edges over
-   .6s on the last pool of light at the centre; the lit page under it holds until the dark has nearly closed (55%),
-   then fades, so the centre shrinks into the dark with no black between. --lights moves the masks' stops. Without
+   .6s on the last pool of light at the centre; the lit page under it simply holds (no fade of its own) until the dark
+   covers it, so the centre shrinks into the dark with no black between, however late a frame (the dark's mask moves
+   with the page's own frames, a fade would run on without them). --lights moves the masks' stops. Without
    view transitions every colour cross-fades under html.theming (.42s); under reduced motion the switch is instant.
    The sun becomes a moon in the button. */
 @property --lights { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
@@ -5390,14 +5406,13 @@ html.vt-lights::view-transition-old(root) {
 }
 @keyframes lightsOn { from { --lights: 14%; } to { --lights: 120%; } }
 html.vt-dim::view-transition { background: var(--bg); }
-html.vt-dim::view-transition-old(root) { animation: lightsDim .6s var(--ease-in-out) both; }
+html.vt-dim::view-transition-old(root) { animation: none; }   /* (none, not left out: the browser's own fade would come back) */
 html.vt-dim::view-transition-new(root) {
   -webkit-mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) - 60%), #000 var(--lights));
   mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) - 60%), #000 var(--lights));
   animation: lightsOff .6s var(--ease-in-out) both;
 }
 @keyframes lightsOff { from { --lights: 160%; } to { --lights: 0%; } }
-@keyframes lightsDim { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: no-preference) {
   html.theming, html.theming *, html.theming *::before, html.theming *::after { transition: background-color .42s var(--ease), background .42s var(--ease), color .42s var(--ease), border-color .42s var(--ease), box-shadow .42s var(--ease), opacity .42s var(--ease) !important; transition-delay: 0s !important; }
 }
@@ -5439,6 +5454,8 @@ html.vt-dim::view-transition-new(root) {
   .pressed { filter: none !important; }
   .group-plate.polish > img { filter: brightness(.92) saturate(1); }   /* no gold light here (app.js): the photos are simply lit */
   .svc-jump a[aria-current] { text-decoration: underline; text-underline-offset: 6px; }   /* the gold line is painted over: the group on the screen keeps a mark */
+  .bar { background: Canvas !important; }   /* the glass goes clear here: the bar keeps a ground of its own over the hero's photo and light (over every bar state's glass) */
+  .icon-btn { border: 1px solid ButtonText !important; }
 }
 
 /* =====================================================================
@@ -5452,7 +5469,7 @@ html.vt-dim::view-transition-new(root) {
 @media print {
   :root, :root[data-theme="light"] {
     color-scheme: light;
-    --bg: #fff; --bg-2: #fff; --panel: #fff; --panel-2: #fff; --floor: #fff;
+    --bg: var(--paper); --bg-2: var(--paper); --panel: var(--paper); --panel-2: var(--paper); --floor: var(--paper);
     --print-ink: #111; --print-ink-2: #333; --print-muted: #555; --print-line: #d8d8d8; --print-rule: #ddd; --print-mark: #bbb;
     --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted);
     --hair: var(--print-line); --line: #ceb380; --line-soft: #e4dcc4; --border-strong: #999;
@@ -5460,10 +5477,10 @@ html.vt-dim::view-transition-new(root) {
   }
   .svc-card, [data-theme="light"] :is(.svc-card, .gold-card, .hero, .svc-top) { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); }
   /* the account's dark pieces print as ink on paper: no gold face, no drawing's light */
-  .appt-next, .car-card, .acct .appt .appt-head, [data-theme="light"] .appt-next, [data-theme="light"] .acct .appt.st-completed .appt-head, .acct .appt.gold:is(.in, .settled) .appt-head, [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); color: var(--print-ink); background: #fff !important; box-shadow: none !important; }
+  .appt-next, .car-card, .acct .appt .appt-head, [data-theme="light"] .appt-next, [data-theme="light"] .acct .appt.st-completed .appt-head, .acct .appt.gold:is(.in, .settled) .appt-head, [data-theme="light"] .acct .appt.gold:is(.in, .settled) .appt-head { --ink: var(--print-ink); --ink-2: var(--print-ink-2); --muted: var(--print-muted); --gold: var(--studio-gold-ink); --gold-hi: var(--studio-gold-ink); --gold-ink: var(--studio-gold-ink); color: var(--print-ink); background: var(--paper) !important; box-shadow: none !important; }
   .appt-au, .trk::after, .acct-soon .soon-mark, .bk-down .soon-mark, .insp { display: none !important; }
   .acct-soon > * { animation: none !important; }
-  html, body { background: #fff !important; color: var(--print-ink) !important; }
+  html, body { background: var(--paper) !important; color: var(--print-ink) !important; }
   /* the screen's own tools have nothing to say on paper: Contact's "Online" row (its link is hidden) and ZIP check,
      the Gallery's filters, and the Transmutation while the pair shown has no before photo yet (an empty frame) */
   .ct-rows > div:has(.note-link), .ct-zip, .gal-filters, .transmute:has(.tm-ph) { display: none !important; }
@@ -5517,7 +5534,7 @@ html.vt-dim::view-transition-new(root) {
   /* the Ritual on paper: its five steps as a plain list, each with its own text (the screen opens one at a time) */
   .rit-scroll { overflow: visible !important; margin: 0 !important; padding: 0 !important; }
   .rit-row { display: grid !important; grid-template-columns: 1fr 1fr; min-width: 0 !important; height: auto !important; gap: 3mm; }   /* two by two: the fifth never alone on a page */
-  .rit { padding: 4mm 5mm !important; border: 1px solid var(--print-line) !important; background: #fff !important; color: var(--print-ink); break-inside: avoid; page-break-inside: avoid; }
+  .rit { padding: 4mm 5mm !important; border: 1px solid var(--print-line) !important; background: var(--paper) !important; color: var(--print-ink); break-inside: avoid; page-break-inside: avoid; }
   .rit img, .rit .shade, .rit .tag { display: none !important; }
   .rit .n { position: static; display: block; margin-bottom: 2mm; font-size: 20px; color: var(--studio-gold-ink); -webkit-text-stroke: 0; }
   .rit .body { position: static !important; opacity: 1 !important; transform: none !important; }
@@ -5525,7 +5542,7 @@ html.vt-dim::view-transition-new(root) {
   .rit .txt { max-width: none; color: var(--print-ink-2); }
   .rit .chip { background: none; border-color: var(--print-line); color: var(--studio-gold-ink); }
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: var(--print-rule); }
-  :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band, .door) { break-inside: avoid; page-break-inside: avoid; background: #fff !important; border: 1px solid var(--print-line) !important; box-shadow: none !important; }
+  :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band, .door) { break-inside: avoid; page-break-inside: avoid; background: var(--paper) !important; border: 1px solid var(--print-line) !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; transition: none !important; }
   /* the FAQ on paper: every answer under its question (the screen opens one at a time; content.js opens the closed ones
      for the print where a browser can't show a closed one's content), no + to press; and the screen's "Tap ..."
@@ -5533,7 +5550,7 @@ html.vt-dim::view-transition-new(root) {
   details.faq-item::details-content { content-visibility: visible; display: block; }
   .faq-item .faq-body { grid-template-rows: 1fr !important; }
   .faq-item { padding-inline: 5mm; }   /* inside its print frame (the cards' rule above), the words clear of the line */
-  .faq-item summary::after, .tap-only { display: none !important; }
+  .faq-item summary::after, .tap-only, .click-only { display: none !important; }
   /* the Gallery on paper: even rows, each tile whole, its photo inside its own frame (the screen's drift room reached
    past the tile, so a page end pushed the photo onto the next page, over what follows) */
   .gal-tile.tall { grid-row: auto; }
@@ -5588,7 +5605,7 @@ html.vt-dim::view-transition-new(root) {
     .sent-steps li::before { left: 3px; top: 4px; }
     .sent-steps li::after { left: 8px; right: auto; top: 19px; bottom: 3px; width: 1px; height: auto; }
   }
-  .sheet, .sheet-top, .bk-before { background: #fff !important; border-color: var(--print-line) !important; box-shadow: none !important; }
+  .sheet, .sheet-top, .bk-before { background: var(--paper) !important; border-color: var(--print-line) !important; box-shadow: none !important; }
   .work-strip { flex-wrap: wrap; overflow: visible; }
   .work-item { flex-basis: calc(33.33% - 10px); }
   .work-item.unready, .work.unready { display: none !important; }   /* a photo not yet arrived (app.js, at print): no empty card */

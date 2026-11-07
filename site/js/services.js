@@ -532,7 +532,7 @@
     });
     container.replaceChildren(
       el('div.show-head', el('div', el('p.eyebrow', 'How an exterior is done'), el('h2.display', { id: 'ritualTitle' }, 'The Ritual')),
-        el('p', 'The order every exterior detail follows. Deluxe adds the seal.', el('span.tap-only', ' Tap a step to open it.'))),   // (paper has every step open: the CSS leaves the tap off)
+        el('p', 'The order every exterior detail follows. Deluxe adds the seal.', el('span.tap-only', ' Tap a step to open it.'), el('span.click-only', ' Click a step to open it.'))),   // (the verb for the pointer; paper has every step open: the CSS leaves it off)
       el('div.rit-scroll', row));
   }
 

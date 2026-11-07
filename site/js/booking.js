@@ -892,7 +892,8 @@
   const waitsFor = (a) => (menu.addonRules[a] === 'interior' ? 'an interior service' : menu.addonRules[a] === 'exterior' ? 'an exterior service' : 'a service') + (menu.addonRules[a] === 'any_main' ? '' : ' or a bundle');
   function carriedNotes() {
     const s = st.service, out = [];
-    if (s.carried && mainCodes().includes(s.carried)) out.push(el('p.bk-quiet', { dataset: { carried: s.carried } }, el('span', svc(s.carried).name + ' was chosen on the Services page. Tap another card to change it.')));
+    // (the verb for the pointer, as the CSS's .tap-only and .click-only)
+    if (s.carried && mainCodes().includes(s.carried)) out.push(el('p.bk-quiet', { dataset: { carried: s.carried } }, el('span', svc(s.carried).name + ' was chosen on the Services page.', el('span.tap-only', ' Tap another card to change it.'), el('span.click-only', ' Click another card to change it.'))));
     s.addons.filter((a) => !canHaveAddon(a)).forEach((a) => out.push(el('p.bk-quiet', svc(a).name + ' is added once you choose ' + waitsFor(a) + '.')));
     return out;
   }
@@ -1168,7 +1169,8 @@
   }
   // The tiles work as the cards on step 04 do, so the line under them says how: a tile adds to the other kind and
   // takes the place of its own (an exterior and an interior together; a bundle alone), and with two lit either can go
-  const swHint = () => 'An exterior and an interior can go together; a bundle stands alone.' + (mainCodes().length > 1 ? ' Tap a lit tile to take it off.' : '');
+  // (the verb for the pointer: Click with a mouse, Tap otherwise, as the CSS's .tap-only and .click-only)
+  const swHint = () => 'An exterior and an interior can go together; a bundle stands alone.' + (mainCodes().length > 1 ? ' ' + (matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap') + ' a lit tile to take it off.' : '');
   // The tiles follow the request: which are chosen, their prices (looked up once, if step 04 has not already), the
   // line under them, and a quiet line for an add-on the new service leaves off
   function paintSwitch() {

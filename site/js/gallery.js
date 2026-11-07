@@ -62,7 +62,7 @@
     body = el('div.gal-body');
     const page = el('div.gal',
       el('header.page-head', el('p.eyebrow', 'Our work'), el('h1.display.gold-text', 'The Gallery'), el('span.rule', { 'data-reveal': '' }),
-        el('p', 'Every picture is a car we detailed.', el('span.tap-only', ' Tap one to see it full size.'))),   // (not on paper: the CSS)
+        el('p', 'Every picture is a car we detailed.', el('span.tap-only', ' Tap one to see it full size.'), el('span.click-only', ' Click one to see it full size.'))),   // (the verb for the pointer, and not on paper: the CSS)
       chips, body,
       el('div.work-foot',
         el('a.btn.btn-gold.shine', { href: '#book' }, 'Book Now ', arrow()),
