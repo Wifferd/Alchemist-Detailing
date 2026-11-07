@@ -1,4 +1,5 @@
--- Applied to the test project only, on Nov 7, 2026 (version 20261107031054). For live, the order matters: push the page
+-- Test project: Nov 7, 2026 (version 20261107031054). Live: Nov 7, 2026 (version 20261107043038), after the page (doc 46).
+-- For live, the order mattered: push the page
 -- first, check that both Vercel projects serve the new commit (its admin.js asks shop_address_on_file()), then apply
 -- this part, and part 3 with it. The page on main at 4af98d6 filters on the address column: once this part is on, that
 -- request is refused, and its Settings screen would tell the owner "Your address: Not set".

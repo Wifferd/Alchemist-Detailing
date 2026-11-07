@@ -10,8 +10,8 @@
 - **Three sweeps** looked for bugs at the same time (below). Many bugs were found by two of them.
 - **Round 1** went to `main` as **931b7f7** on Nov 6, about 21:25 UTC. **Migration 007s** went to the live database at about the same time.
 - **Round 2** went to `main` as **5a266a3** on Nov 7, about 00:20 UTC. **Migration 007 parts 3, 4 and 5** went to the live database right after it.
-- **Migration 007 part 6** is on the test project only. It waits for the owner's decision.
-- **Six questions** are open for the owner, each with a recommendation (end of this doc).
+- **Migration 007 part 6** waited for the owner's decision; it is on live since Nov 7 (doc 46).
+- **Six questions** went to the owner, each with a recommendation (end of this doc). The owner answered "Yes to all" on Nov 7: doc 46.
 
 ## The three sweeps
 
@@ -110,7 +110,7 @@ Commits: round 1 **9bf91ea** (Migration 007s and its tests); round 2 **e31016b**
 - **Doc 28 says detailers see no prices and no customer phone number or email.** Only the Team page's own column list kept those out. A detailer could read the phone, email and prices of their assigned jobs with a plain API call. Migration 007s closes this. Nobody could use the gap on live: it had no detailer accounts (none on Nov 7 either).
 - **Change time and the guest resend** were fixed in the database too (parts 3 and 4, next section).
 - **The owner's list in the SQL Editor** (`office.requests`) now says why a price is still to be set, keeps "(XL)" for a vehicle described in words, and shows the conditions in words (part 5).
-- **Still open:** managers can read the owner's address through the API, and the review of an anonymized booking stays public. Both are the owner's decisions (end of this doc).
+- **Then open, decided Nov 7 (doc 46):** managers could read the owner's address through the API, and the review of an anonymized booking stayed public. Both are closed now (Migration 008 parts 2 and 3, Migration 007 part 6).
 
 ### Website setup
 
@@ -179,7 +179,7 @@ All four are non-destructive: none contains a delete, drop or truncate.
 
 ## Still open for the owner
 
-These questions were sent to the owner. No answer yet. Nothing below has been changed.
+These questions were sent to the owner. **Answered Nov 7: "Yes to all".** All six are built and live: doc 46.
 
 | # | Question | Recommendation |
 |---|----------|----------------|

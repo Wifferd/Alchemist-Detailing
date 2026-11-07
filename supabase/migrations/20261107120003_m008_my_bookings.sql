@@ -1,4 +1,4 @@
--- Applied to the test project only, on Nov 7, 2026 (version 20261107034637). For live: with part 2 or right after it.
+-- Test project: Nov 7, 2026 (version 20261107034637). Live: Nov 7, 2026 (version 20261107043050), right after part 2 (doc 46).
 -- Migration 008, part 3 (Nov 7, 2026; the owner's answers 3 and 5 to doc 45, "Yes to all"):
 -- my_bookings is the live definition (Migration 001) with two changes.
 -- 1. No address for a manager. Part 2 closed the address column, but a manager (their phone is confirmed by the

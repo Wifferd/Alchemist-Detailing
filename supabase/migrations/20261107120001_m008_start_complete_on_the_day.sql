@@ -1,3 +1,4 @@
+-- Test project: Nov 7, 2026 (version 20261107031015). Live: Nov 7, 2026 (version 20261107043024), after the page (doc 46).
 -- Migration 008, part 1 (Nov 7, 2026; the owner's answer 1 to doc 45, "Yes to all"):
 -- a job is started only on its own day, and completed on that day or later (Parker's date, public.local_today()),
 -- so a mis-tap can't mark a future job started or done. A job finished late can still be closed the next day,
