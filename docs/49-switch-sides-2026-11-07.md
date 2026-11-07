@@ -19,23 +19,24 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 
 **What Switch sides does:**
 
-- **On the website** (any page that isn't Admin or Team), it goes to the Admin page: the Admin screen last open in this tab (for example Calendar), or Requests if none was open yet. Its small gold tag says **Requests**.
+- **On the website** (any page that isn't Admin or Team), it goes to the Admin page: the Admin screen last open in this tab (for example Calendar), or Requests if none was open yet. Its small gold tag names that screen: **Requests**, **Morning**, **Calendar** and so on. If the Admin page was opened without a screen in its address (for example from the Team page's "Go to the Admin page"), the tag says **Admin**, because the Admin page then shows whichever screen it showed last.
 - **On the Admin page or the Team page**, it goes back to the website page last open in this tab (for example Services, at the Exterior group, or Book Now), or Home if none was open yet. Its tag says **Website**.
-- So a round trip is one tap each way: the website page → Switch sides → the Admin screen they were on → Switch sides → the same website page.
-- The memory lasts while the tab is open. Nothing is saved on the device.
+- So a round trip is: open the menu, scroll to its bottom if needed, tap Switch sides. The website page → the Admin screen they were on → the same website page.
+- The memory lasts until the page is reloaded (a reload starts again from Home or Requests). Typing /admin or /requests, or an iPhone reloading a tab left in the background, also starts again. Nothing is saved on the device.
 - It is a normal link: tapping it closes the menu, and a long press can copy or open it in a new tab.
 
 **How it looks:**
 
-- A full-width glass button like "Light mode", with a thin gold edge, a small two-way-arrows icon, the words "Switch sides" and the gold tag ("Requests" or "Website").
+- A full-width glass button like "Light mode", with a thin gold edge, a small two-way-arrows icon, the words "Switch sides" and the gold tag (the Admin screen it goes to, or "Website").
 - 48 px tall, so it is easy to tap.
 - Works in dark and light mode and with reduced motion. It is never marked as the current page.
-- Screen readers hear "Switch sides, to Requests" or "Switch sides, back to the website". It is the last stop when tabbing through the menu.
+- Screen readers hear the same place the tag shows: "Switch sides, to Requests" (or "to Calendar", "to the Admin page" and so on) or "Switch sides, back to the website". It is the last stop when tabbing through the menu.
 
 **Room at the bottom of the menu:**
 
 - The menu's bottom spacing (including the space for the iPhone home bar) now sits inside the menu's foot. So when the menu scrolls, it always ends below Switch sides, and the home bar can't cover it.
-- On a 390 × 844 phone the admin's menu scrolls 43 px to reach it. On a 360 × 640 phone it scrolls 233 px. On a 1280 × 900 screen it doesn't scroll.
+- **On a phone, Switch sides is below the bottom edge when the menu opens: scroll down inside the menu to reach it.** The menu's list is long (eleven pages, then Light mode, Book Now and the phone number), so on an iPhone in Safari the screen ends around Light mode. How far to scroll, measured with Safari's usual space for the page: about 210 px on a 390-wide iPhone with the toolbars showing, about 170 px with them tucked away, about 140 px on a 430-wide iPhone, and about 320 px on a small iPhone SE. On a 1280 × 900 computer screen it doesn't scroll.
+- Before this change, "Requests · Team" sat right under Account, so it showed as soon as the menu opened on most phones. Moving it to the very bottom (the owner's words) is what adds the scroll. See the question at the end.
 
 **Kept as it was:**
 
@@ -45,7 +46,7 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 - The typed addresses /admin, /requests and /team.
 - The "Are you sure?" step before Confirm, and everything about bookings.
 
-**Files:** `site/index.html` (the button in the menu's foot; the detailer's item is now always "My jobs" to `#team`), `site/js/app.js` (`showDoor`, `note`, `markDoor`, and the router remembers each side's last page, including Admin screens that change without a new address), `site/css/alchemist.css` (`.switch-side`, and the bottom spacing moved into `.menu-foot`).
+**Files:** `site/index.html` (the button in the menu's foot; the detailer's item is now always "My jobs" to `#team`), `site/js/app.js` (`showDoor`, `note`, `markDoor`, `SCREEN` for the Admin screens' names on the tag, and the router remembers each side's last page, including Admin screens that change without a new address), `site/css/alchemist.css` (`.switch-side`, and the bottom spacing moved into `.menu-foot`).
 
 ## How it was checked
 
@@ -77,6 +78,16 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 - The single-file preview builds and Switch sides works in it.
 - Every site script parses.
 - A newer script with an older cached page (one without the button) still runs the site, with no door rather than an error.
+
+**After the review (same day):**
+
+- The reviewers found that the tag and the spoken name said "Requests" even when Switch sides went to another Admin screen (for example Calendar or Morning). Now they name the screen it goes to. In preview mode, at 360 × 640 and 390 × 844 (touch) and 1280 × 900, in dark and light, with and without reduced motion (eight runs), each of the eight Admin screens was opened, then FAQ through the menu, then Switch sides: the tag, the spoken name and the screen it landed on matched every time, and the button stayed on one line, 48 px tall, even with the longest name ("Customers"). A bare Admin address showed "Admin". 49 checks per run, all passed, with no page errors.
+- Live mode against the test database (its recorded answers): the Sweep admin through /admin at 390 × 844, after the Calendar screen, saw "Calendar" on the website side and landed on Calendar.
+- The menu was measured at the heights Safari really gives a page (the figures under "Room at the bottom of the menu"), and the wording about the memory and the round trip was corrected.
+
+## Open for the owner
+
+1. **Pin Switch sides to the bottom edge of the menu?** On the owner's iPhone, Switch sides is below the bottom edge when the menu opens, so they scroll down inside the menu to reach it. Pinned, it would show as soon as the menu opens, and the list would scroll behind it. Recommendation: yes, since doc 47 began with the owner not finding the way back to the Admin page. Until they answer, it stays as built: the last thing in the menu.
 
 ## Noticed along the way (not changed)
 
