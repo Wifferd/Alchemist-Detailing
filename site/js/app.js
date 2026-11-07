@@ -88,9 +88,11 @@
   // the Admin screens by name (admin.js SCREENS), for the tag; a bare #admin opens whichever screen the Admin page
   // last showed, so it is named Admin
   const SCREEN = new Map([['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']]);
-  let doorSeq = 0;
+  const ADMIN_ONLY = ['team', 'log'];   // as admin.js: a manager is never sent to these (Requests instead)
+  let doorSeq = 0, doorRole = null;
   function showDoor(s) {
     const role = s && s.active !== false ? s.role : null;
+    doorRole = role;
     door.hidden = role !== 'detailer';
     swap.hidden = role !== 'admin' && role !== 'manager';
     markDoor();
@@ -104,8 +106,9 @@
     const on = !door.hidden && door.getAttribute('href').slice(1) === cur;
     if (on) door.setAttribute('aria-current', 'page'); else door.removeAttribute('aria-current');
     const staff = cur === 'admin' || cur === 'team';
-    const to = SCREEN.get(side.staff.split('-')[1]);   // the Admin screen it opens, by its name there
-    swap.setAttribute('href', staff ? side.site : side.staff);
+    const across = doorRole === 'manager' && ADMIN_ONLY.includes(side.staff.split('-')[1]) ? '#admin-requests' : side.staff;
+    const to = SCREEN.get(across.split('-')[1]);   // the Admin screen it opens, by its name there
+    swap.setAttribute('href', staff ? side.site : across);
     swap.setAttribute('aria-label', staff ? 'Switch sides, back to the website' : 'Switch sides, to ' + (to || 'the Admin page'));
     swap.lastElementChild.textContent = staff ? 'Website' : to || 'Admin';
   }
@@ -713,7 +716,7 @@
     const D = window.AlchemistData;
     D.onAuth((event, signedIn) => {
       if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;   // the load is read below
-      if (!signedIn) { doorSeq++; showDoor(null); return; }
+      if (!signedIn) { doorSeq++; side.staff = '#admin-requests'; showDoor(null); return; }   // the next login starts at Requests
       checkDoor();
     });
     if (D.hasStoredLogin()) checkDoor();

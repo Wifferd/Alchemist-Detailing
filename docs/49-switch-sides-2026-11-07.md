@@ -23,6 +23,8 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 - **On the Admin page or the Team page**, it goes back to the website page last open in this tab (for example Services, at the Exterior group, or Book Now), or Home if none was open yet. Its tag says **Website**.
 - So a round trip is: open the menu, scroll to its bottom if needed, tap Switch sides. The website page → the Admin screen they were on → the same website page.
 - The memory lasts until the page is reloaded (a reload starts again from Home or Requests). Typing /admin or /requests, or an iPhone reloading a tab left in the background, also starts again. Nothing is saved on the device.
+- Signing out starts the Admin side's memory again at Requests, so the next person to sign in on that browser doesn't get the last person's screen.
+- A manager is never sent to the admin's own screens (Team and Log, which only the admin sees): if one of those was the last Admin screen, Switch sides goes to Requests and its tag says "Requests".
 - It is a normal link: tapping it closes the menu, and a long press can copy or open it in a new tab.
 
 **How it looks:**
@@ -95,6 +97,15 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 - **A code comment** (`data.js`) still called the menu item "Requests"; corrected. Nothing changes on the site.
 - The preview walk ran again at 360 × 640, 390 × 844 and 1280 × 900, dark and light, and once with motion (six runs): 52 checks per run, now including "the menu opens at its top after Switch sides", all passed, with no page errors. The four screenshot tools at 390 × 844 ran clean, the single-file preview builds and Switch sides works in it, and every site script parses. Live mode wasn't run again: nothing about signing in or the database changed.
 
+**After the third review (same day):**
+
+- **One person's Admin screen could reach the next person.** The admin opened Team (or Log), switched to the website and signed out; then a manager signed in on the same browser without opening an Admin screen first (for example in another tab). Switch sides showed the manager "Team" and opened a page saying "Only the admin sees this." Nothing leaked (the page and the database still keep it from them, and the page offers "Back to Morning"), but it was a dead end. Two small fixes in `app.js`:
+  - Signing out now starts the remembered Admin screen again at Requests.
+  - A manager's Switch sides never goes to Team or Log (`ADMIN_ONLY`, the same two as the Admin page's): it goes to Requests instead. This also covers the cases the first fix alone missed, because the page doesn't always see a sign-out first: a tab that missed it, the admin signing out on the Admin page itself (the page left behind still has Log in its address, and leaving it remembers Log again), or a manager who typed the Log address.
+- Checked in preview mode at 360 × 640 and 390 × 844 (touch) and 1280 × 900, in dark and light (five runs), five walks each: the reported path; a manager's sign-in with no sign-out before it; the admin signing out on the Admin page's Log, then Home, then a manager's sign-in; the admin's own memory (Team, after Switch sides, still says "Team" and opens Team); and a manager's own memory (Calendar still says "Calendar"; after they type the Log address, Switch sides says "Requests"). Each walk ended where it should (Requests for the manager, Team for the admin, Calendar for the manager's own Calendar), with no page errors. Before the fix, four of the five ended on "Only the admin sees this."; with only the sign-out reset, three still did.
+- The full preview walk (52 checks) ran again at 360 × 640, 390 × 844 and 1280 × 900, dark and light, and once with motion: all passed, with no page errors. The four screenshot tools at 390 × 844 ran clean, the single-file preview builds, and every site script parses.
+- Live mode against the test database (its recorded answers): the Sweep admin, manager, detailer, customer and a visitor gave the same results as before. The Sweep manager (a stored login) opening the Log address saw "Only the admin sees this."; then Switch sides said "Requests" (spoken "Switch sides, to Requests") and opened Requests, at 390 × 844 in dark and 1280 × 900 in light. One list answer for today's date wasn't in the recordings; Switch sides doesn't depend on it.
+
 ## Open for the owner
 
 1. **Pin Switch sides to the bottom edge of the menu?** On the owner's iPhone, Switch sides is below the bottom edge when the menu opens, so they scroll down inside the menu to reach it, and on most laptop windows it is just below the edge too (about 30 to 165 px). The menu opens at its top every time, so that scroll comes with every trip. Pinned, it would show as soon as the menu opens, and the list would scroll behind it. Recommendation: yes, since doc 47 began with the owner not finding the way back to the Admin page. Until they answer, it stays as built: the last thing in the menu.
@@ -102,3 +113,5 @@ So detailers keep "My jobs", and the admin and managers get "Switch sides" at th
 ## Noticed along the way (not changed)
 
 With reduced motion turned on, opening the menu leaves the keyboard focus outside the list until the first Tab press (the menu becomes visible a moment after the focus is placed). Tab still enters the menu. This was already the case before this change.
+
+A manager who signs in on a bare Admin address (for example from the Team page's "Go to the Admin page") right after the admin used Team or Log in the same tab lands on "Only the admin sees this.", because the Admin page keeps its own last screen across logins. "Back to Morning" is offered. This was already the case before this change, and Switch sides doesn't lead there.
