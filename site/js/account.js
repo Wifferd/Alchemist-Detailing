@@ -17,8 +17,8 @@
   const isGold = (b) => b.status === 'completed' && b.total_cents != null && b.total_cents >= 20000;
   const isLive = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= D.helpers.isoDate(D.helpers.todayLocal());
   // a request with the "Other" condition, not yet confirmed: the owner prices it, so the total is "to be confirmed"
-  // (doc 46); once confirmed, the total shows. Needs the booking's conditions, which my_bookings returns only once the
-  // database adds them; without them the total shows as before.
+  // (doc 46); once confirmed, the total shows. my_bookings returns the booking's conditions since Migration 008 part 3;
+  // a database without that part sends none, and the total shows as before.
   const otherPending = (b) => Array.isArray(b.conditions) && b.conditions.includes('other') && ['requested', 'needs_information'].includes(b.status);
   const byWhen = (a, b) => (a.service_date === b.service_date ? a.start_min - b.start_min : a.service_date < b.service_date ? -1 : 1);
   const monthOf = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
