@@ -95,12 +95,14 @@
     if (error) throw D.fail('load_failed', error.message);
     st.blocked = data || []; return st.blocked;
   }
-  async function act(name, args, okText) {
+  // onFail (optional) hears the database's refusal of the action itself, not a list that fails to reload after it
+  async function act(name, args, okText, onFail) {
     try {
       if (!D.isLive) { previewAct(name, args); }
       else await D.rpc(name, args);
+      onFail = null;
       toast(okText || 'Done'); st.panel = null; await loadBookings(); render();
-    } catch (e) { toast(e.message || 'That didn\'t work.'); }
+    } catch (e) { toast(e.message || 'That didn\'t work.'); if (onFail) onFail(e); }
   }
   function previewAct(name, args) {
     const b = PREVIEW.bookings.find((x) => x.id === (args.p_id || args.p_appointment));
@@ -273,7 +275,7 @@
           el('dt', 'Ref'), el('dd.tnum', b.ref)),
         el('div.bk-summary-card', priceLines(b))),
       el('div.adm-actions',
-        canDecide ? el('button.btn.btn-gold', { type: 'button', disabled: b.price_pending, title: b.price_pending ? 'Set the price first' : '', onclick: () => act('confirm_booking', { p_id: b.id }, 'Confirmed') }, 'Confirm') : null,
+        canDecide ? el('button.btn.btn-gold', { type: 'button', disabled: b.price_pending, title: b.price_pending ? 'Set the price first' : '', onclick: (e) => askSure(b, e.currentTarget) }, 'Confirm') : null,
         canDecide ? trig('decline', 'Decline') : null,
         b.status === 'requested' ? trig('info', 'Ask for info') : null,
         ['confirmed'].includes(b.status) ? el('button.btn.btn-glass', { type: 'button', onclick: () => act('start_booking', { p_id: b.id }, 'Started') }, 'Start') : null,
@@ -413,6 +415,88 @@
     function actions(go, label) { return el('div.acct-actions', go ? el('button.btn.btn-gold', { type: 'button', onclick: go }, label) : null, el('button.btn.btn-glass', { type: 'button', onclick: close }, go ? 'Back' : 'Close')); }
     return box;
   }
+
+  // "Are you sure?" before Confirm (the owner, Nov 7). Confirm only opens this check; "Yes, I'm sure" confirms. It is
+  // drawn in place, with no redraw and no scrolling: the actions row steps aside and Go back stands exactly where
+  // Confirm was (a quick second tap lands on it, and only closes the check), the question beside it; the booking in a
+  // few lines below, and "Yes, I'm sure" at the far end of the box, a summary's height below the finger, never under
+  // it. Yes takes no tap for SURE_WAIT ms (a gold line fills it; with reduced motion it simply lights when ready), and
+  // one tap only: a second one while the database answers does nothing. Escape and Go back close it, back to Confirm.
+  const SURE_WAIT = 700;
+  function askSure(b, btn) {
+    if (!btn || btn.disabled || b.price_pending || !['requested', 'needs_information'].includes(b.status)) return;
+    const row = btn.closest('.adm-actions'), body = row && row.parentNode;
+    if (!body) return;
+    closeSure(false);
+    // a panel open under this booking (Decline, Change time…) gives way, and its button is no longer marked
+    if (st.panel) {
+      st.panel = null;
+      body.querySelectorAll(':scope > .adm-panel').forEach((x) => x.remove());
+      row.querySelectorAll('.btn.on').forEach((x) => { x.classList.remove('on'); x.setAttribute('aria-expanded', 'false'); });
+    }
+    const at = btn.getBoundingClientRect();
+    const s = { id: b.id, btn, row, ready: false, busy: false, timer: 0 };
+    const initial = (t) => (t ? t.trim().charAt(0).toUpperCase() + '.' : '');
+    const who = [b.contact_first, initial(b.contact_last)].filter(Boolean).join(' ') || 'Customer';
+    const hid = 'sure-h-' + b.id;
+    const h = el('h3.bk-h2.adm-sure-h', { id: hid, tabindex: '-1' }, 'Are you sure?');
+    const back = el('button.btn.btn-glass.adm-sure-back', { type: 'button', style: { minWidth: Math.ceil(at.width) + 'px' }, onclick: () => { if (!s.busy) closeSure(true); } }, 'Go back');
+    const yes = el('button.btn.btn-gold.adm-sure-yes.arming', { type: 'button', 'aria-disabled': 'true', style: { '--wait': SURE_WAIT + 'ms' }, onclick: go }, "Yes, I'm sure");
+    const err = el('p.adm-sure-err', { role: 'alert', hidden: true });
+    const line = (k, v, cls) => [el('dt', k), el('dd', cls ? { class: cls } : null, v)];
+    s.wrap = el('div.adm-sure', { role: 'group', 'aria-labelledby': hid },
+      el('div.adm-actions.adm-sure-top', back, h),
+      el('div.adm-panel.adm-sure-box',
+        el('dl.adm-sure-sum',
+          line('Customer', who),
+          // the day and start as booked: the database keeps them in Parker's time, whatever this device's clock says
+          line('When', [longDate(b.service_date), el('br'), clock(b.start_min) + ' (Parker time) · ' + minutesText(b.duration_min)]),
+          line('Services', services(b) || '—'),
+          line('Vehicle', (vehicle(b) || '—') + (b.vehicle_size === 'xl' ? ' · XL' : '')),
+          line('Where', b.location_type === 'mobile' ? 'Mobile · ' + where(b) : where(b)),
+          line('Total', b.total_cents == null ? 'Pending: ' + pendingWords(b) : money(b.total_cents), 'tnum adm-sure-total')),
+        el('p.bk-muted', 'Confirming holds this time for the customer. No text is sent from here: call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', ' to let them know.'),
+        err,
+        el('div.acct-actions', yes)));
+    function go() {
+      if (st.sure !== s || !s.ready || s.busy) return;
+      s.busy = true; err.hidden = true;
+      yes.setAttribute('aria-disabled', 'true'); yes.setAttribute('aria-busy', 'true'); yes.textContent = 'Confirming…';
+      back.setAttribute('aria-disabled', 'true');
+      act('confirm_booking', { p_id: b.id }, 'Confirmed', (e) => {
+        if (st.sure !== s || !s.wrap.isConnected) return;
+        // the database said no (the time was taken, the price is pending…): its words stay in the check
+        s.busy = false; err.textContent = e.message || 'That didn\'t work.'; err.hidden = false;
+        yes.removeAttribute('aria-disabled'); yes.removeAttribute('aria-busy'); yes.textContent = "Yes, I'm sure";
+        back.removeAttribute('aria-disabled');
+      });
+    }
+    st.sure = s;
+    row.hidden = true;
+    body.insertBefore(s.wrap, row.nextSibling);
+    // Go back exactly where Confirm was (should anything above have moved, the page follows by that much)
+    const dy = back.getBoundingClientRect().top - at.top;
+    if (Math.abs(dy) > 1) window.scrollBy(0, dy);
+    h.focus({ preventScroll: true });
+    s.timer = setTimeout(() => { if (st.sure !== s) return; s.ready = true; yes.classList.remove('arming'); if (!s.busy) yes.removeAttribute('aria-disabled'); }, SURE_WAIT);
+  }
+  function closeSure(focusBack) {
+    const s = st.sure;
+    st.sure = null;
+    if (!s) return;
+    clearTimeout(s.timer);
+    if (s.wrap && s.wrap.isConnected) s.wrap.remove();
+    if (s.row.isConnected) s.row.hidden = false;
+    if (focusBack && s.btn.isConnected) s.btn.focus({ preventScroll: true });
+  }
+  document.addEventListener('keydown', (e) => {
+    const s = st.sure;
+    if (e.key !== 'Escape' || !s || e.defaultPrevented) return;
+    if (!s.wrap.isConnected) { st.sure = null; return; }   // the screen was drawn again: the check went with it
+    const a = document.activeElement;
+    if (s.busy || (a && a !== document.body && !root.contains(a))) return;   // the menu (or anything outside the console) has the key
+    e.preventDefault(); closeSure(true);
+  });
 
   // A booking opened from another list (the calendar, Customers, a team message): a request in its lane under
   // Requests, anything else on the calendar's week, with its card (details and actions) under the days.
