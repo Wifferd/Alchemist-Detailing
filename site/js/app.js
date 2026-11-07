@@ -80,13 +80,14 @@
   const footer = $('.footer'), topbar = $('#topbar');
   let menuOpen = false;
   // The team's door: Requests in the menu, there only while a team member is signed in on this browser (the admin
-  // or a manager: the Admin page's requests; a detailer: the Team page). Customers and visitors never see it.
+  // or a manager: the Admin page's requests; a detailer: My jobs, the Team page). Customers and visitors never see it.
   const door = $('#teamDoor');
   const DOOR = { admin: '#admin-requests', manager: '#admin-requests', detailer: '#team' };
   let doorSeq = 0;
   function showDoor(s) {
     const href = s && s.active !== false && DOOR[s.role];
     if (href) door.setAttribute('href', href);
+    if (href) door.firstChild.nodeValue = s.role === 'detailer' ? 'My jobs ' : 'Requests ';   // a detailer's door opens their jobs
     door.hidden = !href;
     markDoor();
   }
@@ -99,6 +100,7 @@
     const n = ++doorSeq;
     let s;
     try { s = await window.AlchemistData.staffSession(); } catch (e) { return; }
+    if (s && s.roleUnknown) return;   // the role couldn't be read (a tab back in view on a weak connection): no change
     if (n === doorSeq) showDoor(s);
   }
   function press(btn) {
@@ -695,6 +697,8 @@
       checkDoor();
     });
     if (D.hasStoredLogin()) checkDoor();
+    // the account page's team card, having read a team role, puts the item back if a failed read left it out
+    window.__alchemistDoor = (s) => { doorSeq++; showDoor(s); };
   }
   desyncShine(document);   // every shine on the site, the hidden pages' too, so none sweep together
   $$('.shine, .scroll-cue').forEach((el) => ioAway.observe(el));

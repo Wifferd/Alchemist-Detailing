@@ -716,11 +716,13 @@
       if (mode === 'preview') return previewStaff;
       const s = await api.session();
       if (!s) return null;
-      const { data: prof } = await sb.from('profiles').select('id,role,first_name,last_name,is_active').eq('id', s.userId).maybeSingle();
+      const { data: prof, error: profErr } = await sb.from('profiles').select('id,role,first_name,last_name,is_active').eq('id', s.userId).maybeSingle();
       let aal = 'aal1', nextLevel = 'aal1';
       try { const { data } = await sb.auth.mfa.getAuthenticatorAssuranceLevel(); aal = data.currentLevel; nextLevel = data.nextLevel; } catch (e) { /* no MFA support */ }
       const { data: factors } = await sb.auth.mfa.listFactors().catch(() => ({ data: null }));
-      return Object.assign({}, s, { role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
+      // roleUnknown: the profile read failed (a weak connection), so 'customer' is a guess; the menu's Requests keeps
+      // what it showed rather than take it for a customer
+      return Object.assign({}, s, { roleUnknown: !!profErr, role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
         hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
     },
     // Team sign-in with an email and a password (doc 43), for the owner and managers until text codes work. The
