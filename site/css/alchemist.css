@@ -1747,6 +1747,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .adm-sure-sum dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .adm-sure-sum .adm-sure-total { color: var(--gold-hi); font-weight: 600; }
 .adm-sure-err { margin: 0; color: var(--danger-text); font-weight: 600; font-size: 14px; }
+.adm-sure-err.ok { color: var(--ink); }
 .adm-sure .acct-actions { justify-content: flex-end; }
 .adm-sure-yes { position: relative; overflow: hidden; }
 .adm-sure-yes.arming { opacity: 1; }

@@ -139,6 +139,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || !root || !root.isConnected || root.closest('[hidden]')) return;
     if (st.bookings == null || Date.now() - st.loadedAt < 60000 || st.panel) return;   // not loaded yet, fresh, or a panel being filled in
+    if (st.sure && st.sure.wrap && st.sure.wrap.isConnected) return;   // or an "Are you sure?" open (its call link leaves the tab)
     forget(); render();
   });
   async function render() {
@@ -253,13 +254,14 @@
     const canDecide = ['requested', 'needs_information'].includes(b.status);
     const admin = staff.role === 'admin';
     const notes = [b.special_request && ['Notes', b.special_request], b.damage_note && ['Damage note', b.damage_note]].filter(Boolean);
-    // a button that opens a panel: marked (.on, aria-expanded) while its panel is open, a second press closes it;
-    // o.state builds the panel's starting values, o.before loads what it needs
+    // a button that opens a panel: marked (.on, aria-expanded) while its panel is open, a press while marked closes it
+    // (the mark is read at the press: "Are you sure?" unmarks it without a redraw); o.state builds the panel's
+    // starting values, o.before loads what it needs
     function trig(kind, label, o) {
       o = o || {};
       const on = !!(st.panel && st.panel.id === b.id && st.panel.kind === kind);
       return el('button.btn.btn-glass', { type: 'button', class: (o.cls || '') + (on ? ' on' : ''), 'aria-expanded': on ? 'true' : 'false',
-        onclick: async () => { st.panel = on ? null : Object.assign({ kind, id: b.id }, o.state ? o.state() : null); if (!on && o.before) await o.before(); render(); } }, label);
+        onclick: async (e) => { const was = e.currentTarget.classList.contains('on'); st.panel = was ? null : Object.assign({ kind, id: b.id }, o.state ? o.state() : null); if (!was && o.before) await o.before(); render(); } }, label);
     }
     const body = el('div.appt-body',
       el('div.adm-cols',
@@ -455,7 +457,7 @@
           line('Vehicle', (vehicle(b) || '—') + (b.vehicle_size === 'xl' ? ' · XL' : '')),
           line('Where', b.location_type === 'mobile' ? 'Mobile · ' + where(b) : where(b)),
           line('Total', b.total_cents == null ? 'Pending: ' + pendingWords(b) : money(b.total_cents), 'tnum adm-sure-total')),
-        el('p.bk-muted', 'Confirming holds this time for the customer. No text is sent from here: call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', ' to let them know.'),
+        el('p.bk-muted', 'Confirming holds this time for the customer. No text is sent from here: after confirming, call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', ' to let them know.'),
         err,
         el('div.acct-actions', yes)));
     function go() {
@@ -469,6 +471,15 @@
         s.busy = false; err.textContent = e.message || 'That didn\'t work.'; err.hidden = false;
         yes.removeAttribute('aria-disabled'); yes.removeAttribute('aria-busy'); yes.textContent = "Yes, I'm sure";
         back.removeAttribute('aria-disabled');
+      }).then(() => {
+        // a refusal has cleared busy, and a list read again has drawn the screen afresh (the check went with it); still
+        // busy and on the page means the database confirmed it but the list couldn't be read again: say so, and let
+        // Go back and Escape close the check (Yes stays off: no second confirm)
+        if (st.sure !== s || !s.busy || !s.wrap.isConnected) return;
+        s.busy = false; s.ready = false;
+        yes.removeAttribute('aria-busy'); yes.textContent = 'Confirmed';
+        back.removeAttribute('aria-disabled');
+        err.classList.add('ok'); err.textContent = 'Confirmed. The list could not be read again: tap Refresh to see it.'; err.hidden = false;
       });
     }
     st.sure = s;
