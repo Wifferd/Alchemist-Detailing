@@ -37,7 +37,12 @@
     return node;
   }
 
-  const money = (cents) => cents == null ? '—' : '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // By hand, not toLocaleString: its first use costs 40-100 ms on a slow phone.
+  const money = (cents) => {
+    if (cents == null) return '—';
+    const n = Math.round(Math.abs(cents)), d = String(Math.floor(n / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return '$' + (cents < 0 ? '-' : '') + d + '.' + String(n % 100).padStart(2, '0');
+  };
   const minutesText = (m) => {
     if (!m) return '';
     const h = Math.floor(m / 60), r = m % 60;

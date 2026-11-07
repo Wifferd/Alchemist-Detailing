@@ -1264,6 +1264,15 @@ section { position: relative; }
 }
 .wash.washed .wash-stage { position: relative; }
 .foam-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
+/* once the pin has let go (foam.js .wash-finished) the drying film fades into the page at the stage's foot as the frame
+   does (::before, 80-100%), so the stage's lower edge never cuts it with a line. No mask during the wash itself */
+@property --fg-fade { syntax: "<length-percentage>"; inherits: false; initial-value: 100%; }
+.wash.wash-finished .foam-gl {
+  -webkit-mask-image: linear-gradient(180deg, #000 var(--fg-fade), transparent);
+  mask-image: linear-gradient(180deg, #000 var(--fg-fade), transparent);
+  animation: fgFade var(--dur-panel) var(--ease) both;
+}
+@keyframes fgFade { from { --fg-fade: 100%; } to { --fg-fade: 80%; } }
 .cannon {
   position: absolute;
   z-index: 5;   /* in front of the foam it sprays */
@@ -2702,6 +2711,9 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .why-item svg { grid-row: 1 / span 2; width: 26px; height: 26px; color: var(--gold); }
   .why-item h3 { margin: 3px 0 6px; }
 }
+/* a phone: 'Done properly, by hand' in two balanced lines with air either side, not one line edge to edge ('Done
+   properly,' is about 15ch wide; 17ch leaves it room and keeps 'by hand' to the second line) */
+@media (max-width: 440px) { .why .section-head h2 { max-width: 17ch; } }
 @media (max-width: 640px) {
   .bar { height: 58px; --back-w: 66px; column-gap: 14px; padding: 0 6px; }   /* Back a size closer, the page name kept 14px clear of it */
   .bar-back { gap: 4px; padding: 0; }
@@ -4977,7 +4989,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 .gal { width: min(100%, var(--col) - 2 * var(--gutter)); margin-inline: auto; display: grid; gap: 22px; }   /* inside the page's gutter: the text column's content box */
 .gal .page-head { margin-bottom: var(--s-2); }
 .gal .work-foot { margin-top: var(--s-3); }   /* with the grid's gap, the actions stand apart from the photos, as on the other pages */
-.gal-filters { gap: 8px; }
+.gal-filters { gap: 8px; justify-content: center; }   /* on the centre axis, under the centred head (phones: the row or grid below) */
 .gal-filters .choice-item { min-height: 44px; }
 .gal-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 240px; grid-auto-flow: dense; gap: 14px; perspective: 1200px; }
 .gal-tile { position: relative; margin: 0; border-radius: var(--r-lg); overflow: hidden; background: var(--panel); border: 1px solid rgba(255, 255, 255, .07); isolation: isolate; touch-action: manipulation;
@@ -5278,6 +5290,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .svc-note { text-shadow: 0 1px 14px rgba(var(--studio-bg-rgb), .9); }
 /* ---- the dark photo cards keep the dark tokens: a black car in a white studio */
 [data-theme="light"] :is(.svc-card, .gold-card) { --ink: var(--dark-ink); --ink-2: var(--dark-ink-2); --muted: var(--dark-muted); --gold: var(--au-500); --gold-hi: var(--au-200); --gold-ink: var(--au-500); }
+[data-theme="light"] .svc-card:focus-visible { outline-color: var(--studio-gold-ink); }   /* its ring is drawn on the ivory page, not the card */
 [data-theme="light"] .svc-top .eyebrow { color: var(--au-500); }   /* on the header's dark photo */
 /* the chapter bar: ivory glass, dense enough that it never reads as a grey band over the dark plates (nearly solid where
    there is no blur) */
@@ -5387,9 +5400,10 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
    white softbox band crosses the page at 118deg in the light's own time (--au-dur, 1.2s), from its first frame
    (--lights 14%: the band's edge at the screen's corner) to the far corner, the ivory showroom behind it, the old
    page ahead, the light's own white (--panel) in the band. To Dark (vt-dim) the dark closes in from the edges over
-   .6s on the last pool of light at the centre; the lit page under it simply holds (no fade of its own) until the dark
-   covers it, so the centre shrinks into the dark with no black between, however late a frame (the dark's mask moves
-   with the page's own frames, a fade would run on without them). --lights moves the masks' stops. Without
+   .6s on the last pool of light at the centre (its soft edge a share of its radius, so the pool stays light, not a
+   grey haze, as it closes); the lit page under it simply holds (no fade of its own) until the dark covers it, so the
+   centre shrinks into the dark with no black between, however late a frame (the dark's mask moves with the page's own
+   frames, a fade would run on without them). --lights moves the masks' stops. Without
    view transitions every colour cross-fades under html.theming (.42s); under reduced motion the switch is instant.
    The sun becomes a moon in the button. */
 @property --lights { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
@@ -5408,8 +5422,8 @@ html.vt-lights::view-transition-old(root) {
 html.vt-dim::view-transition { background: var(--bg); }
 html.vt-dim::view-transition-old(root) { animation: none; }   /* (none, not left out: the browser's own fade would come back) */
 html.vt-dim::view-transition-new(root) {
-  -webkit-mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) - 60%), #000 var(--lights));
-  mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) - 60%), #000 var(--lights));
+  -webkit-mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) * .65), #000 var(--lights));
+  mask-image: radial-gradient(circle farthest-corner at 50% 50%, transparent calc(var(--lights) * .65), #000 var(--lights));
   animation: lightsOff .6s var(--ease-in-out) both;
 }
 @keyframes lightsOff { from { --lights: 160%; } to { --lights: 0%; } }

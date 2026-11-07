@@ -1012,6 +1012,12 @@
       getComputedStyle(r).opacity;   // the shown state lands now, so the transition can come back without playing
       r.style.removeProperty('transition');
     }
+    // a block let go but still rising (its delay or its fade not over: the Ritual's steps after a page change): there now
+    for (let r = e.target.closest('[data-rise].in'); r; r = r.parentElement && r.parentElement.closest('[data-rise].in')) {
+      r.style.transition = 'none';
+      getComputedStyle(r).opacity;
+      r.style.removeProperty('transition');
+    }
     // a head, waiting or still setting, with a control in it reached by the keyboard: there at once. Not the heading
     // itself, which a new page or the skip link puts the focus on, with no ring (it keeps its arrival)
     const hd = e.target.closest('[data-head]');
