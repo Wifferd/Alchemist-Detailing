@@ -11,6 +11,21 @@
       "has": [{ "type": "host", "value": "alchemist-detailing\\.vercel\\.app" }],
       "destination": "https://thealchemistdetailing.com/:path*",
       "permanent": true
+    },
+    {
+      "source": "/admin{/}?",
+      "destination": "/#admin-requests",
+      "permanent": false
+    },
+    {
+      "source": "/requests{/}?",
+      "destination": "/#admin-requests",
+      "permanent": false
+    },
+    {
+      "source": "/team{/}?",
+      "destination": "/#team",
+      "permanent": false
     }
   ],
   "headers": [

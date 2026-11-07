@@ -369,6 +369,10 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
 .menu nav a:hover::before { transform: scaleX(1); }
 .menu nav a[aria-current="page"]::before { width: 34px; opacity: 1; transform: scaleX(1); box-shadow: 0 0 10px rgba(226, 185, 82, .6); }
 .menu nav a.sep { margin-top: 18px; border-top: 1px solid rgba(255, 255, 255, .06); }
+/* the team's door (only while a team member is signed in): one small gold tag beside the name; the same tag gives
+   the role on the account page's team card */
+.team-tag { display: inline-block; padding: 5px 8px 4px; border: 1px solid rgba(216, 166, 64, .45); border-radius: 999px; font: 700 var(--fs-2xs)/1 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--gold-ink); white-space: nowrap; }
+.menu nav a .team-tag { margin-left: 14px; }
 .menu-foot { margin-top: auto; padding-top: 26px; display: grid; gap: 14px; }
 .menu-foot .btn { width: 100%; }
 .menu-foot .call { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-2); text-decoration: none; font: 600 14px/1 var(--font-ui); letter-spacing: .06em; }
@@ -769,6 +773,12 @@ section { position: relative; }
 .footer p, .footer a { margin: 0 0 6px; font-size: var(--fs-md); text-decoration: none; display: block; }
 .footer a:hover { color: var(--gold-hi); }
 .fine { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding-top: 22px; font-size: var(--fs-xs); color: var(--muted); }
+/* the team's way in while signed out: a quiet link in the fine print (muted, never gold) */
+.footer .fine a.fine-link { display: inline-flex; align-items: center; min-height: 24px; margin: 0; font-size: inherit; color: var(--muted); text-decoration: underline; text-decoration-color: rgba(139, 132, 120, .4); text-underline-offset: 3px; }
+.footer .fine a.fine-link:hover { color: var(--ink-2); }
+@media (max-width: 640px) { .footer .fine a.fine-link { min-height: 44px; } }
+/* the account page for a team login: who is signed in, with the role as the menu's gold tag */
+.acct-who { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 20px; color: var(--ink); }
 
 /* ---------------------------------------------------------------- other pages (until they're built) */
 .page { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; text-align: center; padding: calc(120px + env(safe-area-inset-top, 0px)) var(--gutter) 80px; background: radial-gradient(60% 50% at 50% 30%, rgba(226, 185, 82, .07), transparent 70%); }

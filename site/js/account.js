@@ -16,6 +16,10 @@
   // the 200+ gold rule (doc 22): a completed detail of $200 or more makes the booking, and the customer, Gold
   const isGold = (b) => b.status === 'completed' && b.total_cents != null && b.total_cents >= 20000;
   const isLive = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= D.helpers.isoDate(D.helpers.todayLocal());
+  // a request with the "Other" condition, not yet confirmed: the owner prices it, so the total is "to be confirmed"
+  // (doc 46); once confirmed, the total shows. my_bookings returns the booking's conditions since Migration 008 part 3;
+  // a database without that part sends none, and the total shows as before.
+  const otherPending = (b) => Array.isArray(b.conditions) && b.conditions.includes('other') && ['requested', 'needs_information'].includes(b.status);
   const byWhen = (a, b) => (a.service_date === b.service_date ? a.start_min - b.start_min : a.service_date < b.service_date ? -1 : 1);
   const monthOf = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -89,12 +93,40 @@
     return box;
   }
 
+  // ---------------------------------------------------------------- a team login on the account page
+  // The account page is a customer's. A team member signed in on this browser (the owner, a manager, a detailer)
+  // finds the way back to the team's pages here instead: who is signed in, Open Requests and Sign out.
+  const TEAM = { admin: ['Owner', '#admin-requests', 'Open Requests '], manager: ['Manager', '#admin-requests', 'Open Requests '], detailer: ['Team', '#team', 'Open my jobs '] };
+  async function teamCard(root) {
+    let s = null;
+    try { s = await D.staffSession(); } catch (e) { return false; }
+    if (s && s.roleUnknown) {   // the role couldn't be read (a weak connection): not a customer page, a retry
+      root.replaceChildren(shell('Your account', 'Account', el('div.bk-grid', el('section.acct-sec',
+        el('h2.bk-h2', 'Signed in'), el('p.bk-note', 'Your account couldn\'t load. Check the connection and try again.'),
+        el('div.acct-actions', el('button.btn.btn-gold.shine', { type: 'button', onclick: () => renderAccount() }, 'Try again'),
+          el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))))));
+      return true;
+    }
+    const t = s && s.active !== false && TEAM[s.role];
+    if (!t) return false;
+    if (window.__alchemistDoor) window.__alchemistDoor(s);   // and the menu's item back, should a failed read have left it out
+    root.replaceChildren(shell('Your account', 'Account', el('div.bk-grid',
+      el('section.acct-sec', el('h2.bk-h2', 'Signed in'),
+        el('p.acct-who', el('b', s.firstName || s.email || (s.phone ? phonePretty(s.phone) : 'Team member')), el('span.team-tag', t[0])),
+        el('p.bk-note', s.role === 'detailer' ? 'This is a team login. Your jobs are on the Team page.' : 'This is a team login. Booking requests are on the Admin page.'),
+        el('div.acct-actions',
+          el('a.btn.btn-gold.shine', { href: t[1] }, t[2], el('span.arrow', { 'aria-hidden': 'true' }, '→')),
+          el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))))));
+    return true;
+  }
+
   // ---------------------------------------------------------------- account
   async function renderAccount() {
     const root = roots.account; if (!root) return;
     if (acct.loading) root.replaceChildren(loading('Loading…'));
     await load();
     if (D.isDown) { root.replaceChildren(downNote()); return; }
+    if (await teamCard(root)) return;   // a team login: the way to the team's pages, not a customer account
     await refreshSession();
     if (!session) { root.replaceChildren(shell('Your account', 'Account', signInBox(renderAccount))); return; }
     if (acct.loading) {
@@ -266,7 +298,7 @@
           el('dt', 'Length'), el('dd', 'About ' + minutesText(b.duration_min)),
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
           b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { timeZone: settings.timezone || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))] : null),
-        el('div.bk-summary-card', priceLines(b)),
+        el('div.bk-summary-card', priceLines(b, { otherCondition: otherPending(b) })),
         b.status === 'completed' ? reviewBlock(b) : null,
         el('p.bk-muted', 'Payment in person after your detail. To cancel or change, call ', tel(phone), '.')) : null);
     return c;

@@ -81,10 +81,14 @@ select tst.login('00000000-0000-4000-8000-0000000000b1', 'aal2');
 set role authenticated;
 select tst.eq((public.set_booking_time(tst.getv('r1')::uuid, tst.d(75), 600)).service_date::text, tst.d(75)::text, 'staff: can move a booking beyond 60 days');
 select tst.eq((public.confirm_booking(tst.getv('r1')::uuid)).status::text, 'confirmed', 'staff: can confirm beyond 60 days');
+-- Migration 008: a job is started only on its own day, so r1 moves to today first.
+reset role;
+update public.appointments set service_date = tst.d(0) where id = tst.getv('r1')::uuid;
+set role authenticated;
 select tst.eq((public.start_booking(tst.getv('r1')::uuid)).status::text, 'in_progress', 'shorten: job started');
-select tst.eq((public.set_booking_time(tst.getv('r1')::uuid, tst.d(75), 600, 90)).duration_min::text, '90', 'shorten: a started job can be made shorter');
-select tst.err(format('select public.set_booking_time(%L, %L, 600, 150)', tst.getv('r1'), tst.d(75)), 'wrong_state', 'shorten: a started job can''t be made longer');
-select tst.err(format('select public.set_booking_time(%L, %L, 660)', tst.getv('r1'), tst.d(75)), 'wrong_state', 'shorten: a started job can''t be moved');
+select tst.eq((public.set_booking_time(tst.getv('r1')::uuid, tst.d(0), 600, 90)).duration_min::text, '90', 'shorten: a started job can be made shorter');
+select tst.err(format('select public.set_booking_time(%L, %L, 600, 150)', tst.getv('r1'), tst.d(0)), 'wrong_state', 'shorten: a started job can''t be made longer');
+select tst.err(format('select public.set_booking_time(%L, %L, 660)', tst.getv('r1'), tst.d(0)), 'wrong_state', 'shorten: a started job can''t be moved');
 reset role;
 update public.appointments set service_date = tst.d(-1), status = 'confirmed' where id = tst.getv('r1')::uuid;
 select tst.login('00000000-0000-4000-8000-0000000000b1', 'aal2');
