@@ -8,6 +8,9 @@
   const U = window.AlchemistUI, D = window.AlchemistData;
   const { el, money, minutesText, clock, longDate, shortDate, phonePretty, tel, field, choices, miniBtn, showError, clearError, toast } = U;
   const H = () => D.helpers;
+  // Today in Parker (business_settings.timezone), not the device's own date: a phone or laptop on another clock
+  // must not show tomorrow's jobs as Today.
+  const bizToday = () => H().todayIn(settings && settings.timezone);
 
   const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
   const LANES = [['requests', 'Requests'], ['review', 'Review'], ['spam', 'Spam']];
@@ -35,7 +38,7 @@
   const PREVIEW = { bookings: [], staff: [], blocked: [], log: [], customers: [] };
   function seedPreview() {
     if (PREVIEW.bookings.length) return;
-    const today = H().todayLocal(), iso = (n) => H().isoDate(H().addDays(today, n));
+    const today = bizToday(), iso = (n) => H().isoDate(H().addDays(today, n));
     const mk = (n, o) => Object.assign({ id: 'ex-' + n, ref: 'AD-EXAMPL' + n, customer_id: 'c' + n, contact_first: 'Example', contact_last: 'Customer ' + n, contact_phone: '1972555010' + n,
       vehicle_make: ['Toyota', 'Ford', 'Honda', 'Tesla', 'BMW', 'Jeep'][n % 6], vehicle_model: ['4Runner', 'F-150', 'Civic', 'Model 3', 'X5', 'Wrangler'][n % 6], vehicle_year: 2018 + (n % 6), vehicle_color: 'Black',
       vehicle_type: ['suv', 'truck', 'sedan', 'sedan', 'suv', 'suv'][n % 6], vehicle_size: 'standard', conditions: ['none'], damage: ['none'], special_request: null, photo_paths: [],
@@ -67,7 +70,7 @@
   const sb = () => D.client();
   async function loadBookings() {
     if (!D.isLive) { seedPreview(); st.bookings = PREVIEW.bookings.slice(); return st.bookings; }
-    const from = H().isoDate(H().addDays(H().todayLocal(), -30));
+    const from = H().isoDate(H().addDays(bizToday(), -30));
     const { data, error } = await sb().from('appointments')
       .select('*, items:appointment_items(code,name,kind,price_cents,mobile_cents,duration_min,included,sort), assignments:appointment_assignments(employee_id, profile:profiles!appointment_assignments_employee_id_fkey(first_name,last_name,email)), events:appointment_events(from_status,to_status,from_queue,to_queue,note,created_at)')
       .gte('service_date', from).is('anonymized_at', null).order('service_date').order('start_min');
@@ -88,7 +91,7 @@
   }
   async function loadBlocked() {
     if (!D.isLive) { seedPreview(); st.blocked = PREVIEW.blocked.slice(); return st.blocked; }
-    const { data, error } = await sb().from('blocked_days').select('day,reason').gte('day', H().isoDate(H().todayLocal())).order('day');
+    const { data, error } = await sb().from('blocked_days').select('day,reason').gte('day', H().isoDate(bizToday())).order('day');
     if (error) throw D.fail('load_failed', error.message);
     st.blocked = data || []; return st.blocked;
   }
@@ -423,7 +426,7 @@
 
   // ---------------------------------------------------------------- screens
   async function morning() {
-    const today = H().isoDate(H().todayLocal()), tomorrow = H().isoDate(H().addDays(H().todayLocal(), 1));
+    const today = H().isoDate(bizToday()), tomorrow = H().isoDate(H().addDays(bizToday(), 1));
     const all = st.bookings || [];
     const live = (b) => OPEN.includes(b.status);
     // what holds time that day, the Calendar's rule: a request in the Spam lane holds none and stays in its lane
@@ -504,8 +507,8 @@
   // today and tomorrow, which are all Morning lists).
   async function calendar() {
     if (st.blocked == null) { try { await loadBlocked(); } catch (e) { st.blocked = []; } }
-    const todayIso = H().isoDate(H().todayLocal());
-    const base = st.calDay ? new Date(st.calDay + 'T00:00:00') : H().todayLocal();
+    const todayIso = H().isoDate(bizToday());
+    const base = st.calDay ? new Date(st.calDay + 'T00:00:00') : bizToday();
     const days = st.calMode === 'day' ? 1 : 7;
     const start = st.calMode === 'day' ? base : H().addDays(base, -((base.getDay() + 6) % 7));   // back to Monday
     const first = H().isoDate(start), last = H().isoDate(H().addDays(start, days - 1));
@@ -587,7 +590,7 @@
 
   // a customer's next booking from today, else their most recent one (the list runs oldest first)
   function pickBooking(list) {
-    const today = H().isoDate(H().todayLocal());
+    const today = H().isoDate(bizToday());
     const when = (b) => b.service_date + ':' + String(b.start_min).padStart(4, '0');
     const next = list.filter((b) => b.service_date >= today && !['declined', 'cancelled'].includes(b.status)).sort((x, y) => (when(x) < when(y) ? -1 : 1))[0];
     return next || list.slice().sort((x, y) => (when(x) < when(y) ? 1 : -1))[0];

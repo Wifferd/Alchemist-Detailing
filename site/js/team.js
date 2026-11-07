@@ -8,6 +8,8 @@
   const U = window.AlchemistUI, D = window.AlchemistData;
   const { el, minutesText, clock, longDate, shortDate, phonePretty, field, miniBtn, showError, toast } = U;
   const H = () => D.helpers;
+  // Today in Parker (business_settings.timezone, America/Chicago until the settings load), not the device's own date.
+  const bizToday = () => H().todayIn(settings && settings.timezone);
 
   let root = null, staff = null, settings = null, menu = null, ready = null;
   const st = { jobs: null, open: null, openJobs: null, ask: null, signin: { phone: '', sent: false }, photos: {} };
@@ -17,7 +19,7 @@
   const PREVIEW = [];
   function seed() {
     if (PREVIEW.length) return;
-    const iso = (n) => H().isoDate(H().addDays(H().todayLocal(), n));
+    const iso = (n) => H().isoDate(H().addDays(bizToday(), n));
     PREVIEW.push(
       { id: 'tx-1', ref: 'AD-EXAMPL1', service_date: iso(0), start_min: 630, duration_min: 120, location_type: 'mobile', address: '100 Example Ln', address_zip: '75002', status: 'confirmed', vehicle_year: 2021, vehicle_make: 'Toyota', vehicle_model: '4Runner', vehicle_color: 'Black', vehicle_type: 'suv', vehicle_size: 'standard', conditions: ['pet_hair'], damage: ['none'], special_request: 'Dog hair in the back seat. Gate code 1234.', photo_paths: [], modifications: [], items: [{ code: 'signature_combo', name: 'Signature Combo', included: false }, { code: 'cond_pet_hair', name: 'Pet hair', included: false }] },
       { id: 'tx-2', ref: 'AD-EXAMPL2', service_date: iso(1), start_min: 600, duration_min: 210, location_type: 'shop', address: null, address_zip: null, status: 'confirmed', vehicle_year: 2019, vehicle_make: 'Ford', vehicle_model: 'F-150', vehicle_color: 'White', vehicle_type: 'truck', vehicle_size: 'xl', conditions: ['none'], damage: ['scratches'], damage_note: 'Light scratches on the tailgate.', special_request: null, photo_paths: [], modifications: ['aftermarket_wheels'], items: [{ code: 'full_detail', name: 'Full Detail Bundle', included: false }, { code: 'steam_cleaning', name: 'Steam Cleaning', included: true }] });
@@ -44,7 +46,7 @@
         el('div.acct-actions', el('a.btn.btn-gold', { href: '#admin' }, 'Go to the Admin page')))));
     }
     if (st.jobs == null) await loadJobs();
-    const today = H().isoDate(H().todayLocal());
+    const today = H().isoDate(bizToday());
     const mine = st.jobs.filter((j) => ['confirmed', 'in_progress'].includes(j.status));
     const todays = mine.filter((j) => j.service_date === today), later = mine.filter((j) => j.service_date > today), past = st.jobs.filter((j) => j.status === 'completed').slice(-10).reverse();   // the newest done first (the list comes oldest first)
     root.replaceChildren(shell('My jobs',
@@ -81,7 +83,7 @@
   async function loadJobs() {
     st.jobsError = null;
     if (!D.isLive) { seed(); st.jobs = PREVIEW.slice(); return; }
-    const from = H().isoDate(H().addDays(H().todayLocal(), -14));
+    const from = H().isoDate(H().addDays(bizToday(), -14));
     // my_jobs (Migration 007s): the jobs assigned to this login, with only what a detailer may see (doc 28: no
     // price, no customer phone or email). The database decides both, not this page.
     let { data, error } = await D.client().rpc('my_jobs', { p_from: from });
@@ -98,7 +100,7 @@
   }
   async function loadOpenJobs() {
     st.openJobsError = null;
-    if (!D.isLive) { st.openJobs = [{ id: 'open-1', ref: 'AD-EXAMPL7', service_date: H().isoDate(H().addDays(H().todayLocal(), 3)), start_min: 720, duration_min: 60, area: 'Plano 75074', vehicle: '2020 Honda Civic (Blue)', services: ['Exterior Basic'], requested_by_me: false }]; return; }
+    if (!D.isLive) { st.openJobs = [{ id: 'open-1', ref: 'AD-EXAMPL7', service_date: H().isoDate(H().addDays(bizToday(), 3)), start_min: 720, duration_min: 60, area: 'Plano 75074', vehicle: '2020 Honda Civic (Blue)', services: ['Exterior Basic'], requested_by_me: false }]; return; }
     try { st.openJobs = (await D.rpc('open_jobs', { p_days: 14 })) || []; }
     catch (e) { st.openJobs = []; st.openJobsError = said(e, "Open jobs couldn't load. Press Refresh."); }
   }
