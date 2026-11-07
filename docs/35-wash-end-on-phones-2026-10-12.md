@@ -31,7 +31,7 @@ The facts the fix rests on, from WebKit's source for each Safari release and the
 - **trim:** on the way back up, the part of the pin below the screen is cut.
 - **rest:** a measured scroll-back, done only at a moment that proves no finger can be on the glass (`rest.proven()`). The proofs are:
   - a `scrollend` after the last scroll (iOS 26.2+, Chrome, Firefox);
-  - the last finger lifting off a still page;
+  - the last finger lifting off a still page (since Nov 5, only once 400 ms have passed after the lift with no scroll: `t - s.tLift >= 400` in rule (b), with the owner's OK, doc 44);
   - on a computer without `scrollend`, 300 ms without scrolling or input.
   
   On iOS 17 to 26.1 only the lift counts. A thumb resting on a fling's slow tail is invisible to the page, and the review found that the earlier "slow tail" proof could fire under such a thumb. On iOS 26 and earlier, and inside a frame, the scroll-back goes 40 px per frame (bug 310087).
