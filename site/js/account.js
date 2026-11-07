@@ -96,7 +96,13 @@
   async function teamCard(root) {
     let s = null;
     try { s = await D.staffSession(); } catch (e) { return false; }
-    if (s && s.roleUnknown) return false;   // the role couldn't be read (a weak connection): the page as before
+    if (s && s.roleUnknown) {   // the role couldn't be read (a weak connection): not a customer page, a retry
+      root.replaceChildren(shell('Your account', 'Account', el('div.bk-grid', el('section.acct-sec',
+        el('h2.bk-h2', 'Signed in'), el('p.bk-note', 'Your account couldn\'t load. Check the connection and try again.'),
+        el('div.acct-actions', el('button.btn.btn-gold.shine', { type: 'button', onclick: () => renderAccount() }, 'Try again'),
+          el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))))));
+      return true;
+    }
     const t = s && s.active !== false && TEAM[s.role];
     if (!t) return false;
     if (window.__alchemistDoor) window.__alchemistDoor(s);   // and the menu's item back, should a failed read have left it out
