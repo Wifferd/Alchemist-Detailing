@@ -1,8 +1,10 @@
--- Migration 008 (Nov 7, 2026; the owner's answers 1 and 5 to doc 45):
+-- Migration 008 (Nov 7, 2026; the owner's answers 1, 3 and 5 to doc 45):
 --   part 1 (20261107120001): start_booking only on the job's own day, complete_booking on that day or later
 --          (Parker's date, public.local_today()); a confirmed job that was never started can still be completed;
 --   part 2 (20261107120002): no API role reads business_settings.shop_address (column privileges), and
---          shop_address_on_file() tells the admin, and only the admin, whether an address is on file.
+--          shop_address_on_file() tells the admin, and only the admin, whether an address is on file;
+--   part 3 (20261107120003): my_bookings gives a manager's own "Come to us" booking no address (the way round
+--          part 2), and returns each booking's conditions.
 -- Needs the m001 framework and fixtures (test project only) and the migrations applied. One DO block, so it runs as
 -- a single query through the Supabase MCP (top-level "set role" hangs there). Every check that writes runs inside
 -- a block that is rolled back at its end, so nothing it makes is kept and it can run again; the answers are kept in
@@ -23,6 +25,7 @@ declare
   v_state text; v_msg text; v_detail text; v_err text; v_want text;
   v_on boolean; v_b boolean;
   cols text[];
+  r jsonb;
 begin
   update tst.results set label = 'old ' || label where label like 'm008:%';
   v_today := public.local_today();   -- read as the owner: the signed-in roles can't call local_today
@@ -207,6 +210,43 @@ begin
   res := res || jsonb_build_array(jsonb_build_array(p || ': shop_address_on_file is closed to visitors and open to signed-in users',
     not has_function_privilege('anon', 'public.shop_address_on_file()', 'execute') and has_function_privilege('authenticated', 'public.shop_address_on_file()', 'execute')
     and (select prosecdef and proconfig = array['search_path=""'] from pg_proc where oid = 'public.shop_address_on_file()'::regprocedure), null));
+
+  -- ------------------------------------------------------------ part 3: my_bookings
+  -- Each role books a "Come to us" job with "Other" for itself, a manager confirms it, and the booker reads it back.
+  -- A placeholder address is set inside each rolled-back block; only "is it there" is checked.
+  for rec in select * from (values (cus, 'aal1', 'a customer', true), (det, 'aal1', 'a detailer', true), (adm, 'aal2', 'the admin', true),
+                                   (mgr, 'aal2', 'a manager', false), (mgr, 'aal1', 'a manager without the authenticator', false)) as t(who, aal, name, want) loop
+    begin
+      update public.business_settings set shop_address = 'm008 placeholder address' where id = 1;
+      perform tst.login(rec.who, rec.aal);
+      execute 'set local role authenticated';
+      v_id := (public.submit_booking(tst.booking('shop', v_day, 600, '{"conditions":["pet_hair","other"],"special_request":"m008 test"}')) ->> 'id')::uuid;
+      select x into r from public.my_bookings() x where x ->> 'id' = v_id::text;
+      if rec.name = 'a customer' then
+        res := res || jsonb_build_array(jsonb_build_array(p || ': my_bookings returns the booking''s conditions',
+          r -> 'conditions' @> '["pet_hair", "other"]'::jsonb and jsonb_array_length(r -> 'conditions') = 2, coalesce(r ->> 'conditions', 'none')));
+        res := res || jsonb_build_array(jsonb_build_array(p || ': a request carries no address', r ? 'shop_address' and r ->> 'shop_address' is null, r ->> 'status'));
+      end if;
+      execute 'reset role';
+      perform tst.login(mgr, 'aal2');
+      execute 'set local role authenticated';
+      perform public.confirm_booking(v_id);
+      execute 'reset role';
+      perform tst.login(rec.who, rec.aal);
+      execute 'set local role authenticated';
+      select x into r from public.my_bookings() x where x ->> 'id' = v_id::text;
+      res := res || jsonb_build_array(jsonb_build_array(p || ': my_bookings: ' || rec.name || '''s own confirmed "Come to us" booking '
+        || case when rec.want then 'still carries the address' else 'carries no address' end,
+        r ->> 'status' = 'confirmed' and (r ->> 'shop_address' is not null) = rec.want, coalesce(r ->> 'status', 'no row')));
+      execute 'reset role';
+      raise exception 'm008 rollback';
+    exception when others then
+      if sqlerrm <> 'm008 rollback' then res := res || jsonb_build_array(jsonb_build_array(p || ': my_bookings section ran (' || rec.name || ')', false, sqlerrm)); end if;
+    end;
+  end loop;
+  res := res || jsonb_build_array(jsonb_build_array(p || ': my_bookings stays security definer with an empty search_path, for signed-in users only',
+    (select prosecdef and proconfig = array['search_path=""'] from pg_proc where oid = 'public.my_bookings()'::regprocedure)
+    and has_function_privilege('authenticated', 'public.my_bookings()', 'execute') and not has_function_privilege('anon', 'public.my_bookings()', 'execute'), null));
 
   perform tst.logout();
   for rec in select value as e from jsonb_array_elements(res) loop

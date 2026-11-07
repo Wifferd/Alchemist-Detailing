@@ -1,8 +1,13 @@
+-- Applied to the test project only, on Nov 7, 2026 (version 20261107031054). For live, the order matters: push the page
+-- first, check that both Vercel projects serve the new commit (its admin.js asks shop_address_on_file()), then apply
+-- this part, and part 3 with it. The page on main at 4af98d6 filters on the address column: once this part is on, that
+-- request is refused, and its Settings screen would tell the owner "Your address: Not set".
 -- Migration 008, part 2 (Nov 7, 2026; the owner's answer 5 to doc 45, "Yes to all"):
 -- the owner's home address (business_settings.shop_address) is private (house rule 6). Migration 001 let every
 -- signed-in reader of the settings row (managers and the admin, by the "Managers: read settings" rule) select it
 -- through the API. Now no API role reads that column: the table-wide SELECT becomes a SELECT on every other column.
--- The address still reaches a customer on their own confirmed "Come to us" booking (my_bookings runs as the owner),
+-- The address still reaches a customer on their own confirmed "Come to us" booking (my_bookings runs as the owner;
+-- part 3 keeps it from a manager's own booking),
 -- the owner still sets it in the SQL Editor, and the Admin page asks shop_address_on_file() whether one is on file.
 -- UPDATE stays as it is (the admin saves customer_notice and google_reviews_url; RLS keeps managers out).
 -- A column added to business_settings later needs its own "grant select (column)" to be readable by staff.
