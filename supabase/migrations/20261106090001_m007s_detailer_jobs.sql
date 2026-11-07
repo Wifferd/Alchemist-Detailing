@@ -13,7 +13,7 @@
 --      jobs, the messages to the owner and the customer's photos keep working for an assigned detailer.
 --
 -- Applied to the test project on Nov 6 2026 (24 checks in db-tests/m007s_tests.sql; m006's suite passes too, with
--- its detailer table check updated). NOT on the live project: that needs the owner's OK. Not destructive: a new function and three
+-- its detailer table check updated). Applied to the live project on Nov 6, 2026 (version 20261106212500). Not destructive: a new function and three
 -- policies narrowed in place (alter policy). The Team page calls my_jobs and, where the function doesn't exist
 -- yet (the live project before this migration), reads the table as before, limited to the caller's assignments.
 

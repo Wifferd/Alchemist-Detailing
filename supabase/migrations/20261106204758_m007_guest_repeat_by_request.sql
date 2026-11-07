@@ -1,4 +1,4 @@
--- Applied to the test project on Nov 6, 2026 (version 20261106204758). Live: after review, with the owner's OK.
+-- Applied to the test project on Nov 6, 2026 (version 20261106204758) and to the live project on Nov 7, 2026 (version 20261107002053).
 -- Migration 007, part 4: one request, one booking, whatever phone it is sent with again.
 --
 -- submit_guest_booking found a repeat only by request id AND phone. A reply lost on the network, then the phone

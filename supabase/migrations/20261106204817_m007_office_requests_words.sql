@@ -1,4 +1,4 @@
--- Applied to the test project on Nov 6, 2026 (version 20261106204817). Live: after review, with the owner's OK.
+-- Applied to the test project on Nov 6, 2026 (version 20261106204817) and to the live project on Nov 7, 2026 (version 20261107002022).
 -- Migration 007, part 5: the owner's list in the SQL Editor (office.requests) says why a price is to be set.
 --
 -- "Price to set" didn't say what holds the price, and a "Not sure" vehicle lost its XL, so an extra set with

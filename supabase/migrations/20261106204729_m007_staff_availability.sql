@@ -1,4 +1,4 @@
--- Applied to the test project on Nov 6, 2026 (version 20261106204729). Live: after review, with the owner's OK.
+-- Applied to the test project on Nov 6, 2026 (version 20261106204729) and to the live project on Nov 7, 2026 (version 20261107002002).
 -- Migration 007, part 3: the free start times for moving a booking (the Admin page's Change time).
 --
 -- The panel asked get_availability, the customers' rule: from tomorrow on only, with the booking's own time still
