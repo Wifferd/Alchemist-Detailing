@@ -76,7 +76,7 @@ Nov 7, 2026 (UTC; the evening of Nov 6 in Parker), after sending a test request:
 
 The owner's test request **AD-M4JAFDVQ** reached the live database on Nov 7 at 03:34 UTC as a guest booking ("Come to us", Sat Nov 7 at 4:00 PM) and was confirmed by the admin at 03:37 UTC. Booking while signed in as the admin works, because the site books as a guest while guest booking is on. It holds Sat Nov 7, 4 PM until it is cancelled.
 
-## Open for the owner
+## Open for the owner (answered Nov 7, doc 48: leave the test request, "My jobs", keep the footer link)
 
 1. **Cancel AD-M4JAFDVQ?** Recommendation: yes. The owner can try Cancel from Requests, or Claude Code cancels it with the owner's OK.
 2. **A detailer's menu item:** "My jobs" (now; it opens their jobs page) or "Requests", as the owner and managers see? Recommendation: "My jobs". There are no detailer accounts yet.
