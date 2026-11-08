@@ -181,7 +181,7 @@
     const input = el(opts.multiline ? 'textarea' : 'input', {
       id: opts.id, name: opts.id, class: 'fld-input', type: opts.multiline ? null : (opts.type || 'text'),
       value: opts.multiline ? null : (opts.value || ''), placeholder: opts.placeholder || ' ', inputMode: opts.inputmode,
-      autocomplete: opts.autocomplete, maxLength: opts.maxlength, rows: opts.rows, 'aria-describedby': opts.id + '-msg',
+      autocomplete: opts.autocomplete, maxLength: opts.maxlength, rows: opts.rows, step: opts.step, 'aria-describedby': opts.id + '-msg',
       required: !!opts.required, 'aria-required': opts.required ? 'true' : null,
       oninput: opts.oninput, onblur: opts.onblur, onkeydown: opts.onkeydown,
     });
@@ -200,6 +200,8 @@
   // Shows an error (text or nodes) under the field named by `hint`, marks the input, and brings it into view
   // with focus unless opts.quiet (the rest of a list of problems). A wrapper taller than the screen (the
   // conditions on a phone) would centre on nothing, so the message itself is brought in instead.
+  // Returns false when the text could not be shown (no such field, or no message line in it), so the caller
+  // falls back to a toast and the text is never lost.
   function showError(root, hint, text, opts) {
     const w = root.querySelector('[data-field="' + hint + '"]');
     if (!w) return false;
@@ -207,6 +209,7 @@
     const msg = msgOf(root, w, hint);
     if (msg) { msg.classList.add('has-error'); msg.replaceChildren(); append(msg, [text]); }
     w.querySelectorAll('.fld-input').forEach((i) => i.setAttribute('aria-invalid', 'true'));
+    if (!msg) return false;
     if (opts && opts.quiet) return true;
     const tall = w.getBoundingClientRect().height > window.innerHeight;
     (tall && msg ? msg : w).scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: tall ? 'nearest' : 'center' });
@@ -315,7 +318,9 @@
   // The price breakdown shared by the booking (a quote), the summary, the account and the appointments (a
   // booking row): the lines, bundle savings, the mobile fee, an extra the owner added, and the total or the
   // "we confirm" note with its reason. opts.withTime adds the length and the payment line; opts.mark(code) puts a
-  // service's mark before its name (the booking's build sheet and receipt).
+  // service's mark before its name (the booking's build sheet and receipt). opts.otherCondition (the caller knows the
+  // booking's conditions; a quote doesn't say) marks a booking with the "Other" condition: the lines stay, the total
+  // row says we confirm the price, and a note gives the menu price so far (doc 46).
   function priceLines(q, opts) {
     opts = opts || {};
     const rows = (q.lines || []).map((l) => el('div.pr-line', { class: l.included ? 'inc' : '' },
@@ -334,12 +339,18 @@
     if (q.location_type === 'mobile') out.appendChild(el('div.pr-line', el('span', 'Mobile service'), el('span.tnum', money(q.mobile_cents))));
     if (q.extra_cost_cents) out.appendChild(el('div.pr-line', el('span', 'Extra' + (q.extra_cost_note ? ' · ' + q.extra_cost_note : '')), el('span.tnum', money(q.extra_cost_cents))));
     const pending = q.total_cents == null;
-    out.appendChild(el('div.pr-total', el('span', pending ? 'Price' : 'Total'), el('span.tnum', pending ? 'We confirm the price before your appointment' : money(q.total_cents))));
+    const other = !!opts.otherCondition;
+    out.appendChild(el('div.pr-total', el('span', pending || other ? 'Price' : 'Total'), el('span.tnum', pending || other ? 'We confirm the price before your appointment' : money(q.total_cents))));
     const why = Array.isArray(q.pending_reasons) ? q.pending_reasons : [];
     if (pending && why.length) out.appendChild(el('p.bk-muted', why.includes('xl') ? 'XL vehicles are priced by us before the appointment.' : 'WetGloss on this vehicle type is priced by us before the appointment.'));
+    if (other) out.appendChild(el('p.bk-muted', otherConditionNote(q.total_cents)));
     if (opts.withTime) out.appendChild(el('p.bk-muted', 'About ' + minutesText(q.duration_min) + '. Payment in person after your detail.'));
     return out;
   }
+
+  // The "Other" condition's note, with the menu price so far when there is one (none while XL, or WetGloss on a
+  // vehicle type it has no price for, holds the price too).
+  const otherConditionNote = (cents) => (cents != null ? 'Menu price so far: ' + money(cents) + '. ' : '') + 'You chose “Other” for the car’s condition, so we confirm the final price before your appointment.';
 
   // A small inline button inside a field box (Send code, Confirm, Change).
   const miniBtn = (label, onclick, attrs) => el('button.mini-btn', Object.assign({ type: 'button', onclick }, attrs || {}), label);
@@ -437,5 +448,11 @@
     return { held: () => held };
   }
 
-  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, outage, loading, star, field, choices, roving, flash, priceLines, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady };
+  // The strip at the top of the staff and account pages: "Preview" with example data, and "Test project" when the
+  // page talks to the test database (every address but the public ones, config.js), so practice requests and
+  // logins there are never taken for real ones. Nothing on the live project's public addresses.
+  const modeBanner = (previewText, isLive) => !isLive ? el('div.bk-preview', el('b', 'Preview'), ' — ' + previewText)
+    : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — practice data on the test database, not real bookings.') : null);
+
+  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, outage, loading, star, field, choices, roving, flash, priceLines, otherConditionNote, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady, modeBanner };
 })();

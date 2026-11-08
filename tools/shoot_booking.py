@@ -28,6 +28,11 @@ async def main():
         ctx = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1, is_mobile=phone, has_touch=phone)
         if os.environ.get('SHOOT_THEME') == 'light':   # SHOOT_THEME=light walks the booking in the light theme
             await ctx.add_init_script("try{localStorage.setItem('ad.theme','light')}catch(e){}")
+        if not os.environ.get('SHOOT_URL'):
+            # a preview walk sends nothing: the database and the CDN are cut off, so the site runs in preview mode
+            # (the walk ends by pressing Send Request)
+            await ctx.route('https://*.supabase.co/**', lambda r: r.abort())
+            await ctx.route('https://cdn.jsdelivr.net/**', lambda r: r.abort())
         pg = await ctx.new_page()
         msgs = []
         pg.on('pageerror', lambda e: msgs.append('pageerror: ' + str(e)))

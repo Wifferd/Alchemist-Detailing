@@ -24,6 +24,9 @@ async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path=os.environ.get('SHOOT_CHROME') or None, args=['--allow-file-access-from-files'])
         ctx = await b.new_context(viewport={'width': w, 'height': h}, is_mobile=phone, has_touch=phone)
+        # a preview walk sends nothing (no text code, no booking): the database and the CDN are cut off
+        await ctx.route('https://*.supabase.co/**', lambda r: r.abort())
+        await ctx.route('https://cdn.jsdelivr.net/**', lambda r: r.abort())
         pg = await ctx.new_page()
         msgs = []
         pg.on('pageerror', lambda e: msgs.append('pageerror: ' + str(e)))

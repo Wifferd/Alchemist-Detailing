@@ -11,8 +11,10 @@ select tst.setv('n_all', (select count(*) from public.appointments)::text);
 -- ---------------------------------------------------------------- admin stores the private address
 select tst.login('00000000-0000-4000-8000-0000000000a1', 'aal2');
 set role authenticated;
-select tst.eq(tst.q($q$update public.business_settings set shop_address = '4321 Example Lane, Parker, TX 75002' returning shop_address$q$),
-              '4321 Example Lane, Parker, TX 75002', 'admin: stores the private address');
+-- (Migration 008: no API role reads the address back, the admin included, so the update returns 1; the
+-- customer's own confirmed booking shows it further down.)
+select tst.eq(tst.q($q$update public.business_settings set shop_address = '4321 Example Lane, Parker, TX 75002' returning 1$q$),
+              '1', 'admin: stores the private address');
 
 -- ---------------------------------------------------------------- manager: confirm, decline, ask, time, lanes
 reset role;
@@ -38,6 +40,10 @@ select tst.err(format('select public.set_booking_lane(%L, %L)', tst.getv('b3')::
 select tst.ok((public.set_booking_lane((tst.getv('d2')::jsonb ->> 'id')::uuid, 'review')).hold_expires_at > now(), 'lanes: out of Spam holds time again');
 select tst.ok((select 'staff' = any (review_reasons) from public.appointments where id = (tst.getv('d2')::jsonb ->> 'id')::uuid), 'lanes: a manual move to Review is marked');
 select tst.err(format('select public.set_booking_lane(%L, %L)', tst.getv('b1'), 'spam'), 'wrong_state', 'lanes: only undecided requests change lanes');
+-- Migration 008: a job is started only on its own day, so b1 (booked 3 days ahead) moves to today first.
+reset role;
+update public.appointments set service_date = tst.d(0) where id = tst.getv('b1')::uuid;
+set role authenticated;
 select tst.eq((public.start_booking(tst.getv('b1')::uuid)).status::text, 'in_progress', 'start: confirmed job started');
 select tst.eq((public.complete_booking(tst.getv('b1')::uuid)).status::text, 'completed', 'complete: job completed');
 select tst.err(format('select public.complete_booking(%L)', tst.getv('b1')), 'wrong_state', 'complete: only once');
@@ -143,9 +149,11 @@ select tst.setv('open_refs', (select string_agg(a.ref, ',' order by a.service_da
 select tst.ok(tst.getv('open_refs') like '%' || (select ref from public.appointments where id = tst.getv('s4')::uuid) || '%', 'open jobs: setup has an open job');
 select tst.login('00000000-0000-4000-8000-0000000000c1');
 set role authenticated;
-select tst.eq(tst.q('select count(*) from public.appointments'), '3', 'detailer: sees only the jobs assigned to them');
-select tst.ok(tst.q($q$select count(*) from public.appointments where contact_phone is not null$q$) = '3', 'detailer: assigned jobs in full, contact details included');
-select tst.eq(tst.q($q$select count(distinct appointment_id) from public.appointment_items$q$), '3', 'detailer: lines of assigned jobs only');
+-- Since Migration 007s (doc 28: no prices, no customer phone or email for a detailer) the booking tables are for
+-- managers only, and a detailer's jobs come through my_jobs(), which has no contact or price columns.
+select tst.ok(tst.q('select count(*) from public.my_jobs(current_date - 365)')::int between 1 and 3, 'detailer: my_jobs lists only the jobs assigned to them (confirmed, started or done)');
+select tst.eq(tst.q('select count(*) from public.appointments'), '0', 'detailer: no booking rows from the table (no contact details or prices; Migration 007s)');
+select tst.eq(tst.q($q$select count(*) from public.appointment_items$q$), '0', 'detailer: no booking lines from the table (no prices; Migration 007s)');
 select tst.eq(tst.q($q$select count(*) from public.appointment_assignments$q$), '3', 'detailer: own assignments only');
 select tst.eq(tst.q($q$select count(*) from public.profiles$q$), '1', 'detailer: no customer profiles');
 select tst.eq(tst.q($q$select string_agg(ref, ',' order by service_date, start_min) from public.open_jobs(60)$q$),

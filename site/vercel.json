@@ -11,6 +11,21 @@
       "has": [{ "type": "host", "value": "alchemist-detailing\\.vercel\\.app" }],
       "destination": "https://thealchemistdetailing.com/:path*",
       "permanent": true
+    },
+    {
+      "source": "/admin{/}?",
+      "destination": "/#admin-requests",
+      "permanent": false
+    },
+    {
+      "source": "/requests{/}?",
+      "destination": "/#admin-requests",
+      "permanent": false
+    },
+    {
+      "source": "/team{/}?",
+      "destination": "/#team",
+      "permanent": false
     }
   ],
   "headers": [
@@ -21,6 +36,13 @@
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=()" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "missing": [{ "type": "host", "value": "(www\\.)?thealchemistdetailing\\.com" }],
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
       ]
     },
     {

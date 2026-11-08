@@ -27,7 +27,7 @@
     vehicle_id: 2, vehicle_make: 2, vehicle_model: 2, vehicle_year: 2, vehicle_color: 2, vehicle_type: 2, vehicle_size: 2, vehicle_description: 2,
     modifications: 2, conditions: 2, stains: 2, damage: 2, damage_note: 2, photos: 2,
     location_type: 3, address: 3, address_zip: 3,
-    services: 4, bundle: 4, exterior: 4, interior: 4, addons: 4, special_request: 4,
+    services: 4, bundle: 4, exterior: 4, interior: 4, addons: 4, special_request: 2,   // the notes field is on step 02
     service_date: 5, start_min: 5,
   };
   const ICONS = {
@@ -52,24 +52,29 @@
   // offered: a route token (#book-ed) waiting for the menu; asking: a service chosen on Services that differs from the
   // one this request already has, asked about at the top of the card (a choice already made is never replaced unasked)
   let offered = null, asking = null;
+  // a phone confirmed with a code on this page: only that session is signed out once the request is in (a
+  // session that was here before, such as the owner's console sign-in, is left alone)
+  let signedInHere = false;
   const blank = {
     contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '' }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
     // carried: the service chosen on the Services page, while it is still the choice; glow: step 04 lights it once
     service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '', carried: null, glow: false }),
-    // fit: the job's length and place the days and times were loaded for; lost: the quiet line once a chosen day or time
-    // no longer fits; switching: the strip that changes the service on the date step is open
-    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, fit: null, lost: null, switching: false }),
+    // sig: the job's length and place the days and times were checked for (timeSig); note: the line under the times
+    // once a refusal or a changed service let the start go; keep: a start held aside until its day's times are back;
+    // fetching: the day and length whose times are on their way; switching: the strip that changes the service on
+    // the date step is open
+    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, sig: null, note: null, keep: null, fetching: null, switching: false }),
   };
-  const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, sentAsGuest: false, requestId: null, direction: 1, prices: {} };
+  const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, sentAsGuest: false, receiptOther: false, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
 
   // A fresh request: everything but who is booking (names, phone and email stay typed in; the phone is confirmed
   // again unless the session still holds it) and the saved vehicles.
   function reset(keepContact) {
     const c = st.contact;
-    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, requestId: D.helpers.uuid(), direction: 1, prices: {} });
+    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, requestId: D.helpers.uuid(), direction: 1, prices: {} });
     if (keepContact) {
       c.phoneSent = false; c.phoneConfirmed = !!(session && session.phoneConfirmed);
       if (c.emailState !== 'skipped' && !(session && session.email)) c.emailState = 'none';
@@ -84,6 +89,9 @@
   const hasExterior = () => !!(st.service.bundle || st.service.exterior);
   const mainsChosen = () => !!(st.service.bundle || st.service.exterior || st.service.interior);
   const condsForQuote = () => hasInterior() ? st.vehicle.conditions : [];
+  // the "Other" condition (with an interior service): the owner prices it, so every total on the page says the price
+  // is confirmed before the appointment (doc 46). The quote can't tell: "Other" adds no line.
+  const otherCond = () => condsForQuote().includes('other');
   const canHaveAddon = (code) => {
     const needs = menu.addonRules[code] || 'any_main';
     if (needs === 'exterior') return hasExterior();
@@ -130,14 +138,14 @@
     st.quote = q && !q.error ? q : null;
     return q;
   }
+  // what the calendar and the start times were checked for: the job's length and where it is
+  const timeSig = () => (st.quote ? st.quote.duration_min + ':' + st.location.type : null);
   function invalidateQuotes() { quoteCache.clear(); st.quote = null; st.prices = {}; }
-  // What the open days and start times depend on: the job's length (the services and add-ons) and where it happens
-  const fitKey = () => (st.quote ? st.quote.duration_min : 0) + ':' + (st.location.type || 'shop');
   const payloadPhotos = () => st.vehicle.photos.map((p) => p.name);
   function payload() {
     const v = st.vehicle, c = st.contact, l = st.location, s = st.service, w = st.when;
     const p = {
-      request_id: st.requestId, first_name: c.first.trim(), last_name: c.last.trim() || null,
+      request_id: st.requestId, first_name: D.helpers.cleanName(c.first), last_name: D.helpers.cleanName(c.last) || null,
       location_type: l.type, address: l.type === 'mobile' ? l.address.trim() : null, address_zip: l.type === 'mobile' ? l.zip.trim() : null,
       conditions: condsForQuote(), stains: [], damage: v.damage, damage_note: v.damageNote.trim() || null,
       special_request: s.notes.trim() || null, photos: payloadPhotos(),
@@ -241,16 +249,20 @@
   async function adopt(s) {
     session = s;
     const c = st.contact, v = st.vehicle;
-    if (s) {
+    // Only a session with a text-confirmed phone (a customer's account) fills anything in. Any other login (the
+    // owner's email-and-password console sign-in) books like a guest: its name and email are not the customer's,
+    // so nothing of it is copied into the request, whether or not guest booking is on.
+    if (s && s.phoneConfirmed) {
       if (!c.first) c.first = s.firstName || '';
       if (!c.last) c.last = s.lastName || '';
       if (s.phone) c.phone = phonePretty(s.phone);
-      c.phoneConfirmed = !!s.phoneConfirmed; c.phoneSent = false;
+      c.phoneConfirmed = true; c.phoneSent = false;
       if (s.email) { c.email = s.email; c.emailState = 'confirmed'; }
       try { v.saved = await D.myVehicles(); } catch (e) { v.saved = []; }
     } else {
       c.phoneConfirmed = false; c.phoneSent = false; v.saved = [];
-      if (c.emailState === 'confirmed') c.emailState = 'none';
+      // an email that came from a login is not one the customer typed
+      if (c.emailState === 'confirmed') { if (s) c.email = ''; c.emailState = 'none'; }
     }
     // A guest has no saved vehicles and can't send photos (both belong to an account): none are kept hidden
     if (guest()) { v.saved = []; v.photos = []; }
@@ -360,7 +372,7 @@
   function navTotal(mid) {
     const q = st.quote;
     if (!q || step < 4 || step >= 6) return [];
-    if (q.total_cents == null) return [el('span.bk-nav-total.tnum', 'Price confirmed before your appointment')];
+    if (q.total_cents == null || otherCond()) return [el('span.bk-nav-total.tnum', 'Price confirmed before your appointment')];
     const was = mid && mid.querySelector('.bk-nav-total[data-cents]'), from = was ? Number(was.dataset.cents) : null;
     return [el('span.bk-nav-total.tnum', { dataset: { cents: q.total_cents } }, 'Total ', U.rollFigure(money(q.total_cents), from == null ? null : money(from), q.total_cents > from))];
   }
@@ -407,12 +419,15 @@
     stopDaysWait();
     if (n === 5) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
   }
+  // The step bar can jump past an edit that dropped the quote (a new vehicle type, place or condition): the quote
+  // is worked out again first, so the times and the Summary are for what is chosen now.
   async function go(n) {
     if (busy) return;
-    // the date step and the summary need this booking's quote (a change to the vehicle or the place drops it)
-    if (n >= 5 && !st.quote && mainsChosen()) await refreshQuote();
-    // a different length or place since the day and time were chosen: the date step checks them again first
-    if (n === 6 && st.when.date && st.when.fit !== fitKey()) n = 5;
+    if (n >= 5 && mainsChosen() && !st.quote) {
+      const q = await refreshQuote();
+      if (!st.quote) { show(4); if (q && q.error) showDbError(q.error); return; }
+    }
+    if (n >= 5) syncWhen();
     show(n);
   }
 
@@ -421,15 +436,18 @@
     if (!ok) return;
     farthest = Math.max(farthest, step + 1);
     if (step === 3 || step === 4) await refreshQuote();
-    go(step + 1);
+    await go(step + 1);
   }
 
   // ---------------------------------------------------------------- validation per step (the database checks again)
+  // The database turns away emoji, web addresses and < > in every text field (public.is_clean_text) with a
+  // message about links; the page says what it really is first (D.helpers.textProblem: what to change, or null).
   // Every problem a step has, so they can all be marked at once.
   function problems(n) {
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when, H = D.helpers;
     const out = [];
     const bad = (hint, text) => out.push({ hint, text });
+    const plain = (hint, text) => { const why = H.textProblem(text); if (why) bad(hint, why); };
     if (n === 1) {
       if (!H.isValidName(c.first)) bad('first_name', 'Enter your first name using letters only.');
       if (c.last.trim() && !H.isValidName(c.last)) bad('last_name', 'Enter your last name using letters only, or leave it empty.');
@@ -440,32 +458,42 @@
     }
     if (n === 2) {
       if (!v.vehicleId) {
-        if (v.notSure) { if (!v.description.trim()) bad('vehicle_description', 'Describe the vehicle in a few words (no links).'); }
+        if (v.notSure) { if (!v.description.trim()) bad('vehicle_description', 'Describe the vehicle in a few words (no links).'); else plain('vehicle_description', v.description); }
         else {
           if (!v.make.trim()) bad('vehicle_make', 'Enter the vehicle make.');
+          else plain('vehicle_make', v.make);
           if (!v.model.trim()) bad('vehicle_model', 'Enter the vehicle model.');
+          else plain('vehicle_model', v.model);
+          plain('vehicle_color', v.color);
           if (v.year.trim() && !/^\d{4}$/.test(v.year.trim())) bad('vehicle_year', 'Enter a 4-digit year.');
           if (!v.type) bad('vehicle_type', 'Choose a vehicle type.');
         }
       }
       if (!v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
       if (v.conditions.includes('other') && !s.notes.trim()) bad('special_request', 'Describe it in a few words.');
+      else plain('special_request', s.notes);
       if (!v.damage.length) bad('damage', 'Choose “No known damage” or the damage you know of.');
       const needsNote = menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code));
       if (needsNote && !v.damageNote.trim()) bad('damage_note', 'Describe the damage in a few words.');
+      else plain('damage_note', v.damageNote);
     }
     if (n === 3) {
       if (!l.type) bad('location_type', 'Choose “We come to you” or “Come to us”.');
       if (l.type === 'mobile') {
         if (!l.address.trim()) bad('address', 'Enter the street address where the vehicle will be.');
+        else plain('address', l.address);
         if (!/^\d{5}$/.test(l.zip.trim())) bad('address_zip', 'Enter a 5-digit ZIP code.');
         else if (!menu.zips.has(l.zip.trim())) bad('address_zip', zipHint());
       }
     }
     if (n === 4 && !mainsChosen()) bad('services', 'Choose a bundle, or an exterior and/or an interior service.');
     if (n === 5) {
-      if (!w.date) bad('service_date', 'Choose a day.');
+      // no service chosen (the step bar can come here after one was cleared): the date step has no days to offer
+      if (!st.quote) bad('start_min', 'Choose a service first.');
+      else if (!w.date) bad('service_date', 'Choose a day.');
       else if (w.start == null) bad('start_min', 'Choose one of the start times shown.');
+      else if (w.sig !== timeSig()) bad('start_min', 'Your service changed, so check the start time again.');
+      else if (!(w.times || []).includes(w.start)) bad('start_min', 'Choose one of the start times shown.');
     }
     return out;
   }
@@ -514,8 +542,9 @@
       setTimeout(() => { if (!showError(root, hint, text)) toast(text); }, 50);
       return false;
     }
-    // a refusal that belongs to no field (a limit, with the number to call) stays on the summary; elsewhere, a toast
-    if (!showError(root, hint || 'submit', text)) toast(text);
+    // a refusal that belongs to no step's field (a limit with the number to call, or a request already sent with
+    // another phone: hint request_id) stays on the summary; elsewhere, a toast
+    if (!showError(root, target ? hint : 'submit', text)) toast(text);
     return false;
   }
 
@@ -626,7 +655,7 @@
     const c = st.contact;
     try {
       session = await D.verifyPhoneCode(c.phone, code, { first: c.first.trim(), last: c.last.trim() });
-      c.phoneConfirmed = true;
+      c.phoneConfirmed = true; signedInHere = true;
       if (session && session.firstName && !c.first) c.first = session.firstName;
       try { st.vehicle.saved = await D.myVehicles(); } catch (e) { /* none */ }
       render(); drawTick('phone'); toast('Phone confirmed');
@@ -1002,7 +1031,7 @@
     if (sug) sug.dataset.painted = '1';
     if (!q) { box.replaceChildren(el('p.bk-muted', 'Choose a service to see the price.')); if (sug) sug.replaceChildren(); return; }
     if (q.error) { box.replaceChildren(el('p.bk-muted', q.error.message)); if (sug) sug.replaceChildren(); return; }
-    box.replaceChildren(priceLines(q, { withTime: true }));
+    box.replaceChildren(priceLines(q, { withTime: true, otherCondition: otherCond() }));
     if (sug) {
       sug.replaceChildren();
       if (q.suggestion) {
@@ -1024,14 +1053,19 @@
   // The service, the strip that changes it (open: beside the calendar on a wide screen, a row of tiles over it on a
   // phone), the owner's note and the calendar, then the times
   function stepWhen() {
-    const w = st.when;
+    syncWhen();
+    const w = st.when, q = st.quote;
     switchBack = null;
     const box = el('div.bk-grid.bk-when', { class: w.switching ? 'switching' : null });
+    // no quote (no service chosen, or it couldn't be priced): nothing to look up times for
+    if (!q) {
+      box.appendChild(el('div.bk-chosen', { dataset: { field: 'start_min' } }, el('div', el('span.eyebrow', 'Your service'), el('b', 'Choose a service first'), el('p.choice-msg', { role: 'status' })), el('button.link', { type: 'button', onclick: () => go(4) }, 'Choose')));
+      return box;
+    }
     box.append(chosenBlock(), switchStrip());
-    const today = D.helpers.todayLocal();
+    const today = D.helpers.todayIn(settings.timezone);   // the booking window counts from Parker's today, not the browser's
     const first = D.helpers.addDays(today, settings.min_days_ahead), last = D.helpers.addDays(today, settings.max_days_ahead);
     if (!w.month) w.month = new Date(first.getFullYear(), first.getMonth(), 1);
-    const held = checkFit();
     const main = el('div.bk-when-main');
     box.appendChild(main);
     if (settings.customer_notice) main.appendChild(el('div.bk-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', settings.customer_notice)));
@@ -1075,27 +1109,15 @@
     main.appendChild(cal);
     box.appendChild(el('div.times', { id: 'bk-times', dataset: { field: 'start_min' } }, timesBlock(false)));
     paintMonth();
-    if (w.date && w.times == null) refit(w.date, held);
+    // a day chosen whose times aren't here (a refusal cleared them): fetched again, never 'Checking times…' for good
+    if (w.date && w.times == null) loadTimes();
     wave();
     return box;
   }
-  // The job's length or its place changed since the days and times were loaded (a service, an add-on or the location):
-  // both load again for this booking. The chosen start is held aside (returned) until its day's times are back (refit),
-  // so it is never shown, or sent on, before it is known to fit.
-  function checkFit() {
-    const w = st.when;
-    let held = null;
-    if (w.fit !== fitKey()) {
-      if (w.fit && w.date) { held = w.start; w.start = null; w.times = null; }
-      w.fit = fitKey(); w.calendar = {}; w.loaded = null;
-    }
-    return held;
-  }
-
   // The service on the date step (the owner's §23: "I want this service, but actually Thursday doesn't work"): its
   // name, length and total, and Change, which opens the six services as small Table tiles beside the calendar
   const chosenNames = () => (st.quote ? st.quote.lines.filter((l) => !l.included && !l.condition).map((l) => l.name).join(' + ') : '');
-  const chosenMeta = () => { const q = st.quote; return !q ? '' : 'About ' + minutesText(q.duration_min) + (q.total_cents != null ? ' · ' + money(q.total_cents) : ' · price confirmed by us'); };
+  const chosenMeta = () => { const q = st.quote; return !q ? '' : 'About ' + minutesText(q.duration_min) + (q.total_cents != null && !otherCond() ? ' · ' + money(q.total_cents) : ' · price confirmed by us'); };
   function chosenBlock() {
     const w = st.when;
     const toggle = el('button.link', { type: 'button', id: 'bk-change', 'aria-expanded': w.switching ? 'true' : 'false', 'aria-controls': 'bk-switch', onclick: () => {
@@ -1218,9 +1240,8 @@
     const n = root.querySelector('#bk-chosen-name'), m = root.querySelector('#bk-chosen-meta');
     if (n) n.textContent = chosenNames();
     if (m) m.textContent = chosenMeta();
-    const held = checkFit();
+    syncWhen();   // (the chosen day's times asked again for this length: a start kept only if it still fits)
     loadCalendar();
-    if (st.when.date && st.when.times == null) { paintTimes(false); refit(st.when.date, held); }
   }
 
   // The month's days, weeks starting on Monday (the owner, Oct 11). The days of the months either side that share
@@ -1249,18 +1270,33 @@
     for (let i = firstDow + daysIn + tail; i < 42; i++) out.push(el('span.cal-pad', { 'aria-hidden': 'true' }));
     return out;
   }
-  // The open and full days for the month on screen, for this booking's length and place (w.fit is part of the key,
-  // and stepWhen empties the days when it changes). Days that arrive for an older booking are dropped.
+  // The free days depend on the length and the place: another service, add-on or place starts the date step
+  // afresh (the days and the times checked for the old ones). A day already picked is asked again, and the
+  // start picked on it stays only if it still fits (held aside meanwhile, so it is never shown, or sent on, before
+  // it is known to fit).
+  function syncWhen() {
+    const w = st.when;
+    const sig = timeSig();
+    if (!sig || w.sig === sig) return;
+    const had = w.date, keep = w.start;
+    Object.assign(w, { sig, calendar: {}, loaded: null, times: null, start: null });
+    if (had) pickDay(had, keep, true);
+  }
+  // The open and full days for the month on screen, for this booking's length and place (w.sig is part of the key,
+  // and syncWhen empties the days when it changes). Days that arrive for an older booking are dropped.
   async function loadCalendar() {
     const w = st.when, q = st.quote;
     if (!q) return;
-    const from = D.helpers.isoDate(w.month > D.helpers.addDays(D.helpers.todayLocal(), settings.min_days_ahead) ? w.month : D.helpers.addDays(D.helpers.todayLocal(), settings.min_days_ahead));
+    syncWhen();
+    const sig = w.sig;
+    const today = D.helpers.todayIn(settings.timezone);
+    const from = D.helpers.isoDate(w.month > D.helpers.addDays(today, settings.min_days_ahead) ? w.month : D.helpers.addDays(today, settings.min_days_ahead));
     const days = Math.min(62, new Date(w.month.getFullYear(), w.month.getMonth() + 1, 0).getDate() + 7);
-    const fit = w.fit, key = from + ':' + days + ':' + fit;
+    const key = sig + ':' + from + ':' + days;
     if (w.loaded === key) return;
     try {
       const rows = await D.calendar(from, days, q.duration_min, st.location.type);
-      if (w.fit !== fit) return;
+      if (w.sig !== sig) return;   // the service or place changed while this was on its way
       rows.forEach((r) => { w.calendar[r.day] = r.available; });
       w.loaded = key;
       root.querySelectorAll('.cal-day').forEach((b) => {
@@ -1270,7 +1306,6 @@
         b.disabled = w.calendar[iso] === false;
         b.setAttribute('aria-label', longDate(iso) + (w.calendar[iso] === false ? ', full' : ''));
       });
-      if (w.date && w.calendar[w.date] === false) dropDay('That day no longer fits this booking. Pick another.');
       if (daysWait) {
         if (step === 5 && daysTap && daysTap.still()) revealDays(false);
         stopDaysWait();
@@ -1320,28 +1355,46 @@
       runs.forEach((a) => { a.startTime = t0 + Math.floor((a.startTime - t0) / 1800) * 1800; });
     });
   }
-  // A chosen day that no longer fits the booking is let go, with one quiet line in the times' place saying so
-  function dropDay(text) {
-    Object.assign(st.when, { date: null, start: null, times: [], lost: text });
-    markDay(null);
+  // A day chosen (keep: a start picked before the service or place changed, kept if the day still has it). The
+  // customer's own tap pours its gold and, once its times land soon on a page that stayed still, brings them into
+  // view (watchTap, revealTimes); a re-check after a change (recheck: syncWhen) only marks it, and never moves the page.
+  async function pickDay(iso, keep, recheck) {
+    const w = st.when;
+    const tap = recheck ? null : watchTap();
+    w.date = iso; w.start = null; w.times = null; w.note = null; w.keep = keep == null ? null : keep;
+    markDay(iso, !recheck);
+    clearError(root, 'service_date'); clearError(root, 'start_min');
     paintTimes(false);
+    const landed = await loadTimes();
+    if (tap) { tap.end(); if (landed && step === 5 && tap.still()) revealTimes(); }
   }
-  async function pickDay(iso) {
-    const w = st.when, fit = w.fit;
-    if (!st.quote) return;
-    const tap = watchTap();
-    w.date = iso; w.start = null; w.times = null; w.lost = null;
-    markDay(iso, true);
-    clearError(root, 'service_date');
-    paintTimes(false);
+  // The start times of the chosen day, for the quote's length and the place, painted when they land (unless
+  // another day, length or place was chosen meanwhile). One fetch per day and length at a time. True once this
+  // call's times are on the date step.
+  async function loadTimes() {
+    const w = st.when, iso = w.date;
+    if (!iso) return false;
+    if (!st.quote) await refreshQuote();
+    if (!st.quote) { w.times = []; go(4); return false; }   // nothing to measure the times by: back to the service
+    const sig = timeSig(), want = iso + ':' + sig;
+    if (w.fetching === want) return false;   // already on its way
+    w.fetching = want;
     let times;
     try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
     catch (e) { times = []; toast(e.message); }
-    tap.end();
-    if (w.date !== iso || w.fit !== fit) return;   // another day was picked meanwhile, or the booking changed
+    if (w.fetching === want) w.fetching = null;
+    if (w.date !== iso || timeSig() !== sig) return false;   // another day, length or place was picked meanwhile
     w.times = times;
-    paintTimes(true);
-    if (tap.still()) revealTimes();
+    if (w.keep != null && w.start == null) {
+      if (times.includes(w.keep)) w.start = w.keep;
+      else w.note = 'The service length or place changed: please pick a start time again.';
+    }
+    w.keep = null;
+    if (root.querySelector('#bk-times')) { paintTimes(true); return true; }
+    // a step-bar jump to the Summary doesn't wait for this re-check: the Summary is drawn again, so it shows the
+    // start that was kept (or asks for one) and never says one thing while Send sends another
+    if (step === 6 && !busy && !st.receipt) render();
+    return false;
   }
   // From a tap until its answer lands: whether the page stayed as it was (no finger back on the glass, no wheel, no
   // scroll) and the answer came soon. Only then may the page move for it (a scroll under a finger fights iOS, doc 35).
@@ -1373,40 +1426,23 @@
     const by = Math.min(t.getBoundingClientRect().bottom - s.bottom, head.getBoundingClientRect().top - s.top);
     if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
-  // The chosen day's start times again, for this booking's length and place: a day with none left is let go, and
-  // so is a start (held aside by stepWhen) that is no longer among them, each with one quiet line saying so.
-  async function refit(iso, held) {
-    const w = st.when, fit = w.fit;
-    if (!st.quote) return;
-    let times = null;
-    try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
-    catch (e) { toast(e.message); }
-    if (w.date !== iso || w.fit !== fit) return;
-    if (times && !times.length) return dropDay('That day no longer fits this booking. Pick another.');
-    w.times = times || [];
-    if (held != null) {
-      if (w.times.includes(held)) w.start = held;
-      else if (times) w.lost = 'That time no longer fits this booking. Pick another.';
-    }
-    paintTimes(true);
-  }
-  // The times' place: the chosen day's start times, or what to do first. The quiet line (w.lost) sits under the
-  // times when a chosen time was let go, and in their place when the day was. The times fade in once, as they
-  // arrive (fresh): .enter goes when the last one has landed, so a chosen time's pour never restarts the fade.
+  // The times' place: the chosen day's start times, or what to do first. Every state has its message line, so an
+  // error for the start time always has somewhere to show; a note (a refusal, or a start that no longer fits) stays
+  // in it until a time or another day is chosen. The times fade in once, as they arrive (fresh): .enter goes when the
+  // last one has landed, so a chosen time's pour never restarts the fade.
   function timesBlock(fresh) {
     const w = st.when;
-    const lost = w.lost ? el('p.bk-lost', { role: 'status' }, w.lost) : null;
-    if (!w.date) return [lost || el('p.bk-muted', 'Pick a day to see start times.')];
+    if (!w.date) return [el('p.bk-muted', 'Pick a day to see start times.')];
     const head = el('h2.bk-h2', longDate(w.date));
     // while they load: the places of the first few start times, the size of real ones, under the gold light's slow
     // pass (the CSS), and the line that says so where "Can't find a time?" will be
-    if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map(() => el('span.time-ph'))), el('p.choice-msg', { role: 'status' }, 'Checking times…')];
-    if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.')];
+    const msg = (...fallback) => el('p.choice-msg', { role: 'status', class: w.note ? 'has-error' : null }, w.note || fallback);
+    if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map(() => el('span.time-ph'))), msg('Checking times…')];
+    if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.'), msg()];
     const row = el('div.chips', { class: fresh ? 'enter' : null }, w.times.map((m, i) => el('button.choice-item.time', {
       type: 'button', class: w.start === m ? 'on' : '', 'aria-pressed': w.start === m ? 'true' : 'false', 'aria-label': clock(m), dataset: { m, l: clock(m) }, style: { '--t': i },
       onclick: (e) => {
-        w.start = m; clearError(root, 'start_min');
-        if (w.lost) { w.lost = null; root.querySelectorAll('.bk-lost').forEach((x) => x.remove()); }
+        w.start = m; w.note = null; clearError(root, 'start_min');
         root.querySelectorAll('.time').forEach((b) => setChosen(b, +b.dataset.m === m, true));
         holdClass(e.currentTarget, 'just', 600);
       },
@@ -1416,7 +1452,7 @@
       row.lastChild.addEventListener('animationend', off, { once: true });
       setTimeout(off, 450 + Math.min(w.times.length, 6) * 25);
     }
-    return [head, row, lost, el('p.choice-msg', { role: 'status' }, 'Can’t find a time? Call ', tel(phone), '.')];
+    return [head, row, msg('Can’t find a time? Call ', tel(phone), '.')];
   }
 
   // ---------------------------------------------------------------- 06 Summary
@@ -1438,22 +1474,22 @@
     const vt = (menu.vehicleTypes.find((t) => t.code === vf.type) || {}).name;
     const savedV = savedVehicle();
     const condLabels = hasInterior() ? v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ') : 'Not needed for an exterior-only service';
-    const priced = !!q && q.total_cents != null;
+    const priced = !!q && q.total_cents != null && !otherCond();   // ("Other" inside the car: the owner prices it, doc 46)
     box.appendChild(el('section.sheet', { 'aria-label': 'Your booking' },
       el('div.sheet-top',
         el('div.sheet-when',
           el('div.sheet-k', el('span', 'When')),
-          el('p.sheet-date', w.date ? longDate(w.date) : ''),
-          el('p.sheet-time.tnum', el('span', [w.start != null ? clock(w.start) : null, q ? 'about ' + minutesText(q.duration_min) : null].filter(Boolean).join(' · ')), edit(5, 'date and time'))),
+          el('p.sheet-date', w.date ? longDate(w.date) : 'Choose a day and a start time'),
+          el('p.sheet-time.tnum', el('span', [w.start != null ? clock(w.start) : w.date ? 'Pick a start time' : null, q ? 'about ' + minutesText(q.duration_min) : null].filter(Boolean).join(' · ')), edit(5, 'date and time'))),
         el('div.sheet-total',
           el('div.sheet-k', el('span', priced ? 'Total' : 'Price')),
           el('p.sheet-sum.tnum', { class: priced ? null : 'pending' }, priced ? money(q.total_cents) : 'We confirm the price before your appointment'))),
       el('div.sheet-lines',
         el('div.sheet-k', el('span', 'Service'), edit(4, 'service')),
-        q ? priceLines(q, { mark: sigMark }) : null,
+        q ? priceLines(q, { mark: sigMark, otherCondition: otherCond() }) : el('p.bk-muted', 'Choose a service first'),
         s.notes.trim() ? el('p.sheet-notes', el('span', 'Notes'), s.notes.trim()) : null)));
     box.appendChild(el('div.sum-grid',
-      sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we’ll use your phone)')] : null]),
+      sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() && !guest() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we’ll use your phone)')] : null]),
       sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]),
       sec('Vehicle', 2, [
         ['Vehicle', vehicleText()],
@@ -1490,19 +1526,18 @@
     try {
       const asGuest = guest();
       const r = await D.submit(payload(), { guest: asGuest });
-      st.receipt = r; st.sentAsGuest = asGuest;
+      st.receipt = r; st.sentAsGuest = asGuest; st.receiptOther = otherCond();
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
       window.scrollTo({ top: cardTop(), behavior: 'auto' });
       render();
-      // the guest is signed out once the request is in (audit, flow step 7)
-      try { await D.signOut(); } catch (e) { /* nothing to do */ }
-      session = null;
+      // a phone confirmed here is signed out once the request is in (audit, flow step 7); a session that was
+      // here before (an account, or the owner's console) stays
+      if (signedInHere) { try { await D.signOut(); } catch (e) { /* nothing to do */ } session = null; signedInHere = false; }
     } catch (e) {
       busy = false;
-      // the time went while the request was on its way: the date step loads the days and times again, and the
-      // database's reason is the quiet line where the time was
-      if (e.code === 'slot_unavailable') { Object.assign(st.when, { start: null, times: null, loaded: null, calendar: {}, lost: e.message || null }); show(5); return; }
+      // the time is no longer free: the day stays chosen, its times load again (stepWhen), and the reason stays with them
+      if (e.code === 'slot_unavailable') { const w = st.when; w.start = null; w.times = null; w.loaded = null; w.calendar = {}; w.note = e.message; }
       render();
       showDbError(e);
     }
@@ -1530,7 +1565,7 @@
   // what happens next. It prints or saves to one page through the print stylesheet.
   function renderSent() {
     const r = st.receipt, q = st.quote;
-    const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: (settings && settings.timezone) || 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;   // (Parker's clock, as the appointment's)
+    const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: (settings && settings.timezone) || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;   // (Parker's clock, as the appointment's)
     const rec = r.lines && r.lines.length ? r : q;   // the database's own lines; the quote as it was sent, failing that
     const rv = r.vehicle;
     const vehicle = (rv && (rv.not_sure ? rv.description : [rv.year, rv.make, rv.model, rv.color && '· ' + rv.color].filter(Boolean).join(' '))) || vehicleText();
@@ -1549,7 +1584,7 @@
         el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at\u00a0' + clock(r.start_min).replace(' ', '\u00a0'), minutes ? ['\u00a0· ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
         el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? 'We come to you · ' + r.address + ', ' + r.address_zip : 'Come to us · ' + settings.public_area + ' — we send the address with your confirmation')),   // in the summary's words
         vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
-      rec ? priceLines(rec, { mark: sigMark }) : el('p.bk-muted', r.total_cents == null ? 'We confirm the price before your appointment' : money(r.total_cents)));
+      rec ? priceLines(rec, { mark: sigMark, otherCondition: st.receiptOther }) : el('p.bk-muted', r.total_cents == null || st.receiptOther ? 'We confirm the price before your appointment' : money(r.total_cents)));
     const sent = el('div.bk.bk-sent', { class: play ? SENT_PARTS.map((x) => 'wait-' + x).join(' ') : null },
       el('div.sent-mark', sentMark()),
       el('p.eyebrow', 'Request received'),

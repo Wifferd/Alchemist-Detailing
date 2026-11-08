@@ -22,6 +22,10 @@
   // the 200+ gold rule (doc 22): a completed detail of $200 or more makes the booking, and the customer, Gold
   const isGold = (b) => b.status === 'completed' && b.total_cents != null && b.total_cents >= 20000;
   const isLive = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= D.helpers.isoDate(D.helpers.todayLocal());
+  // a request with the "Other" condition, not yet confirmed: the owner prices it, so the total is "to be confirmed"
+  // (doc 46); once confirmed, the total shows. my_bookings returns the booking's conditions since Migration 008 part 3;
+  // a database without that part sends none, and the total shows as before.
+  const otherPending = (b) => Array.isArray(b.conditions) && b.conditions.includes('other') && ['requested', 'needs_information'].includes(b.status);
   const byWhen = (a, b) => (a.service_date === b.service_date ? a.start_min - b.start_min : a.service_date < b.service_date ? -1 : 1);
   const monthOf = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const emailCodes = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.emailCodes);
@@ -64,7 +68,7 @@
 
   function shell(title, eyebrow, body, examples) {
     return el('div.bk.acct',
-      !D.isLive ? el('div.bk-preview', el('b', 'Preview'), ' — nothing is saved anywhere.' + (D.guestBooking ? '' : ' Any 6-digit code works.') + (examples ? ' The past details are examples.' : '')) : null,
+      U.modeBanner('nothing is saved anywhere.' + (D.guestBooking ? '' : ' Any 6-digit code works.') + (examples ? ' The past details are examples.' : ''), D.isLive),
       el('header.bk-head', el('p.eyebrow', eyebrow), el('h1.display.bk-title', title)),
       body);
   }
@@ -80,9 +84,10 @@
   // What every visitor sees on Account and Appointments until text codes work (Migration 005): the monogram, one
   // line, the two things the site already says (book without an account; call to check, change or cancel), and
   // the two ways on: Book, and Call as a text action. Centred in the page (.book-page:has(.acct-soon)).
+  const soonBanner = () => { const b = U.modeBanner('nothing is saved anywhere.', D.isLive); if (b) b.classList.add('draft'); return b; };
   function comingSoon() {
     return el('div.acct-soon',
-      !D.isLive ? el('p.bk-preview.draft', el('b', 'Preview'), ' — nothing is saved anywhere.') : null,
+      soonBanner(),   // Preview off live, Test project on the test database (U.modeBanner), in the screen's own pill
       el('span.soon-mark', { 'aria-hidden': 'true', innerHTML: '<svg class="soon-ring" viewBox="0 0 116 116"><circle cx="58" cy="58" r="57"/></svg><svg><use href="#ad-mark"/></svg>' }),   // (the 404's and the Standard's thin gold ring)
       el('h1.display.soon-title', 'Online accounts are coming soon'),
       el('p.soon-text', 'Until then you can book without one: we call or text you to confirm. To check, change or cancel a booking, call us.'),
@@ -117,6 +122,33 @@
     return box;
   }
 
+  // ---------------------------------------------------------------- a team login on the account page
+  // The account page is a customer's. A team member signed in on this browser (the owner, a manager, a detailer)
+  // finds the way back to the team's pages here instead: who is signed in, Open Requests and Sign out.
+  const TEAM = { admin: ['Owner', '#admin-requests', 'Open Requests '], manager: ['Manager', '#admin-requests', 'Open Requests '], detailer: ['Team', '#team', 'Open my jobs '] };
+  async function teamCard(root) {
+    let s = null;
+    try { s = await D.staffSession(); } catch (e) { return false; }
+    if (s && s.roleUnknown) {   // the role couldn't be read (a weak connection): not a customer page, a retry
+      root.replaceChildren(shell('Your account', 'Account', el('div.bk-grid', el('section.acct-sec',
+        el('h2.bk-h2', 'Signed in'), el('p.bk-note', 'Your account couldn’t load. Check the connection and try again.'),
+        el('div.acct-actions', el('button.btn.btn-gold.shine', { type: 'button', onclick: () => renderAccount() }, 'Try again'),
+          el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))))));
+      return true;
+    }
+    const t = s && s.active !== false && TEAM[s.role];
+    if (!t) return false;
+    if (window.__alchemistDoor) window.__alchemistDoor(s);   // and the menu's item back, should a failed read have left it out
+    root.replaceChildren(shell('Your account', 'Account', el('div.bk-grid',
+      el('section.acct-sec', el('h2.bk-h2', 'Signed in'),
+        el('p.acct-who', el('b', s.firstName || s.email || (s.phone ? phonePretty(s.phone) : 'Team member')), el('span.team-tag', t[0])),
+        el('p.bk-note', s.role === 'detailer' ? 'This is a team login. Your jobs are on the Team page.' : 'This is a team login. Booking requests are on the Admin page.'),
+        el('div.acct-actions',
+          el('a.btn.btn-gold.shine', { href: t[1] }, t[2], el('span.arrow', { 'aria-hidden': 'true' }, '→')),
+          el('button.btn.btn-glass', { type: 'button', onclick: signOut }, 'Sign out'))))));
+    return true;
+  }
+
   // ---------------------------------------------------------------- account
   // The owner's dashboard (direction §25): Welcome back and the first name, the Gold client card when it is
   // earned, the next appointment, the garage, the history, and the profile as a quiet section at the end.
@@ -125,6 +157,7 @@
     if (acct.loading) root.replaceChildren(loading('Loading…'));
     await load();
     if (D.isDown) { root.replaceChildren(downNote()); return; }
+    if (await teamCard(root)) return;   // a team login: the way to the team's pages, not a customer account
     await refreshSession();
     if (!session) { root.replaceChildren(D.guestBooking ? comingSoon() : shell('Your account', 'Account', signInBox(renderAccount))); return; }
     if (acct.loading) {
@@ -239,7 +272,7 @@
         field({ id: 'first_name', label: 'First name', required: true, value: acct.first, autocomplete: 'given-name', maxlength: 40, oninput: (e) => { acct.first = e.target.value; clearError(root, 'first_name'); } }),
         field({ id: 'last_name', label: 'Last name', optional: true, value: acct.last, autocomplete: 'family-name', maxlength: 40, oninput: (e) => { acct.last = e.target.value; clearError(root, 'last_name'); } })),
       el('div.bk-row.two',
-        el('div.fld', el('span.fld-label', 'Mobile phone'), el('p.acct-static', el('span.tnum', phonePretty(session.phone || '') || '—'), el('small', ' confirmed ✓'))),
+        el('div.fld', el('span.fld-label', 'Mobile phone'), el('p.acct-static', session.phone ? [el('span.tnum', phonePretty(session.phone)), el('small', session.phoneConfirmed ? ' confirmed ✓' : ' (not confirmed)')] : el('span.bk-muted', 'None on file'))),
         showEmail ? el('div.fld', el('span.fld-label', 'Email'), el('p.acct-static', session.email || el('span.bk-muted', 'None on file'))) : null),
       el('div.acct-actions', el('button.btn.btn-glass', { type: 'button', onclick: saveProfile }, 'Save name'), el('button.link', { type: 'button', onclick: signOut }, 'Sign out')));
   }
@@ -439,8 +472,8 @@
           el('dt', 'Vehicle'), el('dd', b.vehicle ? (b.vehicle.not_sure ? b.vehicle.description : [b.vehicle.year, b.vehicle.make, b.vehicle.model, b.vehicle.color && '· ' + b.vehicle.color].filter(Boolean).join(' ')) : ''),
           el('dt', 'Length'), el('dd', 'About ' + minutesText(b.duration_min)),
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
-          b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))] : null),
-        el('div.bk-summary-card', priceLines(b, { mark: (code) => sigMark(code) })),
+          b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { timeZone: settings.timezone || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))] : null),
+        el('div.bk-summary-card', priceLines(b, { mark: (code) => sigMark(code), otherCondition: otherPending(b) })),
         done ? reviewBlock(b) : null,
         isLive(b) ? el('p.bk-muted', 'Payment in person after your detail. To cancel or change, call ', tel(phone), '.') : el('p.bk-muted', 'Questions? Call ', tel(phone), '.')) : null);
   }
@@ -480,10 +513,12 @@
     }
     paintStars();
     const box = el('div.adm-panel', { dataset: { field: 'review' } }, el('h3.bk-h2', 'How was your detail?'), stars,
-      field({ id: 'review_body', label: 'A few words', required: true, multiline: true, rows: 3, maxlength: 1000, value: f.body, hint: 'Shown with your first name and last initial once the owner approves it. No links.', oninput: (e) => { f.body = e.target.value; } }),
-      el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: async () => {
+      field({ id: 'review_body', label: 'A few words', required: true, multiline: true, rows: 3, maxlength: 1000, value: f.body, hint: 'Shown with your first name and last initial once the owner approves it. No links or emoji.', oninput: (e) => { f.body = e.target.value; } }),
+      el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: async (ev) => {
+        // one press, one review: the button waits for the answer (a second press used to send a second one)
+        const btn = ev.currentTarget; if (btn.disabled) return; btn.disabled = true;
         try { await D.submitReview(b.id, f.rating, f.body); appts.form = null; appts.list = null; acct.loading = true; toast('Thank you! Your review is waiting for approval.'); renderAppointments(); }
-        catch (e) { if (!showError(roots.appointments, e.hint === 'body' ? 'review_body' : e.hint, e.message)) toast(e.message); }
+        catch (e) { btn.disabled = false; if (!showError(roots.appointments, e.hint === 'body' ? 'review_body' : e.hint, e.message)) toast(e.message); }
       } }, 'Send review'), el('button.btn.btn-glass', { type: 'button', onclick: () => { appts.form = null; renderAppointments(); } }, 'Cancel')));
     return box;
   }

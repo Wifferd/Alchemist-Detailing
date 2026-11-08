@@ -12,6 +12,9 @@ async def main():
         pg = await b.new_page(viewport={'width': w, 'height': h})
         light = "try{localStorage.setItem('ad.theme','light')}catch(e){}"   # SHOOT_THEME=light shoots the console in the light theme
         if os.environ.get('SHOOT_THEME') == 'light': await pg.add_init_script(light)
+        # preview mode only: the database and the CDN are cut off, so nothing is read or changed anywhere
+        await pg.route('https://*.supabase.co/**', lambda r: r.abort())
+        await pg.route('https://cdn.jsdelivr.net/**', lambda r: r.abort())
         msgs = []; pg.on('pageerror', lambda e: msgs.append('pageerror: ' + str(e)))
         await pg.goto(url); await pg.wait_for_selector('text=Look around as the admin'); await pg.click('text=Look around as the admin')
         await pg.wait_for_selector('.adm-tiles'); await pg.wait_for_timeout(400); await pg.screenshot(path=f'{prefix}-morning.png', full_page=True)

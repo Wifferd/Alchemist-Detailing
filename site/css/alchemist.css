@@ -826,7 +826,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   width: min(92vw, max(34vw, 420px));
   display: flex;
   flex-direction: column;
-  padding: calc(20px + env(safe-area-inset-top, 0px)) clamp(22px, 3vw, 40px) calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: calc(20px + env(safe-area-inset-top, 0px)) clamp(22px, 3vw, 40px) 0;   /* the bottom's room is the foot's own (doc 49) */
   background:
     radial-gradient(120% 60% at 0% 0%, rgba(var(--gold-rgb), .08), transparent 60%),
     linear-gradient(180deg, rgba(var(--grey-20), .64), rgba(var(--grey-6), .74));
@@ -864,7 +864,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
    bar, rounded all round (below 780px tall the 24px it costs would push the foot into a scroll). The 8px top
    puts the head row on the bar's centre line (12 + 1 + 8 + 22 = 43), so the close X lines up with the account button */
 @media (min-width: 721px) and (min-height: 780px) {
-  .menu { top: 12px; bottom: 12px; left: 12px; border-left: 1px solid var(--hair); border-radius: var(--r-lg); padding-top: 8px; padding-bottom: 22px; }
+  .menu { top: 12px; bottom: 12px; left: 12px; border-left: 1px solid var(--hair); border-radius: var(--r-lg); padding-top: 8px; }   /* (its 22px at the bottom is the foot's, below) */
 }
 /* no glass in this browser: the panel goes nearly solid, so the page never shows sharp through the text */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -955,13 +955,27 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 /* the keyboard ring in the panel's soft shapes, drawn close so it stays inside the short-screen scroller (below) with the 4px step */
 .menu nav a:focus-visible { outline-offset: 2px; border-radius: var(--r-sm); }
 .menu nav a.sep { margin-top: 18px; }   /* the owner's blank line before Account: a gap, not a second hairline */
-/* the foot: one gold Book Now, then a quiet row with the light/dark switch and the phone number */
-.menu-foot { margin-top: auto; padding-top: 26px; display: grid; gap: 6px; }
+/* the team's door (only while a team member is signed in, doc 49): one small gold tag beside the name, rising with
+   it; the same tag gives the role on the account page's team card */
+.team-tag { display: inline-block; padding: 5px 8px 4px; border: 1px solid rgba(var(--gold-rgb), .45); border-radius: 999px; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold-ink); white-space: nowrap; }
+.menu nav a .team-tag { margin-left: 14px; vertical-align: .3em; }
+/* the foot: one gold Book Now, then a quiet row with the light/dark switch and the phone number, and for the admin and
+   a manager Switch sides under it (doc 49). The bottom padding (with the home bar's inset) is inside the foot, so a
+   scrolled menu always ends below its last item; its one column never grows wider than the foot */
+.menu-foot { margin-top: auto; padding: 26px 0 calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .menu-foot .btn { width: 100%; }
 .menu-sub { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .menu-sub .call { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; margin-right: -8px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font: 600 13px/1 var(--font-ui); letter-spacing: .06em; white-space: nowrap; transition: color .3s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .menu-sub .call:hover { color: var(--gold-hi); } }
 .menu-sub :focus-visible { outline-offset: -2px; }   /* the ring sits just inside the 44px box, 6px clear of the gold button above */
+/* Switch sides (the admin and a manager, doc 49): the menu's last item, under the light switch and the phone number:
+   glass with a gold hairline, the two-way arrows, the words and the gold tag naming where it goes (an Admin screen or
+   Website); on a narrow screen the tag drops below the words */
+.switch-side { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; min-height: 48px; padding: 8px 16px; border-radius: var(--r-sm); border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--ink-2); font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; text-decoration: none; touch-action: manipulation; transition: border-color .3s var(--ease), color .3s var(--ease); }
+.switch-side svg { flex: none; color: var(--gold-ink); }
+.switch-side span { white-space: nowrap; }
+.switch-side .team-tag { margin-left: 4px; }
+@media (hover: hover) and (pointer: fine) { .switch-side:hover { border-color: var(--gold); color: var(--gold-hi); } }
 /* a short screen (a laptop's browser window, a phone with its browser bars showing): a tighter rhythm, and below 710px
    the Book Now item steps aside for the gold Book Now just under it, so the whole menu fits a 664px iPhone screen.
    Shorter still, the list scrolls between the head and the foot, so the gold Book Now and the phone line stay on the
@@ -978,7 +992,8 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   .menu nav a.sep { margin-top: 10px; }
   .menu-foot { padding-top: 12px; }
 }
-@media (max-height: 779px) { .menu { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }   /* flush to the screen (the floating panel keeps its 22px) */
+@media (max-height: 779px) { .menu-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }   /* flush to the screen (the floating panel keeps its 22px) */
+@media (min-width: 721px) and (min-height: 780px) { .menu-foot { padding-bottom: 22px; } }   /* the floating panel's 22px, in its foot (doc 49) */
 @media (max-height: 709px) { .menu nav a[href="#book"] { display: none; } }
 
 /* ---------------------------------------------------------------- hero */
@@ -1629,6 +1644,12 @@ section { position: relative; }
 /* under the staff consoles (#admin, #team; .staff from app.js) the footer is one quiet line: the copyright */
 .footer.staff { padding-top: 0; }
 .footer.staff::before, .footer.staff .foot-grid, .footer.staff .fine > span + span { display: none; }
+/* the team's way in while signed out: a quiet link in the fine print (muted, never gold; doc 47) */
+.footer .fine a.fine-link { display: inline-flex; align-items: center; min-height: 24px; margin: 0; font-size: inherit; color: var(--muted); text-decoration: underline; text-decoration-color: rgba(139, 132, 120, .4); text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) { .footer .fine a.fine-link:hover { color: var(--ink-2); } }
+@media (max-width: 640px) { .footer .fine a.fine-link { min-height: 44px; } }
+/* the account page for a team login: who is signed in, with the role as the menu's gold tag */
+.acct-who { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 20px; color: var(--ink); }
 
 /* ---------------------------------------------------------------- the 404 page (site/404.html; the old placeholder pages' card) */
 .page { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; text-align: center; padding: calc(120px + env(safe-area-inset-top, 0px)) var(--gutter) 80px; background: radial-gradient(60% 50% at 50% 30%, rgba(var(--gold-rgb), .07), transparent 70%); }
@@ -4013,6 +4034,25 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .adm-actions .btn.danger.on { border-color: var(--danger); color: var(--danger-text); background: rgba(var(--danger-rgb), .08); }
 @media (hover: hover) and (pointer: fine) { .adm-actions .btn.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger-text); background: rgba(var(--danger-rgb), .08); } }
 .adm-panel { display: grid; gap: 14px; padding: 16px; border-radius: var(--r-md); border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .3); animation: viewIn .4s var(--ease) both; }
+/* "Are you sure?" before Confirm (admin.js askSure): Go back stands where Confirm was, the question beside it, the
+   booking in a few lines below and "Yes, I'm sure" at the far end of the box, away from the finger. Yes waits a
+   moment before it takes a tap: grey, a gold line filling it, then gold (with reduced motion no line, it just lights). */
+.adm-sure { display: grid; gap: 14px; }
+.adm-sure-top { align-items: center; gap: 8px 16px; }
+.adm-sure-h { color: var(--gold-hi); border-radius: 4px; }
+.adm-panel.adm-sure-box { border-color: var(--line); }
+.adm-sure-sum { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px 16px; font-size: 14.5px; line-height: 1.45; }
+.adm-sure-sum dt { color: var(--muted); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; padding-top: 2px; }
+.adm-sure-sum dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.adm-sure-sum .adm-sure-total { color: var(--gold-hi); font-weight: 600; }
+.adm-sure-err { margin: 0; color: var(--danger-text); font-weight: 600; font-size: 14px; }
+.adm-sure-err.ok { color: var(--ink); }
+.adm-sure .acct-actions { justify-content: flex-end; }
+.adm-sure-yes { position: relative; overflow: hidden; }
+.adm-sure-yes.arming { opacity: 1; }
+.adm-sure-yes.arming::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--gold-grad); transform: scaleX(0); transform-origin: left center; animation: sureArm var(--wait, .7s) linear forwards; }
+@keyframes sureArm { to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .adm-sure-yes.arming::before { content: none; } .adm-sure .adm-panel { animation: none; } }
 .adm-history summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .adm-history ul { margin: 8px 0 0; padding: 0 0 0 18px; color: var(--ink-2); font-size: 13.5px; display: grid; gap: 4px; }
 .adm-qr { width: 200px; height: 200px; border-radius: 12px; background: var(--paper); padding: 8px; }
@@ -4042,11 +4082,13 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .cal-item small { color: var(--muted); font-size: 11px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* two lines of the services, the rest in the title */
 .cal-item .rv-gold { height: 20px; max-width: 100%; padding: 0 7px; font-size: var(--fs-2xs); letter-spacing: .1em; white-space: nowrap; justify-self: start; margin-top: 2px; }   /* one line in a narrow week column ("Gold": admin.js) */
 .cal-item.st-requested, .cal-item.st-needs_information { border-style: dashed; }
+.cal-item.lapsed { opacity: .55; }   /* a request whose hold ran out: it keeps no time from customers */
 .cal-item.gold { border-color: rgba(var(--gold-rgb), .5); }
 /* the log: the time in one column, what happened in the other */
 .adm-log { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; color: var(--ink-2); font-size: 14px; }
 .adm-log li { display: contents; }
 .adm-log .tnum { color: var(--muted); white-space: nowrap; }
+.adm-log small { font-size: inherit; }
 .admin .sum-body { grid-template-columns: 200px 1fr; max-width: 760px; }
 .bk-notice { display: grid; gap: 6px; padding: 14px 18px; border-radius: var(--r-md); border: 1px solid var(--line); background: radial-gradient(100% 120% at 0% 0%, rgba(var(--gold-rgb), .12), transparent 60%); }
 .bk-notice p { margin: 0; color: var(--ink); }
@@ -5251,6 +5293,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .btn-glass { background: linear-gradient(180deg, rgba(var(--studio-glass-hi-rgb), .94), rgba(var(--studio-glass-lo-rgb), .8)); border-color: rgba(var(--studio-ink-rgb), .14); color: var(--ink); box-shadow: inset 0 1px 0 var(--studio-card), inset 0 -1px 0 rgba(var(--studio-ink-rgb), .06), 0 8px 18px -12px rgba(var(--studio-shade-rgb), .35); }
 :where([data-theme="light"]) .btn-glass::after { background: linear-gradient(118deg, transparent 40%, rgba(var(--studio-gold-rgb), .1) 50%, transparent 60%); }
 :where([data-theme="light"]) .mini-btn { background: rgba(var(--studio-gold-rgb), .1); border-color: var(--gold); }
+:where([data-theme="light"]) .switch-side { background: linear-gradient(180deg, rgba(var(--studio-glass-hi-rgb), .94), rgba(var(--studio-glass-lo-rgb), .8)); }   /* Switch sides in the glass button's frosted ivory, its gold hairline kept */
 /* the menu: frosted ivory glass with a white lit edge, dense enough that the gold current page keeps 4.5:1 over a black photo; nearly solid where the browser has no blur */
 :where([data-theme="light"]) .menu { --menu-solid: radial-gradient(120% 60% at 0% 0%, rgba(var(--studio-gold-rgb), .1), transparent 60%), linear-gradient(180deg, rgba(var(--studio-panel-rgb), .96), rgba(var(--studio-band-rgb), .97)); background: radial-gradient(120% 60% at 0% 0%, rgba(var(--studio-gold-rgb), .1), transparent 60%), linear-gradient(180deg, rgba(var(--studio-panel-rgb), .86), rgba(var(--studio-band-rgb), .9)); border-color: rgba(var(--studio-ink-rgb), .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 30px 0 80px -30px rgba(var(--studio-shade-rgb), .3); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

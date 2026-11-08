@@ -455,6 +455,47 @@
   }
   menuNav.addEventListener('scroll', fadeNav, { passive: true });
   window.addEventListener('resize', () => { if (menuOpen) fadeNav(); });
+  // The team's door, there only while a team member is signed in on this browser; customers and visitors never see
+  // it. A detailer: My jobs in the list (the Team page). The admin or a manager: Switch sides, the last thing in the
+  // menu (doc 49), across to the Admin screen last open in this tab (else Requests), and back to the website page
+  // last open (else Home). Remembered in this page only.
+  const door = $('#teamDoor'), swap = $('#switchSide');
+  const side = { site: '#home', staff: '#admin-requests' };
+  // the Admin screens by name (admin.js SCREENS), for the tag; a bare #admin opens whichever screen the Admin page
+  // last showed, so it is named Admin
+  const SCREEN = new Map([['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']]);
+  const ADMIN_ONLY = ['team', 'log'];   // as admin.js: a manager is never sent to these (Requests instead)
+  let doorSeq = 0, doorRole = null;
+  function showDoor(s) {
+    const role = s && s.active !== false ? s.role : null;
+    doorRole = role;
+    door.hidden = role !== 'detailer';
+    swap.hidden = role !== 'admin' && role !== 'manager';
+    markDoor();
+  }
+  function note(t) {   // a page token (no '#'), kept as its side's last page
+    const r = t.split('-')[0];
+    if (r === 'admin') side.staff = '#' + t;
+    else if (NAMES[r] && r !== 'team') side.site = '#' + t;
+  }
+  function markDoor() {   // My jobs is the current page on the Team page; Switch sides points to the other side
+    const on = !door.hidden && door.getAttribute('href').slice(1) === cur;
+    if (on) door.setAttribute('aria-current', 'page'); else door.removeAttribute('aria-current');
+    const staff = cur === 'admin' || cur === 'team';
+    const across = doorRole === 'manager' && ADMIN_ONLY.includes(side.staff.split('-')[1]) ? '#admin-requests' : side.staff;
+    const to = SCREEN.get(across.split('-')[1]);   // the Admin screen it opens, by its name there
+    swap.setAttribute('href', staff ? side.site : across);
+    swap.setAttribute('aria-label', staff ? 'Switch sides, back to the website' : 'Switch sides, to ' + (to || 'the Admin page'));
+    swap.lastElementChild.textContent = staff ? 'Website' : to || 'Admin';
+  }
+  // Who is signed in, read again; only the newest read counts, and a read that fails changes nothing
+  async function checkDoor() {
+    const n = ++doorSeq;
+    let s;
+    try { s = await window.AlchemistData.staffSession(); } catch (e) { return; }
+    if (s && s.roleUnknown) return;   // the role couldn't be read (a tab back in view on a weak connection): no change
+    if (n === doorSeq) showDoor(s);
+  }
   function press(btn) {
     btn.classList.add('pressed', 'ringing');
     setTimeout(() => btn.classList.remove('pressed'), 170);
@@ -470,6 +511,7 @@
     // button goes back in: below), and the scrim takes every tap outside it
     menuY = window.scrollY;
     const sb = window.innerWidth - document.documentElement.clientWidth;
+    if (menu.scrollTop) menu.scrollTop = 0;   // it keeps its scroll while hidden: it opens at the top, the X and the first item in view (doc 49)
     fitNav();
     menuOpen = true;
     menuMoved = performance.now();
@@ -2810,7 +2852,7 @@
   function parse() {
     const h = decodeURIComponent((location.hash || '').slice(1));
     const [r, sub] = h.split('-');
-    return NAMES[r] ? { r, sub: sub || null } : { r: 'home', sub: null };
+    return NAMES[r] ? { r, sub: sub || null, t: h } : { r: 'home', sub: null, t: 'home' };
   }
   // Where each page was left. Every entry of the site in the tab's history carries an id, its depth (how many of the
   // site's pages came before it in the tab) and the page before it (history.state.ad, written once as it opens;
@@ -2952,7 +2994,7 @@
   let landing = null;   // a cut's landing still to come
   function render(first, cut, after) {
     if (landing) landing();
-    const { r, sub } = parse();
+    const { r, sub, t } = parse();
     // Leaving home with the wash finished: its pinned length goes now, while home is still laid out (every rect is
     // zero once it is hidden), with no scroll; home's position is stored in the shorter layout.
     const shift = cur === 'home' && r !== 'home' ? (wash ? wash.foldNow({ scroll: false }) : washPin ? washPin.now({ scroll: false }) : 0) : 0;
@@ -3002,6 +3044,8 @@
       document.title = r === 'home' ? HOME_TITLE : NAMES[r] + ' · Alchemist Detailing';
     }
     cur = r;
+    note(t);   // (Switch sides: this side's last page, doc 49)
+    if (swap) markDoor();   // (no door, rather than no page, should a cached page lack it)
     // the new page's place (a group's, #services-exterior, once its page is built): in a cut it goes with the swap, so
     // nothing that follows the scroll (the wash above all) sees the page between the two; never under a finger (the
     // shade's swap has waited for the lift already; a view transition's update may come with one down)
@@ -3223,7 +3267,9 @@
     if (!d.swapped) swapDark(d, true);
     else if (d.landed) lift(d);
   }
-  window.addEventListener('hashchange', () => {
+  window.addEventListener('hashchange', (e) => {
+    // the page being left, as it was last (the Admin page changes its screen without a hashchange; Switch sides, doc 49)
+    try { note(decodeURIComponent(new URL(e.oldURL).hash.slice(1))); } catch (err) { /* the one noted before stays */ }
     const to = parse().r, back = !linked;
     linked = false;
     backing = 0;
@@ -3349,6 +3395,20 @@
   render(true);
   root.classList.remove('deep');   // (the head script's: Home kept unseen under a page opened directly, now shown)
   if (cur !== 'home') cutShown = performance.now();   // a page landed on directly: its settle counts from its first showing
+  // The door follows sign-in and sign-out anywhere on the site (the Admin and Team pages, the account page, another
+  // tab). A token refresh is the same person: the item stays as it is. A visitor with no stored login costs nothing:
+  // the data layer isn't started for it.
+  if (swap && window.AlchemistData) {
+    const D = window.AlchemistData;
+    D.onAuth((event, signedIn) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;   // the load is read below
+      if (!signedIn) { doorSeq++; side.staff = '#admin-requests'; showDoor(null); return; }   // the next login starts at Requests
+      checkDoor();
+    });
+    if (D.hasStoredLogin()) checkDoor();
+    // the account page's team card, having read a team role, puts the item back if a failed read left it out
+    window.__alchemistDoor = (s) => { doorSeq++; showDoor(s); };
+  }
   desyncShine(document);   // every shine on the site, the hidden pages' too, so none sweep together
   $$('.shine, .scroll-cue').forEach((el) => ioAway.observe(el));
   if (heroEl) ioAway.observe(heroEl);   // the wordmark's drift (a finger's screen) rests below the hero (CSS)

@@ -2,16 +2,24 @@
    These values are public by design: a publishable key only grants what the
    database's own rules (RLS, grants and function checks) allow a visitor to do.
    Never put a secret key or the service-role key in this file or anywhere in site/.
-   Normally the site talks to the live project. The test site
-   (alchemist-detailing-test.vercel.app), or ?project=test in the address,
-   switches it to the test project ("Alchemist Test"), where bookings are
-   practice ones. Without this file, or when
-   Supabase can't be reached, booking runs in preview mode. */
+   Only the public addresses talk to the live project (real bookings):
+   thealchemistdetailing.com, www.thealchemistdetailing.com and the old
+   alchemist-detailing.vercel.app (which forwards to the domain). Everything
+   else uses the test project ("Alchemist Test"), where bookings are practice
+   ones: the test site, every other Vercel address (previews, branch builds,
+   each deployment's own address), a local copy and file://. ?project=test in
+   the address forces the test project on any address. Without this file, or
+   when Supabase can't be reached, booking runs in preview mode (only off the
+   site's own addresses: see `deployed`). */
 (function () {
   var LIVE = { supabaseUrl: 'https://efpzprranvgujkblnwdj.supabase.co', supabaseKey: 'sb_publishable_xXeOpsbSMXPc7Jdn0MLSEQ_VU-pzasw' };
   var TEST = { supabaseUrl: 'https://wlmostaetntbpmfgyjst.supabase.co', supabaseKey: 'sb_publishable_lJPVu8gzF2H6gZLfVs4JZw_hI_H_GZH' };
-  // The test site (alchemist-detailing-test.vercel.app) and ?project=test both use the test project.
-  var useTest = /[?&]project=test\b/.test(location.search) || /(^|\.)alchemist-detailing-test\./.test(location.hostname);
+  // An allowlist: a practice booking from a preview, a branch build or a screenshot walk can't land in the owner's
+  // real requests. (index.html's head script keeps every other address out of search with the same test, and
+  // vercel.json sends X-Robots-Tag: noindex off the domain.)
+  var h = location.hostname;
+  var publicHost = /^(www\.)?thealchemistdetailing\.com$/.test(h) || h === 'alchemist-detailing.vercel.app';
+  var useTest = /[?&]project=test\b/.test(location.search) || !publicHost;
   window.ALCHEMIST_CONFIG = useTest ? TEST : LIVE;
   window.ALCHEMIST_CONFIG.project = useTest ? 'test' : 'live';
   // The site's own addresses: the domain and every Vercel address (the test site and previews too). There, a
@@ -21,4 +29,7 @@
   // Sign-in is by text code (Twilio Verify, set in Supabase). The optional email and its code show only once the
   // site can email codes (an email sender in Supabase): set this to true then.
   window.ALCHEMIST_CONFIG.emailCodes = false;
+  // Text codes need Twilio Verify connected in Supabase (doc 36). Until then a team login made with a phone only
+  // can't sign in, and the Admin page's "Add a team member" says so. Set this to true once texts work.
+  window.ALCHEMIST_CONFIG.textCodes = false;
 })();

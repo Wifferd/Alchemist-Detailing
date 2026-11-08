@@ -72,13 +72,29 @@
     e.code = code; e.hint = hint || ''; e.isBooking = true;
     return e;
   }
-  // The database's errors arrive as { message: code, details: text, hint: field }.
+  // The database's own errors arrive as { code: 'P0001', message: code, details: text, hint: field }. Anything
+  // else never shows its raw text: a dropped connection carries a JavaScript stack in its details, and a table
+  // check its failing row. A vehicle field the table refused is named (its check, by name); the rest get the
+  // friendly line with the phone number.
+  const generic = () => 'Something went wrong. Please try again, or call ' + ((settingsCache && settingsCache.public_phone) || SEED.settings.public_phone) + '.';
+  const CHECKS = {
+    vehicles_make_ok: ['vehicle_make', 'Use letters, numbers and simple punctuation for the make (no links, emoji or < >).'],
+    vehicles_model_ok: ['vehicle_model', 'Use letters, numbers and simple punctuation for the model (no links, emoji or < >).'],
+    vehicles_color_ok: ['vehicle_color', 'Use plain words for the colour, up to 30 characters (no links, emoji or < >).'],
+    vehicles_year_ok: ['vehicle_year', 'Enter a year between 1900 and 2100.'],
+  };
   function fromDb(err) {
-    if (!err) return fail('unknown', 'Something went wrong. Please try again.', '');
+    if (!err) return fail('unknown', generic(), '');
     if (err.isBooking) return err;
-    const code = err.code === 'P0001' || /^[a-z_]+$/.test(err.message || '') ? err.message : 'unknown';
-    const text = err.details || (code === 'unknown' ? 'Something went wrong. Please try again, or call ' + SEED.settings.public_phone + '.' : err.message);
-    return fail(code, text, err.hint || '');
+    if (err.code === 'P0001') return fail(err.message || 'unknown', err.details || err.message || generic(), err.hint || '');
+    if (err.code === '23514') {
+      const m = /"([a-z_]+)"\s*$/.exec(err.message || '') || /"(vehicles_[a-z]+_ok)"/.exec(err.message || '');
+      const c = m && CHECKS[m[1]];
+      if (c) return fail('invalid_input', c[1], c[0]);
+    }
+    if (err.code === '23505') return fail('wrong_state', 'That was already saved. Thank you!', '');
+    try { console.error(err); } catch (e) { /* nothing to do */ }
+    return fail('unknown', generic(), '');
   }
   const roundHalfUp = (x) => Math.floor(x + 0.5);
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -90,9 +106,40 @@
     const n = d.length === 10 ? '1' + d : d.length === 11 && d[0] === '1' ? d : null;
     return n && /^1[2-9][0-8]\d[2-9]\d{6}$/.test(n) && !/^[2-9]11$/.test(n.slice(4, 7)) && !(n.slice(4, 7) === '555' && n.slice(7, 9) === '01') ? n : null;
   }
-  const isValidName = (s) => /^[A-Za-zÀ-ÖØ-öø-ÿ' .-]{1,40}$/.test(String(s || '').trim()) && /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(s);
+  // A name as it is sent: composed (NFC), so a name pasted or filled in with separate accent marks is the one the
+  // database checks, and trimmed.
+  const cleanName = (s) => String(s || '').normalize('NFC').trim();
+  // The database's rule (public.is_valid_name, ^[[:alpha:]]([[:alpha:]'’ .-]*[[:alpha:].])?$, 1 to 40 characters):
+  // letters in any alphabet, with ' or the curly ’ (an iPhone types it), spaces, dots and hyphens between; it also
+  // turns away junk words, which it explains itself.
+  const isValidName = (s) => { const t = cleanName(s); return t.length >= 1 && t.length <= 40 && /^\p{L}([\p{L}'\u2019 .-]*[\p{L}.])?$/u.test(t); };
+  // public.is_clean_text, the database's rule for notes, the vehicle, the address and reviews: no links or web
+  // addresses, no emoji, no < or >, no control characters. textProblem returns what to change, or null when the text
+  // is fine (checked to give the database's verdict on 102 of 102 test strings).
+  // The database's \m (start of a word) is written as "the start, or a character that isn't a letter, digit or _",
+  // never as a lookbehind: Safari before 16.4 (all of iOS 15) can't compile one, and this file would then not load.
+  // Like the database's ~*, only A to Z count as the same letter in either case (the "i" flag would also let the
+  // Kelvin sign and the long s stand for k and s), so the text is lowercased in ASCII only and tested without it.
+  const WORD = '[\\p{L}\\p{N}_]';
+  const LINKISH = new RegExp('(https?:|www\\.|(^|[^\\p{L}\\p{N}_])(?=' + WORD + ')[a-z0-9_-]+\\.(com|net|org|io|co|app|me|ly|info|xyz|ru|cn|site|shop|link)(?!' + WORD + '))', 'u');
+  function textProblem(t) {
+    const v = String(t == null ? '' : t);
+    if (!v) return null;
+    if (LINKISH.test(v.replace(/[A-Z]/g, (c) => c.toLowerCase()))) return 'Please take out the link or web address.';
+    if (/[<>]/.test(v) || /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/u.test(v) || /[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(v)) return 'Emoji and the < > signs can\'t be used here. Words only, please.';
+    return null;
+  }
+  const isCleanText = (t) => !textProblem(t);
   const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(s || '').trim());
   const todayLocal = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  // Today where the business is (business_settings.timezone, America/Chicago): the booking window counts from it,
+  // whatever time zone the browser is in.
+  const todayIn = (tz) => {
+    try {
+      const p = new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).split('-');
+      return new Date(+p[0], +p[1] - 1, +p[2]);
+    } catch (e) { return todayLocal(); }
+  };
   const isoDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
@@ -280,6 +327,8 @@
       make(weekend(8), 840, { location_type: 'shop', exterior: 'ext_basic', vehicle_type: 'sedan' }, 'completed'),
     ];
   }
+  const authListeners = [];
+  const authEvent = (event, signedIn) => authListeners.forEach((fn) => { try { fn(event, signedIn); } catch (e) { /* one listener never stops the others */ } });
 
   // A busy page (shaders compiling on a slow phone) can run the timer before an answer that has already
   // arrived, so the timer gives up only after a further moment with the call still open.
@@ -309,6 +358,9 @@
           } catch (e) { /* one more try, then the preview */ }
         }
         if (mode !== 'live') { sb = null; mode = 'preview'; }
+        // sign-in, sign-out (in this tab or another) and token refreshes, passed on to onAuth's listeners outside
+        // supabase-js's own lock (a listener may read the session again)
+        if (sb) sb.auth.onAuthStateChange((event, s) => { setTimeout(() => authEvent(event, !!s), 0); });
       }
       if (mode === 'preview') settingsCache = Object.assign({}, SEED.settings, /[?&]guest=0\b/.test(location.search) ? { guest_booking: false } : {});
       return mode;
@@ -332,7 +384,7 @@
     get isDown() { return mode !== 'live' && !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.deployed); },
     // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
     get guestBooking() { return !!(settingsCache && settingsCache.guest_booking); },
-    helpers: { normalizePhone, isValidName, isValidEmail, isoDate, addDays, todayLocal, uuid },
+    helpers: { normalizePhone, isValidName, cleanName, textProblem, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
 
     async settings() { await init(); return settingsCache; },
 
@@ -399,8 +451,8 @@
       await init();
       if (!isValidName(first)) throw fail('invalid_input', 'Enter your first name using letters only.', 'first_name');
       if (last && !isValidName(last)) throw fail('invalid_input', 'Enter your last name using letters only, or leave it empty.', 'last_name');
-      if (mode === 'preview') { if (previewSession) { previewSession.firstName = first.trim(); previewSession.lastName = (last || '').trim() || null; } return previewSession; }
-      await rpc('update_my_profile', { p_first_name: first.trim(), p_last_name: (last || '').trim() });
+      if (mode === 'preview') { if (previewSession) { previewSession.firstName = cleanName(first); previewSession.lastName = cleanName(last) || null; } return previewSession; }
+      await rpc('update_my_profile', { p_first_name: cleanName(first), p_last_name: cleanName(last) });
       return api.session();
     },
 
@@ -410,9 +462,14 @@
         make: String(v.make || '').trim(), model: String(v.model || '').trim(), year: v.year ? Number(v.year) : null,
         color: String(v.color || '').trim() || null, vehicle_type: v.vehicle_type, size: v.size || 'standard', modifications: v.modifications || [],
       };
+      // what to change, field by field, before the table's own checks (whose refusals fromDb names by check)
       if (!row.make || row.make.length > 40) throw fail('invalid_input', 'Enter the vehicle make.', 'vehicle_make');
+      if (textProblem(row.make)) throw fail('invalid_input', textProblem(row.make), 'vehicle_make');
       if (!row.model || row.model.length > 40) throw fail('invalid_input', 'Enter the vehicle model.', 'vehicle_model');
-      if (v.year && !/^\d{4}$/.test(String(v.year))) throw fail('invalid_input', 'Enter a 4-digit year.', 'vehicle_year');
+      if (textProblem(row.model)) throw fail('invalid_input', textProblem(row.model), 'vehicle_model');
+      if (v.year && !(/^\d{4}$/.test(String(v.year)) && +v.year >= 1900 && +v.year <= 2100)) throw fail('invalid_input', 'Enter a year between 1900 and 2100.', 'vehicle_year');
+      if (row.color && row.color.length > 30) throw fail('invalid_input', 'Keep the colour to 30 characters or fewer.', 'vehicle_color');
+      if (textProblem(row.color)) throw fail('invalid_input', textProblem(row.color), 'vehicle_color');
       if (!row.vehicle_type) throw fail('invalid_input', 'Choose a vehicle type.', 'vehicle_type');
       if (mode === 'preview') {
         if (v.id) { const i = previewVehicles.findIndex((x) => x.id === v.id); if (i >= 0) previewVehicles[i] = Object.assign({}, previewVehicles[i], row); return previewVehicles[i]; }
@@ -436,13 +493,25 @@
       return (await rpc('my_bookings')) || [];
     },
 
-    async sendPhoneCode(phone, names) {
+    // opts.staff: the team's sign-in (#admin, #team), which never makes a new account for a number typed there
+    // (shouldCreateUser false), so a stranger's number can't become a login once texting works.
+    async sendPhoneCode(phone, names, opts) {
       await init();
       const n = normalizePhone(phone);
       if (!n) throw fail('invalid_input', 'Enter a 10-digit US phone number.', 'phone');
       if (mode === 'preview') { await new Promise((r) => setTimeout(r, 600)); return { sent: true, preview: true }; }
-      const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: { data: { first_name: names && names.first || undefined, last_name: names && names.last || undefined } } });
-      if (error) throw fail('code_not_sent', error.message || "We couldn't send the code. Check the number, or call " + settingsCache.public_phone + '.', 'phone');
+      const staff = !!(opts && opts.staff);
+      const data = { first_name: names && cleanName(names.first) || undefined, last_name: names && cleanName(names.last) || undefined };
+      const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: staff ? { shouldCreateUser: false } : { data } });
+      if (error) {
+        // never GoTrue's own words ("Unsupported phone provider", "Signups not allowed for otp"): what to do instead
+        if (error.status === 429 || /rate_limit/.test(error.code || '')) throw fail('too_many_requests', 'Please wait a minute before asking for another code.', 'phone');
+        // a staff sign-in with a number no team account has: Supabase refuses to make one (shouldCreateUser false)
+        if (staff && error.code === 'otp_disabled') throw fail('code_not_sent', 'No team account uses that number.', 'phone');
+        // texting not connected at Supabase yet (doc 36)
+        if (/^(phone_provider_disabled|otp_disabled|sms_send_failed)$/.test(error.code || '')) throw fail('code_not_sent', "Text codes aren't working yet. Please call " + settingsCache.public_phone + '.', 'phone');
+        throw fail('code_not_sent', "We can't text a code to this number right now. Call " + settingsCache.public_phone + '.', 'phone');
+      }
       return { sent: true };
     },
 
@@ -458,7 +527,11 @@
         return previewSession;
       }
       const { error } = await sb.auth.verifyOtp({ phone: '+' + n, token: c, type: 'sms' });
-      if (error) throw fail('bad_code', "That code didn't match. Check the text and try again.", 'phone_code');
+      if (error) {
+        // Supabase answers a wrong code and an old one the same way (otp_expired), so the message names both
+        if (error.status === 429 || /rate_limit/.test(error.code || '')) throw fail('too_many_requests', 'Too many tries. Wait a minute, then try again.', 'phone_code');
+        throw fail('bad_code', "That code didn't match, or it has expired. Check the text, or press Resend for a new one.", 'phone_code');
+      }
       return api.session();
     },
 
@@ -512,7 +585,29 @@
     async times(dateIso, duration, loc) {
       await init();
       if (mode === 'preview') return previewTimes(dateIso, duration, loc);
-      return rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: loc }) || [];
+      return (await rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: loc })) || [];
+    },
+
+    // Free start times for moving a booking (the console's Change time): the staff rule (today and any day ahead,
+    // the booking itself not in the way), plus its own start when the day stays and the length doesn't grow.
+    // b: the booking ({ id, service_date, start_min, duration_min, location_type }).
+    async staffTimes(b, dateIso, duration) {
+      await init();
+      const own = (list) => {
+        const t = (list || []).slice();
+        if (dateIso === b.service_date && duration <= b.duration_min && !t.includes(b.start_min)) { t.push(b.start_min); t.sort((x, y) => x - y); }
+        return t;
+      };
+      if (mode === 'preview') return own(previewTimes(dateIso, duration, b.location_type));
+      const { data, error } = await sb.rpc('staff_availability', { p_id: b.id, p_date: dateIso, p_duration: duration });
+      if (!error) return data || [];
+      // a database without Migration 007 part 3 (no staff_availability yet): the customers' times, plus the booking's own
+      // start, marked forCustomers so the console doesn't call them the free times (the booking still blocks its own
+      // neighbourhood there, and today is never in it)
+      if (error.code !== 'PGRST202') throw fromDb(error);
+      const t = own(await rpc('get_availability', { p_date: dateIso, p_duration: duration, p_location: b.location_type }));
+      t.forCustomers = true;
+      return t;
     },
 
     // Photos: re-encoded through a canvas first (strips location data, audit F-52).
@@ -564,6 +659,7 @@
           price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
           created_at: created.toISOString(), preview: true, shop_address: null, team: [],
           history: [{ status: 'requested', at: created.toISOString(), note: null }],   // as my_bookings logs a new request
+          conditions: (p.conditions || []).slice(),   // as my_bookings returns them (Migration 008 part 3)
         };
         previewBookings.unshift(r);
         return r;
@@ -576,10 +672,11 @@
       }
     },
 
-    async signOut() {
+    async signOut(opts) {
       await init();
-      if (mode === 'preview') { previewSession = null; previewStaff = null; return; }
-      await sb.auth.signOut();
+      if (mode === 'preview') { previewSession = null; previewStaff = null; authEvent('SIGNED_OUT', false); return; }
+      // this browser only: signing out here never ends the same login on another device (opts may add to it)
+      await sb.auth.signOut(Object.assign({ scope: 'local' }, opts));
     },
 
     // ---- reviews (Migration 002 part 5) ----
@@ -599,7 +696,8 @@
       await init();
       const v = String(body || '').trim();
       if (!(rating >= 1 && rating <= 5)) throw fail('invalid_input', 'Choose 1 to 5 stars.', 'rating');
-      if (!v || v.length > 1000 || /https?:\/\/|www\./i.test(v)) throw fail('invalid_input', 'Write a few words (under 1,000 characters, no links).', 'body');
+      if (!v || v.length > 1000) throw fail('invalid_input', 'Write a few words (under 1,000 characters).', 'body');
+      if (textProblem(v)) throw fail('invalid_input', textProblem(v), 'body');
       if (mode === 'preview') {
         const b = previewBookings.find((x) => x.id === appointmentId);
         if (previewReviews.some((r) => r.appointment_id === appointmentId)) throw fail('wrong_state', "You've already reviewed this detail. Thank you!", 'appointment');
@@ -634,17 +732,28 @@
     rpc(name, args) { return rpc(name, args); },
     fail,
 
+    // fn(event, signedIn) on each sign-in and sign-out: Supabase's own events in live mode (SIGNED_IN, SIGNED_OUT,
+    // TOKEN_REFRESHED, MFA_CHALLENGE_VERIFIED, ...), the preview's staff sign-in and sign-out in preview mode
+    onAuth(fn) { authListeners.push(fn); },
+    // Whether this browser keeps a login at all (supabase-js stores it under sb-<project>-auth-token), read without
+    // starting the data layer: a visitor's page makes no request to find out.
+    hasStoredLogin() {
+      const cfg = window.ALCHEMIST_CONFIG;
+      try { return !!(cfg && cfg.supabaseUrl && localStorage.getItem('sb-' + new URL(cfg.supabaseUrl).hostname.split('.')[0] + '-auth-token')); } catch (e) { return false; }
+    },
     // Who is signed in, with their role and whether the authenticator step is done.
     async staffSession() {
       await init();
       if (mode === 'preview') return previewStaff;
       const s = await api.session();
       if (!s) return null;
-      const { data: prof } = await sb.from('profiles').select('id,role,first_name,last_name,is_active').eq('id', s.userId).maybeSingle();
+      const { data: prof, error: profErr } = await sb.from('profiles').select('id,role,first_name,last_name,is_active').eq('id', s.userId).maybeSingle();
       let aal = 'aal1', nextLevel = 'aal1';
       try { const { data } = await sb.auth.mfa.getAuthenticatorAssuranceLevel(); aal = data.currentLevel; nextLevel = data.nextLevel; } catch (e) { /* no MFA support */ }
       const { data: factors } = await sb.auth.mfa.listFactors().catch(() => ({ data: null }));
-      return Object.assign({}, s, { role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
+      // roleUnknown: the profile read failed (a weak connection), so 'customer' is a guess; the menu's team item
+      // (Switch sides or My jobs) keeps what it showed rather than take it for a customer
+      return Object.assign({}, s, { roleUnknown: !!profErr, role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
         hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
     },
     // Team sign-in with an email and a password (doc 43), for the owner and managers until text codes work. The
@@ -666,7 +775,7 @@
       }
       return api.session();
     },
-    previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; return previewStaff; },
+    previewStaffSignIn(role) { previewStaff = { userId: 'preview-staff', role, firstName: 'Owner', aal: 'aal2', hasAuthenticator: true, phoneConfirmed: true, preview: true }; authEvent('SIGNED_IN', true); return previewStaff; },
 
     // Authenticator app (TOTP): enrol, then verify a code; later, challenge and verify.
     async mfaEnroll() {
