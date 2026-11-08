@@ -1648,7 +1648,6 @@ section { position: relative; }
 /* the team's way in while signed out: a quiet link in the fine print (muted, never gold; doc 47) */
 .footer .fine a.fine-link { display: inline-flex; align-items: center; min-height: 24px; margin: 0; font-size: inherit; color: var(--muted); text-decoration: underline; text-decoration-color: var(--fine-underline); text-underline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) { .footer .fine a.fine-link:hover { color: var(--ink-2); } }
-.footer.staff .fine a.fine-link, .footer.staff .fine > span > span[aria-hidden] { display: none; }   /* not on the staff consoles' one line (Switch sides is their way across) */
 @media (max-width: 640px) { .footer .fine a.fine-link { min-height: 44px; } }
 /* the account page for a team login: who is signed in, with the role as the menu's gold tag */
 .acct-who { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 20px; color: var(--ink); }
@@ -3333,6 +3332,9 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk-carried { display: grid; gap: 8px; }
 .bk-carried:empty { display: none; }
 :is(.bk-lost, .bk-quiet)::before { content: ""; flex-shrink: 0; width: 6px; height: 6px; margin-top: .5em; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px rgba(var(--gold-rgb), .55); }
+/* a start time refused or let go (main's red message line): the same line in the error colour, its dot too */
+.bk-lost.has-error { color: var(--danger-text); }
+.bk-lost.has-error::before { background: var(--danger); box-shadow: 0 0 8px rgba(var(--danger-rgb), .55); }
 
 /* step 06: summary */
 .sum { display: grid; align-content: start; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
@@ -5409,6 +5411,7 @@ html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.spl
 :where([data-theme="light"]) .cal-col.blocked { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(var(--studio-gold-rgb), .16) 8px 10px); }
 :where([data-theme="light"]) .bk-errors { background: rgba(var(--studio-danger-rgb), .07); border-color: rgba(var(--studio-danger-rgb), .45); }
 :where([data-theme="light"]) .veh.asking { border-color: rgba(var(--studio-danger-rgb), .45); }
+:where([data-theme="light"]) .bk-lost.has-error::before { box-shadow: 0 0 6px rgba(var(--studio-danger-rgb), .45); }
 :where([data-theme="light"]) .bk-hp { color: transparent; }
 /* ---- states whose colours differ in the studio (written after the surfaces, so they win) */
 @media (hover: hover) and (pointer: fine) { [data-theme="light"] :is(.svc-card, .price-card, .work-item, .gal-tile):hover { border-color: rgba(var(--studio-gold-rgb), .55); } }   /* a mouse only, as in the dark */

@@ -406,10 +406,14 @@
   // Step 05 waits for its open days to show the first one (revealDays), and watches the page meanwhile (watchTap): a
   // finger, a wheel or a scroll since Continue, or days that come late, and the page stays where it is
   let daysWait = false, daysTap = null;
-  function stopDaysWait() { daysWait = false; if (daysTap) { daysTap.end(); daysTap = null; } }
+  // after a refused start time: the page since step 05 came back, so its reason comes into view with the new times
+  // only if no finger, wheel or scroll came in between (refusedTap, loadTimes)
+  let refusedTap = null;
+  function stopDaysWait() { daysWait = false; if (daysTap) { daysTap.end(); daysTap = null; } if (refusedTap) { refusedTap.end(); refusedTap = null; } }
   // A step change: the page is brought to the top of the card first, plainly, so the page never shrinks under a
   // smooth scroll (the footer used to flash on Back); then the new step slides in and its title takes focus.
-  function show(n) {
+  // quiet: no reveal of the days (a refused start time brings its reason and the times into view instead)
+  function show(n, quiet) {
     st.direction = n > step ? 1 : -1;
     step = n;
     if (n !== 5) st.when.switching = false;
@@ -417,7 +421,7 @@
     render();
     focusTitle();
     stopDaysWait();
-    if (n === 5) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
+    if (n === 5 && !quiet) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
   }
   // The step bar can jump past an edit that dropped the quote (a new vehicle type, place or condition): the quote
   // is worked out again first, so the times and the Summary are for what is chosen now.
@@ -1398,7 +1402,11 @@
       else w.note = 'The service length or place changed: please pick a start time again.';
     }
     w.keep = null;
-    if (root.querySelector('#bk-times')) { paintTimes(true); return true; }
+    if (root.querySelector('#bk-times')) {
+      paintTimes(true);
+      if (refusedTap) { const t = refusedTap, ok = t.still(); refusedTap = null; t.end(); if (ok && step === 5) revealLost(); }
+      return true;
+    }
     // a step-bar jump to the Summary doesn't wait for this re-check: the Summary is drawn again, so it shows the
     // start that was kept (or asks for one) and never says one thing while Send sends another
     if (step === 6 && !busy && !st.receipt) render();
@@ -1406,7 +1414,8 @@
   }
   // From a tap until its answer lands: whether the page stayed as it was (no finger back on the glass, no wheel, no
   // scroll) and the answer came soon. Only then may the page move for it (a scroll under a finger fights iOS, doc 35).
-  function watchTap() {
+  // (long: no time limit, for a refused Send, whose reason must come into view however late the answer is)
+  function watchTap(long) {
     const y = window.scrollY, at = performance.now();
     let moved = false;
     const on = () => { moved = true; };
@@ -1414,7 +1423,7 @@
     window.addEventListener('wheel', on, { passive: true });
     return {
       end: () => { window.removeEventListener('touchstart', on); window.removeEventListener('wheel', on); },
-      still: () => !moved && Math.abs(window.scrollY - y) < 2 && performance.now() - at < 600,
+      still: () => !moved && Math.abs(window.scrollY - y) < 2 && (long || performance.now() - at < 600),
     };
   }
   // The band of the screen nothing covers: under the floating top bar, over the booking's sticky bar
@@ -1434,6 +1443,19 @@
     const by = Math.min(t.getBoundingClientRect().bottom - s.bottom, head.getBoundingClientRect().top - s.top);
     if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
+  // A refused start time (main's showError for start_min, under the design's finger guard): the times' heading down
+  // to the reason comes into view under the sticky bar, never so far that the heading goes under the floating bar,
+  // and the first start time takes the focus
+  function revealLost() {
+    const t = root.querySelector('#bk-times');
+    const head = t && t.querySelector('.bk-h2'), note = t && t.querySelector('.bk-lost');
+    if (!head || !note) return;
+    const s = sight();
+    const by = Math.min(note.getBoundingClientRect().bottom - s.bottom, head.getBoundingClientRect().top - s.top);
+    if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+    const first = t.querySelector('.time, a[href]');
+    if (first) first.focus({ preventScroll: true });
+  }
   // The times' place: the chosen day's start times, or what to do first. Every state has its message line, so an
   // error for the start time always has somewhere to show; a note (a refusal, or a start that no longer fits) stays
   // in it until a time or another day is chosen. The times fade in once, as they arrive (fresh): .enter goes when the
@@ -1446,7 +1468,7 @@
     // pass (the CSS), and the line that says so where "Can't find a time?" will be. A note is the design's quiet
     // gold-dot line just above the message line, which keeps its own words (and so its place for an error)
     const msg = (...fallback) => el('p.choice-msg', { role: 'status' }, fallback);
-    const note = w.note ? el('p.bk-lost', { role: 'status' }, w.note) : null;
+    const note = w.note ? el('p.bk-lost.has-error', { role: 'status' }, w.note) : null;   // marked as an error, as main's message line
     if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map(() => el('span.time-ph'))), note, msg('Checking times…')];
     if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.'), note, msg()];
     const row = el('div.chips', { class: fresh ? 'enter' : null }, w.times.map((m, i) => el('button.choice-item.time', {
@@ -1532,11 +1554,13 @@
       btn.disabled = true; btn.firstChild.textContent = 'Sending… '; btn.classList.add('sending');
       setTimeout(() => { if (btn.isConnected && busy) btn.appendChild(el('span.au-line.send-line', { 'aria-hidden': 'true' })); }, 300);
     }
+    const tap = watchTap(true);   // whether the page stays as it is until the answer (a refusal may then bring its reason into view)
     const veil = document.getElementById('veil');
     if (veil && !reduce) { veil.classList.remove('run'); void veil.offsetWidth; veil.classList.add('run'); }
     try {
       const asGuest = guest();
       const r = await D.submit(payload(), { guest: asGuest });
+      tap.end();
       st.receipt = r; st.sentAsGuest = asGuest; st.receiptOther = otherCond();
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
@@ -1547,9 +1571,18 @@
       if (signedInHere) { try { await D.signOut(); } catch (e) { /* nothing to do */ } session = null; signedInHere = false; }
     } catch (e) {
       busy = false;
+      const calm = tap.still();
+      tap.end();
       // the time is no longer free: the day stays chosen, its times load again (stepWhen), and the reason stays with them,
-      // once, in the quiet gold-dot note (show: step 05 with the design's finger guard; no second copy in the message line)
-      if (e.code === 'slot_unavailable') { const w = st.when; w.start = null; w.times = null; w.loaded = null; w.calendar = {}; w.note = e.message; show(5); return; }
+      // once, in the note marked as an error (show: step 05 with the design's finger guard; no second copy in the message
+      // line). Once the times are back, the reason comes into view and a start time takes the focus, unless a finger,
+      // a wheel or a scroll came in since Send (then it is only marked, and nothing moves)
+      if (e.code === 'slot_unavailable') {
+        const w = st.when; w.start = null; w.times = null; w.loaded = null; w.calendar = {}; w.note = e.message;
+        show(5, true);
+        if (calm && st.when.times == null) refusedTap = watchTap(true);
+        return;
+      }
       render();
       showDbError(e);
     }

@@ -459,7 +459,7 @@
   // it. A detailer: My jobs in the list (the Team page). The admin or a manager: Switch sides, the last thing in the
   // menu (doc 49), across to the Admin screen last open in this tab (else Requests), and back to the website page
   // last open (else Home). Remembered in this page only.
-  const door = $('#teamDoor'), swap = $('#switchSide');
+  const door = $('#teamDoor'), swap = $('#switchSide'), foot = $('.menu .menu-foot');
   const side = { site: '#home', staff: '#admin-requests' };
   // the Admin screens by name (admin.js SCREENS), for the tag; a bare #admin opens whichever screen the Admin page
   // last showed, so it is named Admin
@@ -470,6 +470,7 @@
     const role = s && s.active !== false ? s.role : null;
     doorRole = role;
     door.hidden = role !== 'detailer';
+    if (foot) foot.style.setProperty('--i', door.hidden ? 11 : 12);   // the foot keeps one 28ms step after the last item shown
     swap.hidden = role !== 'admin' && role !== 'manager';
     markDoor();
   }
