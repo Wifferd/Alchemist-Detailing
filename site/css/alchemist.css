@@ -864,7 +864,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
    bar, rounded all round (below 780px tall the 24px it costs would push the foot into a scroll). The 8px top
    puts the head row on the bar's centre line (12 + 1 + 8 + 22 = 43), so the close X lines up with the account button */
 @media (min-width: 721px) and (min-height: 780px) {
-  .menu { top: 12px; bottom: 12px; left: 12px; border-left: 1px solid var(--hair); border-radius: var(--r-lg); padding-top: 8px; }   /* (its 22px at the bottom is the foot's, below) */
+  .menu { top: 12px; bottom: 12px; left: 12px; border-left: 1px solid var(--hair); border-radius: var(--r-lg); padding-top: 8px; }   /* (its 24px at the bottom is the foot's, below: doc 49) */
 }
 /* no glass in this browser: the panel goes nearly solid, so the page never shows sharp through the text */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -992,8 +992,6 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   .menu nav a.sep { margin-top: 10px; }
   .menu-foot { padding-top: 12px; }
 }
-@media (max-height: 779px) { .menu-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }   /* flush to the screen (the floating panel keeps its 22px) */
-@media (min-width: 721px) and (min-height: 780px) { .menu-foot { padding-bottom: 22px; } }   /* the floating panel's 22px, in its foot (doc 49) */
 @media (max-height: 709px) { .menu nav a[href="#book"] { display: none; } }
 
 /* ---------------------------------------------------------------- hero */
@@ -1650,6 +1648,7 @@ section { position: relative; }
 @media (max-width: 640px) { .footer .fine a.fine-link { min-height: 44px; } }
 /* the account page for a team login: who is signed in, with the role as the menu's gold tag */
 .acct-who { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 20px; color: var(--ink); }
+.acct-who b { min-width: 0; font: 500 var(--t-5)/1.1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: var(--tr-title); text-transform: uppercase; color: var(--ink); overflow-wrap: anywhere; }   /* the team member's name in the title face, as a customer's is */
 
 /* ---------------------------------------------------------------- the 404 page (site/404.html; the old placeholder pages' card) */
 .page { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; text-align: center; padding: calc(120px + env(safe-area-inset-top, 0px)) var(--gutter) 80px; background: radial-gradient(60% 50% at 50% 30%, rgba(var(--gold-rgb), .07), transparent 70%); }
@@ -4040,6 +4039,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .adm-sure { display: grid; gap: 14px; }
 .adm-sure-top { align-items: center; gap: 8px 16px; }
 .adm-sure-h { color: var(--gold-hi); border-radius: 4px; }
+@media (max-width: 380px) { .adm-sure-h { letter-spacing: 0; } }   /* the question stays beside Go back on a 360px phone, as on main */
 .adm-panel.adm-sure-box { border-color: var(--line); }
 .adm-sure-sum { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px 16px; font-size: 14.5px; line-height: 1.45; }
 .adm-sure-sum dt { color: var(--muted); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; padding-top: 2px; }
@@ -4050,7 +4050,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .adm-sure .acct-actions { justify-content: flex-end; }
 .adm-sure-yes { position: relative; overflow: hidden; }
 .adm-sure-yes.arming { opacity: 1; }
-.adm-sure-yes.arming::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--gold-grad); transform: scaleX(0); transform-origin: left center; animation: sureArm var(--wait, .7s) linear forwards; }
+.adm-sure-yes.arming::before { content: ""; display: block; position: absolute; top: auto; left: 0; right: auto; bottom: 0; width: 100%; height: 3px; z-index: 1; translate: none; transition: none; background: var(--gold-grad); transform: scaleX(0); transform-origin: left center; animation: sureArm var(--wait, .7s) linear forwards; }
 @keyframes sureArm { to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .adm-sure-yes.arming::before { content: none; } .adm-sure .adm-panel { animation: none; } }
 .adm-history summary { cursor: pointer; color: var(--muted); font-size: 13px; }

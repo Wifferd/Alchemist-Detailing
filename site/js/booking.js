@@ -1365,17 +1365,25 @@
     markDay(iso, !recheck);
     clearError(root, 'service_date'); clearError(root, 'start_min');
     paintTimes(false);
-    const landed = await loadTimes();
+    const landed = await loadTimes(tap);
     if (tap) { tap.end(); if (landed && step === 5 && tap.still()) revealTimes(); }
   }
   // The start times of the chosen day, for the quote's length and the place, painted when they land (unless
   // another day, length or place was chosen meanwhile). One fetch per day and length at a time. True once this
   // call's times are on the date step.
-  async function loadTimes() {
+  // tap: the day's tap (pickDay), so a move back to the service never comes under a finger (doc 35)
+  async function loadTimes(tap) {
     const w = st.when, iso = w.date;
     if (!iso) return false;
-    if (!st.quote) await refreshQuote();
-    if (!st.quote) { w.times = []; go(4); return false; }   // nothing to measure the times by: back to the service
+    if (!st.quote) {
+      const q = await refreshQuote();
+      if (q === STALE || step !== 5) return false;   // a newer service is on its way: its quote asks for the times again (syncWhen)
+    }
+    if (!st.quote) {   // nothing to measure the times by: back to the service, never under a finger (then the date step says to choose one)
+      w.times = [];
+      if (!tap || tap.still()) go(4); else render();
+      return false;
+    }
     const sig = timeSig(), want = iso + ':' + sig;
     if (w.fetching === want) return false;   // already on its way
     w.fetching = want;
@@ -1435,14 +1443,17 @@
     if (!w.date) return [el('p.bk-muted', 'Pick a day to see start times.')];
     const head = el('h2.bk-h2', longDate(w.date));
     // while they load: the places of the first few start times, the size of real ones, under the gold light's slow
-    // pass (the CSS), and the line that says so where "Can't find a time?" will be
-    const msg = (...fallback) => el('p.choice-msg', { role: 'status', class: w.note ? 'has-error' : null }, w.note || fallback);
-    if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map(() => el('span.time-ph'))), msg('Checking times…')];
-    if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.'), msg()];
+    // pass (the CSS), and the line that says so where "Can't find a time?" will be. A note is the design's quiet
+    // gold-dot line just above the message line, which keeps its own words (and so its place for an error)
+    const msg = (...fallback) => el('p.choice-msg', { role: 'status' }, fallback);
+    const note = w.note ? el('p.bk-lost', { role: 'status' }, w.note) : null;
+    if (w.times == null) return [head, el('div.times-wait', { 'aria-hidden': 'true' }, [0, 1, 2, 3, 4, 5].map(() => el('span.time-ph'))), note, msg('Checking times…')];
+    if (!w.times.length) return [head, el('p.bk-muted', 'No start times left that day. Pick another day, or call ', tel(phone), '.'), note, msg()];
     const row = el('div.chips', { class: fresh ? 'enter' : null }, w.times.map((m, i) => el('button.choice-item.time', {
       type: 'button', class: w.start === m ? 'on' : '', 'aria-pressed': w.start === m ? 'true' : 'false', 'aria-label': clock(m), dataset: { m, l: clock(m) }, style: { '--t': i },
       onclick: (e) => {
-        w.start = m; w.note = null; clearError(root, 'start_min');
+        w.start = m; clearError(root, 'start_min');
+        if (w.note) { w.note = null; root.querySelectorAll('.bk-lost').forEach((x) => x.remove()); }
         root.querySelectorAll('.time').forEach((b) => setChosen(b, +b.dataset.m === m, true));
         holdClass(e.currentTarget, 'just', 600);
       },
@@ -1452,7 +1463,7 @@
       row.lastChild.addEventListener('animationend', off, { once: true });
       setTimeout(off, 450 + Math.min(w.times.length, 6) * 25);
     }
-    return [head, row, msg('Can’t find a time? Call ', tel(phone), '.')];
+    return [head, row, note, msg('Can’t find a time? Call ', tel(phone), '.')];
   }
 
   // ---------------------------------------------------------------- 06 Summary

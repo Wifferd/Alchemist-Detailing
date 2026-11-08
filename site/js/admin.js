@@ -507,10 +507,10 @@
         el('dl.adm-sure-sum',
           line('Customer', who),
           // the day and start as booked: the database keeps them in Parker's time, whatever this device's clock says
-          line('When', [longDate(b.service_date), el('br'), clock(b.start_min) + ' (Parker time) · ' + minutesText(b.duration_min).replace(/ /g, '\u00a0')]),
+          line('When', [longDate(b.service_date), el('br'), clock(b.start_min) + ' (Parker time)\u00a0· ' + minutesText(b.duration_min).replace(/ /g, '\u00a0')]),
           line('Services', services(b) || '—'),
-          line('Vehicle', (vehicle(b) || '—') + (b.vehicle_size === 'xl' ? ' · XL' : '')),
-          line('Where', b.location_type === 'mobile' ? 'Mobile · ' + where(b) : where(b)),
+          line('Vehicle', (vehicle(b) || '—').replace(/ · /g, '\u00a0· ') + (b.vehicle_size === 'xl' ? '\u00a0· XL' : '')),
+          line('Where', b.location_type === 'mobile' ? 'Mobile\u00a0· ' + where(b) : where(b)),
           line('Total', b.total_cents == null ? 'Pending: ' + pendingWords(b) : money(b.total_cents), 'tnum adm-sure-total')),
         el('p.bk-muted', 'Confirming holds this time for the customer. No text is sent from here: after confirming, call or text ', b.contact_phone ? tel(phonePretty(b.contact_phone)) : 'the customer', ' to let them know.'),
         err,
