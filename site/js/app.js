@@ -447,7 +447,7 @@
   function fitNav() {
     menuNav.scrollTop = 0;
     const here = $('a[aria-current="page"]', menuNav);
-    if (here && swap.hidden && here.offsetParent && menuNav.scrollHeight > menuNav.clientHeight) {   // with Switch sides shown (the admin, a manager) it stays at its top, Home in view (doc 49)
+    if (here && (!swap || swap.hidden) && here.offsetParent && menuNav.scrollHeight > menuNav.clientHeight) {   // with Switch sides shown (the admin, a manager) it stays at its top, Home in view (doc 49)
       const below = here.getBoundingClientRect().bottom - menuNav.getBoundingClientRect().bottom;
       if (below > -44) menuNav.scrollTop = below + 44;   // clear of the fade
     }

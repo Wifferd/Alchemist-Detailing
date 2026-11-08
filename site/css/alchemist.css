@@ -1648,6 +1648,7 @@ section { position: relative; }
 /* the team's way in while signed out: a quiet link in the fine print (muted, never gold; doc 47) */
 .footer .fine a.fine-link { display: inline-flex; align-items: center; min-height: 24px; margin: 0; font-size: inherit; color: var(--muted); text-decoration: underline; text-decoration-color: var(--fine-underline); text-underline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) { .footer .fine a.fine-link:hover { color: var(--ink-2); } }
+.footer.staff .fine a.fine-link, .footer.staff .fine > span > span[aria-hidden] { display: none; }   /* not on the staff consoles' one line (Switch sides is their way across) */
 @media (max-width: 640px) { .footer .fine a.fine-link { min-height: 44px; } }
 /* the account page for a team login: who is signed in, with the role as the menu's gold tag */
 .acct-who { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 20px; color: var(--ink); }
@@ -4045,9 +4046,10 @@ a.adm-tile { text-decoration: none; color: inherit; }
 @media (max-width: 380px) { .adm-sure-h { letter-spacing: 0; } }   /* the question stays beside Go back on a 360px phone, as on main */
 .adm-panel.adm-sure-box { border-color: var(--line); }
 .adm-sure-sum { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px 16px; font-size: 14.5px; line-height: 1.45; }
-.adm-sure-sum dt { color: var(--muted); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; padding-top: 2px; }
+.adm-sure-sum dt { color: var(--muted); font-size: 12px; letter-spacing: var(--tr-label); text-transform: uppercase; padding-top: 2px; }
+:where(:root:not([data-theme="light"])) .adm-sure-sum dt { color: var(--ink-2); }   /* the card's own labels (.sum-body dt) */
 .adm-sure-sum dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
-@media (max-width: 399.98px) { .adm-sure-sum { column-gap: 12px; } .adm-sure-sum dt { letter-spacing: .06em; } }   /* the value column keeps "11:30 AM (Parker time) · 1 h" on one line at 390, as on main */
+@media (max-width: 399.98px) { .adm-sure-sum { column-gap: 10px; } .adm-sure-sum dt { letter-spacing: .05em; } }   /* the card's label size and colour, less tracking: "11:30 AM (Parker time) · 1 h" stays one line at 390, as on main */
 .adm-sure-sum .adm-sure-total { color: var(--gold-hi); font-weight: 600; }
 .adm-sure-err { margin: 0; color: var(--danger-text); font-weight: 600; font-size: 14px; }
 .adm-sure-err.ok { color: var(--ink); }
