@@ -1547,8 +1547,9 @@
       if (signedInHere) { try { await D.signOut(); } catch (e) { /* nothing to do */ } session = null; signedInHere = false; }
     } catch (e) {
       busy = false;
-      // the time is no longer free: the day stays chosen, its times load again (stepWhen), and the reason stays with them
-      if (e.code === 'slot_unavailable') { const w = st.when; w.start = null; w.times = null; w.loaded = null; w.calendar = {}; w.note = e.message; }
+      // the time is no longer free: the day stays chosen, its times load again (stepWhen), and the reason stays with them,
+      // once, in the quiet gold-dot note (show: step 05 with the design's finger guard; no second copy in the message line)
+      if (e.code === 'slot_unavailable') { const w = st.when; w.start = null; w.times = null; w.loaded = null; w.calendar = {}; w.note = e.message; show(5); return; }
       render();
       showDbError(e);
     }
@@ -1576,7 +1577,7 @@
   // what happens next. It prints or saves to one page through the print stylesheet.
   function renderSent() {
     const r = st.receipt, q = st.quote;
-    const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: (settings && settings.timezone) || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;   // (Parker's clock, as the appointment's)
+    const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: (settings && settings.timezone) || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/[ \u202f]([AP]M)(?:[ \u202f](\S+))?$/, (m, ap, tz) => '\u00a0' + ap + (tz ? '\u00a0' + tz : '')) : null;   // (Parker's clock, as the appointment's; "10:00 PM CST" never breaks inside)
     const rec = r.lines && r.lines.length ? r : q;   // the database's own lines; the quote as it was sent, failing that
     const rv = r.vehicle;
     const vehicle = (rv && (rv.not_sure ? rv.description : [rv.year, rv.make, rv.model, rv.color && '· ' + rv.color].filter(Boolean).join(' '))) || vehicleText();

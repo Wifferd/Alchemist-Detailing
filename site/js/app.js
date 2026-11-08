@@ -438,7 +438,7 @@
   let menuOpen = false, menuMoved = -1e9, menuY = 0;   // (when the panel last began to slide: the shaders' compile waits it out; the page's scroll as it opened)
   const holdPage = (on, sb) => { if (window.AlchemistUI) window.AlchemistUI.holdPage(on, sb); else document.body.style.overflow = on ? 'hidden' : ''; };   // ui.js: no sideways jolt from the scroll bar (sb: its width, read already)
   // On a short screen the list scrolls between the menu's head and foot (alchemist.css): it fades out at the foot
-  // while more of it is below, and under the head while some of it is above; it opens with the current page's item in view.
+  // while more of it is below, and under the head while some of it is above; it opens with the current page's item in view (at its top while Switch sides shows).
   const menuNav = $('nav', menu);
   const fadeNav = () => {
     menuNav.classList.toggle('more', menuNav.scrollHeight - menuNav.scrollTop - menuNav.clientHeight > 2);
@@ -447,7 +447,7 @@
   function fitNav() {
     menuNav.scrollTop = 0;
     const here = $('a[aria-current="page"]', menuNav);
-    if (here && here.offsetParent && menuNav.scrollHeight > menuNav.clientHeight) {
+    if (here && swap.hidden && here.offsetParent && menuNav.scrollHeight > menuNav.clientHeight) {   // with Switch sides shown (the admin, a manager) it stays at its top, Home in view (doc 49)
       const below = here.getBoundingClientRect().bottom - menuNav.getBoundingClientRect().bottom;
       if (below > -44) menuNav.scrollTop = below + 44;   // clear of the fade
     }
