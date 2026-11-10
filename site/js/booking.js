@@ -211,7 +211,8 @@
       if (c.emailState !== 'skipped' && !(session && session.email)) c.emailState = 'none';
     } else st.contact = blank.contact();
     quoteCache.clear();
-    step = farthest = 1; renderedStep = 0; busy = false; asking = null;
+    // (an Edit's way back to the Summary goes too: a fresh request has no Summary yet, so its steps read Continue)
+    step = farthest = 1; renderedStep = 0; busy = false; asking = null; editFrom = null;
   }
 
   // ---------------------------------------------------------------- helpers

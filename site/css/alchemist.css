@@ -4499,7 +4499,7 @@ html.ready .hero.offscreen h1 .l1 { animation-play-state: paused; }
    so the first frames are never swallowed by the compile */
 .hero [data-in], .hero h1 .l1, .hero h1 .l1.split .ch { animation-play-state: paused; }
 html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.split .ch { animation-play-state: running; }
-.hero .actions[data-in] { filter: none; animation-duration: var(--dur-rise); animation-delay: 300ms; animation-play-state: running; }   /* Book Now and Explore Services never wait for the intro or html.ready: they rise (fade and lift, no blur) 300ms after the page is styled. Longhands only: .met, less motion and no-JS keep them set from the first paint (animation: none) */
+.hero .actions[data-in] { filter: none; animation-duration: var(--dur-rise); animation-delay: 300ms; animation-play-state: running; }   /* Book Now and Services & prices never wait for the intro or html.ready: they rise (fade and lift, no blur) 300ms after the page is styled. Longhands only: .met, less motion and no-JS keep them set from the first paint (animation: none) */
 /* Book Now is seen before the intro now, so its shine keeps the intro's clock: it waits for html.ready with the intro
    (and rests again while app.js takes ready away), and its first crossing comes after the wordmark's own light
    (1450ms + 1600ms + 240ms, app.js's hold when there is no plan). So app.js's hold finds it still waiting, and where
