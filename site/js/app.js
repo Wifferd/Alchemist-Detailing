@@ -3089,7 +3089,8 @@
         if (view === 'home') startHero(first);
       }
       if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
-      if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub);   // already booking: offered, never forced
+      // already booking: offered, never forced; met again by Back or Forward, it was offered when its link was followed
+      if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub, { returning: !!again });
       if (!cut) place(); else if (late) whenLifted(place);
       if (r === 'services' && sub && !again) {
         const el = document.getElementById('svc-' + sub);

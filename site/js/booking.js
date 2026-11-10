@@ -133,7 +133,9 @@
   // written a moment after each change, as a step changes, as the page goes and as the tab is put away (another app: a
   // phone may then discard the tab with no pagehide), never while the receipt shows. Send, Cancel and a fresh request
   // (reset) forget it, and nothing is written again until the booking is changed again (drafting). Where storage
-  // can't be used, the booking works as before.
+  // can't be used, the booking works as before. A service from a Services link (#book-wg) is kept as taken in, with a
+  // question about it not yet answered (asking); a reload with the kept answers takes nothing from the address again
+  // (mount), so a WetGloss let go or a service kept stays as the customer left it.
   const DRAFT_KEY = 'ad.book';
   let drafting = false, draftWired = false, draftSaved = null;   // (draftSaved: the copy this page last wrote)
   // draftReady: the kept copy has been read back (mount). Until then nothing is written, so a tap, the tab put away or
@@ -149,6 +151,7 @@
       vehicle: { year: v.year, make: v.make, model: v.model, color: v.color, type: v.type, size: v.size, notSure: v.notSure, description: v.description, conditions: v.conditions, damage: v.damage, damageNote: v.damageNote, modifications: v.modifications, moreOpen: v.moreOpen },
       location: { type: l.type, address: l.address, zip: l.zip },
       service: { bundle: s.bundle, exterior: s.exterior, interior: s.interior, addons: s.addons, notes: s.notes, carried: s.carried },
+      ask: asking,   // (a service chosen on Services, its question not yet answered: askLine)
       // (a start held aside while its day's times load again is still the one picked)
       when: { date: w.date, start: w.start != null ? w.start : w.keep },
     };
@@ -167,10 +170,10 @@
   // The kept answers, taken back as the booking is first drawn in this tab (mount). Names and phone fill only empty
   // fields, so a signed-in account's own win; a code the menu no longer has is dropped, and so is a day that isn't a
   // real calendar day or is outside the booking window. The day and the start are checked again on the date step
-  // (w.sig null: syncWhen).
+  // (w.sig null: syncWhen). True when a kept copy came back.
   function restoreDraft() {
     const d = loadDraft();
-    if (!d) return;
+    if (!d) return false;
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when, H = D.helpers;
     const dc = d.contact || {}, dv = d.vehicle || {}, dl = d.location || {}, ds = d.service || {}, dw = d.when || {};
     const txt = (x) => (typeof x === 'string' ? x : '');
@@ -194,6 +197,9 @@
     s.addons = codes(ds.addons, menu.services.filter((o) => o.kind === 'addon' && !o.code.startsWith('cond_')), []);
     s.notes = txt(ds.notes);
     s.carried = mainCodes().includes(ds.carried) ? ds.carried : null;
+    // a question not yet answered is asked again: a service the menu has, beside another, never one the request has
+    const main = (x) => ['bundle', 'exterior', 'interior'].some((k) => ofKind(x, k));
+    asking = main(d.ask) && mainsChosen() && !mainCodes().includes(d.ask) ? d.ask : null;
     const today = H.todayIn(settings.timezone);   // (the booking window counts from Parker's today, as the calendar's)
     const first = H.isoDate(H.addDays(today, settings.min_days_ahead)), last = H.isoDate(H.addDays(today, settings.max_days_ahead));
     // a real calendar day: built from its parts, the same year, month and day come back ('2026-13-45' does not)
@@ -208,6 +214,7 @@
     const n = (x) => (Number.isInteger(x) && x >= 1 && x <= 6 ? x : 1);
     step = n(d.step); farthest = Math.max(step, n(d.farthest));
     if (step >= 5 && !mainsChosen()) step = 4;
+    return true;
   }
 
   // A fresh request: everything but who is booking (names, phone and email stay typed in; the phone is confirmed
@@ -308,7 +315,9 @@
 
   // ---------------------------------------------------------------- shell
   // opts.pick: a route token from the Services page (#book-ed), taken in once the menu is here; opts.returning: the
-  // booking met again by Back or Forward (the router), not a new arrival
+  // booking met again by Back, Forward or a reload (the router), not a new arrival. A token met again was taken in when
+  // its link was followed, so where that request is still here (on the page, or kept for a reload) it is not taken
+  // again: a WetGloss let go would come back, a service kept would be asked about again
   function mount(container, opts) {
     root = container;
     if (!draftWired) {
@@ -324,9 +333,10 @@
       // the first visit's load is still on its way: it draws the booking when it lands
       if (!menu) { root.replaceChildren(loading('Loading the booking…')); return; }
       // a receipt from an earlier visit: a new arrival (Book Now, the menu) starts a fresh request; Back or Forward to
-      // it shows the receipt again, as it was left (doc 40), and takes no service in
+      // it shows the receipt again, as it was left (doc 40), and takes no service in. Nor does Back or Forward to a
+      // booking opened from Services: the request stays as the customer left it
       if (st.receipt && !(opts && opts.returning)) reset(true);
-      if (st.receipt) offered = null;
+      if (st.receipt || (opts && opts.returning)) offered = null;
       takeOffer();
       redraw();
       if (step === 6 && !st.receipt) markSummary();   // the Summary met again on arrival is as new as after Continue
@@ -361,8 +371,12 @@
           draftReady = true;   // (a new request from here, Book another detail, is kept as usual)
         } else {
           if (!D.isDown) dropSent();
-          try { restoreDraft(); } catch (e) { clearDraft(); }   // (a copy that can't be read is dropped)
+          let restored = false;
+          try { restored = restoreDraft(); } catch (e) { clearDraft(); }   // (a copy that can't be read is dropped)
           draftReady = true;   // (from here on the request on the page is the one to keep)
+          // a reload of a booking opened from Services (#book-wg): the kept answers hold that service as taken in and
+          // changed since, so the address's token is not taken again. A new arrival from Services still takes it.
+          if (restored && opts && opts.returning) offered = null;
         }
         takeOffer();
         // a request brought back on the date step or the summary: its price first (none: the service step), then the kept
@@ -377,8 +391,10 @@
       }
     })();
   }
-  // A token arriving while the booking is open (#book-ed typed or followed on the booking page): the same rules
-  function offer(tok) {
+  // A token arriving while the booking is open (#book-ed typed or followed on the booking page): the same rules. Back
+  // or Forward onto it (opts.returning) takes nothing: it was taken in when the link was followed
+  function offer(tok, opts) {
+    if (opts && opts.returning) return;
     offered = tok;
     if (!menu || !root) return;
     if (st.receipt) reset(true);
@@ -391,12 +407,14 @@
   // The service chosen on the Services page, taken into the request. A request with no service yet takes it as
   // chosen (step 04 opens with it lit once); one that already has another keeps its own, and the top of the card
   // asks. An add-on joins the add-ons and counts once a service it goes with is chosen. An unknown token is ignored.
+  // What it takes in or asks is kept for a reload as a choice is (drafting), since a reload doesn't take it again.
   function takeOffer() {
     const tok = offered; offered = null;
     if (!tok || !menu) return;
     const g = signs().find((x) => x.key === tok), x = g && svc(g.code);
     if (!x) return;
     const s = st.service;
+    drafting = true; saveDraftSoon();
     if (x.kind === 'addon') {   // one the request's service already includes needs nothing
       if (!s.addons.includes(x.code) && !includedCodes().has(x.code)) { s.addons = s.addons.concat(x.code); invalidatePrice(); }
       return;
