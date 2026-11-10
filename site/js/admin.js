@@ -692,8 +692,8 @@
       el('h2.bk-h2', days === 1 ? longDate(first) : shortDate(first) + ' – ' + shortDate(last)),
       el('button.icon-btn.small', { type: 'button', 'aria-label': 'Later', onclick: () => { st.calDay = H().isoDate(H().addDays(start, days)); render(); } }, '›'),
       el('div.chips', mode('week', 'Week'), mode('day', 'Day'), el('button.link', { type: 'button', onclick: () => { st.calDay = null; render(); } }, 'Today')));
-    const notice = el('section.acct-sec', el('h2.bk-h2', 'Note to customers', el('small', 'shown on the booking calendar')),
-      field({ id: 'customer_notice', label: 'Your note', optional: true, multiline: true, rows: 2, maxlength: 300, value: st.noticeDraft != null ? st.noticeDraft : (settings.customer_notice || ''), hint: 'Display only. Empty hides it. Closed days are set above.', oninput: (e) => { st.noticeDraft = e.target.value; } }),
+    const notice = el('section.acct-sec', el('h2.bk-h2', 'Note to customers', el('small', 'shown on the booking calendar and on Contact')),
+      field({ id: 'customer_notice', label: 'Your note', optional: true, multiline: true, rows: 2, maxlength: 300, value: st.noticeDraft != null ? st.noticeDraft : (settings.customer_notice || ''), hint: 'Shows on the booking calendar and on Contact. Empty hides it. Closed days are set above.', oninput: (e) => { st.noticeDraft = e.target.value; } }),
       staff.role === 'admin' ? el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveNotice }, 'Save note')) : el('p.bk-muted', 'Only the admin can change it.'));
     const opened = (st.bookings || []).find((b) => b.id === st.open && b.service_date >= first && b.service_date <= last && !['requested', 'needs_information'].includes(b.status));
     return el('div.bk-grid', nav, el('div.cal-cols', { class: st.calMode }, cols), opened ? el('section.acct-sec', { id: 'cal-open' }, card(opened)) : null, notice);

@@ -69,6 +69,11 @@
     'Pet hair: a rubber glove works': ['#services-interior', 'Interior services'],
     'Sealant is a habit, not a one-off': ['#services-protection', 'Protection and add-ons'],
   };
+  // The FAQ answers with a page behind them: one quiet link after the approved words, which stay as they are.
+  // "Check your ZIP" opens Contact on its ZIP box, ready to type in (#contact-zip, app.js toZip).
+  const FAQ_LINKS = {
+    'Where do you work?': ['#contact-zip', 'Check your ZIP'],
+  };
   // About's "What we use": only products the menu already names, each with the surface and the service it belongs to.
   const PRODUCTS = [
     ['Koch-Chemie Hydro Foam Sealant', 'Paint', 'Exterior Deluxe'],
@@ -107,7 +112,8 @@
   // open as it is built, so it shows unfolded with no fold to watch, and the page lays out as it was left.
   const folding = new WeakSet();   // (a question folding shut: still open until its fold has ended)
   function faqItem([q, a], open) {
-    const body = el('div.faq-body', el('div', el('p', withPhone(a))));
+    const go = FAQ_LINKS[q];
+    const body = el('div.faq-body', el('div', el('p', withPhone(a)), go ? el('a.note-link', { href: go[0] }, go[1], arrow()) : null));
     const d = el('details.faq-item', { open: open || null, class: open ? 'is-open' : null }, el('summary', q), body);
     if (reduce) { d.addEventListener('toggle', () => d.classList.toggle('is-open', d.open)); return d; }
     let closing = 0;
@@ -224,7 +230,20 @@
       zips = m.zips;
       area = s.public_area || area; miles = s.mobile_radius_miles || miles; phone = s.public_phone || phone;
       paint();
-    }).catch(() => f.remove());
+    }).catch(() => {
+      // Come by #contact-zip with the focus still in the box (where app.js toZip put it), its block's heading takes the
+      // focus and the block comes up just under the top bar, as toZip lands it with no box (read from the layout, as
+      // there); a box not focused yet, toZip finds gone and does the same. Focus the visitor put anywhere else stays
+      // there, and on plain #contact nothing moves.
+      const had = f.contains(document.activeElement), h = document.getElementById('ctWhere');
+      f.remove();
+      if (!had || !h || location.hash !== '#contact-zip') return;
+      h.setAttribute('tabindex', '-1');
+      h.focus({ preventScroll: true });
+      let y = 0;
+      for (let e = h.closest('.ct-where'); e; e = e.offsetParent) y += e.offsetTop + (e.offsetParent ? e.offsetParent.clientTop : 0);
+      window.scrollTo(0, Math.max(0, y - (parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0)));
+    });
     f.classList.add('ct-zip');
     return f;
   }
@@ -245,13 +264,20 @@
       el('p.ct-text', answer('Where do you work?')),
       zipCheck(),
       el('div.ct-sub', el('h3.ct-k', 'Mobile service'), el('p.ct-text', answer('What does mobile service need from me?'))));
+    const week = el('table.ct-week', { 'aria-labelledby': 'ctHours' },
+      el('tbody', HOURS.map(([day, time]) => el('tr', { class: day === today ? 'today' : null, 'aria-current': day === today ? 'date' : null },
+        el('th', { scope: 'row' }, day, day === today ? [' ', el('span.ct-today', 'Today')] : null),
+        el('td.tnum', time)))));
     const hours = el('section.ct-block.ct-hours', { 'aria-labelledby': 'ctHours' },
       el('h2.ct-h#ctHours', 'Hours'),
-      el('table.ct-week', { 'aria-labelledby': 'ctHours' },
-        el('tbody', HOURS.map(([day, time]) => el('tr', { class: day === today ? 'today' : null, 'aria-current': day === today ? 'date' : null },
-          el('th', { scope: 'row' }, day, day === today ? [' ', el('span.ct-today', 'Today')] : null),
-          el('td.tnum', time))))),
+      week,
       el('a.note-link', { href: '#faq' }, 'More in the FAQ', arrow()));
+    // The owner's note to customers (Admin, the calendar's "Note to customers"; the booking calendar shows it too), above
+    // the week, as the booking shows it. The team types it, so it goes in as text only. No note, or no settings: nothing.
+    if (D) D.settings().then((s) => {
+      const note = s && s.customer_notice ? String(s.customer_notice).trim() : '';
+      if (note) hours.insertBefore(el('div.bk-notice.ct-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', note)), week);
+    }).catch(() => {});
     return el('div.ct-grid', reach, where, hours);
   }
 

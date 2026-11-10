@@ -2895,6 +2895,38 @@
     focusEl(h);
     return true;
   }
+  // #contact-zip (the footer's, the FAQ's and Services' "Check your ZIP"): Contact's ZIP box comes up just under the
+  // top bar, its input focused in the next frame, ready to type in. A phone's keyboard comes with a tap on the box: the
+  // iPhone opens it only for a focus made in a tap's own handler (WebKit 195884), never for one made after a page
+  // change, and a cold load opens none on any phone. On a page come to by a link this places the focus, not placeFocus
+  // (landOn), so the page's heading never takes it after the box (a finger down again in the change holds the landing
+  // back till its lift, not the heading's frame); with no block to land on, the heading takes it, as on any page (own).
+  // On a touch screen the box comes to the top (the keyboard takes the lower half); with a mouse the whole "Where we
+  // work" block does, when the box still fits on the screen with it. With no box (the menu couldn't be read: content.js
+  // zipCheck) the block, its heading focused. On Contact already the scroll is smooth, as a group's on Services; never
+  // under reduced motion. Places are read from the layout (offsetTop), not the screen: a block still to rise in (RISE:
+  // 18px low until it is in) would land the box that much under the bar once it has risen.
+  function toZip(smooth, own) {
+    if (parse().t !== 'contact-zip') return;   // (another page came while a finger held this back: its own place stands)
+    const input = document.getElementById('contact_zip'), head = document.getElementById('ctWhere');
+    const where = head && head.closest('.ct-where'), field = input && input.closest('.ct-zip');
+    if (!where) {   // (no block at all: the page's top, as for any page)
+      const v = $$('.view').find((x) => !x.hidden);
+      if (!smooth) window.scrollTo(0, 0);
+      if (own && v) placeFocus(v);
+      return;
+    }
+    const top = (el) => { let y = 0; for (let e = el; e; e = e.offsetParent) y += e.offsetTop + (e.offsetParent ? e.offsetParent.clientTop : 0); return y; };
+    const pad = parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;   // (html's: clear of the top bar)
+    const whole = !field || (window.matchMedia('(pointer: fine)').matches && top(field) + field.offsetHeight - top(where) <= window.innerHeight - pad - 24);
+    barGate.hold();   // (a jump asked for: the bar stays)
+    window.scrollTo({ top: Math.max(0, top(whole ? where : field) - pad), behavior: smooth && !reduce ? 'smooth' : 'auto' });
+    requestAnimationFrame(() => {
+      if (!head.isConnected || head.closest('[hidden]')) return;   // (the page left meanwhile)
+      if (input && !input.isConnected) { toZip(false); return; }   // (the box went meanwhile, the menu failed: the block)
+      if (input) input.focus({ preventScroll: true }); else focusEl(head);
+    });
+  }
 
   // ---------------------------------------------------------------- routing
   const memo = {};
@@ -3066,6 +3098,7 @@
     backFor(r);
     const late = !!again && r !== 'home';   // (met again, a page whose content its landing builds: placed after it)
     const changed = r !== cur;
+    const zipAsked = r === 'contact' && sub === 'zip' && !again;   // #contact-zip followed: Contact's ZIP box (toZip; met again, it lands where it was left)
     if (changed && catchUp) caught();   // (the page left was still being held to its place)
     if (changed || moved) barGate.hold();
     if (changed) {
@@ -3110,7 +3143,9 @@
         return;
       }
       if (again) { const y = landY(again); window.scrollTo(0, y); catchUpTo(y); return; }
-      if (changed && !first && !(r === 'services' && sub)) window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0);
+      // (a group's place and Contact's ZIP box scroll the page themselves: under a finger both wait for its lift, in
+      // either order, so the top must not come after them)
+      if (changed && !first && !(r === 'services' && sub) && !zipAsked) window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0);
     };
     if (cut && !late) whenLifted(place);
     let landed = false;
@@ -3147,11 +3182,19 @@
         const go = () => { chapterHold(); el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }); };
         if (el) requestAnimationFrame(() => (cut ? whenLifted(go) : go()));
       }
+      // Contact's ZIP box (#contact-zip): placed now, before the page's reveals are armed, so they rise where it lands
+      // (armed at the top, the blocks under the page's head would wait for it while it is off the screen); it places
+      // the focus too, so the page's heading takes none (below)
+      if (zipAsked) {
+        const go = () => toZip(!changed, changed && !first);
+        if (cut) whenLifted(go); else go();
+      }
       if (changed) {
         const scope = $$('.view').find((v) => !v.hidden) || document;
         armReveals(scope);
         if (cut && cutHeld === cut) cut.scope = scope; else revealAbove(scope);   // (in a cut: as the page shows, cutGo)
-        if (!first) { if (again) placeBack(scope, again); else placeFocus(scope); }   // (met again: where it was left)
+        // (met again: where it was left; Contact's ZIP box asked for: toZip places the focus, whenever it lands)
+        if (!first) { if (again) placeBack(scope, again); else if (zipAsked) { wantHeading = false; wantBack = null; } else placeFocus(scope); }
         requestAnimationFrame(() => {
           if (view === 'home') { fitServices(); if (wash) wash.refresh(); }
           paintArt();

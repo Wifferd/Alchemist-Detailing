@@ -1674,6 +1674,11 @@ section { position: relative; }
 .footer p, .footer a { margin: 0 0 6px; font-size: var(--fs-md); text-decoration: none; display: block; }
 @media (hover: hover) and (pointer: fine) { .footer a:hover { color: var(--gold-hi); } }
 .footer p { text-wrap: balance; }   /* where a line has to break, it breaks evenly */
+/* Where's "Check your ZIP" (Contact's ZIP box, #contact-zip): a footer link like the others, with the site's gold arrow */
+.footer .foot-zip { display: inline-flex; align-items: center; gap: 8px; }
+.foot-zip .arrow { color: var(--gold); transition: transform .35s var(--ease); }
+@media (hover: hover) and (pointer: fine) { .foot-zip:hover .arrow { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .foot-zip .arrow { transition: none; } }
 /* every page, in two short lists side by side (five, then four) */
 .foot-links { display: grid; grid-template-rows: repeat(5, auto); grid-auto-flow: column; justify-content: start; column-gap: 32px; }
 /* a laptop or a tablet: the brand across the top, the four columns spread under it (two by two from 980px down) */
@@ -4161,7 +4166,7 @@ a.adm-tile { text-decoration: none; color: inherit; }
 .adm-log small { font-size: inherit; }
 .admin .sum-body { grid-template-columns: 200px 1fr; max-width: 760px; }
 .bk-notice { display: grid; gap: 6px; padding: 14px 18px; border-radius: var(--r-md); border: 1px solid var(--line); background: radial-gradient(100% 120% at 0% 0%, rgba(var(--gold-rgb), .12), transparent 60%); }
-.bk-notice p { margin: 0; color: var(--ink); }
+.bk-notice p { margin: 0; color: var(--ink); overflow-wrap: anywhere; }   /* (typed by the team: a long unbroken word, a link, still wraps on a phone) */
 @media (max-width: 980px) { .cal-cols.week { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-cols { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   .appt.adm .appt-head { grid-template-columns: 1fr auto; grid-template-areas: "when status" "what what" "ref ref"; }
@@ -4707,7 +4712,7 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 /* words and quiet links: lit, as a pointer would light them; the brand marks dim a breath */
 :is(.link, .theme-btn, .note-link, .addon-go, .acct-go, .el-back, .ct-link, .menu-sub .call, .su-fold, .scroll-cue, .menu nav a, .faq-item summary, .svc-jump a, .adm-nav a, .bk-progress button, .footer a:not(.foot-brand), .checks.parts a, .bk-muted a).pressed { color: var(--gold-hi); }
 .checks.parts a.pressed { background-image: linear-gradient(var(--gold), var(--gold)); }   /* its line lights too */
-:is(.faq-item a, .bk-lead a).pressed { border-bottom-color: var(--gold-hi); }   /* already gold words: the line under them lights */
+:is(.faq-item p a, .bk-lead a).pressed { border-bottom-color: var(--gold-hi); }   /* already gold words: the line under them lights */
 :is(.brand-link, .menu-brand, .foot-brand).pressed { opacity: .72; }
 .appt-head.pressed { background-color: rgba(var(--gold-rgb), .06); }
 
@@ -4878,8 +4883,8 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
   .em-pen, .emblem.trace .em-mark::after { display: none; }
   .emblem.trace .em-mark img { clip-path: none; animation: none; }
 }
-.faq-item a, .bk-lead a { color: var(--gold-hi); text-decoration: none; border-bottom: 1px solid var(--line); white-space: nowrap; }
-@media (hover: hover) and (pointer: fine) { .faq-item a:hover, .bk-lead a:hover { border-bottom-color: var(--gold-hi); } }
+.faq-item p a, .bk-lead a { color: var(--gold-hi); text-decoration: none; border-bottom: 1px solid var(--line); white-space: nowrap; }   /* (in an answer's words: its quiet link after them keeps the .note-link look) */
+@media (hover: hover) and (pointer: fine) { .faq-item p a:hover, .bk-lead a:hover { border-bottom-color: var(--gold-hi); } }
 /* tips: a numbered journal in one 760px column, an entry per row on hairlines, no boxes. The number is the entry's
    one gold mark (the gutter on the left, on the title's baseline); the title stays in ink and the short line under
    it is a hairline; a tip with a service behind it ends on one quiet link */
@@ -4911,8 +4916,9 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 .faq-item.is-open summary::after { transform: rotate(45deg); }
 .faq-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s var(--ease); }
 .faq-item.is-open .faq-body { grid-template-rows: 1fr; transition-duration: .32s; }
-.faq-body > div { overflow: hidden; }
+.faq-body > div { overflow: hidden; padding-inline: 8px; margin-inline: -8px; }   /* (the clip 8px wider at each side than the words: a focus ring at their edge is whole) */
 .faq-item p { margin: 0; padding-bottom: 24px; color: var(--ink-2); font-size: var(--t-3); line-height: var(--lh-5); max-width: var(--m-read); }
+.faq-item .note-link { margin: -12px 0 12px; }   /* an answer's quiet link after its words (content.js FAQ_LINKS): "Check your ZIP" */
 /* about: the words beside the owner's photo (kept dark in both themes) */
 .about-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: start; }
 .about { display: grid; gap: 14px; }
@@ -4975,6 +4981,7 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 .ct-week tr.today th::before { content: ""; position: absolute; left: -14px; top: 12px; bottom: 12px; width: 1px; background: var(--gold); }
 .ct-today { margin-left: 6px; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold-ink); vertical-align: 1px; }
 .ct-hours .note-link { margin-top: -2px; }
+.ct-notice { justify-self: stretch; margin-top: 4px; }   /* the owner's note above the week (content.js; the booking calendar's .bk-notice), as wide as the week */
 @media (max-width: 860px) {
   .ct-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "reach" "where" "hours"; row-gap: var(--s-4); }
   .ct-hours { position: static; }
@@ -5632,9 +5639,10 @@ html.vt-dim::view-transition-new(root) {
   .appt-au, .trk::after, .acct-soon .soon-mark, .bk-down .soon-mark, .insp { display: none !important; }
   .acct-soon > * { animation: none !important; }
   html, body { background: var(--paper) !important; color: var(--print-ink) !important; }
-  /* the screen's own tools have nothing to say on paper: Contact's "Online" row (its link is hidden) and ZIP check,
-     the Gallery's filters, and the Transmutation while the pair shown has no before photo yet (an empty frame) */
-  .ct-rows > div:has(.note-link), .ct-zip, .gal-filters, .transmute:has(.tm-ph) { display: none !important; }
+  /* the screen's own tools have nothing to say on paper: Contact's "Online" row (its link is hidden) and ZIP check, the
+     footer's way to it, the Gallery's filters, and the Transmutation while the pair shown has no before photo yet (an
+     empty frame) */
+  .ct-rows > div:has(.note-link), .ct-zip, .foot-zip, .gal-filters, .transmute:has(.tm-ph) { display: none !important; }
   .topbar, .dock, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .bar-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
   .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before { display: none !important; }
   [data-rise], [data-reveal], [data-hd], .ln-w, .standard[data-std] :is(.emblem img, h2.eyebrow, .script, .facts span), .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
