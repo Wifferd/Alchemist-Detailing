@@ -4482,6 +4482,15 @@ html.ready .hero.offscreen h1 .l1 { animation-play-state: paused; }
    so the first frames are never swallowed by the compile */
 .hero [data-in], .hero h1 .l1, .hero h1 .l1.split .ch { animation-play-state: paused; }
 html.ready .hero [data-in], html.ready .hero h1 .l1, html.ready .hero h1 .l1.split .ch { animation-play-state: running; }
+.hero .actions[data-in] { filter: none; animation-duration: var(--dur-rise); animation-delay: 300ms; animation-play-state: running; }   /* Book Now and Explore Services never wait for the intro or html.ready: they rise (fade and lift, no blur) 300ms after the page is styled. Longhands only: .met, less motion and no-JS keep them set from the first paint (animation: none) */
+/* Book Now is seen before the intro now, so its shine keeps the intro's clock: it waits for html.ready with the intro
+   (and rests again while app.js takes ready away), and its first crossing comes after the wordmark's own light
+   (1450ms + 1600ms + 240ms, app.js's hold when there is no plan). So app.js's hold finds it still waiting, and where
+   app.js comes late (the head script has let the intro go), it still crosses only once the wordmark's light has.
+   Pause only, so .offscreen still rests it. Home met again (.met, set while home is hidden: its shine starts afresh)
+   and no-JS keep the usual delay */
+html:not(.ready):not(.no-js) .hero .actions .shine::after { animation-play-state: paused; }
+html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290ms; }
 /* the monogram takes one glint as the studio light's bar passes behind it (the owner's gold reflection on the logo):
    the shared pass of light inside the letters (auPass, --au-dur), masked by the monogram's own picture. Its middle is on
    the mark's centre when the bar's is (--glint-at, app.js); .enter only while the light comes on. The glint and the
