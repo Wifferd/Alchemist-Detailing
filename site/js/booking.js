@@ -70,9 +70,47 @@
   const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, sentAsGuest: false, receiptOther: false, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
 
+  // The receipt, kept in this tab (sessionStorage) so a reload brings it back (a phone may reload a tab it put away,
+  // such as after Call): only what the receipt shows, never the booking's id, its history, the team or the shop's
+  // address. It is forgotten when the tab closes or a new request starts (reset); with storage blocked nothing is kept.
+  const SENT_KEY = 'ad.receipt';
+  const sentProject = () => (window.ALCHEMIST_CONFIG || {}).project || null;
+  function saveSent() {
+    try {
+      const r = st.receipt, q = st.quote, v = r.vehicle;
+      const src = r.lines && r.lines.length ? r : q || r;   // the price lines renderSent shows: the database's, else the quote's
+      sessionStorage.setItem(SENT_KEY, JSON.stringify({
+        v: 1, live: D.isLive, project: sentProject(), savedAt: Date.now(),
+        receipt: {
+          ref: r.ref, service_date: r.service_date, start_min: r.start_min, duration_min: r.duration_min || (q && q.duration_min) || null,
+          location_type: r.location_type, address: r.address || null, address_zip: r.address_zip || null,
+          vehicle: v ? { year: v.year, make: v.make, model: v.model, color: v.color, not_sure: v.not_sure, description: v.description } : null,
+          hold_expires_at: r.hold_expires_at || null, total_cents: src.total_cents,
+          lines: (src.lines || []).map((l) => ({ code: l.code, name: l.name, kind: l.kind, price_cents: l.price_cents, included: l.included })),
+          bundle_savings_cents: src.bundle_savings_cents, mobile_cents: src.mobile_cents, extra_cost_cents: src.extra_cost_cents,
+          extra_cost_note: src.extra_cost_note, pending_reasons: src.pending_reasons,
+        },
+        sentAsGuest: st.sentAsGuest, receiptOther: st.receiptOther, phone: st.contact.phone,
+      }));
+    } catch (e) { /* storage blocked or full: the receipt lasts as long as the page, as before */ }
+  }
+  // The kept receipt, if it belongs here: the same mode (live or preview) and project, and its time still held (until
+  // its hold ends, or for settings.hold_hours from when it was kept when it has no hold)
+  function loadSent() {
+    try {
+      const k = JSON.parse(sessionStorage.getItem(SENT_KEY) || 'null'), r = k && k.receipt;
+      if (!k || k.v !== 1 || k.live !== D.isLive || k.project !== sentProject() || !r) return null;
+      if (typeof r.ref !== 'string' || typeof r.service_date !== 'string' || !Number.isFinite(r.start_min) || !Array.isArray(r.lines)) return null;
+      const ends = r.hold_expires_at ? new Date(r.hold_expires_at).getTime() : k.savedAt + settings.hold_hours * 3600000;
+      return ends > Date.now() ? k : null;
+    } catch (e) { return null; }
+  }
+  function dropSent() { try { sessionStorage.removeItem(SENT_KEY); } catch (e) { /* storage blocked: nothing was kept */ } }
+
   // A fresh request: everything but who is booking (names, phone and email stay typed in; the phone is confirmed
   // again unless the session still holds it) and the saved vehicles.
   function reset(keepContact) {
+    dropSent();
     const c = st.contact;
     Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, requestId: D.helpers.uuid(), direction: 1, prices: {} });
     if (keepContact) {
@@ -190,6 +228,16 @@
         phone = settings.public_phone;
         await adopt(s);
         st.requestId = st.requestId || D.helpers.uuid();
+        // a reload on the receipt (it mounts as a return) brings back the receipt kept in this tab, as Back and Forward
+        // show it (doc 40), without its moment and taking no service in; any other first visit starts afresh. While
+        // the database can't be reached (the outage note shows) it stays kept, for a reload once it is back.
+        const kept = opts && opts.returning ? loadSent() : null;
+        if (kept) {
+          st.receipt = kept.receipt; st.sentAsGuest = !!kept.sentAsGuest; st.receiptOther = !!kept.receiptOther;
+          if (!st.contact.phone) st.contact.phone = String(kept.phone || '');
+          offered = null;
+          sentDrawn = st.receipt;
+        } else if (!D.isDown) dropSent();
         takeOffer();
         render();
       } catch (e) {
@@ -1577,6 +1625,7 @@
       const r = await D.submit(payload(), { guest: asGuest });
       tap.end();
       st.receipt = r; st.sentAsGuest = asGuest; st.receiptOther = otherCond();
+      saveSent();
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
       window.scrollTo({ top: cardTop(), behavior: 'auto' });
