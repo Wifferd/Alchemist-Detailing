@@ -777,6 +777,15 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 .page-name span.out { transform: translateY(-110%); opacity: 0; }
 .page-name span.in-start { transform: translateY(110%); opacity: 0; }
 .bar-right { justify-self: end; display: flex; align-items: center; gap: 8px; }
+/* a phone, upright or on its side (a touch screen up to 720px wide, or up to 500px tall: on its side a phone can be
+   wider than 720px, an iPhone 14 or 15 844-932px): the call button in the account icon's place, one 44px button for
+   another, so nothing in the bar moves (Account stays in the menu and the footer). A computer or a tablet keeps the
+   account icon */
+.bar-call { display: none; }
+@media (max-width: 720px) and (pointer: coarse), (max-height: 500px) and (pointer: coarse) {
+  .bar-acct { display: none; }
+  .bar-call { display: grid; }
+}
 .bar-left { justify-self: start; display: flex; align-items: center; gap: 8px; }
 .bar-left > * { flex: none; }
 /* Back (app.js): the page the visitor came from, at the place they left it (the browser's own Back); with no earlier
