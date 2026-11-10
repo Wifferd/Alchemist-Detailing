@@ -1492,6 +1492,7 @@ section { position: relative; }
 .why-item[data-rise]:not(.in) svg path { stroke-dashoffset: 1.01; }
 .why-item.in svg path { transition: stroke-dashoffset .9s var(--ease-in-out) calc(var(--after, .35s) + var(--k, 0) * var(--stagger)); }   /* drawn in, never drawn out; after the head's lead (--after) with their column, else .35s after it */
 .why-item p { margin: 0; color: var(--ink-2); font-size: var(--t-3); text-wrap: pretty; }   /* no word left alone on a card's last line */
+.why-more { margin-top: 18px; }   /* the quiet link to the FAQ under the four (the .note-link look; it rises with them: app.js RISE) */
 
 /* ---------------------------------------------------------------- after Our work: the featured review and the doorways
    The review slot holds one approved review (reviews.js), centred under its head with a quiet link to the rest; it

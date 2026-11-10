@@ -35,6 +35,8 @@
       intro: 'The short answers. Anything else, call ' + PHONE + '.',
       items: [
         ['Where do you work?', 'We come to you within about 10 miles of Parker, Texas, or you come to us in Parker. We send our address with your confirmation.'],
+        // Home's Why Alchemist repeats the next answer's faucet and outlet, and Home's Why and the Services Payment note
+        // repeat 'How do I pay?' (index.html): change them there too
         ['What does mobile service need from me?', 'An outdoor water faucet and a power outlet. Mobile adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.'],
         ['How do I book?', 'Online in a few minutes: your contact, the car, where, the service, a day and time. Your request holds that time for 24 hours while we review it, and we contact you to confirm.'],
         ['How far ahead can I book?', 'From tomorrow up to 60 days ahead. Start times run every 30 minutes from 10 AM to 7 PM, and every job finishes by 8 PM. Monday to Thursday, jobs finish by 4 PM; on Fridays we’re closed from noon to 5 PM.'],

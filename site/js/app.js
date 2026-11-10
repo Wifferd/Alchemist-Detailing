@@ -1067,7 +1067,7 @@
     if (!hd || e.target.matches('[data-hd="h"]')) return;
     if (!hd.classList.contains('in')) { io.unobserve(hd); setHead(hd, true); } else hd.classList.add('hd-now');
   });
-  const RISE = ['.why-item', '.door', '.feat-foot', '.step', '.price-card', '.svc-notes > div', '.rv', '.rv-unissued', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.el-main', '.el-panel', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
+  const RISE = ['.why-item', '.why-more', '.door', '.feat-foot', '.step', '.price-card', '.svc-notes > div', '.rv', '.rv-unissued', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.el-main', '.el-panel', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
   // The rooms: each section after the wash, the closing band and each Services group lights up as it arrives (CSS: its
   // studio glow comes up, then drifts with the scroll). The Services header settles its photo (.in) the same way.
   const ROOMS = '.why, .work, .how, .cta-band, .svc-group';
