@@ -1555,6 +1555,41 @@ section { position: relative; }
 .steps.in .step .n { border-color: var(--line); color: var(--gold-hi); transition-delay: calc(var(--after, 0ms) + var(--k, 0) * 220ms + .3s); }
 .step h3 { margin: 0 0 6px; font: 600 var(--t-3)/1.3 var(--font-ui); letter-spacing: 0; }
 .step p { margin: 0 auto; color: var(--ink-2); font-size: var(--t-3); max-width: 26ch; text-wrap: pretty; }
+.step .step-link { margin: 6px -14px 0; }   /* Choose where: Check your ZIP (the .note-link look), under its words; centred, it may use the step's padding (a 721-760px screen's column is narrower than its words) */
+
+/* ---------------------------------------------------------------- Home's foot bar on a phone (owner, Nov 10)
+   Call and Book Now at the foot of the screen while a phone visitor reads Home between the wash and the closing band
+   (app.js dock: .on). Never over the hero, the wash or the footer: the closing band's own Book Now and Call take over
+   as they rise above it. A phone only, upright or on its side (the top bar's Call button's query); never a computer or
+   a tablet, never another page (it goes with Home's view at once). Fixed, so the page never moves: it slides up from
+   under the screen's edge and back (240ms; under less motion it simply comes and goes), and hidden it is invisible
+   and inert (app.js), so neither Tab nor a screen reader lands on it. The bar's smoked glass made nearly solid, as it
+   is over the wash (no blur: the page under it may be a live picture), with a gold hairline on top; the iPhone's home
+   bar is kept clear (the safe area under the two buttons). Gold once: Book Now, without the shine's sweep */
+.dock { display: none; }
+@media (max-width: 720px) and (pointer: coarse), (max-height: 500px) and (pointer: coarse) {
+  .dock {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 50;   /* under the cut's cover (55), the top bar (60), the menu, Book Now's light, the toast and a photo */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 8px;
+    /* (on its side, a phone's wide screen keeps the two buttons together in the middle) */
+    padding: 7px max(calc(12px + env(safe-area-inset-right, 0px)), calc(50% - 280px)) calc(7px + env(safe-area-inset-bottom, 0px)) max(calc(12px + env(safe-area-inset-left, 0px)), calc(50% - 280px));
+    border-top: 1px solid rgba(var(--gold-rgb), .3);
+    background: linear-gradient(180deg, rgba(var(--grey-16), .985), rgba(var(--grey-4), .995));   /* (all but solid: no blur, so no words may ghost through it) */
+    box-shadow: 0 -16px 36px -22px rgba(0, 0, 0, .9), inset 0 1px 0 rgba(var(--gold-pale-rgb), .07);
+    transform: translate3d(0, calc(100% + 24px), 0);
+    visibility: hidden;
+    transition: transform 240ms var(--ease), visibility 0s linear 240ms;
+  }
+  .dock.on { transform: none; visibility: visible; transition: transform 240ms var(--ease), visibility 0s; }
+  /* (Home met again: the bar rises in from the screen's edge, not in place at once) */
+  @starting-style { .dock.on { transform: translate3d(0, calc(100% + 24px), 0); } }
+  [data-view="home"][hidden] ~ .dock { display: none; }
+  .dock .btn { --h: 44px; min-width: 0; padding: 0 12px; gap: 10px; border-radius: 12px; }
+}
 
 /* ---------------------------------------------------------------- closing call to action */
 .cta-band {
@@ -2747,6 +2782,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .step .n { grid-row: 1 / span 2; margin: 0; }
   .step h3 { margin: 14px 0 6px; text-indent: 0; }
   .step p { margin: 0; max-width: none; }
+  .step .step-link { grid-column: 2; justify-self: start; margin: 2px 0 0; }   /* (beside its number's line, under the words) */
   .why-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .why .why-grid > .why-item { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 16px; padding: 22px 0; border: 0; border-bottom: 1px solid var(--hair); border-radius: 0; background: none; box-shadow: none; transform: none; }   /* (0,3,0): over the light theme's white card too */
   .why .why-grid > .why-item:first-child { border-top: 1px solid var(--hair); }   /* the list's top line arrives with its first row */
@@ -5418,6 +5454,7 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 :where([data-theme="light"]) .work-progress { background: rgba(var(--studio-ink-rgb), .1); }
 :where([data-theme="light"]) :is(.work-item, .gal-tile) { border-color: rgba(var(--studio-ink-rgb), .1); }
 :where([data-theme="light"]) .step .n { background: var(--studio-card); border-color: rgba(var(--studio-ink-rgb), .14); box-shadow: 0 0 0 6px var(--bg); }
+:where([data-theme="light"]) .dock { background: linear-gradient(180deg, rgba(var(--studio-panel-rgb), .985), rgba(var(--studio-nav-foot-rgb), .995)); border-top-color: rgba(var(--studio-gold-rgb), .4); box-shadow: 0 -16px 36px -24px rgba(var(--studio-shade-rgb), .4), inset 0 1px 0 rgba(255, 255, 255, .8); }   /* Home's foot bar: the ivory of the bar scrolled, the studio's gold hairline */
 /* ---- controls: inputs with a 3:1 border, chips and cards on a hairline, the ink focus ring kept */
 :where([data-theme="light"]) .fld-box { background: var(--studio-card); border-color: var(--border-strong); box-shadow: inset 0 1px 2px rgba(var(--studio-shade-rgb), .06); }
 :where([data-theme="light"]) .fld-box { --fld-rim: var(--gold-deep); }   /* the focused rim in the deep gold, 3:1 and more on white (an error's danger still wins) */
@@ -5569,6 +5606,7 @@ html.vt-dim::view-transition-new(root) {
   .svc-jump a[aria-current] { text-decoration: underline; text-underline-offset: 6px; }   /* the gold line is painted over: the group on the screen keeps a mark */
   .bar { background: Canvas !important; }   /* the glass goes clear here: the bar keeps a ground of its own over the hero's photo and light (over every bar state's glass) */
   .icon-btn { border: 1px solid ButtonText !important; }
+  .dock { background: Canvas; border-top: 1px solid CanvasText; box-shadow: none; }   /* Home's foot bar: a ground of its own and a visible edge */
 }
 
 /* =====================================================================
@@ -5597,7 +5635,7 @@ html.vt-dim::view-transition-new(root) {
   /* the screen's own tools have nothing to say on paper: Contact's "Online" row (its link is hidden) and ZIP check,
      the Gallery's filters, and the Transmutation while the pair shown has no before photo yet (an empty frame) */
   .ct-rows > div:has(.note-link), .ct-zip, .gal-filters, .transmute:has(.tm-ph) { display: none !important; }
-  .topbar, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .bar-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
+  .topbar, .dock, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .bar-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
   .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before { display: none !important; }
   [data-rise], [data-reveal], [data-hd], .ln-w, .standard[data-std] :is(.emblem img, h2.eyebrow, .script, .facts span), .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }

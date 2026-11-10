@@ -320,10 +320,11 @@
         <h2 class="display">Four steps to a&nbsp;booked detail</h2>
         <div class="rule" data-reveal></div>
       </div>
+      <!-- the booking form's own order (owner, Nov 10): contact and car, then where, the service and the time, then the confirmation -->
       <ol class="steps" data-reveal>
-        <li class="step"><span class="n">01</span><h3>Choose where</h3><p>We come to you within about 10 miles of Parker, or you come to us.</p></li>
-        <li class="step"><span class="n">02</span><h3>Pick your service</h3><p>Choose services for your vehicle and see the price as you go.</p></li>
-        <li class="step"><span class="n">03</span><h3>Pick a time</h3><p>Choose an open start time, from tomorrow up to 60 days ahead.</p></li>
+        <li class="step"><span class="n">01</span><h3>Tell us about you</h3><p>Your name, a phone number we can reach, and the car.</p></li>
+        <li class="step"><span class="n">02</span><h3>Choose where</h3><p>We come to you within about 10 miles of Parker, or you come to us.</p><a class="note-link step-link" href="#contact-zip">Check your ZIP <span class="arrow" aria-hidden="true">→</span></a></li>
+        <li class="step"><span class="n">03</span><h3>Pick your service and time</h3><p>See the price as you go, then choose an open start time, from tomorrow up to 60 days ahead.</p></li>
         <li class="step"><span class="n">04</span><h3>We confirm</h3><p>Your time is held for 24 hours while we review your request and confirm it.</p></li>
       </ol>
     </div>
@@ -559,7 +560,14 @@
   <section class="book-page brand-page" aria-label="Page"><div id="contentApp"></div></section>
 </div>
 
-
+<!-- ================================================================ HOME'S FOOT BAR (a phone; owner, Nov 10)
+     Call and Book Now at the foot of the screen while the visitor reads Home between the wash and the closing band
+     (app.js dock). After the views, not in Home's: a page's entrance moves its view, and a fixed bar inside would move
+     with it. CSS hides it with Home; hidden, it is invisible and inert -->
+<div class="dock" id="dock" inert>
+  <a class="btn btn-glass dock-call" href="tel:+19453617551" aria-label="Call us at (945) 361-7551"><svg class="tel-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.8l2.3-.4 1.6 3.9-1.8 1.3a11 11 0 0 0 4.7 4.7l1.3-1.8 3.9 1.6-.4 2.3a2 2 0 0 1-2 1.7A15.6 15.6 0 0 1 4.9 5.8a2 2 0 0 1 1.7-2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>Call</span></a>
+  <a class="btn btn-gold dock-book" href="#book">Book Now <span class="arrow" aria-hidden="true">→</span></a>
+</div>
 
 </main>
 

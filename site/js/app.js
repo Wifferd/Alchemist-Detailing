@@ -517,6 +517,7 @@
     menuOpen = true;
     menuMoved = performance.now();
     barGate.show();
+    dock.sync();   // (Home's foot bar steps aside: below)
     menu.classList.remove('chose');   // the last choice's gold line goes with it
     scrim.classList.remove('cut', 'bare');
     $$('nav a.chosen', menu).forEach((a) => a.classList.remove('chosen'));
@@ -542,6 +543,7 @@
     if (!menuOpen) return;
     menuOpen = false;
     menuMoved = performance.now();
+    dock.sync();
     if (cur === 'home' && !heavy) addEventListener('scroll', slideOver, { passive: true, once: true });   // (the wash waits for the compile: heavySoon)
     menu.classList.remove('on');
     scrim.classList.remove('on');
@@ -667,6 +669,53 @@
       cut() { quick(); hold(); },
       // the keyboard's focus coming into the chapter bar while the two are away
       focused() { quick(); show(); },
+    };
+  })();
+
+  // ---------------------------------------------------------------- Home's foot bar on a phone (owner, Nov 10)
+  // Call and Book Now at the foot of a phone's screen (CSS .dock: the top bar's Call button's query) while the visitor
+  // reads Home between the wash and the closing band. What it goes by is watched by one IntersectionObserver, nothing
+  // read from the wash and no layout read in a scroll handler: the hero, the Standard and the wash, end to end from the
+  // top of the page (any of them below the top tenth of the screen), the closing band's own Book Now and Call (risen
+  // above the bar's top edge, they take over from it) and the footer. With none of them on the screen it shows, unless
+  // the menu is open, Home is being left (Book Now's light crossing, a cut) or another page is shown; and it stays
+  // while it holds the keyboard's focus, so a Tab never loses its place. One class and inert: the bar is fixed and
+  // moves by transform, so nothing on the page moves. The observer is made again as Home is shown (its first answers
+  // always come: an older one says nothing of a Home met again elsewhere with the same pieces off the screen) and as the
+  // bar's height changes (a phone turned: the band's line is the bar's top edge).
+  const dock = (() => {
+    const el = $('#dock'), home = $('.view[data-view="home"]');
+    if (!el || !home || !window.IntersectionObserver) return { sync() {}, page() {}, leave() {} };
+    const phone = window.matchMedia('(max-width: 720px) and (pointer: coarse), (max-height: 500px) and (pointer: coarse)');
+    const marks = [$('#top'), $('#standard'), $('#wash'), $('.cta-band .actions') || $('#cta'), footer].filter(Boolean);
+    const seen = new Set();
+    let io = null, known = false, h = 0, on = false, leaving = 0;
+    function sync() {
+      const show = known && phone.matches && !home.hidden && !menuOpen && !leaving && (!seen.size || barGate.focusIn(el));
+      if (show === on) return;
+      on = show;
+      el.classList.toggle('on', show);
+      el.inert = !show;
+    }
+    function watch(fresh) {   // (fresh: what was seen is forgotten, and the bar waits out of the way for the first answers)
+      if (io) io.disconnect();
+      if (fresh) { seen.clear(); known = false; }
+      io = new IntersectionObserver((es) => {
+        es.forEach((e) => { if (e.isIntersecting) seen.add(e.target); else seen.delete(e.target); });
+        known = true;
+        sync();
+      }, { rootMargin: '-10% 0px ' + -h + 'px 0px' });
+      marks.forEach((m) => io.observe(m));
+    }
+    if (window.ResizeObserver) new ResizeObserver(() => { const n = el.offsetHeight; if (n !== h) { h = n; if (!home.hidden) watch(); } }).observe(el);   // (read where the layout is fresh)
+    if (phone.addEventListener) phone.addEventListener('change', sync); else if (phone.addListener) phone.addListener(sync);
+    el.addEventListener('focusout', () => setTimeout(sync, 0));   // (the keyboard gone from it: where it is now decides)
+    return {
+      sync,
+      // a page shown (render): Home's pieces read afresh; until they answer, the bar waits out of the way
+      page() { clearTimeout(leaving); leaving = 0; if (!home.hidden) watch(true); sync(); },
+      // a page chosen from Home: the bar goes at once (Book Now's light, the cut, the menu closing on the way)
+      leave() { clearTimeout(leaving); leaving = setTimeout(() => { leaving = 0; sync(); }, 3000); sync(); },
     };
   })();
 
@@ -3045,6 +3094,7 @@
         else a.removeAttribute('aria-current');
       });
       document.title = r === 'home' ? HOME_TITLE : NAMES[r] + ' · Alchemist Detailing';
+      dock.page();   // (Home's foot bar: only on Home, read afresh there)
     }
     cur = r;
     note(t);   // (Switch sides: this side's last page, doc 49)
@@ -3358,6 +3408,7 @@
     if (!NAMES[r]) return;
     e.preventDefault();
     barGate.cut();   // (a page chosen: the bar is there before the cut goes dark, Book's light or the same page's top)
+    if (cur === 'home' && r !== 'home') dock.leave();   // (Home's foot bar goes with Home, at once)
     const wasOpen = menuOpen;
     // a page chosen in the menu: its gold line shoots across the row under the finger (220ms), and the panel holds a
     // breath (160ms, CSS .chose) so it is seen, while the page changes at once
