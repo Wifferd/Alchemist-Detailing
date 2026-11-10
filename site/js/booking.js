@@ -455,7 +455,9 @@
     if (n === 1) {
       if (!H.isValidName(c.first)) bad('first_name', 'Enter your first name using letters only.');
       if (c.last.trim() && !H.isValidName(c.last)) bad('last_name', 'Enter your last name using letters only, or leave it empty.');
-      if (!H.normalizePhone(c.phone)) bad('phone', guest() ? 'Enter a 10-digit US mobile number, so we can reach you about the booking.' : 'Enter a 10-digit US phone number.');
+      // a guest's ten digits (or 1 and ten) that no number can have: said so, not asked for ten digits again
+      const d = String(c.phone || '').replace(/\D/g, '');
+      if (!H.normalizePhone(c.phone)) bad('phone', guest() ? (d.length === 10 || (d.length === 11 && d[0] === '1') ? 'That doesn’t look like a number we can reach. Please check the digits.' : 'Enter a 10-digit US mobile number, so we can reach you about the booking.') : 'Enter a 10-digit US phone number.');
       else if (!guest() && !c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press “Send code” and confirm your phone to continue.');
       if (emailCodes() && c.email.trim() && !H.isValidEmail(c.email)) bad('email', 'Enter a valid email, or leave it empty.');
       else if (emailCodes() && c.email.trim() && c.emailState === 'sent') bad('email', 'Enter the email code, or press Skip.');
@@ -564,13 +566,26 @@
       field({ id: 'first_name', label: 'First name', required: true, value: c.first, autocomplete: 'given-name', maxlength: 40, oninput: (e) => { c.first = e.target.value; clearError(root, 'first_name'); } }),
       field({ id: 'last_name', label: 'Last name', optional: true, value: c.last, autocomplete: 'family-name', maxlength: 40, oninput: (e) => { c.last = e.target.value; clearError(root, 'last_name'); } })));
 
-    // A guest: the phone as typed, for the owner to call or text to confirm (no code until text codes work)
+    // A guest: the phone as typed, for the owner to call or text to confirm (no code until text codes work). A number
+    // that can exist is read back under the field, so a wrong digit shows before the request goes (no tick: nothing is
+    // confirmed). The line is a status, so it is written only when what it says changes, never on every key: clearError
+    // rewrites it, so it runs only while an error shows. The hint follows the line, for clearError to put back.
     if (guest()) {
-      box.appendChild(field({
+      const phoneHint = () => {
+        const n = D.helpers.normalizePhone(c.phone);
+        return n ? 'We’ll call or text ' + phonePretty(n) + ' to confirm your booking.' : 'We’ll call or text this number to confirm your booking.';
+      };
+      const phoneField = field({
         id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: c.phone,
-        hint: 'We’ll call or text this number to confirm your booking.',
-        oninput: (e) => { c.phone = e.target.value; clearError(root, 'phone'); },
-      }));
+        hint: phoneHint(),
+        oninput: (e) => {
+          c.phone = e.target.value;
+          if (phoneField.classList.contains('has-error')) clearError(root, 'phone');
+          const msg = phoneField.querySelector('.fld-msg'), hint = phoneHint();
+          if (msg.dataset.hint !== hint) { msg.dataset.hint = hint; msg.textContent = hint; }
+        },
+      });
+      box.appendChild(phoneField);
       box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off', value: c.website, oninput: (e) => { c.website = e.target.value; } })));
       return box;
     }
