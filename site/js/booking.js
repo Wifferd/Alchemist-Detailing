@@ -87,7 +87,8 @@
   const quoteCache = new Map();
 
   // The receipt, kept in this tab (sessionStorage) so a reload brings it back (a phone may reload a tab it put away,
-  // such as after Call): only what the receipt shows and who booked (for Book another detail), never the booking's id,
+  // such as after Call): only what the receipt shows (its calendar file too: the request's time is that file's stamp)
+  // and who booked (for Book another detail), never the booking's id,
   // its history, the team or the shop's address. It is forgotten when the tab closes or a new request starts (reset);
   // with storage blocked nothing is kept.
   const SENT_KEY = 'ad.receipt';
@@ -102,7 +103,7 @@
           ref: r.ref, service_date: r.service_date, start_min: r.start_min, duration_min: r.duration_min || (q && q.duration_min) || null,
           location_type: r.location_type, address: r.address || null, address_zip: r.address_zip || null,
           vehicle: v ? { year: v.year, make: v.make, model: v.model, color: v.color, not_sure: v.not_sure, description: v.description } : null,
-          hold_expires_at: r.hold_expires_at || null, total_cents: src.total_cents,
+          hold_expires_at: r.hold_expires_at || null, created_at: r.created_at || null, total_cents: src.total_cents,
           lines: (src.lines || []).map((l) => ({ code: l.code, name: l.name, kind: l.kind, price_cents: l.price_cents, included: l.included })),
           bundle_savings_cents: src.bundle_savings_cents, mobile_cents: src.mobile_cents, extra_cost_cents: src.extra_cost_cents,
           extra_cost_note: src.extra_cost_note, pending_reasons: src.pending_reasons,
@@ -121,7 +122,11 @@
       if (!k || k.v !== 1 || k.live !== D.isLive || k.project !== sentProject() || !r) return null;
       if (typeof r.ref !== 'string' || typeof r.service_date !== 'string' || !Number.isFinite(r.start_min) || !Array.isArray(r.lines)) return null;
       const ends = r.hold_expires_at ? new Date(r.hold_expires_at).getTime() : k.savedAt + settings.hold_hours * 3600000;
-      return ends > Date.now() ? k : null;
+      if (ends <= Date.now()) return null;
+      // (a receipt kept by an older page has no request time: the moment it was kept, a moment later, stands in for
+      // it, as the calendar file's stamp)
+      if (r.created_at == null && Number.isFinite(k.savedAt)) r.created_at = new Date(k.savedAt).toISOString();
+      return k;
     } catch (e) { return null; }
   }
   function dropSent() { try { sessionStorage.removeItem(SENT_KEY); } catch (e) { /* storage blocked: nothing was kept */ } }
@@ -1954,25 +1959,101 @@
 
   // A hold that runs to the request's own start or past it (a next-day request under a 24-hour hold) is not shown as an
   // end time, which would read as held until after the detail has begun: the words say it is held while we review it.
-  // The start is the business's own day and minute (Parker's clock, settings.timezone), not the browser's. Display only.
+  // The start is the business's own day and minute (Parker's clock, settings.timezone), not the browser's. For the
+  // display, and for the calendar file's times (calendarFile).
   function startsAt(date, min) {
     const [y, m, d] = String(date || '').split('-').map(Number);
     if (!y || !m || !d || min == null) return NaN;
     const guess = Date.UTC(y, m - 1, d, Math.floor(min / 60), min % 60);
     try {
-      const p = {};
-      new Intl.DateTimeFormat('en-US', { timeZone: settings.timezone || 'America/Chicago', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
-        .formatToParts(new Date(guess)).forEach((x) => { p[x.type] = +x.value; });
-      return guess - (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - guess);   // the zone's wall clock at the guess, against the guess
+      const f = new Intl.DateTimeFormat('en-US', { timeZone: settings.timezone || 'America/Chicago', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+      const wall = (t) => { const p = {}; f.formatToParts(new Date(t)).forEach((x) => { p[x.type] = +x.value; }); return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute); };
+      const first = guess - (wall(guess) - guess);   // the zone's wall clock at the guess, against the guess
+      return guess - (wall(first) - first);   // and again at that moment itself: right on a day the clocks change too
     } catch (e) { return NaN; }
   }
   function heldPastStart(ends, date, min) { const at = startsAt(date, min); return isFinite(ends) && isFinite(at) && ends >= at; }
 
+  // ---------------------------------------------------------------- Add to calendar (the receipt)
+  // The request as one calendar entry (RFC 5545), written from the receipt alone, so a receipt brought back by a
+  // reload writes the same file: its times in UTC (the requested start on Parker's clock, startsAt, and its length;
+  // iPhone and Google show them in the phone's own zone), the words that it is requested and not confirmed, the
+  // reference, the services and how to change it, and where: the customer's own address as typed for a mobile detail,
+  // only the public area for "come to us" (our address goes out only with a confirmed booking). Its stamp is the
+  // request's own time. No reminder. Null when the receipt lacks any of it (then there is no Add to calendar).
+  function calendarFile(r) {
+    const start = startsAt(r.service_date, r.start_min), stamp = Date.parse(r.created_at || ''), dur = r.duration_min;
+    const ref = String(r.ref || ''), mobile = r.location_type === 'mobile';
+    if (!/^[A-Za-z0-9-]+$/.test(ref) || !Number.isInteger(dur) || dur <= 0 || !isFinite(start) || !isFinite(stamp)) return null;
+    if (mobile ? !(r.address && r.address_zip) : !settings.public_area) return null;
+    const utc = (t) => new Date(t).toISOString().replace(/\.\d+/, '').replace(/[-:]/g, '');   // 20261116T180000Z
+    // a text value: no control characters or half characters, a line break as \n, and \ ; , escaped
+    const text = (s) => String(s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[\ud800-\udfff]/gu, '\ufffd').replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
+    // a line folded at 75 octets (a continuation line starts with a space), never inside a character or an escape
+    const fold = (line) => {
+      const out = [];
+      let cur = '', n = 0;
+      for (const ch of line.match(/\\[\\;,n]|[\s\S]/gu) || []) {
+        const c = ch.codePointAt(0), b = ch.length === 2 && ch[0] === '\\' ? 2 : c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+        if (n + b > (out.length ? 74 : 75)) { out.push(cur); cur = ''; n = 0; }
+        cur += ch; n += b;
+      }
+      out.push(cur);
+      return out.join('\r\n ');
+    };
+    const services = (r.lines || []).filter((l) => l && l.name && !l.included && !String(l.code || '').startsWith('cond_')).map((l) => l.name);
+    const about = ['Reference: ' + ref, services.join(', '), 'Requested, not confirmed yet. We’ll call to confirm. To change or cancel, call ' + phone + '.'].filter(Boolean);
+    const lines = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Alchemist Detailing//Booking request//EN', 'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      'UID:' + ref + '@thealchemistdetailing.com',
+      'DTSTAMP:' + utc(stamp),
+      'DTSTART:' + utc(start),
+      'DTEND:' + utc(start + dur * 60000),
+      'SUMMARY:' + text('Alchemist Detailing (requested, not confirmed)'),
+      'DESCRIPTION:' + text(about.join('\n')),
+      'LOCATION:' + text(mobile ? r.address + ', ' + r.address_zip : settings.public_area),
+      'STATUS:TENTATIVE',
+      'END:VEVENT', 'END:VCALENDAR',
+    ];
+    return { text: lines.map(fold).join('\r\n') + '\r\n', name: 'alchemist-' + ref + '.ics' };
+  }
+  // The file behind Add to calendar, a real link the customer taps (the browser saves it, or an iPhone opens it in
+  // Calendar). An iPhone's or iPad's Safari before 26.5 opens a data: link in Calendar; from 26.5 Safari refuses to
+  // open data: links, and a calendar-typed Blob opens it instead, which every other browser saves as a file too. The
+  // same file keeps its link; a link replaced is let go a minute later (an iPhone may still be reading it).
+  let calLink = null;
+  function oldIosSafari() {
+    const ua = navigator.userAgent;
+    const ios = /iP(hone|od|ad)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);   // (an iPad asks as a Mac)
+    const v = /Version\/(\d+)(?:\.(\d+))?.* Safari\//.exec(ua);
+    if (!ios || !v || /CriOS|FxiOS|EdgiOS/.test(ua)) return false;
+    return +v[1] < 26 || (+v[1] === 26 && +(v[2] || 0) < 5);
+  }
+  function calendarHref(text) {
+    if (calLink && calLink.text === text) return calLink.href;
+    if (calLink && calLink.blob) { const old = calLink.href; setTimeout(() => URL.revokeObjectURL(old), 60000); }
+    const data = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(text);
+    let href = data, blob = false;
+    if (!oldIosSafari()) {
+      try { href = URL.createObjectURL(new Blob([text], { type: 'text/calendar;charset=utf-8' })); blob = true; } catch (e) { /* no Blob links here: the data: link */ }
+    }
+    calLink = { text, href, blob };
+    return href;
+  }
+  // the calendar mark, drawn as the phone mark is (a call button's): a page with its rings and a plus
+  function calMark() {
+    const s = U.svgEl('svg', { class: 'cal-mark', viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' });
+    s.appendChild(U.svgEl('path', { d: 'M5.5 5.5h13a1.5 1.5 0 0 1 1.5 1.5v11.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5V7a1.5 1.5 0 0 1 1.5-1.5zM4 10h16M8.5 3.5v4M15.5 3.5v4M12 12.5v5M9.5 15h5', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    return s;
+  }
+
   // ---------------------------------------------------------------- Request sent
   // The guest's only record of the booking (no confirmation text yet, no account to look again): what was booked, for
   // which car, when and where, the price lines as the database stored them, the reference set large with Copy, and
-  // what happens next, and what is good to know (changes by phone with the reference, what mobile needs). It prints or
-  // saves to one page through the print stylesheet.
+  // what happens next, and what is good to know (changes by phone with the reference, our number for their contacts,
+  // what mobile needs), and the request for their calendar. It prints or saves to one page through the print
+  // stylesheet (neither the calendar nor the contact link prints).
   function renderSent() {
     const r = st.receipt, q = st.quote;
     const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: (settings && settings.timezone) || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/[ \u202f]([AP]M)(?:[ \u202f](\S+))?$/, (m, ap, tz) => '\u00a0' + ap + (tz ? '\u00a0' + tz : '')).replace(/([A-Z][a-z]{2}) (\d{1,2}),/, '$1\u00a0$2,') : null;   // (Parker's clock, as the appointment's; "10:00 PM CST" never breaks inside)
@@ -1988,6 +2069,9 @@
     // there
     const play = sentDrawn !== r && !reduce;
     sentDrawn = r;
+    // (the receipt is the guest's only record: a calendar file that can't be written costs only its button)
+    let cal = null;
+    try { const f = calendarFile(r); if (f) cal = { href: calendarHref(f.text), name: f.name }; } catch (e) { cal = null; }
     const sheet = el('section.sheet.sent-sheet', { 'aria-label': 'Your booking' },
       el('dl.sum-list',
         // (a phone breaks it after the date: "at 10:30 AM · about 1 h" stays together, so no line starts with the dot or "AM")
@@ -2012,15 +2096,19 @@
           el('li', el('b', 'We review it'), el('span', holdEnds ? 'Your time is held until ' + holdEnds : 'Your time is held while we review it')),
           el('li', el('b', st.sentAsGuest ? 'We call or text ' : 'We contact you at ', el('span.tnum', phonePretty(st.contact.phone)), ' to confirm'), el('span', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.')))),   // step 06's sentence
       // what is good to know: changes by phone (no cancel button, doc 26) with the reference; a guest's number was never
-      // confirmed, so a wrong one is named too; a mobile booking keeps step 03's note. On the screen and on paper (the
-      // Call button doesn't print: there our number is here only)
+      // confirmed, so a wrong one is named too; our number for their contacts (our card: the name, the number, the
+      // website and Instagram, a link on the screen only); a mobile booking keeps step 03's note. On the screen and on
+      // paper (the Call button doesn't print: there our number is here only)
       el('section.sent-know', { 'aria-labelledby': 'sent-know-h' },
         el('h2.bk-h2', { id: 'sent-know-h' }, 'Good to know'),
         el('ul.sent-know-list',
           el('li', st.sentAsGuest ? 'Wrong number, or need to change or cancel? Call ' : 'To change or cancel, call ', tel(phone), ' and give your reference ', el('span.tnum.sent-ref-sm', groups.map((g) => el('span', g))), '.'),
+          el('li.sent-card', el('a', { href: 'alchemist-detailing.vcf' }, 'Save our number'), ', so you know it’s us when we call.'),
           r.location_type === 'mobile' && settings.mobile_note ? el('li', settings.mobile_note) : null)),
-      el('div.bk-actions',
+      el('div.bk-actions', { class: cal ? 'with-cal' : null },
         el('a.btn.btn-gold.shine', { href: '#home' }, 'Back to home'),
+        // the request in the customer's calendar, as requested (glass: gold is the way to book)
+        cal ? el('a.btn.btn-glass.sent-cal', { href: cal.href, download: cal.name }, calMark(), el('span', 'Add to calendar')) : null,
         el('button.btn.btn-glass', { type: 'button', onclick: () => { reset(true); window.scrollTo({ top: cardTop(), behavior: 'auto' }); render(); focusTitle(); } }, 'Book another detail'),
         el('a.btn.btn-glass', { href: 'tel:+1' + phone.replace(/\D/g, '') }, U.telMark(), el('span', 'Call ', el('span.tnum', phone)))),   // the phone mark, as on every call button
       el('button.link.sent-print', { type: 'button', onclick: () => { settle(); window.print(); } }, 'Print or save'));

@@ -192,7 +192,7 @@
   }
 
   // ---------------------------------------------------------------- contact
-  // Only what the site already says: the phone, Instagram and online booking; where we work, with the booking's own
+  // Only what the site already says: the phone (and our card with it), Instagram and online booking; where we work, with the booking's own
   // ZIP check (the service ZIPs from the database) and the FAQ's approved answers; the week's hours, today marked.
   // No form, email, map or address, and never "open now": every detail is by appointment.
   function chicagoDay() {
@@ -254,6 +254,9 @@
       el('h2.ct-h#ctReach', 'Reach us'),
       el('p.ct-phone.tnum', PHONE),
       el('a.btn.btn-gold.shine', { href: TEL, 'aria-label': 'Call us at ' + PHONE }, U.telMark(), 'Call us'),
+      // our card for their contacts (the name, the number, the website and Instagram: alchemist-detailing.vcf), a quiet
+      // link under the call; a phone opens it to save, a computer downloads it (the screen's only: it doesn't print)
+      el('a.note-link.ct-card', { href: 'alchemist-detailing.vcf' }, 'Save our number', arrow()),
       rows([
         ['Instagram', el('a.ct-link', { href: INSTAGRAM, target: '_blank', rel: 'noopener', 'aria-label': 'Instagram, @alchemy_details (opens in a new tab)' }, '@alchemy_details', extMark())],
         ['Online', el('a.note-link', { href: '#book' }, 'Book online', arrow())],

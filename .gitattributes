@@ -1,0 +1,2 @@
+# the contact card keeps its CRLF line endings (vCard 3.0) on every checkout
+*.vcf -text

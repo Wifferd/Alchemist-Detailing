@@ -1,0 +1,12 @@
+BEGIN:VCARD
+VERSION:3.0
+N:;;;;
+FN:Alchemist Detailing
+ORG:Alchemist Detailing
+X-ABShowAs:COMPANY
+TEL;TYPE=WORK,VOICE,PREF:+1-945-361-7551
+item1.URL;TYPE=PREF:https://thealchemistdetailing.com/
+item1.X-ABLabel:_$!<HomePage>!$_
+item2.URL:https://www.instagram.com/alchemy_details
+item2.X-ABLabel:Instagram
+END:VCARD
