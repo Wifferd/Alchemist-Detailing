@@ -182,6 +182,7 @@
   --t-6: clamp(24px, 1.33vw + 18.8px, 38px);   /* prices, the statement, feature and booking titles */
   --t-7: clamp(25px, 1.81vw + 17.9px, 44px);   /* section titles */
   --t-8: clamp(32px, 3.81vw + 17.1px, 72px);   /* page titles and the Services plates */
+  --t-label: 13px;                             /* the customer forms' field and question labels */
   /* roles (the old names point at the scale, so every var() that used them follows) */
   --fs-display: clamp(40px, 8.2vw, 110px);     /* the hero wordmark only */
   --fs-h1: var(--t-8);
@@ -3081,6 +3082,11 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .choice-label { margin: 0; font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); }
 .choice-label i { font-style: normal; color: var(--gold-ink); }
 .choice-label small { font-size: inherit; font-weight: 500; letter-spacing: .08em; text-transform: none; color: var(--muted); }
+/* the customer's forms (the booking and Contact's ZIP box): each label a step larger than the floor, a little closer
+   tracked, so it reads as easily as the answer under it. The staff and account forms keep the floor, and so do phones
+   under 360px, where 13px would wrap 'Last name optional' and 'Street address *' and drop their box below its pair;
+   a mouse screen waits for 380px, as its scrollbar (up to 17px) counts in that width but is taken from the form's */
+@media (min-width: 360px) and (pointer: coarse), (min-width: 380px) { #bookApp :is(.fld-label, .choice-label), .ct-zip .fld-label { font-size: var(--t-label); letter-spacing: .1em; } }
 .choice-list.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; align-items: stretch; }
 .choice-list.chips, .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 /* the owner's option tiles (vehicle type, known damage, modifications, §20): compact, slightly squared cards in a grid */
