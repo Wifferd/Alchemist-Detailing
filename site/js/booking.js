@@ -1622,7 +1622,8 @@
   // ---------------------------------------------------------------- Request sent
   // The guest's only record of the booking (no confirmation text yet, no account to look again): what was booked, for
   // which car, when and where, the price lines as the database stored them, the reference set large with Copy, and
-  // what happens next. It prints or saves to one page through the print stylesheet.
+  // what happens next, and what is good to know (changes by phone with the reference, what mobile needs). It prints or
+  // saves to one page through the print stylesheet.
   function renderSent() {
     const r = st.receipt, q = st.quote;
     const holdEnds = r.hold_expires_at && !heldPastStart(new Date(r.hold_expires_at).getTime(), r.service_date, r.start_min) ? new Date(r.hold_expires_at).toLocaleString('en-US', { timeZone: (settings && settings.timezone) || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/[ \u202f]([AP]M)(?:[ \u202f](\S+))?$/, (m, ap, tz) => '\u00a0' + ap + (tz ? '\u00a0' + tz : '')).replace(/([A-Z][a-z]{2}) (\d{1,2}),/, '$1\u00a0$2,') : null;   // (Parker's clock, as the appointment's; "10:00 PM CST" never breaks inside)
@@ -1660,8 +1661,15 @@
         el('ol.sent-steps',
           el('li', el('b', 'Request sent'), el('span.tnum.sent-ref-sm', groups.map((g) => el('span', g)))),   // grouped as the reference above
           el('li', el('b', 'We review it'), el('span', holdEnds ? 'Your time is held until ' + holdEnds : 'Your time is held while we review it')),
-          el('li', el('b', st.sentAsGuest ? 'We call or text ' : 'We contact you at ', el('span.tnum', phonePretty(st.contact.phone)), ' to confirm'), el('span', 'You pay in person after your detail'))),
-        el('p.bk-muted.sent-help', 'Questions? Call ', tel(phone), '.')),   // on paper, where the Call button isn't
+          el('li', el('b', st.sentAsGuest ? 'We call or text ' : 'We contact you at ', el('span.tnum', phonePretty(st.contact.phone)), ' to confirm'), el('span', 'You pay in person after your detail: card, Apple Pay or tap to pay, cash, or Zelle.')))),   // step 06's sentence
+      // what is good to know: changes by phone (no cancel button, doc 26) with the reference; a guest's number was never
+      // confirmed, so a wrong one is named too; a mobile booking keeps step 03's note. On the screen and on paper (the
+      // Call button doesn't print: there our number is here only)
+      el('section.sent-know', { 'aria-labelledby': 'sent-know-h' },
+        el('h2.bk-h2', { id: 'sent-know-h' }, 'Good to know'),
+        el('ul.sent-know-list',
+          el('li', st.sentAsGuest ? 'Wrong number, or need to change or cancel? Call ' : 'To change or cancel, call ', tel(phone), ' and give your reference ', el('span.tnum.sent-ref-sm', groups.map((g) => el('span', g))), '.'),
+          r.location_type === 'mobile' && settings.mobile_note ? el('li', settings.mobile_note) : null)),
       el('div.bk-actions',
         el('a.btn.btn-gold.shine', { href: '#home' }, 'Back to home'),
         el('button.btn.btn-glass', { type: 'button', onclick: () => { reset(true); window.scrollTo({ top: cardTop(), behavior: 'auto' }); render(); focusTitle(); } }, 'Book another detail'),
@@ -1672,7 +1680,8 @@
   // The moment in parts, each started in a task of its own so no one frame carries it all (the CSS): the receipt is
   // built with every part waiting; once it is drawn the seal's marks are drawn unseen, and a frame later the seal
   // starts, and the shines wait for its light; the sheet's rows and drawn hairlines are put in order while it is still
-  // hidden; then the head, the sheet's summary, its price lines and what happens next, each at its time in the moment.
+  // hidden; then the head, the sheet's summary, its price lines and what happens next (with what is good to know),
+  // each at its time in the moment.
   // Nothing changes when it is over (each part's animation lets go of it as it ends)
   const SENT_PARTS = ['draw', 'seal', 'head', 'sheet', 'lines', 'next'];
   const SENT_AT = { head: 300, sheet: 600, lines: 800, next: 1100 };

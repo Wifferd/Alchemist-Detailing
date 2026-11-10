@@ -2974,8 +2974,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .bk-note.ok { border-color: var(--line-soft); }
 .bk-note b { color: var(--ink); font-weight: 600; }
 .bk-muted { margin: 0; color: var(--muted); font-size: 14px; }
-.bk-muted a { color: var(--gold-ink); text-decoration: underline; text-underline-offset: 3px; }
-@media (hover: hover) and (pointer: fine) { .bk-muted a:hover { color: var(--gold-pale); } }
+.bk-muted a, .sent-know-list a { color: var(--gold-ink); text-decoration: underline; text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) { .bk-muted a:hover, .sent-know-list a:hover { color: var(--gold-pale); } }
 /* an empty list says what would be there: one quiet dashed slot in the list's place (admin and team) */
 .bk-empty { margin: 0; padding: 18px 16px; border: 1px dashed rgba(255, 255, 255, .12); border-radius: var(--r-md); color: var(--muted); font-size: 14px; text-align: center; }
 /* a text link that is still a 44px target: the hit area grows around the words, the negative margins keep the layout */
@@ -3448,16 +3448,16 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 /* the moment, on the screen only, in parts that each start in a task of their own (booking.js playSent), so no one
    frame carries it all. The receipt is built with every part waiting (.wait-*: simply not there yet); once it is drawn
    the seal's two marks are drawn unseen (.wait-draw goes), and a frame later the seal starts (.play-seal), the head
-   300ms into the moment, the sheet 600ms in with its summary, its price lines 800ms in and what happens next 1100ms
-   in, each part's delays counted from its own start. The sheet's rows (.sr) and drawn hairlines (.sr-h, below) and
-   their order (--k, --h) are set while it is still hidden. Each animation lets go once it has played (its end is the
-   still frame), so nothing changes when the moment is over */
+   300ms into the moment, the sheet 600ms in with its summary, its price lines 800ms in and what happens next (with
+   what is good to know) 1100ms in, each part's delays counted from its own start. The sheet's rows (.sr) and drawn
+   hairlines (.sr-h, below) and their order (--k, --h) are set while it is still hidden. Each animation lets go once it
+   has played (its end is the still frame), so nothing changes when the moment is over */
 @property --foil-top { syntax: "<percentage>"; inherits: false; initial-value: 112%; }
 @media screen and (prefers-reduced-motion: no-preference) {
   .bk-sent.wait-draw .sent-mark > svg { display: none; }
   .bk-sent.wait-seal > .sent-mark { opacity: 0; }
   .bk-sent.wait-head > .eyebrow, .bk-sent.wait-head > .bk-title, .bk-sent.wait-head > .sent-ref, .bk-sent.wait-head > .bk-preview { opacity: 0; }
-  .bk-sent.wait-sheet > .sent-sheet, .bk-sent.wait-lines .pr > .sr, .bk-sent.wait-next > .sent-next { opacity: 0; }
+  .bk-sent.wait-sheet > .sent-sheet, .bk-sent.wait-lines .pr > .sr, .bk-sent.wait-next > .sent-next, .bk-sent.wait-next > .sent-know { opacity: 0; }
   /* the seal, from 0ms */
   .bk-sent.play-seal .seal-blind { animation: sealPress .42s var(--ease-unveil) backwards; }
   .bk-sent.play-seal .seal-foil { -webkit-mask-image: linear-gradient(to top, #000 calc(var(--foil-top) - 12%), transparent var(--foil-top)); mask-image: linear-gradient(to top, #000 calc(var(--foil-top) - 12%), transparent var(--foil-top)); animation: sealFoil .7s var(--ease-in-out) .45s backwards; }   /* at an even press, so it is seen rising */
@@ -3477,8 +3477,9 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
   /* its price lines, started at 800ms: in order after the summary, the total last */
   .bk-sent.play-lines .pr > .sr { animation: sentRow var(--dur-rise) var(--ease-unveil) calc(200ms + var(--k, 0) * 60ms) backwards; }
   .bk-sent.play-lines .pr > .sr-h::before { animation: hairDraw var(--dur-line) var(--ease-unveil) calc(200ms + min(var(--h, 0), 3) * 60ms) backwards; }
-  /* what happens next, started at 1100ms: from 1500ms */
+  /* what happens next, started at 1100ms: from 1500ms, what is good to know with it */
   .bk-sent.play-next > .sent-next { animation: sentFade var(--dur-line) var(--ease-unveil) 400ms backwards; }
+  .bk-sent.play-next > .sent-know { animation: sentFade var(--dur-line) var(--ease-unveil) 400ms backwards; }
 }
 @keyframes sealPress { from { opacity: 0; transform: translateY(-2px); } }   /* the stamp lands in place: never larger than at rest */
 @keyframes sealFoil { from { --foil-top: 0%; } to { --foil-top: 112%; } }
@@ -3495,7 +3496,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sent-code { overflow: clip; margin: -.08em 0 -.16em; padding: .08em .1em .16em; font: 400 clamp(28px, 5vw, 40px)/1.1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: .06em; font-variant-numeric: tabular-nums lining-nums; color: var(--gold-hi); }   /* its line's window */
 .sent-code-in { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .42em; }
 @supports not (overflow: clip) { .sent-line, .sent-code { overflow: hidden; } }
-.sent-sheet, .sent-next { width: min(100%, 600px); text-align: left; }
+.sent-sheet, .sent-next, .sent-know { width: min(100%, 600px); text-align: left; }
 .sent-sheet { gap: 6px; padding: 20px 24px 22px; }
 .sent-sheet > .sum-list { padding-bottom: 16px; margin-bottom: 4px; border-bottom: 1px solid var(--hair); }
 /* on the screen the sheet's hairlines are drawn lines (so they can draw themselves), in the borders' places (.sr-h:
@@ -3518,10 +3519,15 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sent-steps b .tnum { font-size: inherit; line-height: inherit; color: inherit; white-space: nowrap; }   /* the phone number on one line */
 .sent-ref-sm span { letter-spacing: .04em; }
 .sent-ref-sm span + span { margin-left: .32em; }   /* grouped as the reference above; copied as one */
+/* what is good to know: under what happens next, its lines as the steps' quiet lines (the number a link, as in the
+   booking's own notes) */
+.sent-know { display: grid; gap: 10px; padding: 0 4px; }
+.sent-know-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.sent-know-list li { font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.sent-know-list .tnum { white-space: nowrap; }   /* the number and the reference each in one piece (as in the steps, where the groups have no break between them): on a narrow phone the reference moves down whole */
 .sent-len { white-space: nowrap; }   /* "about 3 h 30 min" stays together on a phone */
 .bk-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .sent-print { margin-top: -6px; }
-.sent-help { display: none; }   /* printed only: the Call button doesn't print */
 
 /* toast: drops in under the bar, so it never covers the booking's bottom bar */
 .toast { position: fixed; left: 50%; top: calc(86px + env(safe-area-inset-top, 0px)); z-index: 95; transform: translate(-50%, -12px); opacity: 0; padding: 12px 18px; border-radius: 999px; background: rgba(var(--grey-12), .92); border: 1px solid var(--line); border-left: 2px solid var(--gold); color: var(--ink); font-size: 14px; box-shadow: 0 20px 50px -20px rgba(0, 0, 0, .9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: opacity .35s var(--ease), transform .35s var(--ease); pointer-events: none; max-width: calc(100vw - 32px); }
@@ -5353,7 +5359,7 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 [data-theme="light"] :focus-visible { outline-color: var(--gold-ink); }
 [data-theme="light"] .work-btn:focus-visible, [data-theme="light"] .gal-btn:focus-visible { outline-color: var(--au-200); }   /* on the photo itself */
 @media (hover: hover) and (pointer: fine) {
-  :where([data-theme="light"]) .bk-muted a:hover { color: var(--gold); }
+  :where([data-theme="light"]) .bk-muted a:hover, :where([data-theme="light"]) .sent-know-list a:hover { color: var(--gold); }
   :where([data-theme="light"]) .link.danger:hover { color: var(--danger); }
 }
 /* ---- the hero stays the black showroom (the hero stays black; §31: not an inversion), as the Services header does: the
@@ -5663,14 +5669,14 @@ html.vt-dim::view-transition-new(root) {
   .steps .step .n, .steps.in .step .n { background: none; box-shadow: none; border-color: currentColor; color: var(--gold-ink); }   /* How booking works: each number an outlined figure, with or without the background graphics */
   .footer::before { transform: none !important; }   /* the hairline drawn, wherever the sign-off had got to */
   /* the receipt on one page, a long booking too: tighter, the mark smaller, the footer left off (the receipt carries
-     the phone itself) */
+     the phone itself). With what is good to know on it, it is still no taller than it was without it */
   body:has(.bk-sent) .footer { display: none !important; }
   .book-page:has(.bk-sent) { padding-block: 0 !important; }
-  .bk.bk-sent { gap: 8px; padding: 4mm 8mm !important; }
+  .bk.bk-sent { gap: 4px; padding: 4mm 8mm 3mm !important; }
   .sig { border-color: var(--print-mark); }
   .sent-mark, .sent-mark > svg { width: 34px; height: 34px; }
   .sent-mark::before, .seal-blind { display: none !important; }   /* the seal prints flat gold: no emboss, no glow */
-  .bk-sent .eyebrow { margin-block: 4px; }
+  .bk-sent .eyebrow { margin-block: 2px; }
   .bk-sent .bk-title { font-size: 22px; }
   .sent-code { font-size: 22px; }
   .sent-ref { gap: 2px; }
@@ -5683,26 +5689,30 @@ html.vt-dim::view-transition-new(root) {
   /* the price lines a little closer, their Table marks smaller to match */
   .sent-sheet .pr { --gut: 40px; }
   .sheet .pr-line { min-height: 0; padding-block: 4px; font-size: 14px; }
-  .sent-sheet .pr-line .sig { width: 28px; height: 28px; padding: 4px 0 0 2px; font-size: 11px; }
+  .sent-sheet .pr-line { padding-block: 3px; line-height: 1.45; }   /* the receipt's closer still (step 06's sheet keeps its own) */
+  .sent-sheet .pr-line .sig { width: 26px; height: 26px; padding: 3px 0 0 2px; font-size: 11px; }
   .sent-sheet .pr-line .sig small { top: 2px; left: 3px; font-size: 7px; }
   .sheet .pr-note { margin: -2px 0 6px; }
   .sheet .pr-total { padding-top: 8px; font-size: 16px; }
-  /* what happens next across the page: three points on one line, the third the widest (it holds the phone number),
-     the call line beside the heading; kept whole, so none of it prints alone on a second page */
-  .sent-next { grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 10px 18px; break-inside: avoid; page-break-inside: avoid; }
-  .sent-next > .bk-h2, .bk-sent .sent-help { grid-row: 1; }
-  .sent-steps { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr); column-gap: 18px; }
+  /* what happens next across the page: three points on one line, the first as wide as the reference, the third the
+     widest (it holds the phone number and the ways to pay); kept whole, so none of it prints alone on a second page */
+  .sent-next { gap: 10px; break-inside: avoid; page-break-inside: avoid; }
+  .sent-steps { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.7fr); column-gap: 18px; }
   .sent-steps li { padding: 18px 0 0; }
   .sent-steps li::before { left: 0; top: 0; }
   .sent-steps li::after { left: 15px; right: -14px; top: 5px; bottom: auto; width: auto; height: 1px; }
+  .sent-steps b { line-height: 1.3; }   /* a point's name, on two lines too, held together as a heading */
+  .sent-steps span { font-size: 13px; line-height: 1.4; }   /* its quiet lines as what is good to know's on paper */
   .sent-ref-sm { white-space: nowrap; }   /* the reference in one piece */
-  .bk-sent .sent-help { display: block; text-align: right; }
-  /* a narrow page (a phone's print view): one column, the three points down the page as on the screen, the call
-     line under them */
+  /* what is good to know under it (the receipt's one phone number on paper), across the column as the sheet, outside
+     its grid, kept whole: its lines run on as one short paragraph */
+  .sent-know { gap: 4px; break-inside: avoid; page-break-inside: avoid; }
+  .sent-know-list { display: block; font-size: 13px; line-height: 1.4; }
+  .sent-know-list li { display: inline; font-size: inherit; line-height: inherit; }
+  .sent-know-list li + li::before { content: " "; }
+  /* a narrow page (a phone's print view): one column, the three points down the page as on the screen */
   @media (max-width: 480px) {
-    .sent-sheet > .sum-list, .sent-next, .sent-steps { grid-template-columns: minmax(0, 1fr); }
-    .sent-next > .bk-h2, .bk-sent .sent-help { grid-row: auto; }
-    .bk-sent .sent-help { text-align: left; }
+    .sent-sheet > .sum-list, .sent-steps { grid-template-columns: minmax(0, 1fr); }
     .sent-steps li { padding: 0 0 14px 32px; }
     .sent-steps li:last-child { padding-bottom: 0; }
     .sent-steps li::before { left: 3px; top: 4px; }
