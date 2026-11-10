@@ -107,10 +107,92 @@
   }
   function dropSent() { try { sessionStorage.removeItem(SENT_KEY); } catch (e) { /* storage blocked: nothing was kept */ } }
 
+  // ---------------------------------------------------------------- kept across a reload (this tab only)
+  // An iPhone often reloads a tab left to read a text (doc 39, question 25): the answers so far are kept in this tab's
+  // sessionStorage, so a reload brings the booking back. Only what the customer chose or typed: never the spam field,
+  // a code's state, the email, a saved vehicle, photos or the request's id (a reload gets a new one, as before). It is
+  // written a moment after each change, as a step changes, as the page goes and as the tab is put away (another app: a
+  // phone may then discard the tab with no pagehide), never while the receipt shows. Send, Cancel and a fresh request
+  // (reset) forget it, and nothing is written again until the booking is changed again (drafting). Where storage
+  // can't be used, the booking works as before.
+  const DRAFT_KEY = 'ad.book';
+  let drafting = false, draftWired = false, draftSaved = null;   // (draftSaved: the copy this page last wrote)
+  function saveDraft() {
+    if (!menu || st.receipt || !drafting) return;
+    const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when;
+    const d = {
+      v: 1, step, farthest,
+      contact: { first: c.first, last: c.last, phone: c.phone },
+      vehicle: { year: v.year, make: v.make, model: v.model, color: v.color, type: v.type, size: v.size, notSure: v.notSure, description: v.description, conditions: v.conditions, damage: v.damage, damageNote: v.damageNote, modifications: v.modifications, moreOpen: v.moreOpen },
+      location: { type: l.type, address: l.address, zip: l.zip },
+      service: { bundle: s.bundle, exterior: s.exterior, interior: s.interior, addons: s.addons, notes: s.notes, carried: s.carried },
+      // (a start held aside while its day's times load again is still the one picked)
+      when: { date: w.date, start: w.start != null ? w.start : w.keep },
+    };
+    const json = JSON.stringify(d);
+    if (json === draftSaved) return;   // (unchanged since this page last wrote it)
+    try { sessionStorage.setItem(DRAFT_KEY, json); draftSaved = json; } catch (e) { /* storage unavailable: a reload starts afresh, as before */ }
+  }
+  const saveDraftSoon = U.debounce(saveDraft, 300);
+  function clearDraft() {
+    drafting = false; draftSaved = null;
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) { /* storage unavailable: nothing was kept */ }
+  }
+  function loadDraft() {
+    try { const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null'); return d && typeof d === 'object' && d.v === 1 ? d : null; } catch (e) { return null; }
+  }
+  // The kept answers, taken back as the booking is first drawn in this tab (mount). Names and phone fill only empty
+  // fields, so a signed-in account's own win; a code the menu no longer has is dropped, and so is a day that isn't a
+  // real calendar day or is outside the booking window. The day and the start are checked again on the date step
+  // (w.sig null: syncWhen).
+  function restoreDraft() {
+    const d = loadDraft();
+    if (!d) return;
+    const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when, H = D.helpers;
+    const dc = d.contact || {}, dv = d.vehicle || {}, dl = d.location || {}, ds = d.service || {}, dw = d.when || {};
+    const txt = (x) => (typeof x === 'string' ? x : '');
+    const known = (x, list) => list.some((o) => o.code === x);
+    const codes = (x, list, none) => (Array.isArray(x) ? x.filter((k, i) => known(k, list) && x.indexOf(k) === i) : none);
+    const ofKind = (x, kind) => (menu.services.some((o) => o.code === x && o.kind === kind) ? x : null);
+    if (!c.first) c.first = txt(dc.first);
+    if (!c.last) c.last = txt(dc.last);
+    if (!c.phone) c.phone = txt(dc.phone);
+    Object.assign(v, {
+      year: txt(dv.year), make: txt(dv.make), model: txt(dv.model), color: txt(dv.color),
+      type: known(dv.type, menu.vehicleTypes) ? dv.type : null, size: dv.size === 'xl' ? 'xl' : 'standard',
+      notSure: dv.notSure === true, description: txt(dv.description),
+      conditions: codes(dv.conditions, menu.options.condition, []), damage: codes(dv.damage, menu.options.damage, ['none']),
+      damageNote: txt(dv.damageNote), modifications: codes(dv.modifications, menu.options.modification, []), moreOpen: dv.moreOpen === true,
+    });
+    Object.assign(l, { type: dl.type === 'mobile' || dl.type === 'shop' ? dl.type : null, address: txt(dl.address), zip: txt(dl.zip) });
+    s.bundle = ofKind(ds.bundle, 'bundle');
+    s.exterior = s.bundle ? null : ofKind(ds.exterior, 'exterior');
+    s.interior = s.bundle ? null : ofKind(ds.interior, 'interior');
+    s.addons = codes(ds.addons, menu.services.filter((o) => o.kind === 'addon' && !o.code.startsWith('cond_')), []);
+    s.notes = txt(ds.notes);
+    s.carried = mainCodes().includes(ds.carried) ? ds.carried : null;
+    const today = H.todayIn(settings.timezone);   // (the booking window counts from Parker's today, as the calendar's)
+    const first = H.isoDate(H.addDays(today, settings.min_days_ahead)), last = H.isoDate(H.addDays(today, settings.max_days_ahead));
+    // a real calendar day: built from its parts, the same year, month and day come back ('2026-13-45' does not)
+    const real = (x) => {
+      if (typeof x !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+      const y = +x.slice(0, 4), m = +x.slice(5, 7), dd = +x.slice(8, 10), t = new Date(y, m - 1, dd);
+      return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === dd;
+    };
+    const date = real(dw.date) && dw.date >= first && dw.date <= last ? dw.date : null;
+    Object.assign(w, blank.when(), { date, start: date && Number.isInteger(dw.start) ? dw.start : null });
+    if (date) w.month = new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, 1);   // (the calendar opens on the kept day's month)
+    const n = (x) => (Number.isInteger(x) && x >= 1 && x <= 6 ? x : 1);
+    step = n(d.step); farthest = Math.max(step, n(d.farthest));
+    if (step >= 5 && !mainsChosen()) step = 4;
+  }
+
   // A fresh request: everything but who is booking (names, phone and email stay typed in; the phone is confirmed
-  // again unless the session still holds it) and the saved vehicles.
+  // again unless the session still holds it) and the saved vehicles. The copies kept for a reload (the receipt, the
+  // answers) are forgotten.
   function reset(keepContact) {
     dropSent();
+    clearDraft();
     const c = st.contact;
     Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, requestId: D.helpers.uuid(), direction: 1, prices: {} });
     if (keepContact) {
@@ -205,6 +287,14 @@
   // booking met again by Back or Forward (the router), not a new arrival
   function mount(container, opts) {
     root = container;
+    if (!draftWired) {
+      draftWired = true;
+      // any change on the booking (a key, a choice, a tap) is kept a moment later. The capture comes before the
+      // control's own handler, so a Cancel or a fresh request that forgets the kept copy is not written back by its own tap
+      ['input', 'change', 'click'].forEach((t) => root.addEventListener(t, () => { drafting = true; saveDraftSoon(); }, true));
+      window.addEventListener('pagehide', saveDraft);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) saveDraft(); });   // (as app.js keeps its place)
+    }
     if (opts && opts.pick) offered = opts.pick;
     if (mounted) {
       // the first visit's load is still on its way: it draws the booking when it lands
@@ -231,14 +321,23 @@
         // a reload on the receipt (it mounts as a return) brings back the receipt kept in this tab, as Back and Forward
         // show it (doc 40), without its moment and taking no service in; any other first visit starts afresh. While
         // the database can't be reached (the outage note shows) it stays kept, for a reload once it is back.
+        // Otherwise the answers kept for a reload come back (a request that was sent keeps none: Send forgot them).
         const kept = opts && opts.returning ? loadSent() : null;
         if (kept) {
           st.receipt = kept.receipt; st.sentAsGuest = !!kept.sentAsGuest; st.receiptOther = !!kept.receiptOther;
           if (!st.contact.phone) st.contact.phone = String(kept.phone || '');
           offered = null;
           sentDrawn = st.receipt;
-        } else if (!D.isDown) dropSent();
+          clearDraft();   // (the receipt shows, not a draft)
+        } else {
+          if (!D.isDown) dropSent();
+          try { restoreDraft(); } catch (e) { clearDraft(); }   // (a copy that can't be read is dropped)
+        }
         takeOffer();
+        // a request brought back on the date step or the summary: its price first (none: the service step), then the kept
+        // day and start checked again for it, as after a service change (syncWhen). Drawn in place (render, not show),
+        // so the page lands where it was left (app.js)
+        if (!st.receipt && step >= 5) { await refreshQuote(); if (st.quote) syncWhen(); else step = 4; }
         render();
       } catch (e) {
         mounted = false;   // the next visit tries again
@@ -410,7 +509,9 @@
     return el('div.bk-nav',
       // one step back, named for what it does (the bar's Back leaves the booking): "Previous", the step it returns to
       // in its label (the steps' names don't all fit beside Send Request on a 360px phone)
-      step > 1 ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : el('a.btn.btn-glass', { href: '#home' }, 'Cancel'),
+      // Cancel: a fresh request (who is booking stays, as with Book another detail), and the copy kept for a reload is
+      // forgotten; the link still goes home
+      step > 1 ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : el('a.btn.btn-glass', { href: '#home', onclick: () => reset(true) }, 'Cancel'),
       el('div.bk-nav-mid', { 'aria-live': 'polite', 'aria-atomic': 'true' }, navTotal(null)),
       el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, onclick: () => (last ? send() : next()) },
         last ? 'Send Request' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
@@ -470,6 +571,7 @@
     focusTitle();
     stopDaysWait();
     if (n === 5 && !quiet) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
+    drafting = true; saveDraft();   // (a reload now comes back on this step)
   }
   // The step bar can jump past an edit that dropped the quote (a new vehicle type, place or condition): the quote
   // is worked out again first, so the times and the Summary are for what is chosen now.
@@ -1624,6 +1726,7 @@
       const asGuest = guest();
       const r = await D.submit(payload(), { guest: asGuest });
       tap.end();
+      clearDraft();   // (the request is in: a reload no longer brings it back)
       st.receipt = r; st.sentAsGuest = asGuest; st.receiptOther = otherCond();
       saveSent();
       busy = false;
