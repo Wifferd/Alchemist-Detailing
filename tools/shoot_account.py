@@ -40,7 +40,10 @@ async def main():
         await pg.click('#bk-next'); await pg.wait_for_selector('.cal-day.open')
         days = await pg.query_selector_all('.cal-day.open'); await days[min(2, len(days) - 1)].click()   # (late in a month fewer days are open)
         await pg.wait_for_selector('.choice-item.time'); await (await pg.query_selector_all('.choice-item.time'))[0].click()
-        await pg.click('#bk-next'); await pg.wait_for_selector('.sum'); await pg.click('#bk-next'); await pg.wait_for_selector('.bk-sent')
+        await pg.click('#bk-next'); await pg.wait_for_selector('.sum')
+        # Send ignores a tap in the first half-second after the Summary shows (booking.js SEND_HOLD: the second tap of a quick
+        # double tap on Continue); a client reads it first, so the walk waits too
+        await pg.wait_for_timeout(600); await pg.click('#bk-next'); await pg.wait_for_selector('.bk-sent')
         # the guest is signed out after sending; sign in again on the account page (its own Send code: the receipt
         # left in the hidden booking view has a Copy button of the same kind)
         await pg.evaluate('location.hash = "account"'); await pg.wait_for_selector('#phone', timeout=8000)

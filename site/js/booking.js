@@ -55,6 +55,12 @@
   // a phone confirmed with a code on this page: only that session is signed out once the request is in (a
   // session that was here before, such as the owner's console sign-in, is left alone)
   let signedInHere = false;
+  // When the Summary was put on the screen for the visitor (show(6), or the booking met again on it), not when the
+  // Summary being read is drawn again in place. Send sits where Continue was on 05, so a tap on it in the first
+  // half-second is the second tap of a quick double tap on Continue: send() ignores it, and nothing shows.
+  const SEND_HOLD = 500;
+  let summaryShownAt = -Infinity;
+  const markSummary = () => { summaryShownAt = performance.now(); };
   const blank = {
     contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '' }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
@@ -305,6 +311,7 @@
       if (st.receipt) offered = null;
       takeOffer();
       redraw();
+      if (step === 6 && !st.receipt) markSummary();   // the Summary met again on arrival is as new as after Continue
       // signed in (the account page) or out since the last visit: the contact and the saved vehicles follow
       D.session().then((s) => { if ((s && s.userId) !== (session && session.userId)) adopt(s).then(render); }).catch(() => {});
       return;
@@ -568,6 +575,7 @@
     if (n !== 5) st.when.switching = false;
     window.scrollTo({ top: cardTop(), behavior: 'auto' });
     render();
+    if (n === 6) markSummary();
     focusTitle();
     stopDaysWait();
     if (n === 5 && !quiet) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
@@ -1710,6 +1718,7 @@
 
   async function send() {
     if (busy) return;
+    if (performance.now() - summaryShownAt < SEND_HOLD) return;   // a double tap's second half (summaryShownAt)
     for (const n of [1, 2, 3, 4, 5]) { if (!(await validate(n))) return; }
     busy = true;
     // while the request is on its way: "Sending…" and, after 300ms, a fine light along the button's lower edge (the CSS;

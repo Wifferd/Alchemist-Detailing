@@ -93,7 +93,11 @@ async def main():
         await shot(pg, '05-time', full=True)
         await pg.click('#bk-next')
         await pg.wait_for_selector('.sum')
+        shown = asyncio.get_running_loop().time()
         await shot(pg, '06-summary', full=True)
+        # Send ignores a tap in the first half-second after the Summary shows (booking.js SEND_HOLD: the second tap of a
+        # quick double tap on Continue); the shot usually takes longer, and the walk tops it up to 600ms if not
+        await pg.wait_for_timeout(max(0, 600 - (asyncio.get_running_loop().time() - shown) * 1000))
         await pg.click('#bk-next')
         await pg.wait_for_selector('.bk-sent', timeout=10000)
         # the receipt's moment (about 2.8s) has played: each of its parts has started and its animations are over
