@@ -780,8 +780,8 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 .bar-right { justify-self: end; display: flex; align-items: center; gap: 8px; }
 /* a phone, upright or on its side (a touch screen up to 720px wide, or up to 500px tall: on its side a phone can be
    wider than 720px, an iPhone 14 or 15 844-932px): the call button in the account icon's place, one 44px button for
-   another, so nothing in the bar moves (Account stays in the menu and the footer). A computer or a tablet keeps the
-   account icon */
+   another, so nothing in the bar moves (Account stays in the menu and the footer). A computer keeps the account icon,
+   and so does a tablet, except in a narrow split-screen window (720px or less, where it counts as a phone) */
 .bar-call { display: none; }
 @media (max-width: 720px) and (pointer: coarse), (max-height: 500px) and (pointer: coarse) {
   .bar-acct { display: none; }

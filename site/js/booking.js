@@ -54,6 +54,11 @@
   // editFrom: the step an Edit on the Summary opened; its gold button goes straight back to the Summary (backToSummary).
   // Any other way off that step (Previous, the step bar, a refusal's jump, the Summary itself) lets it go (show).
   let editFrom = null;
+  // summing: backToSummary is checking and waiting (the quote, the kept day's times). Its button is busy meanwhile, so a
+  // second or third tap on it does nothing (a quick triple tap can't land on Send Request); Previous and the step bar
+  // still work. holding: that button is the one on the screen
+  let summing = false;
+  const holding = () => summing && step === editFrom;
   // offered: a route token (#book-ed) waiting for the menu; asking: a service chosen on Services that differs from the
   // one this request already has, asked about at the top of the card (a choice already made is never replaced unasked)
   let offered = null, asking = null;
@@ -82,8 +87,9 @@
   const quoteCache = new Map();
 
   // The receipt, kept in this tab (sessionStorage) so a reload brings it back (a phone may reload a tab it put away,
-  // such as after Call): only what the receipt shows, never the booking's id, its history, the team or the shop's
-  // address. It is forgotten when the tab closes or a new request starts (reset); with storage blocked nothing is kept.
+  // such as after Call): only what the receipt shows and who booked (for Book another detail), never the booking's id,
+  // its history, the team or the shop's address. It is forgotten when the tab closes or a new request starts (reset);
+  // with storage blocked nothing is kept.
   const SENT_KEY = 'ad.receipt';
   const sentProject = () => (window.ALCHEMIST_CONFIG || {}).project || null;
   function saveSent() {
@@ -101,7 +107,9 @@
           bundle_savings_cents: src.bundle_savings_cents, mobile_cents: src.mobile_cents, extra_cost_cents: src.extra_cost_cents,
           extra_cost_note: src.extra_cost_note, pending_reasons: src.pending_reasons,
         },
-        sentAsGuest: st.sentAsGuest, receiptOther: st.receiptOther, phone: st.contact.phone,
+        // who booked, as Book another detail carries them into the next request (reset): the names and the phone, as
+        // the answers kept for a reload hold them (never the email, a code's state or the spam field)
+        sentAsGuest: st.sentAsGuest, receiptOther: st.receiptOther, phone: st.contact.phone, first: st.contact.first, last: st.contact.last,
       }));
     } catch (e) { /* storage blocked or full: the receipt lasts as long as the page, as before */ }
   }
@@ -128,8 +136,12 @@
   // can't be used, the booking works as before.
   const DRAFT_KEY = 'ad.book';
   let drafting = false, draftWired = false, draftSaved = null;   // (draftSaved: the copy this page last wrote)
+  // draftReady: the kept copy has been read back (mount). Until then nothing is written, so a tap, the tab put away or
+  // the page going while the booking still loads (a signed-in customer's saved vehicles on their way) can't overwrite
+  // the kept answers with the empty request
+  let draftReady = false;
   function saveDraft() {
-    if (!menu || st.receipt || !drafting) return;
+    if (!draftReady || !menu || st.receipt || !drafting) return;
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when;
     const d = {
       v: 1, step, farthest,
@@ -338,13 +350,19 @@
         const kept = opts && opts.returning ? loadSent() : null;
         if (kept) {
           st.receipt = kept.receipt; st.sentAsGuest = !!kept.sentAsGuest; st.receiptOther = !!kept.receiptOther;
-          if (!st.contact.phone) st.contact.phone = String(kept.phone || '');
+          // who booked fills only empty fields, as the kept answers do (a signed-in account's own win)
+          const c = st.contact, txt = (x) => (typeof x === 'string' ? x : '');
+          if (!c.phone) c.phone = String(kept.phone || '');
+          if (!c.first) c.first = txt(kept.first);
+          if (!c.last) c.last = txt(kept.last);
           offered = null;
           sentDrawn = st.receipt;
           clearDraft();   // (the receipt shows, not a draft)
+          draftReady = true;   // (a new request from here, Book another detail, is kept as usual)
         } else {
           if (!D.isDown) dropSent();
           try { restoreDraft(); } catch (e) { clearDraft(); }   // (a copy that can't be read is dropped)
+          draftReady = true;   // (from here on the request on the page is the one to keep)
         }
         takeOffer();
         // a request brought back on the date step or the summary: its price first (none: the service step), then the kept
@@ -523,11 +541,12 @@
       // one step back, named for what it does (the bar's Back leaves the booking): "Previous", the step it returns to
       // in its label (the steps' names don't all fit beside Send Request on a 360px phone)
       // Cancel: a fresh request (who is booking stays, as with Book another detail), and the copy kept for a reload is
-      // forgotten; the link still goes home
-      step > 1 ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : el('a.btn.btn-glass', { href: '#home', onclick: () => reset(true) }, 'Cancel'),
+      // forgotten; the link still goes home. Step 01 opened by Edit on the Summary has no Cancel (it would throw the
+      // whole request away): "Summary" is its one button, and the step bar and the top bar's Back the other ways out
+      step > 1 ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : back ? null : el('a.btn.btn-glass', { href: '#home', onclick: () => reset(true) }, 'Cancel'),
       el('div.bk-nav-mid', { 'aria-live': 'polite', 'aria-atomic': 'true' }, navTotal(null)),
       // after an Edit on the Summary: "Summary", straight back in one tap (one word: the buttons keep one row at 360px)
-      el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, 'aria-label': back ? 'Back to the summary' : null, onclick: () => (last ? send() : back ? backToSummary() : next()) },
+      el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy || holding(), 'aria-busy': holding() ? 'true' : null, 'aria-label': back ? 'Back to the summary' : null, onclick: () => (last ? send() : back ? backToSummary() : next()) },
         last ? 'Send Request' : back ? 'Summary' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
   }
   // The running total (steps 04 and 05): the database's quote. A changed total turns from the figure it was to the new
@@ -540,14 +559,18 @@
     return [el('span.bk-nav-total.tnum', { dataset: { cents: q.total_cents } }, 'Total ', U.rollFigure(money(q.total_cents), from == null ? null : money(from), q.total_cents > from))];
   }
   // The bar after a change on the same step: the total in place (its line is a live region, so a reader hears the new
-  // total once) and Continue following busy; a new step draws the bar afresh (render)
+  // total once) and Continue following busy (and "Summary" following backToSummary's wait); a new step draws the bar
+  // afresh (render)
   function updateNav() {
     const nav = root.querySelector('.bk-nav');
     if (!nav) return;
     const mid = nav.querySelector('.bk-nav-mid'), btn = nav.querySelector('#bk-next');
     const next = navTotal(mid), was = mid && mid.textContent, now = el('div', next).textContent;
     if (mid && now !== was) mid.replaceChildren(...next);   // the same total is not announced again
-    if (btn) btn.disabled = busy;
+    if (btn) {
+      btn.disabled = busy || holding();
+      if (holding()) btn.setAttribute('aria-busy', 'true'); else btn.removeAttribute('aria-busy');
+    }
   }
 
   function heading(i) {
@@ -612,16 +635,26 @@
   // whatever the step (go(6) asks only when there is none, and a change can keep an old one): no service chosen
   // returns at once, an unchanged request comes from the cache. A new length or place asks the kept day for its times
   // before the Summary is drawn (syncWhen), so it shows the start that still fits (or asks for one) from the first
-  // frame (a change made while it waits is checked on the Summary, whose title keeps the focus: loadTimes). A tap
-  // elsewhere meanwhile (Previous, the step bar, this button again) wins: the visitor stays where they went.
+  // frame (a new length chosen while it waits is checked on the Summary, whose title keeps the focus: loadTimes). A tap
+  // elsewhere meanwhile (Previous, the step bar) wins: the visitor stays where they went. This button is busy while it
+  // works (summing): another tap on it does nothing. The step is checked again after the wait, so a change made
+  // meanwhile (both services let go, a field emptied) is refused on its own step, as Continue refuses it, and never
+  // reaches the Summary.
   async function backToSummary() {
     const from = step;
-    if (busy || !(await validate(from))) return;
-    await refreshQuote();
-    if (st.quote) await syncWhen();
-    if (step !== from || editFrom !== from) return;
-    editFrom = null;
-    await go(6);
+    if (busy || summing) return;
+    summing = true; updateNav();
+    try {
+      if (!(await validate(from))) return;
+      await refreshQuote();
+      if (st.quote) await syncWhen();
+      if (step !== from || editFrom !== from) return;
+      if (problems(from).length) return validate(from);
+      editFrom = null;
+      await go(6);
+    } finally {
+      summing = false; updateNav();
+    }
   }
 
   // ---------------------------------------------------------------- validation per step (the database checks again)
