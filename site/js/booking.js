@@ -49,6 +49,9 @@
   // ---------------------------------------------------------------- state
   let root = null, settings = null, menu = null, session = null, phone = null;
   let step = 1, farthest = 1, renderedStep = 0, busy = false, mounted = false;
+  // editFrom: the step an Edit on the Summary opened; its gold button goes straight back to the Summary (backToSummary).
+  // Any other way off that step (Previous, the step bar, a refusal's jump, the Summary itself) lets it go (show).
+  let editFrom = null;
   // offered: a route token (#book-ed) waiting for the menu; asking: a service chosen on Services that differs from the
   // one this request already has, asked about at the top of the card (a choice already made is never replaced unasked)
   let offered = null, asking = null;
@@ -512,7 +515,7 @@
   }
 
   function renderNav() {
-    const last = step === 6;
+    const last = step === 6, back = step === editFrom && step < 6;
     return el('div.bk-nav',
       // one step back, named for what it does (the bar's Back leaves the booking): "Previous", the step it returns to
       // in its label (the steps' names don't all fit beside Send Request on a 360px phone)
@@ -520,8 +523,9 @@
       // forgotten; the link still goes home
       step > 1 ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : el('a.btn.btn-glass', { href: '#home', onclick: () => reset(true) }, 'Cancel'),
       el('div.bk-nav-mid', { 'aria-live': 'polite', 'aria-atomic': 'true' }, navTotal(null)),
-      el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, onclick: () => (last ? send() : next()) },
-        last ? 'Send Request' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
+      // after an Edit on the Summary: "Summary", straight back in one tap (one word: the buttons keep one row at 360px)
+      el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy, 'aria-label': back ? 'Back to the summary' : null, onclick: () => (last ? send() : back ? backToSummary() : next()) },
+        last ? 'Send Request' : back ? 'Summary' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
   }
   // The running total (steps 04 and 05): the database's quote. A changed total turns from the figure it was to the new
   // one in one step (ui.js rollFigure); "Price confirmed before your appointment" simply appears.
@@ -570,6 +574,7 @@
   // smooth scroll (the footer used to flash on Back); then the new step slides in and its title takes focus.
   // quiet: no reveal of the days (a refused start time brings its reason and the times into view instead)
   function show(n, quiet) {
+    if (n !== editFrom) editFrom = null;
     st.direction = n > step ? 1 : -1;
     step = n;
     if (n !== 5) st.when.switching = false;
@@ -599,6 +604,21 @@
     farthest = Math.max(farthest, step + 1);
     if (step === 3 || step === 4) await refreshQuote();
     await go(step + 1);
+  }
+  // The step an Edit opened, checked as Continue checks it, then the Summary at once. The quote is worked out again
+  // whatever the step (go(6) asks only when there is none, and a change can keep an old one): no service chosen
+  // returns at once, an unchanged request comes from the cache. A new length or place asks the kept day for its times
+  // before the Summary is drawn (syncWhen), so it shows the start that still fits (or asks for one) from the first
+  // frame (a change made while it waits is checked on the Summary, whose title keeps the focus: loadTimes). A tap
+  // elsewhere meanwhile (Previous, the step bar, this button again) wins: the visitor stays where they went.
+  async function backToSummary() {
+    const from = step;
+    if (busy || !(await validate(from))) return;
+    await refreshQuote();
+    if (st.quote) await syncWhen();
+    if (step !== from || editFrom !== from) return;
+    editFrom = null;
+    await go(6);
   }
 
   // ---------------------------------------------------------------- validation per step (the database checks again)
@@ -814,6 +834,7 @@
     Object.assign(st.contact, blank.contact());
     Object.assign(st.vehicle, { saved: [], vehicleId: null, photos: [] });
     invalidateQuotes();
+    editFrom = null; // someone else now: Continue walks through the vehicle again rather than straight back to the Summary
     render();
   }
 
@@ -881,7 +902,7 @@
       const typeItems = menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name }));
       carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, size: 'tile', value: v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
       carBox.push(el('div.bk-inline',
-        el('label.bk-toggle', el('input', { type: 'checkbox', checked: v.notSure, onchange: (e) => { v.notSure = e.target.checked; render(); } }), el('span', 'Not sure? Type here')),
+        el('label.bk-toggle', el('input', { type: 'checkbox', checked: v.notSure, onchange: (e) => { v.notSure = e.target.checked; invalidateQuotes(); render(); } }), el('span', 'Not sure? Type here')),
         v.notSure ? field({ id: 'vehicle_description', label: 'Describe the vehicle', required: true, value: v.description, maxlength: 1000, oninput: (e) => { v.description = e.target.value; clearError(root, 'vehicle_description'); } }) : null));
       carBox.push(choices({
         id: 'vehicle_size', label: 'Size', value: v.size, items: [
@@ -1450,14 +1471,15 @@
   // The free days depend on the length and the place: another service, add-on or place starts the date step
   // afresh (the days and the times checked for the old ones). A day already picked is asked again, and the
   // start picked on it stays only if it still fits (held aside meanwhile, so it is never shown, or sent on, before
-  // it is known to fit).
+  // it is known to fit). Returns that re-check, for a caller that waits for it (backToSummary). A start still held
+  // aside by a re-check that a newer change overtook (w.keep) is the one kept.
   function syncWhen() {
     const w = st.when;
     const sig = timeSig();
     if (!sig || w.sig === sig) return;
-    const had = w.date, keep = w.start;
+    const had = w.date, keep = w.start != null ? w.start : w.keep;
     Object.assign(w, { sig, calendar: {}, loaded: null, times: null, start: null });
-    if (had) pickDay(had, keep, true);
+    if (had) return pickDay(had, keep, true);
   }
   // The open and full days for the month on screen, for this booking's length and place (w.sig is part of the key,
   // and syncWhen empties the days when it changes). Days that arrive for an older booking are dropped.
@@ -1581,8 +1603,13 @@
       return true;
     }
     // a step-bar jump to the Summary doesn't wait for this re-check: the Summary is drawn again, so it shows the
-    // start that was kept (or asks for one) and never says one thing while Send sends another
-    if (step === 6 && !busy && !st.receipt) render();
+    // start that was kept (or asks for one) and never says one thing while Send sends another. Its title keeps the
+    // focus it had (or takes it when nothing had it); focus the visitor moved to a control is never sent to the title
+    if (step === 6 && !busy && !st.receipt) {
+      const a = document.activeElement, had = !a || a === document.body || (root.contains(a) && a.classList.contains('bk-title'));
+      render();
+      if (had) focusTitle();
+    }
     return false;
   }
   // From a tap until its answer lands: whether the page stayed as it was (no finger back on the glass, no wheel, no
@@ -1673,7 +1700,8 @@
   function stepSummary() {
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when, q = st.quote;
     const box = el('div.bk-grid');
-    const edit = (n, what) => el('button.link', { type: 'button', 'aria-label': 'Edit ' + what, onclick: () => go(n) }, 'Edit');
+    // (nothing while a request is on its way: go does nothing then, and the step must not be kept for the next request)
+    const edit = (n, what) => el('button.link', { type: 'button', 'aria-label': 'Edit ' + what, onclick: () => { if (busy) return; editFrom = n; go(n); } }, 'Edit');
     const list = (rows) => el('dl.sum-list', rows.filter(Boolean).map(([k, val]) => el('div', el('dt', k), el('dd', val))));
     const sec = (title, n, rows, cls) => el('section.sum', { class: cls || null }, el('div.sum-head', el('h2.bk-h2', title), edit(n, title.toLowerCase())), list(rows));
     const vf = vehicleFacts();
