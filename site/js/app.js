@@ -2953,15 +2953,17 @@
   }
   // Back, in the bar: the page before this one in the tab, where it was left (history.back(): the browser's own Back,
   // the same path); with no earlier page of the site in the tab (the page opened directly), home, as a link to it
-  // would; on home opened directly there is nowhere to go back to. It is set as a page change begins (meet), for the
-  // entry the address names, so the bar is whole before the cut goes dark; it fades in and out (CSS .bar-back.off).
+  // would. Home never shows it (the owner, Nov 10: "Remove the back button from the normal home screen, only should
+  // appear when you need to go back from clicking something"; doc 52), however it was reached. It is set as a page
+  // change begins (meet), for the entry the address names, so the bar is whole before the cut goes dark; it fades in
+  // and out (CSS .bar-back.off).
   // A Back under way (history.back() until its hashchange) takes no second press: one more would count from the page
   // being left and could take the tab out of the site.
   const barBack = $('#barBack');
   let backing = 0;
   const deep = () => { const e = coming || entry; return !!e && e.d > 0 && !stateless; };   // an earlier page of the site in the tab
   function backFor(r) {
-    const e = coming || entry, to = deep() ? e.p : 'home', off = !deep() && r === 'home';
+    const e = coming || entry, to = deep() ? e.p : 'home', off = r === 'home';
     if (off && document.activeElement === barBack) menuBtn.focus({ preventScroll: true });   // (it is going: the keyboard stays in the bar)
     barBack.classList.toggle('off', off);
     if (barBack.hidden) barBack.hidden = false;   // (shown once the script runs; from its first style, so it does not fade in)

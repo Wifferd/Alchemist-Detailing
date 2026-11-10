@@ -11,6 +11,8 @@ chain   home (the Bundles card), a Services group, the FAQ with a question open,
 reload  home a little down, the FAQ further down, a reload (the FAQ where it was), Back (home where it was)
 direct  the FAQ opened directly: Back shows and goes to the top of home; home opened directly: Back is not visible
         (its computed visibility and opacity, not its hidden attribute)
+Home never shows Back, however it is reached (the owner, Nov 10, doc 52): reload and direct also check it on the home
+they land on with Back, which has a page of the site behind it.
 Prints PASS/FAIL lines and BACK_DONE; with out_dir, a screen of each landing."""
 import asyncio, json, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -44,6 +46,19 @@ async def page(b, base, size, theme, route='home'):
     r = wash.Run(pg, cdp, mode)
     r.errs = errs
     return ctx, pg, r
+
+
+async def gone_on_home(pg, name, how, wait=2.0):
+    """Back is not visible on home (the owner, Nov 10): hidden, transparent or not laid out, after its fade."""
+    t, v = 0.0, None
+    while t <= wait:
+        v = await pg.evaluate(VIS_JS)
+        if bool(v) and (v['vis'] == 'hidden' or v['op'] <= 0.01 or v['disp'] == 'none'):
+            say(True, name, f'{how}: Back is not visible on home ({v})')
+            return
+        await asyncio.sleep(0.2)
+        t += 0.2
+    say(False, name, f'{how}: Back is still visible on home ({v})')
 
 
 async def shoot(pg, out, name):
@@ -178,6 +193,7 @@ async def chain(b, base, size, theme, out):
     await r.landed('home')
     c = await pg.evaluate(f"document.querySelector('{card}').getBoundingClientRect().top")
     say(abs(c - c_home) <= 2, name, f'Back to home, the Bundles card at {c:.1f} (was {c_home:.1f})')
+    await gone_on_home(pg, name, 'home reached by Back from Services')
     await shoot(pg, out, f'{size}-{theme}-chain-2-home')
     await pg.evaluate('history.forward()')
     await r.landed('services')
@@ -207,6 +223,7 @@ async def reload(b, base, size, theme, out):
     await r.landed('home')
     y = await pg.evaluate('scrollY')
     say(abs(y - y_home) <= 2, name, f'Back to home at {y} (left at {y_home})')
+    await gone_on_home(pg, name, 'home reached by Back, the FAQ behind it')
     await shoot(pg, out, f'{size}-{theme}-reload-home')
     if r.errs:
         say(False, name, 'page errors: ' + '; '.join(r.errs[:3]))
@@ -223,6 +240,7 @@ async def direct(b, base, size, theme, out):
     await r.landed('home')
     y = await pg.evaluate('scrollY')
     say(y == 0 and (await pg.evaluate('location.hash')) == '#home', name, f'Back goes to the top of home ({y})')
+    await gone_on_home(pg, name, 'home reached from the FAQ opened directly')
     await ctx.close()
     ctx, pg, r = await page(b, base, size, theme, 'home')
     v = await pg.evaluate(VIS_JS)
