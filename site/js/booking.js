@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
-  const { el, money, minutesText, clock, longDate, phonePretty, tel, loading, star, field, choices, flash, priceLines, miniBtn, showError, clearError, toast, refGroups, copyRef, tick } = U;
+  const { el, money, minutesText, clock, longDate, phonePretty, tel, loading, field, choices, flash, priceLines, miniBtn, showError, clearError, toast, refGroups, copyRef, tick } = U;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // the optional email and its code show only once the site can email codes (config.js)
   const emailCodes = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.emailCodes);
@@ -25,9 +25,11 @@
   const HINT_STEP = {
     first_name: 1, last_name: 1, phone: 1, phone_code: 1, email: 1, email_code: 1,
     vehicle_id: 2, vehicle_make: 2, vehicle_model: 2, vehicle_year: 2, vehicle_color: 2, vehicle_type: 2, vehicle_size: 2, vehicle_description: 2,
-    modifications: 2, conditions: 2, stains: 2, damage: 2, damage_note: 2, photos: 2,
+    modifications: 2, damage: 2, damage_note: 2, photos: 2,
     location_type: 3, address: 3, address_zip: 3,
-    services: 4, bundle: 4, exterior: 4, interior: 4, addons: 4, special_request: 2,   // the notes field is on step 02
+    // the inside of the car is asked on step 04, with an interior service or a bundle
+    services: 4, bundle: 4, exterior: 4, interior: 4, addons: 4, conditions: 4, stains: 4,
+    special_request: 2,   // the notes field is on step 02 (step 04 has it too, for "Other")
     service_date: 5, start_min: 5,
   };
   const ICONS = {
@@ -653,8 +655,8 @@
           if (!v.type) bad('vehicle_type', 'Choose a vehicle type.');
         }
       }
-      if (!v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
-      if (v.conditions.includes('other') && !s.notes.trim()) bad('special_request', 'Describe it in a few words.');
+      // the notes: required only with "Other" inside the car (asked on step 04, with an interior service)
+      if (otherCond() && !s.notes.trim()) bad('special_request', 'Describe it in a few words.');
       else plain('special_request', s.notes);
       if (!v.damage.length) bad('damage', 'Choose “No known damage” or the damage you know of.');
       const needsNote = menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code));
@@ -670,7 +672,17 @@
         else if (!menu.zips.has(l.zip.trim())) bad('address_zip', zipHint());
       }
     }
-    if (n === 4 && !mainsChosen()) bad('services', 'Choose a bundle, or an exterior and/or an interior service.');
+    if (n === 4) {
+      if (!mainsChosen()) bad('services', 'Choose a bundle, or an exterior and/or an interior service.');
+      // the inside of the car: required with an interior service or a bundle (doc 24); "Other" needs its note
+      if (hasInterior()) {
+        if (!v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
+        else if (v.conditions.includes('other')) {
+          if (!s.notes.trim()) bad('special_request', 'Describe it in a few words.');
+          else plain('special_request', s.notes);
+        }
+      }
+    }
     if (n === 5) {
       // no service chosen (the step bar can come here after one was cleared): the date step has no days to offer
       if (!st.quote) bad('start_min', 'Choose a service first.');
@@ -682,6 +694,8 @@
     return out;
   }
   async function validate(n) {
+    // an interior service or a bundle chosen on step 05 (the switch strip) after step 04: its question is on step 04
+    if (n === 5 && hasInterior() && !st.vehicle.conditions.length) return flag(4, [{ hint: 'conditions', text: 'Tell us what the inside of the car is like, or choose None.' }]);
     const found = problems(n);
     if (found.length) return flag(n, found);
     if (n === 4) { const q = await refreshQuote(); if (q && q.error) return showDbError(q.error); }
@@ -698,7 +712,7 @@
     if (moved) show(n);
     const paint = () => {
       const many = found.length > 1;
-      found.forEach((p, i) => { if (!showError(root, p.hint, p.text, { quiet: many || i > 0 })) toast(typeof p.text === 'string' ? p.text : 'Please check this step.'); });
+      found.forEach((p, i) => { if (!showErr(p.hint, p.text, { quiet: many || i > 0 })) toast(typeof p.text === 'string' ? p.text : 'Please check this step.'); });
       if (many) errorSummary(found);
     };
     if (moved) setTimeout(paint, 40); else paint();
@@ -711,7 +725,7 @@
     if (!head && !nav) return;
     const box = el('div.bk-errors', { role: 'alert', tabindex: -1 },
       el('p', 'Please check:'),
-      el('ul', found.map((p) => el('li', el('button.link', { type: 'button', dataset: { hint: p.hint }, onclick: () => showError(root, p.hint, p.text) }, labelOf(p.hint))))));
+      el('ul', found.map((p) => el('li', el('button.link', { type: 'button', dataset: { hint: p.hint }, onclick: () => showErr(p.hint, p.text) }, labelOf(p.hint))))));
     if (head) head.after(box); else nav.before(box);
     box.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
     setTimeout(() => box.focus({ preventScroll: true }), 300);
@@ -723,13 +737,29 @@
     const text = e && e.message || 'Something went wrong. Please try again.';
     if (target && target !== step) {
       show(target);
-      setTimeout(() => { if (!showError(root, hint, text)) toast(text); }, 50);
+      setTimeout(() => { if (!showErr(hint, text)) toast(text); }, 50);
       return false;
     }
     // a refusal that belongs to no step's field (a limit with the number to call, or a request already sent with
     // another phone: hint request_id) stays on the summary; elsewhere, a toast
-    if (!showError(root, target ? hint : 'submit', text)) toast(text);
+    if (!showErr(target ? hint : 'submit', text)) toast(text);
     return false;
+  }
+  // A refusal shown on its field (showError), except the inside of the car: centred in the window as the others are,
+  // its six cards come out taller than the band the two bars leave clear on a small phone, and step 04's sticky bar
+  // (with the total) is taller than step 02's, so its message fell under the bar. It is placed in that band instead:
+  // the question centred where it fits, else its message at the foot of the band with as much of the question above
+  // it as fits. (Continue on 04, Continue from 05, Send, and a refusal from the database with that hint.)
+  function showErr(hint, text, opts) {
+    if (hint !== 'conditions' || (opts && opts.quiet)) return showError(root, hint, text, opts);
+    if (!showError(root, hint, text, { quiet: true })) return false;
+    const w = root.querySelector('[data-field="conditions"]'), m = w.querySelector('.choice-msg');
+    const s = sight(), f = w.getBoundingClientRect(), r = m.getBoundingClientRect();
+    const by = r.bottom - f.top <= s.bottom - s.top ? (f.top + r.bottom - s.top - s.bottom) / 2 : r.bottom - s.bottom;
+    if (Math.abs(by) >= 1) window.scrollBy({ top: Math.round(by), behavior: reduce ? 'auto' : 'smooth' });
+    const first = w.querySelector('button:not(:disabled)');
+    if (first) setTimeout(() => first.focus({ preventScroll: true }), 300);
+    return true;
   }
 
   // ---------------------------------------------------------------- 01 Contact
@@ -875,15 +905,17 @@
   }
 
   // ---------------------------------------------------------------- 02 Vehicle
-  // What we must know first (the vehicle, its type and size, the inside, the notes, known damage); the
-  // modifications and photos fold away under "Modifications and photos", optional. The same questions in the same
-  // order, in three titled parts: A the car, B inside the car, C before we start.
+  // the notes' hint, on step 02 and under "Other" on step 04
+  const NOTES_HINT = 'Bugs, tar, odors, anything unusual. We price special requests ourselves. No links, please.';
+  // What we must know first (the vehicle, its type and size, known damage, the notes); the modifications and photos
+  // fold away under "Modifications and photos", optional. In two titled parts: A the car, B before we start. The inside
+  // of the car is asked on step 04, only with an interior service or a bundle (condsBlock).
   const part = (no, title, kids) => el('section.bk-part', { 'aria-labelledby': 'bk-part-' + no },
     el('h2.bk-part-h', { id: 'bk-part-' + no }, el('span.bk-part-no', { 'aria-hidden': 'true' }, no), title), el('div.bk-grid', kids));
   function stepVehicle() {
     const v = st.vehicle;
     const box = el('div.bk-grid.bk-parts');
-    const carBox = [], inside = [], before = [];
+    const carBox = [], before = [];
     if (v.saved.length) {
       if (!v.vehicleId && !v.addingNew) v.vehicleId = v.saved[0].id;   // a saved vehicle is the usual answer: the first is chosen, the form stays folded
       carBox.push(choices({
@@ -912,27 +944,6 @@
       }));
     }
 
-    // Conditions: mandatory, with the fees that apply to interior services
-    const feeOf = (o) => o.fee_code ? svc(o.fee_code) : null;
-    inside.push(choices({
-      id: 'conditions', label: 'What’s the inside of the car like?', required: true, multi: true, value: v.conditions,
-      hint: 'Choose everything that applies, or None. Fees apply with an interior service; Interior Deluxe and the Full Detail Bundle include the lighter ones.',
-      items: menu.options.condition.map((o) => {
-        const f = feeOf(o);
-        const sub = o.code === 'heavy_stains' ? 'If your car’s condition is similar to the one listed, you may select it. If the selection turns out to be inaccurate, you will be charged ' + money(f.base_price_cents) + '.'
-          : o.code === 'other' ? 'Toothpaste, coffee, anything unusual: tell us in the notes below and we’ll price it.' : null;
-        return {
-          code: o.code, label: o.label, exclusive: !!o.is_none, sub,
-          priceText: f ? '+' + money(f.base_price_cents) : (o.is_none ? 'No fee' : (o.sends_to_review ? 'We price it' : null)),
-          cls: sub ? null : 'short',   // a card with no note is short: the short ones sit side by side
-        };
-      }),
-      onchange: (vals) => { v.conditions = vals; invalidateQuotes(); notesRequired(vals.includes('other')); if (vals.includes('other')) { const n = root.querySelector('#special_request'); if (n) n.focus(); } },
-    }));
-    inside.push(field({ id: 'special_request', label: 'Anything we should know?', optional: !v.conditions.includes('other'), required: v.conditions.includes('other'), multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
-      hint: 'Bugs, tar, odors, anything unusual. We price special requests ourselves. No links, please.',
-      oninput: (e) => { st.service.notes = e.target.value; clearError(root, 'special_request'); } }));
-
     // Damage
     before.push(choices({
       id: 'damage', label: 'Known damage', required: true, size: 'tile', multi: true, value: v.damage,
@@ -943,6 +954,10 @@
     if (menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code))) {
       before.push(field({ id: 'damage_note', label: 'Describe the damage', required: true, value: v.damageNote, maxlength: 1000, hint: 'Requests with unknown or other damage are reviewed by us before we confirm.', oninput: (e) => { v.damageNote = e.target.value; clearError(root, 'damage_note'); } }));
     }
+    // The notes: optional, unless "Other" was chosen for the inside of the car (step 04, with an interior service)
+    before.push(field({ id: 'special_request', label: 'Anything we should know?', optional: !otherCond(), required: otherCond(), multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
+      hint: NOTES_HINT,
+      oninput: (e) => { st.service.notes = e.target.value; clearError(root, 'special_request'); } }));
 
     // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
     const more = el('div.bk-more-body',
@@ -955,16 +970,8 @@
         el('p.choice-msg', { role: 'status', dataset: { hint: 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.' } }, 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.')));
     before.push(el('details.bk-more', { open: v.moreOpen || v.photos.length > 0 || v.modifications.length > 0, ontoggle: (e) => { v.moreOpen = e.target.open; } },
       el('summary', el('span', v.vehicleId ? 'Photos' : guest() ? 'Modifications' : 'Modifications and photos', el('small', ' optional'))), more));
-    box.append(part('A', 'The car', carBox), part('B', 'Inside the car', inside), part('C', 'Before we start', before));
+    box.append(part('A', 'The car', carBox), part('B', 'Before we start', before));
     return box;
-  }
-  // "Other" makes the notes required: the label's "optional" becomes the star, in place
-  function notesRequired(on) {
-    const f = root.querySelector('[data-field="special_request"]'); if (!f) return;
-    const label = f.querySelector('.fld-label'), input = f.querySelector('.fld-input');
-    label.replaceChildren('Anything we should know?', ...(on ? star() : [el('small', ' optional')]));
-    input.required = on;
-    if (on) input.setAttribute('aria-required', 'true'); else input.removeAttribute('aria-required');
   }
   async function addPhotos(e) {
     const files = Array.from(e.target.files || []).slice(0, 6 - st.vehicle.photos.length);
@@ -1046,6 +1053,10 @@
       wrap.appendChild(el('section.svc-group-pick', el('h2.bk-h2', title, el('small', sub)), list));
     });
     box.appendChild(wrap);
+    // the inside of the car, under the Interior group: shown while an interior service or a bundle is chosen (drawn
+    // already shown, as the step lands, it is not brought into view: condsAsk)
+    condsAsk = false;
+    box.appendChild(condsBlock());
 
     // Suggestion slot, add-ons and the breakdown
     box.appendChild(el('div', { id: 'bk-suggest' }));
@@ -1057,6 +1068,43 @@
     // fold (a phone) its note offers "See it", and the light plays once the card is in sight
     if (s.glow) { s.glow = false; setTimeout(litOnce, 380); }
     return box;
+  }
+  // The inside of the car (doc 24): mandatory with an interior service or a bundle, with the fees that apply to them.
+  // Hidden while the request has no interior (paintMains shows and hides it in place); the answer is kept meanwhile,
+  // so choosing an interior again brings it back. "Other" adds its note under the cards (otherField).
+  function condsBlock() {
+    const v = st.vehicle;
+    const feeOf = (o) => o.fee_code ? svc(o.fee_code) : null;
+    return el('div.bk-grid', { id: 'bk-conds', hidden: !hasInterior() },
+      choices({
+        id: 'conditions', label: 'What’s the inside of the car like?', required: true, multi: true, value: v.conditions,
+        hint: 'Choose everything that applies, or None. Fees apply with an interior service; Interior Deluxe and the Full Detail Bundle include the lighter ones.',
+        items: menu.options.condition.map((o) => {
+          const f = feeOf(o);
+          const sub = o.code === 'heavy_stains' ? 'If your car’s condition is similar to the one listed, you may select it. If the selection turns out to be inaccurate, you will be charged ' + money(f.base_price_cents) + '.'
+            : o.code === 'other' ? 'Toothpaste, coffee, anything unusual: tell us in the notes below and we’ll price it.' : null;
+          return {
+            code: o.code, label: o.label, exclusive: !!o.is_none, sub,
+            priceText: f ? '+' + money(f.base_price_cents) : (o.is_none ? 'No fee' : (o.sends_to_review ? 'We price it' : null)),
+            cls: sub ? null : 'short',   // a card with no note is short: the short ones sit side by side
+          };
+        }),
+        onchange: (vals) => { v.conditions = vals; invalidateQuotes(); updatePrices(); paintOther(); },
+      }),
+      v.conditions.includes('other') ? otherField() : null);
+  }
+  // "Other": its note, required, under the cards (the same notes as step 02's field; only one of the two is ever on
+  // the page)
+  const otherField = () => field({ id: 'special_request', label: 'Tell us about it', required: true, multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
+    hint: NOTES_HINT,
+    oninput: (e) => { st.service.notes = e.target.value; clearError(root, 'special_request'); } });
+  // "Other" chosen or let go of: its note comes or goes, in place; just chosen, the note takes the focus
+  function paintOther() {
+    const box = root.querySelector('#bk-conds');
+    if (!box) return;
+    const want = st.vehicle.conditions.includes('other'), had = box.querySelector('[data-field="special_request"]');
+    if (want && !had) { const f = otherField(); box.appendChild(f); f.input.focus(); }
+    else if (!want && had) { clearError(root, 'special_request'); had.remove(); }
   }
   const carriedCard = () => st.service.carried && root.querySelector('.svc-opt.on[data-code="' + st.service.carried + '"]');
   // A chosen card's moment, one line of light: the head of light runs its rim once (.glow), and as it comes round the
@@ -1165,6 +1213,10 @@
     else { s.bundle = null; if (x.kind === 'exterior') s.exterior = again(s.exterior) ? null : x.code; else s.interior = again(s.interior) ? null : x.code; }
   }
   function pickMain(x) { choose(x); paintMains(); }
+  let lastOn = null;   // the card a pick just lit (paintMains): the bundle note never moves it out of sight (revealNote)
+  // the inside-of-the-car question just shown by a pick (paintMains) and not yet brought into view: the pick's quote,
+  // landing, may bring it in (revealConds)
+  let condsAsk = false;
   // The cards follow the chosen services in place (the one just chosen lifts once and a rim of light runs
   // around it once, then stays lit; focus and scroll stay where they are); add-on availability changes with
   // the mains, so that block is rebuilt, then the prices and the breakdown follow.
@@ -1173,13 +1225,23 @@
     clearError(root, 'services');
     if (s.carried && !mainCodes().includes(s.carried)) s.carried = null;   // changed here: the customer's own pick now
     const notes = root.querySelector('#bk-carried'); if (notes) notes.replaceChildren(...carriedNotes());
+    lastOn = null;
     root.querySelectorAll('.svc-opt').forEach((b) => {
       const on = [s.bundle, s.exterior, s.interior].includes(b.dataset.code);
       const was = b.classList.contains('on');
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      if (on && !was) { flash(b, 'just', 700); glowOnce(b, true); }
+      if (on && !was) { lastOn = b; flash(b, 'just', 700); glowOnce(b, true); }
       else if (was && !on) cancelGlow(b);   // its light goes with it
     });
+    // the inside of the car follows the interior, in place (its answer is kept while it is hidden); hidden, what it
+    // asked for no longer applies; just shown, it may be brought into view (condsAsk)
+    const conds = root.querySelector('#bk-conds');
+    if (conds) {
+      const was = conds.hidden;
+      conds.hidden = !hasInterior();
+      if (conds.hidden) { condsAsk = false; clearError(root, 'conditions'); clearError(root, 'special_request'); }
+      else if (was) condsAsk = true;
+    }
     const old = root.querySelector('[data-field="addons"]'); if (old) old.replaceWith(addonsBlock());
     updatePrices();
   }
@@ -1206,7 +1268,7 @@
   }
   async function updatePrices() {
     const s = st.service;
-    // from the pick (or the add-on) until the quote lands: may the page move for the bundle note (below)?
+    // from the pick (or the add-on) until the quote lands: may the page move for the question or the bundle note (below)?
     const tap = watchTap();
     let q;
     try {
@@ -1219,14 +1281,18 @@
       q = await refreshQuote();
     } finally { tap.end(); }
     if (q === STALE) return;   // a newer pick paints when its quote lands
+    const ask = condsAsk; condsAsk = false;
     const box = root.querySelector('#bk-price'); const sug = root.querySelector('#bk-suggest');
     updateNav();
     if (!box) return;
     // the bundle note appearing after a pick (not as the step lands with it) is brought into view, once: on a phone
-    // it would open under the sticky bar, below the cards. Only if the page stayed still and the quote came soon
-    // (watchTap): never under a finger put down meanwhile (doc 35); then the note simply waits under the cards
+    // it would open under the sticky bar, below the cards (revealNote). Only if the page stayed still and the quote
+    // came soon (watchTap): never under a finger put down meanwhile (doc 35); then the note simply waits under the cards
     const fresh = !!(sug && sug.dataset.painted && !sug.firstChild);
     if (sug) sug.dataset.painted = '1';
+    // the inside-of-the-car question just shown by the pick comes first, under the same guard (revealConds); one move
+    // per pick: when it moved the page, the bundle note waits under it
+    const moved = ask && tap.still() && revealConds();
     if (!q) { box.replaceChildren(el('p.bk-muted', 'Choose a service to see the price.')); if (sug) sug.replaceChildren(); return; }
     if (q.error) { box.replaceChildren(el('p.bk-muted', q.error.message)); if (sug) sug.replaceChildren(); return; }
     box.replaceChildren(priceLines(q, { withTime: true, otherCondition: otherCond() }));
@@ -1242,9 +1308,38 @@
             const card = root.querySelector('.svc-opt[data-code="' + b.code + '"]');
             if (card) card.focus({ preventScroll: e.detail > 0 });
           } }, 'Switch to ' + b.name)));
-        if (fresh && tap.still()) sug.firstChild.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+        if (fresh && !moved && tap.still()) revealNote(sug.firstChild);
       }
     }
+  }
+  // The inside-of-the-car question, just shown by a pick, opens under the cards: on a phone under the sticky bar, where
+  // nothing shows that it came. Its title is brought into view, about 12px over the sticky bar, by the smallest move,
+  // never so far that the card just tapped goes under the floating top bar; where that leaves the title still hidden,
+  // the page stays where it is (Continue then brings the question). Nothing moves when the title is in sight already.
+  // Says whether the page moved.
+  function revealConds() {
+    const label = root.querySelector('#bk-conds:not([hidden]) .choice-label');
+    if (!label) return false;
+    const s = sight(), r = label.getBoundingClientRect();
+    if (r.bottom <= s.bottom) return false;
+    const cap = lastOn && lastOn.isConnected ? lastOn.getBoundingClientRect().top - s.top : Infinity;
+    let by = r.bottom - (s.bottom - 12);
+    if (by > cap) { if (r.bottom - cap > s.bottom) return false; by = cap; }
+    if (by < 1) return false;
+    window.scrollBy({ top: Math.round(by), behavior: reduce ? 'auto' : 'smooth' });
+    return true;
+  }
+  // The bundle note comes into view just over the sticky bar. The inside-of-the-car question sits between the cards and
+  // the note (a bundle note always comes with an interior service, so it shows): the page never moves so far that the
+  // question's title, or the card just tapped, goes under the floating top bar. Where the note can't come in with both
+  // still in sight (a phone: the question is taller than the screen leaves), the page stays where it is and the note
+  // waits under the question.
+  function revealNote(note) {
+    const label = root.querySelector('#bk-conds:not([hidden]) .choice-label');
+    if (!label) return note.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+    const s = sight(), by = note.getBoundingClientRect().bottom - s.bottom;
+    const room = Math.min(label.getBoundingClientRect().top, lastOn && lastOn.isConnected ? lastOn.getBoundingClientRect().top : Infinity) - s.top;
+    if (by > 0 && by <= room) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
 
   // ---------------------------------------------------------------- 05 Date and time
@@ -1405,8 +1500,19 @@
     else { mainPrices(price); wave(); }
     const notes = root.querySelector('#bk-sw-notes');
     if (notes) notes.replaceChildren(...st.service.addons.filter((a) => !canHaveAddon(a))
-      .map((a) => el('p.bk-quiet', svc(a).name + ' goes with ' + waitsFor(a) + ', so it is left off for now.')));
+      .map((a) => el('p.bk-quiet', svc(a).name + ' goes with ' + waitsFor(a) + ', so it is left off for now.')),
+      // an interior service or a bundle chosen here, with the inside of the car not answered yet: its question is on 04
+      ...(hasInterior() && !st.vehicle.conditions.length ? [condsLink()] : []));
   }
+  // To step 04's question on the inside of the car: the step, then the question brought into view and focused
+  const condsLink = () => el('button.link', { type: 'button', onclick: async () => {
+    await go(4);
+    const c = step === 4 && root.querySelector('#bk-conds:not([hidden])');
+    if (!c) return;
+    c.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    const first = c.querySelector('.choice-item');
+    if (first) first.focus({ preventScroll: true });
+  } }, 'Tell us what the inside of the car is like ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
   // A tile tapped: the service changes in place (as a card would on step 04; the last one chosen stays, the date step
   // always has one), then the bar, the length and the total follow, and the open days cross-fade to this length
   // The service and its quote to go back to when a tapped tile's price can't load (after two quick taps, the one
@@ -1707,7 +1813,8 @@
     const vf = vehicleFacts();
     const vt = (menu.vehicleTypes.find((t) => t.code === vf.type) || {}).name;
     const savedV = savedVehicle();
-    const condLabels = hasInterior() ? v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ') : 'Not needed for an exterior-only service';
+    // the inside of the car, with an interior service or a bundle (asked on step 04, so it sits under the service lines)
+    const condLabels = v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ');
     const priced = !!q && q.total_cents != null && !otherCond();   // ("Other" inside the car: the owner prices it, doc 46)
     box.appendChild(el('section.sheet', { 'aria-label': 'Your booking' },
       el('div.sheet-top',
@@ -1721,6 +1828,8 @@
       el('div.sheet-lines',
         el('div.sheet-k', el('span', 'Service'), edit(4, 'service')),
         q ? priceLines(q, { mark: sigMark, otherCondition: otherCond() }) : el('p.bk-muted', 'Choose a service first'),
+        // (not answered yet, after a jump on the step bar: the way to its question)
+        hasInterior() ? el('p.sheet-notes', el('span', 'Inside the car'), condLabels || condsLink()) : null,
         s.notes.trim() ? el('p.sheet-notes', el('span', 'Notes'), s.notes.trim()) : null)));
     box.appendChild(el('div.sum-grid',
       sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() && !guest() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we’ll use your phone)')] : null]),
@@ -1728,7 +1837,6 @@
       sec('Vehicle', 2, [
         ['Vehicle', vehicleText()],
         !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : 'Standard'].filter(Boolean).join(' · ')] : null,
-        ['Inside the car', condLabels],
         ['Known damage', v.damage.map((d) => (menu.options.damage.find((o) => o.code === d) || {}).label).join(', ') + (v.damageNote.trim() ? ' — ' + v.damageNote.trim() : '')],
         !savedV && v.modifications.length ? ['Modifications', v.modifications.map((m) => (menu.options.modification.find((o) => o.code === m) || {}).label).join(', ')] : null,
         v.photos.length ? ['Photos', v.photos.length + ' added'] : null], 'wide')));

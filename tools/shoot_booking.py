@@ -59,8 +59,6 @@ async def main():
         await pg.fill('#vehicle_model', '4Runner')
         await pg.fill('#vehicle_color', 'Black')
         await pg.click('[data-field="vehicle_type"] [data-code="suv"]')
-        await pg.click('[data-field="conditions"] [data-code="pet_hair"]')
-        await pg.click('[data-field="conditions"] [data-code="spills"]')
         await shot(pg, '02-vehicle-filled', full=True)
         await pg.click('#bk-next')
         await pg.wait_for_selector('[data-field="location_type"]')
@@ -80,6 +78,9 @@ async def main():
         await pg.click('.bk-suggest .btn')
         await pg.wait_for_timeout(400)
         await pg.click('[data-field="addons"] [data-code="perfect_finish_sealant"]')
+        # the inside of the car: asked on step 04 once an interior service or a bundle is chosen
+        await pg.click('#bk-conds [data-field="conditions"] [data-code="pet_hair"]')
+        await pg.click('#bk-conds [data-field="conditions"] [data-code="spills"]')
         await pg.wait_for_timeout(500)
         await shot(pg, '04-service-picked', full=True)
         await pg.click('#bk-next')

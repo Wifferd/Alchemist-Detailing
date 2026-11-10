@@ -3129,7 +3129,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk .cal-day:focus-visible { border-radius: 50%; }
 .bk .star-pick button:focus-visible { border-radius: 12px; }
 
-/* step 02 in three titled parts (A the car, B inside the car, C before we start), a hairline between them */
+/* step 02 in two titled parts (A the car, B before we start), a hairline between them */
 .bk-parts { gap: 0; }
 .bk-part { display: grid; gap: 10px; padding: 16px 0; border-top: 1px solid var(--hair); }
 .bk-part:first-child { padding-top: 0; border-top: 0; }
@@ -3137,8 +3137,8 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk-part > .bk-grid { gap: 14px; }
 .bk-part-h { margin: 0; display: flex; align-items: center; gap: 12px; font: 500 13px/1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink); }
 .bk-part-no { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 4px; font: 600 11px/1 var(--font-ui); color: var(--gold-ink); }
-/* the inside of the car: the four short cards in one row, the two with a note two-up below. Every card keeps its fee
-   in one place, at its foot on the left, so the fees line up along each row */
+/* the inside of the car (step 04, with an interior service): the four short cards in one row, the two with a note
+   two-up below. Every card keeps its fee in one place, at its foot on the left, so the fees line up along each row */
 .bk [data-field="conditions"] .choice-list.cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .bk [data-field="conditions"] .choice-item:not(.short) { grid-column: span 2; }
 .bk [data-field="conditions"] .choice-item { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 8px; }
@@ -3254,6 +3254,10 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sw-foot > div { flex: 1 1 260px; min-width: 0; display: grid; gap: 6px; }
 .sw-foot > div:empty { position: absolute; }   /* nothing to say: still a live region, but no row of its own */
 .sw-foot > .link { margin-left: auto; }
+/* "Tell us what the inside of the car is like →" (a bundle chosen on step 05, or the summary, before it is answered):
+   where it wraps (the column beside the calendar, a phone) it reads as a sentence, from the left, its lines apart, the
+   arrow after the last word; the 44px target reaches past the words (margin and padding), the words stay in place */
+:is(.sw-foot > div, .sheet-notes) > .link { display: block; justify-self: start; margin: -12px -8px; padding: 12px 8px; text-align: left; line-height: var(--lh-4); }
 /* a wide screen: the strip is a column beside the calendar. Change and Done slide the column open and shut, so the
    calendar narrows and widens smoothly (at once under reduced motion); the tiles fade in as the column opens */
 @media (min-width: 900px) {
@@ -3383,7 +3387,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .sheet .pr-total { margin-top: 0; padding: 14px 0 0 var(--gut); }
 .sheet .pr > .bk-muted { margin-top: 8px; padding-left: var(--gut); }
 .sheet-notes { margin: 10px 0 0; padding: 12px 0 0 48px; border-top: 1px solid var(--hair); display: grid; gap: 6px; font-size: 14.5px; color: var(--ink-2); overflow-wrap: anywhere; }
-.sheet-notes span { font: 600 var(--fs-2xs)/1.2 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.sheet-notes > span { font: 600 var(--fs-2xs)/1.2 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
 /* the details under the sheet: Contact beside Location, the Vehicle across, each label over its value */
 .sum-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; }
 .sum-grid .sum { padding-block: 18px; }
