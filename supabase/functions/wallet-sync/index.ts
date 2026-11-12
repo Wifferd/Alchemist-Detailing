@@ -19,7 +19,7 @@ import { vaultGet, vaultPut } from "../_shared/wallet/vault.ts";
 import { pushAll } from "../_shared/wallet/apns.ts";
 import { CertError, checkNewCert, newKeyAndCsr } from "../_shared/wallet/certs.ts";
 import type { PassData } from "../_shared/wallet/pass.ts";
-import { addReminderMessage, googleCall, loyaltyClass, objectPatch, pointsText } from "../_shared/wallet/google.ts";
+import { addReminderMessage, firstSavePatch, googleCall, loyaltyClass, objectPatch, pointsText } from "../_shared/wallet/google.ts";
 import { dec, json, log, readBody, sameText } from "../_shared/wallet/util.ts";
 
 // wallet_sync_card (part 5): the card as the pass and the Google object show it, without its tokens.
@@ -140,6 +140,24 @@ interface Pending {
   google_object_id: string | null;
 }
 
+// A fresh save link was saved: its object went to Google lean (google.ts saveLink), so the first update puts back the
+// member lines, the hero's description and anything trimmed, with no notice; only then is the card marked saved, so a
+// failed update is tried again by the next sweep.
+async function firstSave(p: Pending): Promise<string> {
+  const cfg = config();
+  const d = await rpc<SyncCard | null>("wallet_sync_card", { p_card: p.card_id });
+  if (!d || !d.google_object_id) return "no such card";
+  const patch = firstSavePatch({ ...d, add_token: "", apple_token: "", platform: "google" } as PassData, cfg);
+  const r = await googleCall(cfg, "PATCH", `loyaltyObject/${encodeURIComponent(d.google_object_id)}`, patch);
+  if (r.status === 429 || r.status >= 500) return `Google ${r.status}: left for the next sweep`;
+  if (r.status !== 200) {
+    await problem("google", `first_patch_${r.status}`, `Google answered ${r.status} completing card ${d.code} after Save.`);
+    return `stopped: Google ${r.status}`;
+  }
+  await rpc("wallet_google_saved", { p_code: d.code, p_saved: true });
+  return "saved and completed";
+}
+
 async function sweep(): Promise<Record<string, unknown>> {
   const cfg = config();
   const pending = await rpc<Pending[]>("wallet_pending", { p_limit: 50 }) ?? [];
@@ -148,7 +166,7 @@ async function sweep(): Promise<Record<string, unknown>> {
   for (const p of pending) {
     if (p.google_check && p.google_object_id && cfg.googleMode === "live") {
       const g = await googleCall(cfg, "GET", `loyaltyObject/${encodeURIComponent(p.google_object_id)}`);
-      if (g.status === 200) await rpc("wallet_google_saved", { p_code: p.code, p_saved: true });
+      if (g.status === 200) log("wallet_google_first_save", { code: p.code, result: await firstSave(p) });
       checked++;
     }
     if (p.apple || p.google) results.push(await syncCard(p.card_id));

@@ -19,7 +19,7 @@ import { passJson, type PassData } from "../_shared/wallet/pass.ts";
 import { ArtError, passArt } from "../_shared/wallet/art.ts";
 import { buildPkpass } from "../_shared/wallet/sign.ts";
 import { CertError, signingPair } from "../_shared/wallet/certs.ts";
-import { loyaltyObject, objectId, objectPatch, SAVE_LINK_LIMIT, SAVE_URL, saveToken, signer, googleCall }
+import { googleCall, loyaltyObject, objectId, objectPatch, SAVE_LINK_LIMIT, SAVE_URL, saveLink, saveToken, signer }
   from "../_shared/wallet/google.ts";
 import { dec, empty, json, log, readBody, redirect } from "../_shared/wallet/util.ts";
 
@@ -95,14 +95,28 @@ async function googleDownload(dl: string): Promise<Response> {
   const cfg = config();
   const s = await signer(cfg);
   const obj = loyaltyObject(d, cfg);
+  const tooLong = async (len: number) => {
+    await problem("google", "save_link_too_long", `The save link for card ${d.code} would be ${len} characters (limit ${SAVE_LINK_LIMIT}), even trimmed.`);
+    return json(503, { error: "unavailable", detail: "Google Wallet can't take this card right now. Try again shortly." });
+  };
+  // A card not yet at Google gets the lean object (google.ts saveLink); trimming past it is recorded, never silent.
+  const fresh = async () => {
+    const sl = await saveLink(obj, cfg, s);
+    if (sl.link && sl.trimmed.length) {
+      await problem("google", "save_link_trimmed", `The save link for card ${d.code} left out ${sl.trimmed.join(", ")} to fit (${sl.length} characters); the first update after Save adds them.`);
+    }
+    return sl;
+  };
   if (cfg.googleMode !== "live") {
-    const jwt = await saveToken(obj, cfg, s);
-    log("google_dry_run", { code: d.code, would: "redirect to Google's save page", jwt_length: jwt.length });
+    const sl = await fresh();
+    log("google_dry_run", { code: d.code, would: "redirect to Google's save page", link_length: sl.length, trimmed: sl.trimmed });
+    if (!sl.link) return await tooLong(sl.length);
     return json(200, {
       dry_run: true,
-      would: "redirect to Google's save page with the whole object (not yet saved at Google)",
-      save_link_length: SAVE_URL.length + jwt.length,
-      save_link_ok: SAVE_URL.length + jwt.length <= SAVE_LINK_LIMIT,
+      would: "redirect to Google's save page with the card (not yet saved at Google); its member lines and the picture's description follow with the first update after Save",
+      save_link_length: sl.length,
+      save_link_ok: sl.length <= SAVE_LINK_LIMIT,
+      trimmed: sl.trimmed,
       object_id: obj.id,
       class_id: obj.classId,
       points: (obj.loyaltyPoints as { balance: { string: string } }).balance.string,
@@ -111,18 +125,21 @@ async function googleDownload(dl: string): Promise<Response> {
   // Live (Phase B; UNVERIFIED): a card already at Google gets a skinny link after any lagging change is sent.
   const id = objectId(cfg, d.code)!;
   const got = await googleCall(cfg, "GET", `loyaltyObject/${encodeURIComponent(id)}`);
-  let token: string;
+  let link: string;
   if (got.status === 404) {
-    token = await saveToken(obj, cfg, s);
+    const sl = await fresh();
+    if (!sl.link) return await tooLong(sl.length);
+    link = sl.link;
   } else if (got.status === 200) {
     await googleCall(cfg, "PATCH", `loyaltyObject/${encodeURIComponent(id)}`, objectPatch({ ...d, notify: false }, cfg));
-    token = await saveToken({ id }, cfg, s);
+    link = SAVE_URL + await saveToken({ id }, cfg, s);
+    if (link.length > SAVE_LINK_LIMIT) return await tooLong(link.length);
   } else {
     await problem("google", `get_${got.status}`, "Google answered while making a save link.");
     return json(503, { error: "unavailable", detail: "Google Wallet isn't answering. Try again shortly." });
   }
   await rpc("wallet_google_issued", { p_code: d.code, p_object_id: id });
-  return redirect(SAVE_URL + token);
+  return redirect(link);
 }
 
 // ---------------------------------------------------------------- Apple's web service

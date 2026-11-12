@@ -3,10 +3,13 @@
 // (The checks read pass.json and the Google object as loose JSON, hence the lint exception above.)
 //
 //   WALLET_TEST_SECRETS=<folder with ca.pem, ca.key, local-pass.key, local-pass.pem> WALLET_TEST_OUT=<folder> \
+//   WALLET_TEST_ART_MANIFEST=<site/img/wallet/art-manifest.json> \
 //     deno test --allow-env --allow-read --allow-write --allow-run=openssl tools/wallet/wallet_local_test.ts
 //
 // The secrets folder is the Phase A throwaway CA (outside every repository). Writes sample passes to WALLET_TEST_OUT
-// for tools/wallet/check_pkpass.sh. Never prints a key.
+// for tools/wallet/check_pkpass.sh. Never prints a key. WALLET_TEST_ART_MANIFEST (optional): the site's art manifest
+// (tools/wallet/make_wallet_art.py), so the Google checks measure the links with its real hero pictures; without it
+// they use every hero name make_wallet_art.py writes (the link's length depends only on the names).
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.8";
 
 Deno.env.set("SUPABASE_URL", "https://wlmostaetntbpmfgyjst.supabase.co");   // the TEST project's settings (config.ts)
@@ -16,8 +19,9 @@ const { passJson } = await import("../../supabase/functions/_shared/wallet/pass.
 const { standIn } = await import("../../supabase/functions/_shared/wallet/art.ts");
 const { buildPkpass, importSigningKey, parseCert } = await import("../../supabase/functions/_shared/wallet/sign.ts");
 const { checkNewCert, CertError, newKeyAndCsr, issuerOf } = await import("../../supabase/functions/_shared/wallet/certs.ts");
-const { loyaltyObject, saveToken, signer, SAVE_URL, SAVE_LINK_LIMIT, objectPatch } =
+const { loyaltyObject, saveLink, saveObject, signer, SAVE_LINK_LIMIT, objectPatch, firstSavePatch } =
   await import("../../supabase/functions/_shared/wallet/google.ts");
+const { default: artManifest } = await import("../../supabase/functions/_shared/wallet/art-manifest.ts");
 const { redact } = await import("../../supabase/functions/_shared/wallet/util.ts");
 
 const SECRETS = Deno.env.get("WALLET_TEST_SECRETS") ?? "";
@@ -155,26 +159,92 @@ Deno.test("key in Supabase: a new key and CSR; the issued certificate is accepte
   }
 });
 
-Deno.test("Google: the save link stays under 1,750 characters; dry-run signer; the PATCH", async () => {
-  const cfg = config();
-  const s = await signer(cfg);
-  assert(s.dryRun);
-  for (const n of [3, 10]) {
-    const obj = loyaltyObject({ ...card(n), platform: "google" }, cfg);
-    const jwt = await saveToken(obj, cfg, s);
-    const len = SAVE_URL.length + jwt.length;
-    console.log(`save link at ${n}: ${len} characters`);
-    assert(len <= SAVE_LINK_LIMIT, `save link ${len}`);
+// The JSON inside a JWT's middle part.
+function jwtPayload(link: string): any {
+  const b = link.split("/").pop()!.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b + "=".repeat((4 - b.length % 4) % 4)), (c) => c.charCodeAt(0))));
+}
+
+// The manifest the Google checks run with: the site's (WALLET_TEST_ART_MANIFEST) or every hero name make_wallet_art.py
+// writes, put into the compiled-in manifest for the length of a test and taken out again.
+async function withHeroes<T>(fn: () => Promise<T>): Promise<T> {
+  const before = { ...artManifest.files };
+  const path = Deno.env.get("WALLET_TEST_ART_MANIFEST");
+  const files: Record<string, string> = path ? JSON.parse(await Deno.readTextFile(path)).files : Object.fromEntries(
+    [...Array(11).keys()].flatMap((n) => [`google/hero-${n}-v1.png`, `google/hero-test-${n}-v1.png`])
+      .concat("google/logo-v1.png").map((k) => [k, "0".repeat(40)]));
+  for (const k of [...Array(11).keys()].map((n) => `google/hero-test-${n}-v1.png`)) assert(files[k], `manifest has ${k}`);
+  Object.assign(artManifest.files, files);
+  try {
+    return await fn();
+  } finally {
+    for (const k of Object.keys(artManifest.files)) if (!(k in before)) Reflect.deleteProperty(artManifest.files, k);
+    Object.assign(artManifest.files, before);
   }
+}
+
+Deno.test("Google: save links stay under 1,750 characters with the hero pictures, at 0, 3, 9, 10 and 12 washes", async () => {
+  await withHeroes(async () => {
+    const cfg = config();
+    const s = await signer(cfg);
+    assert(s.dryRun);
+    // live-like: the live site's address, a 19-digit issuer and a long service-account address (Phase B's are unknown)
+    const live = { ...cfg, label: "" as const, siteUrl: "https://thealchemistdetailing.com",
+      artUrl: "https://thealchemistdetailing.com/img/wallet", googleIssuerId: "3388000000022999999",
+      googleClassCard: "alchemist_card_v1" };
+    const sLive = { ...s, email: "alchemist-wallet-signer@alchemist-detailing-wallet-live.iam.gserviceaccount.com" };
+    const runs: [string, typeof cfg, typeof s][] = [["test", cfg, s], ["live-like", live, sLive]];
+    for (const [name, c, sg] of runs) {
+      for (const n of [0, 3, 9, 10, 12]) {
+        const full = loyaltyObject({ ...card(n), platform: "google" }, c) as Record<string, any>;
+        assert(full.heroImage?.sourceUri?.uri, `${name} ${n}: the hero picture is in the object`);
+        const sl = await saveLink(full, c, sg);
+        console.log(`${name} save link at ${n}: ${sl.length} characters` + (sl.trimmed.length ? ` (trimmed ${sl.trimmed})` : ""));
+        assert(sl.link !== null && sl.length <= SAVE_LINK_LIMIT, `${name} save link at ${n}: ${sl.length}`);
+        assertEquals(sl.link!.length, sl.length);
+        assertEquals(sl.trimmed, [], `${name} ${n}: nothing trimmed beyond the lean object`);
+        const o = jwtPayload(sl.link!).payload.loyaltyObjects[0];
+        assertEquals(o.secondaryLoyaltyPoints, undefined, "no member lines in the link");
+        assertEquals(o.textModulesData, undefined);
+        assertEquals(o.heroImage, { sourceUri: full.heroImage.sourceUri }, "the hero without its description");
+        assertEquals(o.loyaltyPoints, full.loyaltyPoints);
+        assertEquals(o.barcode, full.barcode);
+        assertEquals(o.linksModuleData, full.linksModuleData);
+        assertEquals(o.id, full.id);
+        if (n >= 10) assert(full.heroImage.sourceUri.uri.endsWith(c.label === "test" ? "/google/hero-test-10-v1.png" : "/google/hero-10-v1.png"));
+      }
+    }
+    // The first update after Save puts everything back, with no notice.
+    const fp = firstSavePatch({ ...card(10), platform: "google" }, cfg) as Record<string, any>;
+    assertEquals(fp.secondaryLoyaltyPoints.balance.string, "Member");
+    assertEquals(fp.textModulesData[0].body, "Loyalty member");
+    assertEquals(fp.heroImage.contentDescription.defaultValue.value, "10 of 10");
+    assert(fp.linksModuleData.uris.length === 2 && fp.loyaltyPoints.balance.string === "10 / 10");
+    assertEquals(fp.notifyPreference, undefined);
+    assertEquals(saveObject({ id: "x", heroImage: { sourceUri: { uri: "u" }, contentDescription: {} } }),
+      { id: "x", heroImage: { sourceUri: { uri: "u" } } });
+    // The guard: as the site's address grows, the link drops the hero, then the links, then is refused; never too long.
+    const seen = new Set<string>();
+    for (let k = 0; k <= 400; k += 8) {
+      const site = `https://${"a".repeat(k)}x.example`;
+      const c = { ...cfg, siteUrl: site, artUrl: `${site}/img/wallet` };
+      const sl = await saveLink(loyaltyObject({ ...card(10), platform: "google" }, c), c, s);
+      assert(sl.link === null || sl.length <= SAVE_LINK_LIMIT, `k ${k}: ${sl.length}`);
+      seen.add(sl.link === null ? "refused" : sl.trimmed.join("+") || "lean");
+    }
+    assertEquals([...seen], ["lean", "heroImage", "heroImage+linksModuleData", "refused"]);
+  });
+  assertEquals(artManifest.files["google/hero-test-3-v1.png"], undefined, "the compiled-in manifest is as it was");
+  const cfg = config();
+  assertEquals(objectPatch({ ...card(4), platform: "google" }, cfg).notifyPreference, "NOTIFY_ON_UPDATE");
+  assertEquals(objectPatch({ ...card(4, { last_change: "unstamp", notify: false }), platform: "google" }, cfg).notifyPreference, undefined);
   const m = loyaltyObject({ ...card(10), platform: "google" }, cfg) as Record<string, any>;
   assertEquals(m.secondaryLoyaltyPoints.balance.string, "Member");
   assertEquals(m.loyaltyPoints.balance.string, "10 / 10");
   assertEquals((loyaltyObject({ ...card(12), platform: "google" }, cfg) as any).loyaltyPoints.balance.string, "12");
-  assertEquals(objectPatch({ ...card(4), platform: "google" }, cfg).notifyPreference, "NOTIFY_ON_UPDATE");
-  assertEquals(objectPatch({ ...card(4, { last_change: "unstamp", notify: false }), platform: "google" }, cfg).notifyPreference, undefined);
 });
 
-Deno.test("art: make_wallet_art.py's folder names; the stand-in draws the AD mark in the slots", async () => {
+Deno.test("art: make_wallet_art.py's folder names; the stand-in draws the AD letters (no stars) in the slots", async () => {
   const { artFolder } = await import("../../supabase/functions/_shared/wallet/art.ts");
   assertEquals(artFolder({ stamps: 3, slots: 10, member: false, test: false }), "3");
   assertEquals(artFolder({ stamps: 3, slots: 10, member: false, test: true }), "test-3");
@@ -183,9 +253,10 @@ Deno.test("art: make_wallet_art.py's folder names; the stand-in draws the AD mar
   // A filled slot holds the mark: inside the first slot's ring (centre 55.5, 41 pt at @1x; ring radius 24) the strip
   // at 1 stamp has gold pixels and at 0 none.
   const { decompressSync } = await import("npm:fflate@0.8.2");
-  const goldIn = (png: Uint8Array) => {
+  // png.ts writes 8-bit RGBA rows with filter 0, so the inflated IDAT is the pixels with one byte in front of each row.
+  const pixels = (png: Uint8Array) => {
     const dv = new DataView(png.buffer, png.byteOffset, png.byteLength);
-    const w = dv.getUint32(16);
+    const w = dv.getUint32(16), h = dv.getUint32(20);
     const parts: number[] = [];
     for (let at = 8; at < png.length;) {
       const len = dv.getUint32(at), type = new TextDecoder().decode(png.subarray(at + 4, at + 8));
@@ -193,21 +264,51 @@ Deno.test("art: make_wallet_art.py's folder names; the stand-in draws the AD mar
       at += 12 + len;
     }
     const raw = decompressSync(new Uint8Array(parts));
+    const gold = (x: number, y: number) => {
+      const i = y * (w * 4 + 1) + 1 + x * 4;
+      return raw[i] > 200 && raw[i + 1] > 150 && raw[i + 2] < 120;
+    };
+    return { w, h, gold };
+  };
+  const goldIn = (png: Uint8Array) => {
+    const { gold } = pixels(png);
     let n = 0;
     for (let y = 27; y <= 55; y++) {
-      for (let x = 41; x <= 70; x++) {
-        const i = y * (w * 4 + 1) + 1 + x * 4;
-        if (raw[i] > 200 && raw[i + 1] > 150 && raw[i + 2] < 120) n++;
-      }
+      for (let x = 41; x <= 70; x++) if (gold(x, y)) n++;
     }
     return n;
   };
+  // The gold pixels' box: the AD letters and bar alone are about 1.5 times as wide as tall (529 x 346 in the SVG's
+  // units); with the four-point stars and hairlines the mark is taller than wide (529 x 560).
+  const goldBox = (png: Uint8Array) => {
+    const { w, h, gold } = pixels(png);
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (gold(x, y)) {
+          x0 = Math.min(x0, x);
+          y0 = Math.min(y0, y);
+          x1 = Math.max(x1, x);
+          y1 = Math.max(y1, y);
+        }
+      }
+    }
+    return { w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  };
+  for (const look of [{ stamps: 3, slots: 10, member: false, test: true }, { stamps: 0, slots: 10, member: false, test: false }]) {
+    const icon = goldBox(standIn(look)["icon@3x.png"]);
+    assert(icon.w / icon.h > 1.4 && icon.w / icon.h < 1.7, `the icon's mark is the letters alone: ${icon.w} x ${icon.h}`);
+    const logo = goldBox(standIn(look)["logo@3x.png"]);
+    assert(logo.w / logo.h > 1.4 && logo.w / logo.h < 1.7, `the logo's mark is the letters alone: ${logo.w} x ${logo.h}`);
+  }
   const empty = standIn({ stamps: 0, slots: 10, member: false, test: false })["strip.png"];
   const one = standIn({ stamps: 1, slots: 10, member: false, test: false })["strip.png"];
   assertEquals(goldIn(empty), 0, "an empty slot is only a ring");
   assert(goldIn(one) > 60, `gold pixels of the mark in a filled slot: ${goldIn(one)}`);
   const obj = loyaltyObject({ ...card(3), platform: "google" }, config()) as Record<string, any>;
-  assertEquals(obj.heroImage, undefined, "no hero picture until the art's fingerprints are compiled in");
+  if (Object.keys(artManifest.files).length === 0) {
+    assertEquals(obj.heroImage, undefined, "no hero picture until the art's fingerprints are compiled in");
+  }
 });
 
 Deno.test("logs: tokens, push codes, JWTs and PEM blocks are redacted", () => {

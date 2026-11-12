@@ -96,8 +96,8 @@ async function signJwt(claims: Record<string, unknown>, signer: Signer): Promise
   return `${head}.${body}.${b64url(sig)}`;
 }
 
-// The save link's token: the whole object for a card not yet at Google (nothing exists there until Save is tapped),
-// or only {id} for one that exists. Google warns past about 1,800 characters in the link.
+// The save link's token: the object for a card not yet at Google (nothing exists there until Save is tapped), or only
+// {id} for one that exists.
 export async function saveToken(obj: Record<string, unknown>, cfg: WalletConfig, signer: Signer): Promise<string> {
   const origins = cfg.siteUrl ? [new URL(cfg.siteUrl).host] : [];
   return await signJwt({
@@ -111,7 +111,42 @@ export async function saveToken(obj: Record<string, unknown>, cfg: WalletConfig,
 }
 
 export const SAVE_URL = "https://pay.google.com/gp/v/save/";
+// Google warns past about 1,800 characters in the link; this keeps a margin.
 export const SAVE_LINK_LIMIT = 1750;
+
+// The object a save link carries for a card not yet at Google: everything but the member lines (secondaryLoyaltyPoints,
+// textModulesData) and the hero's description, which the gold card's link can't carry under the limit (1,899
+// characters at 10 washes with them, review round 1). The first update after Save puts them back: the sweep's check of
+// a fresh link (wallet-sync, firstSavePatch) or the next sync's PATCH (objectPatch sends all of them).
+export function saveObject(full: Record<string, unknown>): Record<string, unknown> {
+  const { secondaryLoyaltyPoints: _s, textModulesData: _t, heroImage, ...lean } = full;
+  if (heroImage) lean.heroImage = { sourceUri: (heroImage as { sourceUri: unknown }).sourceUri };
+  return lean;
+}
+
+export interface SaveLink {
+  link: string | null;        // null: too long even trimmed (the route refuses and records a problem)
+  length: number;             // the link's length (the last one tried)
+  trimmed: string[];          // what was left out beyond saveObject's lean set, to fit
+}
+
+// The save link for a card not yet at Google, kept under SAVE_LINK_LIMIT: the lean object; if that is still too long,
+// without the hero picture, then without the links module (both come back with the first update after Save).
+export async function saveLink(full: Record<string, unknown>, cfg: WalletConfig, s: Signer): Promise<SaveLink> {
+  const lean = saveObject(full);
+  const { heroImage: _hero, ...noHero } = lean;
+  const { linksModuleData: _links, ...noLinks } = noHero;
+  const tries: [Record<string, unknown>, string[]][] = [[lean, []]];
+  if ("heroImage" in lean) tries.push([noHero, ["heroImage"]]);
+  if ("linksModuleData" in noHero) tries.push([noLinks, [...tries[tries.length - 1][1], "linksModuleData"]]);
+  let length = 0;
+  for (const [obj, trimmed] of tries) {
+    const link = SAVE_URL + await saveToken(obj, cfg, s);
+    length = link.length;
+    if (length <= SAVE_LINK_LIMIT) return { link, length, trimmed };
+  }
+  return { link: null, length, trimmed: tries[tries.length - 1][1] };
+}
 
 let dryKey: CryptoKey | null = null;
 let liveSigner: Signer | null = null;
@@ -187,9 +222,16 @@ export function objectPatch(d: PassData, cfg: WalletConfig): Record<string, unkn
     textModulesData: full.textModulesData ?? [],
   };
   if (full.heroImage) patch.heroImage = full.heroImage;
+  if (full.linksModuleData) patch.linksModuleData = full.linksModuleData;
   // Google's notifying fields send an update notice only when asked, at most 3 in 24 hours per pass [G12].
   if (d.notify && (d.last_change === "stamp" || d.last_change === "member")) patch.notifyPreference = "NOTIFY_ON_UPDATE";
   return patch;
+}
+
+// The first update after a fresh save link was saved (the sweep's check, wallet-sync): what saveLink left out (the
+// member lines, the hero with its description, the links), with no notice (the holder has just added the card).
+export function firstSavePatch(d: PassData, cfg: WalletConfig): Record<string, unknown> {
+  return objectPatch({ ...d, notify: false }, cfg);
 }
 
 // A reminder as a Google message with a notification (at most 10 messages per object: trim to the newest 9 first).

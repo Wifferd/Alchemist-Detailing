@@ -4,10 +4,12 @@
 // The real art (the AD mark as a stand-in until the owner picks the new logo) is made by tools/make_wallet_art.py,
 // served from <WALLET_ART_URL>/apple/<state>/<file> (the test project's grey look from apple/test-<state>/) and checked
 // against art-manifest.ts before use (a mismatch is an ArtError: the route answers 503 and records a setup problem).
-// Until that art is on the site and its fingerprints are compiled in (Phase A), every pass gets the same design drawn
-// here: the AD mark from brand/ad-mark.svg in flat colours, two rows of five slots (an empty slot a dim gold ring, a
-// filled one a gold ring with the mark), all filled on a gold ground at the last slot. The count is always in a text
-// field too (Apple Watch doesn't show the strip).
+// Until that art is on the site and its fingerprints are compiled in (Phase A), and for any slot count other than 10,
+// every pass gets the same design drawn here, in make_wallet_art.py's default look: flat colours, no gradients, glints
+// or sparkles (the owner's direction), the AD mark's letters and bar from brand/ad-mark.svg (its two four-point stars
+// and their hairlines left out), two rows of five slots (an empty slot a dim gold ring, a filled one a gold ring with
+// the mark), all filled on a gold ground at the last slot. The count is always in a text field too (Apple Watch
+// doesn't show the strip).
 import manifest from "./art-manifest.ts";
 import { Canvas, pathPolys, type Pt, type RGBA } from "./png.ts";
 import { sha1Hex } from "./util.ts";
@@ -30,15 +32,12 @@ const BLACK: RGBA = [0, 0, 0, 255];            // --bg
 const TEST_GREY: RGBA = [28, 28, 28, 255];     // --panel-2 (test passes, plan 2.4)
 const CLEAR: RGBA = [0, 0, 0, 0];
 
-// brand/ad-mark.svg's path (viewBox 0 20 570 590), copied as it is: the A with the D's bowl, the bar, two four-point
-// stars and their hairlines. tools/make_wallet_art.py reads the same file.
+// brand/ad-mark.svg's path (viewBox 0 20 570 590), its first two subpaths only: the A with the D's bowl, and the bar.
+// The file's other four subpaths (two four-point stars and their hairlines) are left out, as make_wallet_art.py does
+// by default ("--full-mark" keeps them there): the owner asked for flat art with no sparkles.
 const AD_MARK = "M20.2 547.5 L237.6 201.5 L408.5 508.0 C433.8 508.0 500.0 473.5 500.0 393.0 C500.0 312.5 433.8 278.0 " +
   "402.0 278.0 L315.0 278.0 L291.5 236.0 L427.0 236.0 C463.6 236.0 549.0 298.3 549.0 391.7 C549.0 485.2 463.6 547.5 " +
-  "427.0 547.5 L379.4 547.5 L232.8 282.0 L70.3 547.5 Z M131.5 508.0 L314.5 508.0 L336.5 547.5 L106.6 547.5 Z M297.0 " +
-  "36.0 C297.0 124.0 306.4 146.0 344.0 146.0 C306.4 146.0 297.0 155.2 297.0 192.0 C297.0 155.2 287.2 146.0 248.0 146.0 " +
-  "C287.2 146.0 297.0 124.0 297.0 36.0 Z M232.5 348.0 C232.5 401.6 242.8 415.0 284.0 415.0 C242.8 415.0 232.5 429.4 " +
-  "232.5 487.0 C232.5 429.4 221.8 415.0 179.0 415.0 C221.8 415.0 232.5 401.6 232.5 348.0 Z M294.6 180 L299.4 180 " +
-  "L299.4 238 L294.6 238 Z M295.6 553 L298.4 553 L297.6 596 L296.4 596 Z";
+  "427.0 547.5 L379.4 547.5 L232.8 282.0 L70.3 547.5 Z M131.5 508.0 L314.5 508.0 L336.5 547.5 L106.6 547.5 Z";
 
 let markCache: { polys: Pt[][]; x: number; y: number; w: number; h: number } | null = null;
 
@@ -136,7 +135,8 @@ export function standIn(look: ArtLook): Record<string, Uint8Array> {
       const filled = i < s;
       const stroke = (filled ? 2 : 1.5) * fit * k;
       strip.ring(cx, cy, r, r - stroke, look.member ? ON_GOLD : filled ? GOLD : GOLD_DIM);
-      if (filled) drawMark(strip, cx, cy, 2 * r * 0.62, ink);
+      // the mark 62% of the ring's width tall, or 66% of it wide, whichever binds (make_wallet_art.py's slot_svg)
+      if (filled) drawMark(strip, cx, cy, 2 * r * 0.62, ink, 2 * r * 0.66);
     }
     out[`strip${sfx}.png`] = strip.png();
   }
