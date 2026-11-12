@@ -67,8 +67,9 @@ begin
   select array_agg(c.relname || '.' || tg.tgname || ':' || tg.tgtype order by tg.tgname) into arr
   from pg_trigger tg join pg_class c on c.oid = tg.tgrelid
   where tg.tgrelid in (select ('public.' || t)::regclass from unnest(tabs) t) and not tg.tgisinternal;
-  res := res || jsonb_build_array(jsonb_build_array(p || ': only wallet_stamps has a trigger: the audit, after insert or update, per row',
-    arr = array['wallet_stamps.wallet_stamps_audit:21']
+  -- part 5 adds wallet_cards_sync (after update of changed_at, per row: 17), which writes nothing (m009_tests_sync.sql)
+  res := res || jsonb_build_array(jsonb_build_array(p || ': only wallet_stamps has an audit trigger (after insert or update, per row); part 5 adds only the sync trigger',
+    arr = array['wallet_stamps.wallet_stamps_audit:21'] or arr = array['wallet_cards.wallet_cards_sync:17', 'wallet_stamps.wallet_stamps_audit:21']
     and (select tg.tgfoid = 'public.audit_changes()'::regprocedure from pg_trigger tg where tg.tgname = 'wallet_stamps_audit'),
     coalesce(arr::text, 'none')));
   select array_agg(q.x) into arr
@@ -96,8 +97,10 @@ begin
   select array_agg(f.proname::text order by f.proname) into arr
   from pg_proc f where f.pronamespace = 'public'::regnamespace and f.proname like 'wallet%'
     and has_function_privilege('service_role', f.oid, 'execute');
-  res := res || jsonb_build_array(jsonb_build_array(p || ': service_role gets exactly the Edge Functions'' seventeen',
-    arr = want_svc, coalesce(arr::text, 'none')));
+  -- part 5 adds wallet_sync_card (the sync's read of a card): eighteen once it is applied (m009_tests_sync.sql)
+  res := res || jsonb_build_array(jsonb_build_array(p || ': service_role gets exactly the Edge Functions'' seventeen (eighteen with part 5)',
+    arr = want_svc or arr = (select array_agg(x order by x) from unnest(want_svc || array['wallet_sync_card']) x),
+    coalesce(arr::text, 'none')));
   select array_agg(f.proname::text order by f.proname) into arr
   from pg_proc f cross join lateral aclexplode(coalesce(f.proacl, acldefault('f', f.proowner))) a
   where (f.pronamespace = 'public'::regnamespace and f.proname like 'wallet%'
@@ -120,7 +123,9 @@ begin
   res := res || jsonb_build_array(jsonb_build_array(p || ': every wallet function is security definer with an empty search_path',
     arr is null, coalesce(arr::text, 'all')));
   select count(*) into n from pg_proc f where f.pronamespace = 'public'::regnamespace and f.proname like 'wallet%';
-  res := res || jsonb_build_array(jsonb_build_array(p || ': 37 wallet functions in public', n = 37, n::text));
+  -- part 5 adds six: wallet_sync_card, wallet_call, wallet_card_changed, wallet_sweep_due, wallet_sweep_tick, wallet_reminders_tick
+  res := res || jsonb_build_array(jsonb_build_array(p || ': 37 wallet functions in public (43 with part 5)',
+    n = 37 or (n = 43 and to_regprocedure('public.wallet_sync_card(uuid)') is not null), n::text));
   res := res || jsonb_build_array(jsonb_build_array(p || ': the office schema and its wallet views and commands are closed to the API roles',
     not has_schema_privilege('anon', 'office', 'usage') and not has_schema_privilege('authenticated', 'office', 'usage')
     and not has_schema_privilege('service_role', 'office', 'usage')

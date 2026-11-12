@@ -1,0 +1,14 @@
+# Supabase CLI settings for this repository. Only what differs from the defaults is written here.
+# project_id is the CLI's local name for this folder, not a hosted project (deploys name the project with --project-ref).
+project_id = "alchemist-detailing"
+
+# The wallet wash card's functions (Migration 009, plan 4.1 and 4.8) check their own callers, so the gateway's JWT check
+# is off: Apple's web service sends "Authorization: ApplePass <token>", and the database's calls to wallet-sync carry
+# x-wallet-secret (compared with Vault). Deploy them with --no-verify-jwt (or the MCP's verify_jwt: false), then run
+# tools/wallet/apple_service_walk.sh against the hosted function after EVERY deploy: a report (Feb 2026) has the check
+# coming back on after a redeploy, which would answer 401 to every iPhone and silently stop updates.
+[functions.wallet]
+verify_jwt = false
+
+[functions.wallet-sync]
+verify_jwt = false
