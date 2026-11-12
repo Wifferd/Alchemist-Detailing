@@ -11,7 +11,7 @@
   const glOk = (() => { try { return !!document.createElement('canvas').getContext('webgl'); } catch (e) { return false; } })();
   if (!glOk) root.classList.add('no-webgl');
 
-  const NAMES = { home: 'Home', services: 'Services', book: 'Book', appointments: 'Appointments', reviews: 'Reviews', tips: 'Tips', faq: 'FAQ', about: 'About', contact: 'Contact', account: 'Account', admin: 'Admin', team: 'Team', gallery: 'Gallery' };
+  const NAMES = { home: 'Home', services: 'Services', book: 'Book', appointments: 'Appointments', reviews: 'Reviews', tips: 'Tips', faq: 'FAQ', about: 'About', contact: 'Contact', account: 'Account', admin: 'Admin', team: 'Team', gallery: 'Gallery', card: 'Wash card' };   // card: the printed QR's page (card.js; not in the menu until launch, plan 2.2)
   const HOME_TITLE = 'Alchemist Detailing · Hand car detailing in Parker, Texas';
 
   // ---------------------------------------------------------------- hero
@@ -463,8 +463,8 @@
   const side = { site: '#home', staff: '#admin-requests' };
   // the Admin screens by name (admin.js SCREENS), for the tag; a bare #admin opens whichever screen the Admin page
   // last showed, so it is named Admin
-  const SCREEN = new Map([['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']]);
-  const ADMIN_ONLY = ['team', 'log'];   // as admin.js: a manager is never sent to these (Requests instead)
+  const SCREEN = new Map([['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['cards', 'Wash cards'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']]);
+  const ADMIN_ONLY = ['cards', 'team', 'log'];   // as admin.js: a manager is never sent to these (Requests instead)
   let doorSeq = 0, doorRole = null;
   function showDoor(s) {
     const role = s && s.active !== false ? s.role : null;
@@ -2597,8 +2597,8 @@
   // the footer comes up the screen, its centre hairline draws out from the middle (1.2s), and once the monogram is
   // wholly on the screen it takes one pass of gold light inside its own strokes (ui.js lightMark); on home both wait
   // for the closing band's light to have gone, so they are the page's last movement. Once per visit (the tab's own
-  // storage; should it be blocked, it may come again on a later visit, which is harmless). On the booking, account
-  // and staff pages the hairline is simply drawn and the mark takes no light (the closer to booking, the calmer), and
+  // storage; should it be blocked, it may come again on a later visit, which is harmless). On the booking, account,
+  // wash card and staff pages the hairline is simply drawn and the mark takes no light (the closer to booking, the calmer), and
   // a footer already on the screen as a page opens takes it only once it has been scrolled away and back. None under
   // reduced motion, without JavaScript or in print: the hairline drawn, the mark still; in forced colours the
   // hairline draws and no light passes.
@@ -2611,7 +2611,7 @@
     if (signed) return;
     footer.setAttribute('data-sign', '');
     if (!light.off && window.AlchemistUI && window.AlchemistUI.lightMark) window.AlchemistUI.lightMark(mark, 'foot');
-    const quiet = () => ['book', 'account', 'appointments', 'admin', 'team'].includes(cur);
+    const quiet = () => ['book', 'account', 'appointments', 'card', 'admin', 'team'].includes(cur);
     // the mark in the open: below the floating top bar (the page's scroll padding), above the screen's foot
     const BAR = 90;
     const shown = () => { const r = mark.getBoundingClientRect(); return r.top >= BAR && r.bottom <= window.innerHeight; };
@@ -3166,6 +3166,7 @@
         if (view === 'account' && window.AlchemistAccount) window.AlchemistAccount.mountAccount($('#accountApp'));
         if (view === 'appointments' && window.AlchemistAccount) window.AlchemistAccount.mountAppointments($('#appointmentsApp'));
         if (view === 'admin' && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
+        if (view === 'card' && window.AlchemistCard) window.AlchemistCard.mount($('#cardApp'));
         if (view === 'team' && window.AlchemistTeam) window.AlchemistTeam.mount($('#teamApp'));
         if (view === 'reviews' && window.AlchemistReviews) window.AlchemistReviews.mount($('#reviewsApp'));
         if (view === 'content' && window.AlchemistContent) window.AlchemistContent.mount($('#contentApp'), r, again && Array.isArray(again.o) ? { open: again.o } : null);
@@ -3174,6 +3175,7 @@
         if (view === 'home') startHero(first);
       }
       if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
+      if (r === 'card' && !changed && window.AlchemistCard) window.AlchemistCard.mount($('#cardApp'));   // #card and a holder's #card-<token>: the page read again
       // already booking: offered, never forced; met again by Back or Forward, it was offered when its link was followed
       if (r === 'book' && !changed && sub && window.AlchemistBooking) window.AlchemistBooking.offer(sub, { returning: !!again });
       if (!cut) place(); else if (late) whenLifted(place);

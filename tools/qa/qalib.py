@@ -10,7 +10,7 @@ import asyncio, contextlib, functools, glob, http.server, os, pathlib, socket, t
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 
 ROUTES = ['home', 'services', 'services-exterior', 'services-interior', 'services-protection', 'services-bundles',
-          'gallery', 'reviews', 'tips', 'faq', 'about', 'contact', 'book', 'account', 'appointments', 'admin', 'team', '404']
+          'gallery', 'reviews', 'tips', 'faq', 'about', 'contact', 'book', 'account', 'appointments', 'card', 'admin', 'team', '404']
 
 # desk: a computer screen; phone: an iPhone-sized touch screen; n360: a narrow phone
 SIZES = {
