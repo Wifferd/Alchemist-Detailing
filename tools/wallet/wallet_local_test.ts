@@ -19,7 +19,7 @@ const { passJson } = await import("../../supabase/functions/_shared/wallet/pass.
 const { standIn } = await import("../../supabase/functions/_shared/wallet/art.ts");
 const { buildPkpass, importSigningKey, parseCert } = await import("../../supabase/functions/_shared/wallet/sign.ts");
 const { checkNewCert, CertError, newKeyAndCsr, issuerOf } = await import("../../supabase/functions/_shared/wallet/certs.ts");
-const { loyaltyObject, saveLink, saveObject, signer, SAVE_LINK_LIMIT, objectPatch, firstSavePatch } =
+const { loyaltyObject, saveLink, saveObject, signer, SAVE_LINK_LIMIT, objectPatch, firstSavePatch, patchObject } =
   await import("../../supabase/functions/_shared/wallet/google.ts");
 const { default: artManifest } = await import("../../supabase/functions/_shared/wallet/art-manifest.ts");
 const { redact } = await import("../../supabase/functions/_shared/wallet/util.ts");
@@ -242,6 +242,59 @@ Deno.test("Google: save links stay under 1,750 characters with the hero pictures
   assertEquals(m.secondaryLoyaltyPoints.balance.string, "Member");
   assertEquals(m.loyaltyPoints.balance.string, "10 / 10");
   assertEquals((loyaltyObject({ ...card(12), platform: "google" }, cfg) as any).loyaltyPoints.balance.string, "12");
+});
+
+// Review round 2: notices. The database decides (Migration 009 part 5c, db-tests/m009_tests_notices.sql); the Google
+// update asks for a notice only then, and a notifying update Google refuses goes again without it, at once.
+Deno.test("Google notices: notifyPreference only when the database allowed one; a refused notice is dropped, not resent", async () => {
+  const cfg = config();
+  const g = (n: number, extra: Record<string, unknown> = {}) => ({ ...card(n, extra), platform: "google" as const });
+  assertEquals(objectPatch(g(4), cfg).notifyPreference, "NOTIFY_ON_UPDATE", "a stamp the database let notify");
+  assertEquals(objectPatch(g(10), cfg).notifyPreference, "NOTIFY_ON_UPDATE", "the gold change");
+  assertEquals(objectPatch(g(4, { notify: false }), cfg).notifyPreference, undefined, "a past wash by hand, a second that day");
+  assertEquals(objectPatch(g(10, { notify: false }), cfg).notifyPreference, undefined, "gold on a day with a notice");
+  assertEquals(objectPatch(g(4, { last_change: "reminder", notify: true, reminder_text: "words" }), cfg).notifyPreference,
+    undefined, "a reminder notifies through its message, never through the update");
+  for (const lc of ["unstamp", "void", "resign", "new"]) {
+    assertEquals(objectPatch(g(4, { last_change: lc, notify: true }), cfg).notifyPreference, undefined, lc);
+  }
+  // Google stand-in: refuses the notice with the given status, answers `quiet` to an update without one.
+  const standIn = (refuse: number, quiet = 200) => {
+    const calls: Record<string, unknown>[] = [];
+    const call = (_c: unknown, method: string, path: string, body?: unknown) => {
+      assertEquals(method, "PATCH");
+      assertEquals(path, "loyaltyObject/3388000000012345678.K7Q2M9XD");
+      const b = body as Record<string, unknown>;
+      calls.push(b);
+      return Promise.resolve({ status: b.notifyPreference ? refuse : quiet, body: null });
+    };
+    return { calls, call: call as any };
+  };
+  const id = "3388000000012345678.K7Q2M9XD";
+  const notifying = objectPatch(g(4), cfg);
+  for (const refuse of [429, 400, 403, 409]) {
+    const s = standIn(refuse);
+    const r = await patchObject(cfg, id, notifying, s.call);
+    assertEquals(r, { status: 200, noticeRefused: refuse }, `refused with ${refuse}: sent again quietly`);
+    assertEquals(s.calls.length, 2);
+    assertEquals(s.calls[1].notifyPreference, undefined);
+    assertEquals(s.calls[1].loyaltyPoints, notifying.loyaltyPoints, "the same update, without the notice");
+    assertEquals(Object.keys(s.calls[1]).sort(), Object.keys(notifying).filter((k) => k !== "notifyPreference").sort());
+  }
+  const busy = standIn(429, 429);
+  assertEquals(await patchObject(cfg, id, notifying, busy.call), { status: 429, noticeRefused: 429 },
+    "still busy without the notice: left for the sweep (one quiet retry, no loop)");
+  assertEquals(busy.calls.length, 2);
+  for (const status of [200, 404, 500, 503]) {
+    const s = standIn(status);
+    assertEquals(await patchObject(cfg, id, notifying, s.call), { status, noticeRefused: null }, `${status}: no retry`);
+    assertEquals(s.calls.length, 1);
+  }
+  const quiet = standIn(200, 429);
+  assertEquals(await patchObject(cfg, id, objectPatch(g(4, { notify: false }), cfg), quiet.call),
+    { status: 429, noticeRefused: null }, "a quiet update is never retried here");
+  assertEquals(quiet.calls.length, 1);
+  assertEquals(notifying.notifyPreference, "NOTIFY_ON_UPDATE", "the caller's update is left as it was");
 });
 
 Deno.test("art: make_wallet_art.py's folder names; the stand-in draws the AD letters (no stars) in the slots", async () => {

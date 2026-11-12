@@ -19,7 +19,8 @@ import { vaultGet, vaultPut } from "../_shared/wallet/vault.ts";
 import { pushAll } from "../_shared/wallet/apns.ts";
 import { CertError, checkNewCert, newKeyAndCsr } from "../_shared/wallet/certs.ts";
 import type { PassData } from "../_shared/wallet/pass.ts";
-import { addReminderMessage, firstSavePatch, googleCall, loyaltyClass, objectPatch, pointsText } from "../_shared/wallet/google.ts";
+import { addReminderMessage, firstSavePatch, googleCall, loyaltyClass, objectPatch, patchObject, pointsText } from
+  "../_shared/wallet/google.ts";
 import { dec, json, log, readBody, sameText } from "../_shared/wallet/util.ts";
 
 // wallet_sync_card (part 5): the card as the pass and the Google object show it, without its tokens.
@@ -99,10 +100,17 @@ async function syncGoogle(d: SyncCard): Promise<string> {
     log("google_dry_run", { code: d.code, would: "PATCH loyaltyObject", points: pointsText(d),
       notify: patch.notifyPreference ?? "none", message: reminder ? "addMessage TEXT_AND_NOTIFY" : "none" });
     await synced(d, "google");
-    return `dry run: would update the object to ${pointsText(d)}` + (reminder ? " and add the reminder" : "");
+    return `dry run: would update the object to ${pointsText(d)}` + (patch.notifyPreference ? " with a notice" : "") +
+      (reminder ? " and add the reminder" : "");
   }
   const id = d.google_object_id;
-  const r = await googleCall(cfg, "PATCH", `loyaltyObject/${encodeURIComponent(id)}`, patch);
+  // A notifying update that Google refuses goes again without its notice (google.ts patchObject), so the card is never
+  // left pending for the sweep to resend the same refused notice.
+  const r = await patchObject(cfg, id, patch);
+  if (r.noticeRefused !== null) {
+    await problem("google", `notice_refused_${r.noticeRefused}`,
+      `Google refused the notice for card ${d.code} (${r.noticeRefused}); the update went again without it (${r.status}).`);
+  }
   if (r.status === 404) {
     await synced(d, "google");
     return "not saved at Google yet";

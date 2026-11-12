@@ -223,9 +223,36 @@ export function objectPatch(d: PassData, cfg: WalletConfig): Record<string, unkn
   };
   if (full.heroImage) patch.heroImage = full.heroImage;
   if (full.linksModuleData) patch.linksModuleData = full.linksModuleData;
-  // Google's notifying fields send an update notice only when asked, at most 3 in 24 hours per pass [G12].
+  // Google's notifying fields send an update notice only when asked, at most 3 in 24 hours per pass [G12]. d.notify is
+  // the database's decision (Migration 009 part 5c: one a day per card, never a past wash added by hand unless it turns
+  // the card gold, not when the holder silenced everything).
   if (d.notify && (d.last_change === "stamp" || d.last_change === "member")) patch.notifyPreference = "NOTIFY_ON_UPDATE";
   return patch;
+}
+
+export interface PatchResult {
+  status: number;                 // Google's answer to the update that counts (the quiet retry's, if there was one)
+  noticeRefused: number | null;   // Google's answer to a notifying update it refused, when the quiet retry followed
+}
+
+type Call = typeof googleCall;
+
+// A sync's update of a Google object. The database allows a notice at most once a day per card and never for a past
+// wash added by hand (part 5c), which keeps every card under Google's 3 notifying updates in 24 hours [G12]. If Google
+// still refuses a notifying update with a 4xx other than 404 (QuotaExceededException past its cap, or anything else it
+// won't notify about), the same update goes again at once without notifyPreference: the count still reaches the phone,
+// and the card isn't left behind for the sweep to resend the refused notice every 10 minutes. 404 (not saved at Google
+// yet) and 5xx go back to the caller as they are. (call: googleCall; a stand-in in tools/wallet/wallet_local_test.ts.)
+export async function patchObject(cfg: WalletConfig, id: string, patch: Record<string, unknown>,
+  call: Call = googleCall): Promise<PatchResult> {
+  const path = `loyaltyObject/${encodeURIComponent(id)}`;
+  const r = await call(cfg, "PATCH", path, patch);
+  if (!patch.notifyPreference || r.status < 400 || r.status >= 500 || r.status === 404) {
+    return { status: r.status, noticeRefused: null };
+  }
+  const { notifyPreference: _n, ...quiet } = patch;
+  const again = await call(cfg, "PATCH", path, quiet);
+  return { status: again.status, noticeRefused: r.status };
 }
 
 // The first update after a fresh save link was saved (the sweep's check, wallet-sync): what saveLink left out (the
