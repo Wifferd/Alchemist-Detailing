@@ -120,7 +120,7 @@
   // nameProblem says why a name fails: 'letters' (its characters or its length, three dots or spaces in a row too),
   // 'real' (a placeholder, a letter three times, a run of keys, a swear word), or null when the database takes it.
   const NAME_CHARS = /^\p{L}([\p{L}'\u2019 .-]*[\p{L}.])?$/u;
-  const NAME_KEYS = /asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|zxcv|xcvb|cvbn|vbnm|uiop|qaz|wsx/;
+  const NAME_KEYS = /asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|zxcv|xcvb|cvbn|vbnm|uiop|wsx/;   // (no "qaz" since Nov 12: Qazi, Qazim; Migration 010 part 2)
   const NAME_PLACEHOLDERS = ['test', 'testing', 'tester', 'fake', 'fakename', 'none', 'null', 'unknown', 'anonymous', 'idk',
     'xxx', 'asdf', 'qwerty', 'name', 'firstname', 'lastname', 'first', 'last', 'abc', 'blah', 'nobody', 'customer', 'user'];
   const NAME_SWEARS = ['fuck', 'fucker', 'fuckers', 'fucking', 'fuk', 'fck', 'motherfucker', 'shit', 'shitty', 'bullshit',
