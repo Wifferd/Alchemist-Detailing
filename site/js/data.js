@@ -109,10 +109,50 @@
   // A name as it is sent: composed (NFC), so a name pasted or filled in with separate accent marks is the one the
   // database checks, and trimmed.
   const cleanName = (s) => String(s || '').normalize('NFC').trim();
-  // The database's rule (public.is_valid_name, ^[[:alpha:]]([[:alpha:]'’ .-]*[[:alpha:].])?$, 1 to 40 characters):
-  // letters in any alphabet, with ' or the curly ’ (an iPhone types it), spaces, dots and hyphens between; it also
-  // turns away junk words, which it explains itself.
-  const isValidName = (s) => { const t = cleanName(s); return t.length >= 1 && t.length <= 40 && /^\p{L}([\p{L}'\u2019 .-]*[\p{L}.])?$/u.test(t); };
+  // The database's rule, public.is_valid_name (with public.has_profanity), part for part, on the name as it is sent
+  // (cleanName). 1 to 40 characters, counted as the database counts them; letters in any alphabet, with ' or the
+  // curly ’ (an iPhone types it), spaces, dots and hyphens between (its [[:alpha:]] is \p{L} here: the same 136,726
+  // letters, compared on Nov 12; a browser newer than its Unicode 15.1 also takes the few scripts added since, which
+  // the database then refuses). Then, in lower case: no character three times in a row, no run of keys (asdf, qwer,
+  // zxcv...), not a placeholder word (Test, None, Name...), no swear word (whole words, split on anything that isn't
+  // a letter) and never the two strings that are no part of a real name. Until Nov 12 the page checked only the
+  // first part, so "Test" went all the way to Send and the database's answer said "letters only" (live, Nov 12).
+  // nameProblem says why a name fails: 'letters' (its characters or its length, three dots or spaces in a row too),
+  // 'real' (a placeholder, a letter three times, a run of keys, a swear word), or null when the database takes it.
+  const NAME_CHARS = /^\p{L}([\p{L}'\u2019 .-]*[\p{L}.])?$/u;
+  const NAME_KEYS = /asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|zxcv|xcvb|cvbn|vbnm|uiop|qaz|wsx/;
+  const NAME_PLACEHOLDERS = ['test', 'testing', 'tester', 'fake', 'fakename', 'none', 'null', 'unknown', 'anonymous', 'idk',
+    'xxx', 'asdf', 'qwerty', 'name', 'firstname', 'lastname', 'first', 'last', 'abc', 'blah', 'nobody', 'customer', 'user'];
+  const NAME_SWEARS = ['fuck', 'fucker', 'fuckers', 'fucking', 'fuk', 'fck', 'motherfucker', 'shit', 'shitty', 'bullshit',
+    'bitch', 'bitches', 'cunt', 'pussy', 'asshole', 'ass', 'arse', 'bastard', 'slut', 'whore', 'fag',
+    'fags', 'faggot', 'faggots', 'retard', 'penis', 'vagina', 'cock', 'tits', 'titty', 'boobs', 'porn',
+    'nazi', 'hitler', 'rape', 'rapist', 'nigger', 'niggers', 'nigga', 'niggas', 'chink', 'spic', 'kike',
+    'wetback', 'twat', 'wank', 'wanker', 'prick', 'dildo', 'cum', 'jizz', 'horny', 'sexy', 'poop', 'crap',
+    'douche', 'douchebag'];
+  function nameProblem(s) {
+    const t = cleanName(s), n = Array.from(t).length;   // characters, not UTF-16 units (char_length)
+    if (n < 1 || n > 40 || !NAME_CHARS.test(t)) return 'letters';
+    const l = t.toLowerCase();
+    if (/([^\p{L}])\1\1/u.test(l)) return 'letters';
+    if (/(\p{L})\1\1/u.test(l) || NAME_KEYS.test(l) || NAME_PLACEHOLDERS.includes(l) || /fuck|cunt/.test(l)
+      || l.split(/[^\p{L}]+/u).some((w) => NAME_SWEARS.includes(w))) return 'real';
+    return null;
+  }
+  const isValidName = (s) => !nameProblem(s);
+  const NAME_SAYS = {
+    first: { letters: 'Enter your first name using letters only.', real: 'Please enter your real first name.' },
+    last: { letters: 'Enter your last name using letters only, or leave it empty.', real: 'Please enter your real last name, or leave it empty.' },
+  };
+  // what to tell the customer about a first or last name (which: 'first' or 'last'), or null when it is fine
+  const nameMessage = (which, s) => { const why = nameProblem(s); return why ? NAME_SAYS[which][why] : null; };
+  // The words for a refusal from the database. A name it turns away (hint first_name or last_name) although the name
+  // is letters only (a rule it has that this page doesn't have yet) is not called "letters only": the page asks for
+  // the real name instead. names: { first, last } as typed.
+  function refusalText(e, names) {
+    const which = e && e.code === 'invalid_input' ? (e.hint === 'first_name' ? 'first' : e.hint === 'last_name' ? 'last' : null) : null;
+    if (!which || nameProblem(names && names[which]) === 'letters') return e && e.message;
+    return NAME_SAYS[which].real;
+  }
   // public.is_clean_text, the database's rule for notes, the vehicle, the address and reviews: no links or web
   // addresses, no emoji, no < or >, no control characters. textProblem returns what to change, or null when the text
   // is fine (checked to give the database's verdict on 102 of 102 test strings).
@@ -384,7 +424,7 @@
     get isDown() { return mode !== 'live' && !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.deployed); },
     // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
     get guestBooking() { return !!(settingsCache && settingsCache.guest_booking); },
-    helpers: { normalizePhone, isValidName, cleanName, textProblem, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
+    helpers: { normalizePhone, isValidName, nameProblem, nameMessage, refusalText, cleanName, textProblem, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
 
     async settings() { await init(); return settingsCache; },
 
@@ -449,10 +489,14 @@
     // Account: profile, saved vehicles and the customer's own bookings.
     async updateProfile(first, last) {
       await init();
-      if (!isValidName(first)) throw fail('invalid_input', 'Enter your first name using letters only.', 'first_name');
-      if (last && !isValidName(last)) throw fail('invalid_input', 'Enter your last name using letters only, or leave it empty.', 'last_name');
+      const firstSays = nameMessage('first', first), lastSays = last && nameMessage('last', last);
+      if (firstSays) throw fail('invalid_input', firstSays, 'first_name');
+      if (lastSays) throw fail('invalid_input', lastSays, 'last_name');
       if (mode === 'preview') { if (previewSession) { previewSession.firstName = cleanName(first); previewSession.lastName = cleanName(last) || null; } return previewSession; }
-      await rpc('update_my_profile', { p_first_name: cleanName(first), p_last_name: cleanName(last) });
+      try { await rpc('update_my_profile', { p_first_name: cleanName(first), p_last_name: cleanName(last) }); } catch (e) {
+        if (e.hint === 'first_name' || e.hint === 'last_name') e.message = refusalText(e, { first, last });
+        throw e;
+      }
       return api.session();
     },
 
@@ -642,7 +686,7 @@
       if (mode === 'preview') {
         await new Promise((r) => setTimeout(r, 900));
         const q = previewQuote(p);
-        if (!p.first_name || !isValidName(p.first_name)) throw fail('invalid_input', 'Enter your first name.', 'first_name');
+        if (nameMessage('first', p.first_name)) throw fail('invalid_input', nameMessage('first', p.first_name), 'first_name');
         if (!p.service_date) throw fail('invalid_input', 'Choose a day.', 'service_date');
         if (p.start_min == null) throw fail('invalid_input', 'Choose one of the start times shown.', 'start_min');
         const hasInterior = q.lines.some((l) => !l.included && (l.kind === 'interior' || l.kind === 'bundle'));

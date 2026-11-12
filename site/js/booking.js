@@ -690,8 +690,10 @@
     const bad = (hint, text) => out.push({ hint, text });
     const plain = (hint, text) => { const why = H.textProblem(text); if (why) bad(hint, why); };
     if (n === 1) {
-      if (!H.isValidName(c.first)) bad('first_name', 'Enter your first name using letters only.');
-      if (c.last.trim() && !H.isValidName(c.last)) bad('last_name', 'Enter your last name using letters only, or leave it empty.');
+      // the database's whole rule for a name (public.is_valid_name), with words for why: letters only, or a real name
+      const firstSays = H.nameMessage('first', c.first), lastSays = c.last.trim() && H.nameMessage('last', c.last);
+      if (firstSays) bad('first_name', firstSays);
+      if (lastSays) bad('last_name', lastSays);
       // a guest's ten digits (or 1 and ten) that no number can have: said so, not asked for ten digits again
       const d = String(c.phone || '').replace(/\D/g, '');
       if (!H.normalizePhone(c.phone)) bad('phone', guest() ? (d.length === 10 || (d.length === 11 && d[0] === '1') ? 'That doesn’t look like a number we can reach. Please check the digits.' : 'Enter a 10-digit US mobile number, so we can reach you about the booking.') : 'Enter a 10-digit US phone number.');
@@ -791,7 +793,8 @@
   function showDbError(e) {
     const hint = e && e.hint || '';
     const target = HINT_STEP[hint];
-    const text = e && e.message || 'Something went wrong. Please try again.';
+    // a name the database turned away although it is letters only is not called "letters only" (D.helpers.refusalText)
+    const text = e && D.helpers.refusalText(e, { first: st.contact.first, last: st.contact.last }) || 'Something went wrong. Please try again.';
     if (target && target !== step) {
       show(target);
       setTimeout(() => { if (!showErr(hint, text)) toast(text); }, 50);
@@ -928,7 +931,8 @@
   async function sendPhone() {
     const c = st.contact;
     if (!D.helpers.normalizePhone(c.phone)) return showError(root, 'phone', 'Enter a 10-digit US phone number.');
-    if (!D.helpers.isValidName(c.first)) return showError(root, 'first_name', 'Enter your first name first, so we know who to text.');
+    const firstWhy = D.helpers.nameProblem(c.first);
+    if (firstWhy) return showError(root, 'first_name', firstWhy === 'real' ? D.helpers.nameMessage('first', c.first) : 'Enter your first name first, so we know who to text.');
     const b = root.querySelector('#bk-send-code'); if (b) { b.disabled = true; b.textContent = 'Sending…'; }
     try {
       await D.sendPhoneCode(c.phone, { first: c.first.trim(), last: c.last.trim() });
