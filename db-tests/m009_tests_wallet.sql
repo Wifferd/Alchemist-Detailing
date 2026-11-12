@@ -1,9 +1,12 @@
--- Migration 009 (Nov 12, 2026): the wallet wash card. Parts 1-4:
+-- Migration 009 (Nov 12, 2026): the wallet wash card. Parts 1-4, 4b and 3b:
 --   part 1 (20261112120001): settings, the seven wallet tables, wallet_random_text, get_public_settings;
 --   part 2 (20261112120002): the card page (wallet_new_card, wallet_link, wallet_card, wallet_set_reminders);
 --   part 3 (20261112120003): stamping (wallet_stamp, wallet_unstamp, wallet_find, wallet_waiting, wallet_list,
 --          wallet_void) and the SQL Editor (office.stamp, office.unstamp, office.card, office.cards, office.waiting);
---   part 4 (20261112120004): the Edge Functions' functions (service_role only).
+--   part 4 (20261112120004): the Edge Functions' functions (service_role only);
+--   part 4b (20261112180001, review round 1): Apple's "which passes changed?" tag always moves forward;
+--   part 3b (20261112200001 and 20261112200002, review round 2): a stamp and a take-back count the reminders from what
+--          was sent, so a take-back or a wash recorded late never starts the reminders again (block 5, card 4).
 -- Needs the m001 framework and fixtures (test project only) and the migrations applied. Five DO blocks, each one query
 -- through the Supabase MCP (top-level "set role" hangs there: roles are switched with execute 'set local role ...').
 -- Every check that writes runs inside a block that is rolled back at its end, so nothing it makes is kept and it can
@@ -11,9 +14,15 @@
 -- "old ...". No token, push code or Vault value is ever shown: checks compare them inside the database and record only
 -- true or false. Vault values are never read. The owner's address is never read: an error on the settings row records
 -- only its SQLSTATE (a check failure's detail lists the row).
--- 170 checks (setup 40, cards 23, stamps 57, service 30, reminders 20), all passing on the test project on
--- 2026-11-12 (parts 1-4 at versions 20261112144535, 20261112144612, 20261112144737, 20261112144849), and on a local
--- PostgreSQL 16 copy built from the migration files. Part 5 (the update call, pg_net, pg_cron, Vault) has its own checks.
+-- 176 checks (setup 40, cards 23, stamps 57, service 32, reminders 24), all passing on a local PostgreSQL 16 copy
+-- built from the migration files, and on the test project on 2026-11-12 (parts 1-4 at versions 20261112144535,
+-- 20261112144612, 20261112144737, 20261112144849; part 4b at 20261112181345) all but the three setup checks that
+-- count triggers and functions, which see part 5's (on the test project since 20261112152940; branch wl-fn's copy
+-- of this file allows for it). Part 5 (the update call, pg_net, pg_cron, Vault) has its own checks.
+-- After part 3b (test project versions 20261112204551 and 20261112204610) blocks 3, 4 and 5, the ones that stamp a
+-- card, ran again on the test project: 57, 32 and 24, all passing; blocks 1 and 2 call no changed function (part 3b
+-- adds no function and keeps every grant). Against part 3's functions the three take-back and late-wash checks of
+-- block 5 fail (a quiet card is due again the next day).
 -- Read the results with:
 --   select label, passed, detail from tst.results where label like 'm009 %' order by id;
 
@@ -823,6 +832,10 @@ declare
   v_n2 text;
   v_n2id uuid;
   v_ms bigint;
+  v_c0 bigint;
+  v_c1 bigint;
+  v_t1 bigint;
+  v_s bigint;
   v_at timestamptz;
   v_wrong32 text := public.wallet_random_text(32);
   v_wrong26 text := public.wallet_random_text(26);
@@ -889,32 +902,63 @@ begin
       n = 201 and i = 1 and jsonb_array_length(r) = 9
       and exists (select 1 from public.wallet_apple_registrations x where x.device_id = 'm009dev02' and x.removed_why = 'apns_gone'), n || ' / ' || i));
 
-    -- ---------------------------------------------------------------- "which passes changed?"
+    -- ---------------------------------------------------------------- "which passes changed?" (part 4b)
+    -- The card's changed_at is set by hand inside this rolled-back block, relative to the clock, so each check knows
+    -- whether the card changed before or after a tag. v_ms: a change a minute ago.
+    update public.wallet_cards x set changed_at = date_trunc('milliseconds', clock_timestamp()) - interval '1 minute' where x.id = v_card;
+    select (extract(epoch from x.changed_at) * 1000)::bigint into v_ms from public.wallet_cards x where x.id = v_card;
+    v_c0 := floor(extract(epoch from clock_timestamp()) * 1000)::bigint;
     execute 'set local role service_role';
     r := public.wallet_apple_changed('m009dev01', null);
     execute 'reset role';
-    select (extract(epoch from x.changed_at) * 1000)::bigint into v_ms from public.wallet_cards x where x.id = v_card;
-    res := res || jsonb_build_array(jsonb_build_array(p || ': changed: without a tag, every card on the device, and the tag is changed_at in milliseconds',
-      r -> 'serialNumbers' = jsonb_build_array(v_code) and r ->> 'lastUpdated' = v_ms::text, r::text));
+    v_c1 := floor(extract(epoch from clock_timestamp()) * 1000)::bigint;
+    v_t1 := (r ->> 'lastUpdated')::bigint;
+    res := res || jsonb_build_array(jsonb_build_array(p || ': changed: without a tag, every card on the device; the tag is the clock 10 seconds back, in milliseconds (past the card''s change)',
+      r -> 'serialNumbers' = jsonb_build_array(v_code) and v_t1 between v_c0 - 10000 and v_c1 - 10000 and v_t1 > v_ms, r::text));
     res := res || jsonb_build_array(jsonb_build_array(p || ': the device''s call is noted',
       (select d.last_seen_at = now() from public.wallet_apple_devices d where d.device_id = 'm009dev01'), null));
     execute 'set local role service_role';
-    r := public.wallet_apple_changed('m009dev01', (v_ms + 10000)::text);
-    r2 := public.wallet_apple_changed('m009dev01', v_ms::text);
-    v := coalesce(public.wallet_apple_changed('m009nodevice', null)::text, 'null') || ' / ' || coalesce(public.wallet_apple_changed('m009dev01', 'abc') ->> 'lastUpdated', 'null');
+    r := public.wallet_apple_changed('m009dev01', v_t1::text);
+    r2 := public.wallet_apple_changed('m009dev01', v_t1::text);
     execute 'reset role';
-    res := res || jsonb_build_array(jsonb_build_array(p || ': nothing newer than the tag (past the 10-second overlap): null, so 204; within the overlap the card comes again',
-      r is null and r2 -> 'serialNumbers' = jsonb_build_array(v_code), coalesce(r::text, 'null')));
-    res := res || jsonb_build_array(jsonb_build_array(p || ': an unknown device gets null; a malformed tag counts as none', v = 'null / ' || v_ms, v));
+    res := res || jsonb_build_array(jsonb_build_array(p || ': the phone sends back the tag it was given and nothing changed since: null (204), each time it asks',
+      r is null and r2 is null, coalesce(r::text, 'null') || ' / ' || coalesce(r2::text, 'null')));
+    -- a change made 5 seconds before that ask whose commit landed after it (a late commit): it is past the tag
+    update public.wallet_cards x set changed_at = timestamptz 'epoch' + (v_t1 + 5000) * interval '1 millisecond' where x.id = v_card;
+    execute 'set local role service_role';
+    r := public.wallet_apple_changed('m009dev01', v_t1::text);
+    execute 'reset role';
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a change committed late (made before the ask, after its tag) is listed on the next ask, with a later tag',
+      r -> 'serialNumbers' = jsonb_build_array(v_code) and (r ->> 'lastUpdated')::bigint > v_t1, r::text));
+    -- a tag newer than the clock's 10-second mark (3 seconds back) and a change after it: the tag still moves forward
+    v_s := floor(extract(epoch from clock_timestamp()) * 1000)::bigint - 3000;
+    update public.wallet_cards x set changed_at = timestamptz 'epoch' + (v_s + 1000) * interval '1 millisecond' where x.id = v_card;
+    execute 'set local role service_role';
+    r := public.wallet_apple_changed('m009dev01', v_s::text);
+    r2 := public.wallet_apple_changed('m009dev01', r ->> 'lastUpdated');
+    execute 'reset role';
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a list never comes back with the tag it was asked with: at least one millisecond later each time',
+      r -> 'serialNumbers' = jsonb_build_array(v_code) and r2 -> 'serialNumbers' = jsonb_build_array(v_code)
+      and (r ->> 'lastUpdated')::bigint = v_s + 1 and (r2 ->> 'lastUpdated')::bigint = v_s + 2, r::text || ' / ' || r2::text));
+    execute 'set local role service_role';
+    v := coalesce(public.wallet_apple_changed('m009nodevice', null)::text, 'null')
+      || ' / ' || coalesce(public.wallet_apple_changed('m009dev01', 'abc') -> 'serialNumbers' ->> 0, 'null')
+      || ' / ' || coalesce(public.wallet_apple_changed('m009dev02', null)::text, 'null');
+    execute 'reset role';
+    res := res || jsonb_build_array(jsonb_build_array(p || ': an unknown device, or a device whose only card is gone, gets null; a malformed tag counts as none',
+      v = 'null / ' || v_code || ' / null', v));
 
     -- the certificate step moves every card forward, so the next ask finds it
+    update public.wallet_cards x set changed_at = timestamptz 'epoch' + v_ms * interval '1 millisecond' where x.id = v_card;
     execute 'set local role service_role';
+    v_t1 := (public.wallet_apple_changed('m009dev01', null) ->> 'lastUpdated')::bigint;
+    r2 := public.wallet_apple_changed('m009dev01', v_t1::text);
     v := tst.q(format('select public.wallet_cert_installed(%L::date)', v_today - 1));
     n := public.wallet_cert_installed(v_today + 365);
-    r := public.wallet_apple_changed('m009dev01', (v_ms + 10000)::text);
+    r := public.wallet_apple_changed('m009dev01', v_t1::text);
     execute 'reset role';
     res := res || jsonb_build_array(jsonb_build_array(p || ': a new certificate: its expiry is kept, every card moves forward (re-signed), and the device is told',
-      v = 'ERROR P0001: invalid_input' and n >= 1 and r -> 'serialNumbers' = jsonb_build_array(v_code)
+      v = 'ERROR P0001: invalid_input' and n >= 1 and r2 is null and r -> 'serialNumbers' = jsonb_build_array(v_code)
       and (select s.wallet_apple_cert_expires = v_today + 365 from public.business_settings s where s.id = 1)
       and (select x.last_change = 'resign' and (extract(epoch from x.changed_at) * 1000)::bigint >= v_ms + 1000 from public.wallet_cards x where x.id = v_card)
       and n = (select count(*) from public.wallet_cards x where x.voided_at is null
@@ -1106,6 +1150,15 @@ declare
   b2 uuid;
   c public.wallet_cards;
   v_before timestamptz;
+  -- review round 2: card 4, a quiet card, a stamp on the wrong card and late washes
+  c4 text;
+  i4 uuid;
+  b4 uuid;
+  b5 uuid;
+  v_quiet boolean;
+  v_n int;
+  t_next timestamptz;
+  t_later timestamptz;
 begin
   update tst.results set label = 'old ' || label where label like p || ':%';
   select s.timezone into v_tz from public.business_settings s where s.id = 1;
@@ -1211,6 +1264,9 @@ begin
     res := res || jsonb_build_array(jsonb_build_array(p || ': after two, quiet until the next wash',
       not exists (select 1 from jsonb_array_elements(r) e where e ->> 'code' = c1)
       and (select x.reminders_sent = 2 from public.wallet_cards x where x.id = i1), r::text));
+    -- this block's clock is pretend: the two reminders went out before yesterday's wash, so their records say so (a stamp
+    -- counts the reminders sent on a later day than the latest wash, part 3b)
+    update public.wallet_reminders w set sent_at = w.sent_at - interval '2 days' where w.card_id = i1;
     perform public.wallet_stamp_do(i1, b2, null, null, null);
     select * into c from public.wallet_cards x where x.id = i1;
     res := res || jsonb_build_array(jsonb_build_array(p || ': the next wash starts the count again and clears the reminder from the card',
@@ -1226,6 +1282,64 @@ begin
     update public.wallet_cards x set first_added_at = ((v_today - 10) + time '12:00') at time zone v_tz, new_reminder_at = null where x.id = i2;
     res := res || jsonb_build_array(jsonb_build_array(p || ': and not before 14 days after the card was added',
       not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t11)) e where e ->> 'code' = c2), null));
+
+    -- review round 2 (part 3b): a take-back or a wash recorded late never starts the reminders again; only a new wash does.
+    -- Card 4: washed 59 days ago, reminded 31 and 3 days ago (both kept in wallet_reminders), so quiet until the next wash.
+    t_next := ((v_today + 1) + time '11:00') at time zone v_tz;
+    t_later := ((v_today + 28) + time '11:00') at time zone v_tz;
+    c4 := public.wallet_new_card(jsonb_build_object('request_id', gen_random_uuid())) ->> 'code';
+    select x.id into i4 from public.wallet_cards x where x.code = c4;
+    insert into public.appointments (ref, contact_first, contact_last, contact_phone, location_type, service_date, start_min, duration_min, status, value_cents, vehicle_make, vehicle_model, vehicle_type)
+    values (public.new_booking_ref(), 'Remy', 'Test', '19725553914', 'shop', v_today - 59, 600, 60, 'completed', 5000, 'Honda', 'Civic', 'sedan') returning id into b4;
+    insert into public.appointments (ref, contact_first, contact_last, contact_phone, location_type, service_date, start_min, duration_min, status, value_cents, vehicle_make, vehicle_model, vehicle_type)
+    values (public.new_booking_ref(), 'Sage', 'Test', '19725553915', 'shop', v_today, 600, 60, 'completed', 5000, 'Honda', 'Civic', 'sedan') returning id into b5;
+    perform public.wallet_stamp_do(i4, b4, null, null, null);
+    insert into public.wallet_reminders (card_id, sent_at, kind, google, body)
+    values (i4, ((v_today - 31) + time '12:00') at time zone v_tz, 'after_wash', true, 'm009 after-wash words'),
+           (i4, ((v_today - 3) + time '12:00') at time zone v_tz, 'after_wash', true, 'm009 after-wash words');
+    update public.wallet_cards x
+       set google_saved = true, google_object_id = '3388000000012345678.' || c4, first_added_at = now() - interval '60 days',
+           reminders_sent = 2, reminder_text = 'm009 after-wash words', last_change = 'reminder',
+           last_reminder_at = ((v_today - 3) + time '12:00') at time zone v_tz,
+           last_notice_at = ((v_today - 3) + time '12:00') at time zone v_tz
+     where x.id = i4;
+    v_quiet := not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t_next)) e where e ->> 'code' = c4);
+    -- the owner stamps card 4 for another customer's job from today, then takes the stamp back
+    r := public.wallet_stamp_do(i4, b5, null, null, null);
+    select x.reminders_sent into v_n from public.wallet_cards x where x.id = i4;
+    perform public.wallet_unstamp_do((r ->> 'stamp_id')::bigint, 'm009 the wrong card', null);
+    select * into c from public.wallet_cards x where x.id = i4;
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a stamp on the wrong card and its take-back don''t start the reminders again: a quiet card stays quiet the next day and 28 days later',
+      v_quiet and (r ->> 'stamps')::int = 2 and v_n = 0
+      and c.stamps = 1 and c.last_wash_day = v_today - 59 and c.reminders_sent = 2
+      and not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t_next)) e where e ->> 'code' = c4)
+      and not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t_later)) e where e ->> 'code' = c4),
+      jsonb_build_object('quiet_before', v_quiet, 'sent_after_stamp', v_n, 'stamps', c.stamps, 'sent', c.reminders_sent,
+                         'last_wash', c.last_wash_day)::text));
+    -- a wash from before the reminders, recorded late (a past wash by hand; a second car the same day works the same way)
+    r := public.wallet_stamp_do(i4, null, 'm009 a wash before the reminders, recorded late', v_today - 40, null);
+    select * into c from public.wallet_cards x where x.id = i4;
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a wash recorded late for a day before the reminders doesn''t start them again',
+      c.stamps = 2 and c.last_wash_day = v_today - 40 and c.reminders_sent = 2
+      and not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t_next)) e where e ->> 'code' = c4)
+      and not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t_later)) e where e ->> 'code' = c4),
+      jsonb_build_object('stamps', c.stamps, 'sent', c.reminders_sent, 'last_wash', c.last_wash_day)::text));
+    -- a wash on the day the second reminder went out: that reminder was for the wash before, so the count starts again
+    r := public.wallet_stamp_do(i4, null, 'm009 came in the day of the reminder', v_today - 3, null);
+    select * into c from public.wallet_cards x where x.id = i4;
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a wash on the day a reminder went out starts the count again (first reminder 28 days after it)',
+      c.stamps = 3 and c.last_wash_day = v_today - 3 and c.reminders_sent = 0
+      and not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(((v_today + 24) + time '11:00') at time zone v_tz)) e where e ->> 'code' = c4)
+      and exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(((v_today + 25) + time '11:00') at time zone v_tz)) e
+                   where e ->> 'code' = c4 and e ->> 'kind' = 'after_wash'),
+      jsonb_build_object('stamps', c.stamps, 'sent', c.reminders_sent, 'last_wash', c.last_wash_day)::text));
+    perform public.wallet_unstamp_do((r ->> 'stamp_id')::bigint, 'm009 test', null);
+    select * into c from public.wallet_cards x where x.id = i4;
+    res := res || jsonb_build_array(jsonb_build_array(p || ': and taking that wash back puts the count back: quiet again',
+      c.stamps = 2 and c.last_wash_day = v_today - 40 and c.reminders_sent = 2
+      and not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t_next)) e where e ->> 'code' = c4)
+      and not exists (select 1 from jsonb_array_elements(public.wallet_due_reminders(t_later)) e where e ->> 'code' = c4),
+      jsonb_build_object('stamps', c.stamps, 'sent', c.reminders_sent, 'last_wash', c.last_wash_day)::text));
     raise exception 'm009 rollback';
   exception when others then
     if sqlerrm <> 'm009 rollback' then res := res || jsonb_build_array(jsonb_build_array(p || ': reminders section ran', false, sqlerrm)); end if;
