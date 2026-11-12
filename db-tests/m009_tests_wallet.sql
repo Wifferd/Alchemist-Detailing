@@ -1,9 +1,10 @@
--- Migration 009 (Nov 12, 2026): the wallet wash card. Parts 1-4:
+-- Migration 009 (Nov 12, 2026): the wallet wash card. Parts 1-4 and 4b:
 --   part 1 (20261112120001): settings, the seven wallet tables, wallet_random_text, get_public_settings;
 --   part 2 (20261112120002): the card page (wallet_new_card, wallet_link, wallet_card, wallet_set_reminders);
 --   part 3 (20261112120003): stamping (wallet_stamp, wallet_unstamp, wallet_find, wallet_waiting, wallet_list,
 --          wallet_void) and the SQL Editor (office.stamp, office.unstamp, office.card, office.cards, office.waiting);
---   part 4 (20261112120004): the Edge Functions' functions (service_role only).
+--   part 4 (20261112120004): the Edge Functions' functions (service_role only);
+--   part 4b (20261112180001, review round 1): Apple's "which passes changed?" tag always moves forward.
 -- Needs the m001 framework and fixtures (test project only) and the migrations applied. Five DO blocks, each one query
 -- through the Supabase MCP (top-level "set role" hangs there: roles are switched with execute 'set local role ...').
 -- Every check that writes runs inside a block that is rolled back at its end, so nothing it makes is kept and it can
@@ -11,9 +12,11 @@
 -- "old ...". No token, push code or Vault value is ever shown: checks compare them inside the database and record only
 -- true or false. Vault values are never read. The owner's address is never read: an error on the settings row records
 -- only its SQLSTATE (a check failure's detail lists the row).
--- 170 checks (setup 40, cards 23, stamps 57, service 30, reminders 20), all passing on the test project on
--- 2026-11-12 (parts 1-4 at versions 20261112144535, 20261112144612, 20261112144737, 20261112144849), and on a local
--- PostgreSQL 16 copy built from the migration files. Part 5 (the update call, pg_net, pg_cron, Vault) has its own checks.
+-- 172 checks (setup 40, cards 23, stamps 57, service 32, reminders 20), all passing on a local PostgreSQL 16 copy
+-- built from the migration files, and on the test project on 2026-11-12 (parts 1-4 at versions 20261112144535,
+-- 20261112144612, 20261112144737, 20261112144849; part 4b at 20261112181345; part 5 since 20261112152940): the three
+-- setup checks that count triggers and functions allow for part 5's. Part 5 (the update call, pg_net, pg_cron, Vault)
+-- has its own checks (m009_tests_sync.sql).
 -- Read the results with:
 --   select label, passed, detail from tst.results where label like 'm009 %' order by id;
 
@@ -828,6 +831,10 @@ declare
   v_n2 text;
   v_n2id uuid;
   v_ms bigint;
+  v_c0 bigint;
+  v_c1 bigint;
+  v_t1 bigint;
+  v_s bigint;
   v_at timestamptz;
   v_wrong32 text := public.wallet_random_text(32);
   v_wrong26 text := public.wallet_random_text(26);
@@ -894,32 +901,63 @@ begin
       n = 201 and i = 1 and jsonb_array_length(r) = 9
       and exists (select 1 from public.wallet_apple_registrations x where x.device_id = 'm009dev02' and x.removed_why = 'apns_gone'), n || ' / ' || i));
 
-    -- ---------------------------------------------------------------- "which passes changed?"
+    -- ---------------------------------------------------------------- "which passes changed?" (part 4b)
+    -- The card's changed_at is set by hand inside this rolled-back block, relative to the clock, so each check knows
+    -- whether the card changed before or after a tag. v_ms: a change a minute ago.
+    update public.wallet_cards x set changed_at = date_trunc('milliseconds', clock_timestamp()) - interval '1 minute' where x.id = v_card;
+    select (extract(epoch from x.changed_at) * 1000)::bigint into v_ms from public.wallet_cards x where x.id = v_card;
+    v_c0 := floor(extract(epoch from clock_timestamp()) * 1000)::bigint;
     execute 'set local role service_role';
     r := public.wallet_apple_changed('m009dev01', null);
     execute 'reset role';
-    select (extract(epoch from x.changed_at) * 1000)::bigint into v_ms from public.wallet_cards x where x.id = v_card;
-    res := res || jsonb_build_array(jsonb_build_array(p || ': changed: without a tag, every card on the device, and the tag is changed_at in milliseconds',
-      r -> 'serialNumbers' = jsonb_build_array(v_code) and r ->> 'lastUpdated' = v_ms::text, r::text));
+    v_c1 := floor(extract(epoch from clock_timestamp()) * 1000)::bigint;
+    v_t1 := (r ->> 'lastUpdated')::bigint;
+    res := res || jsonb_build_array(jsonb_build_array(p || ': changed: without a tag, every card on the device; the tag is the clock 10 seconds back, in milliseconds (past the card''s change)',
+      r -> 'serialNumbers' = jsonb_build_array(v_code) and v_t1 between v_c0 - 10000 and v_c1 - 10000 and v_t1 > v_ms, r::text));
     res := res || jsonb_build_array(jsonb_build_array(p || ': the device''s call is noted',
       (select d.last_seen_at = now() from public.wallet_apple_devices d where d.device_id = 'm009dev01'), null));
     execute 'set local role service_role';
-    r := public.wallet_apple_changed('m009dev01', (v_ms + 10000)::text);
-    r2 := public.wallet_apple_changed('m009dev01', v_ms::text);
-    v := coalesce(public.wallet_apple_changed('m009nodevice', null)::text, 'null') || ' / ' || coalesce(public.wallet_apple_changed('m009dev01', 'abc') ->> 'lastUpdated', 'null');
+    r := public.wallet_apple_changed('m009dev01', v_t1::text);
+    r2 := public.wallet_apple_changed('m009dev01', v_t1::text);
     execute 'reset role';
-    res := res || jsonb_build_array(jsonb_build_array(p || ': nothing newer than the tag (past the 10-second overlap): null, so 204; within the overlap the card comes again',
-      r is null and r2 -> 'serialNumbers' = jsonb_build_array(v_code), coalesce(r::text, 'null')));
-    res := res || jsonb_build_array(jsonb_build_array(p || ': an unknown device gets null; a malformed tag counts as none', v = 'null / ' || v_ms, v));
+    res := res || jsonb_build_array(jsonb_build_array(p || ': the phone sends back the tag it was given and nothing changed since: null (204), each time it asks',
+      r is null and r2 is null, coalesce(r::text, 'null') || ' / ' || coalesce(r2::text, 'null')));
+    -- a change made 5 seconds before that ask whose commit landed after it (a late commit): it is past the tag
+    update public.wallet_cards x set changed_at = timestamptz 'epoch' + (v_t1 + 5000) * interval '1 millisecond' where x.id = v_card;
+    execute 'set local role service_role';
+    r := public.wallet_apple_changed('m009dev01', v_t1::text);
+    execute 'reset role';
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a change committed late (made before the ask, after its tag) is listed on the next ask, with a later tag',
+      r -> 'serialNumbers' = jsonb_build_array(v_code) and (r ->> 'lastUpdated')::bigint > v_t1, r::text));
+    -- a tag newer than the clock's 10-second mark (3 seconds back) and a change after it: the tag still moves forward
+    v_s := floor(extract(epoch from clock_timestamp()) * 1000)::bigint - 3000;
+    update public.wallet_cards x set changed_at = timestamptz 'epoch' + (v_s + 1000) * interval '1 millisecond' where x.id = v_card;
+    execute 'set local role service_role';
+    r := public.wallet_apple_changed('m009dev01', v_s::text);
+    r2 := public.wallet_apple_changed('m009dev01', r ->> 'lastUpdated');
+    execute 'reset role';
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a list never comes back with the tag it was asked with: at least one millisecond later each time',
+      r -> 'serialNumbers' = jsonb_build_array(v_code) and r2 -> 'serialNumbers' = jsonb_build_array(v_code)
+      and (r ->> 'lastUpdated')::bigint = v_s + 1 and (r2 ->> 'lastUpdated')::bigint = v_s + 2, r::text || ' / ' || r2::text));
+    execute 'set local role service_role';
+    v := coalesce(public.wallet_apple_changed('m009nodevice', null)::text, 'null')
+      || ' / ' || coalesce(public.wallet_apple_changed('m009dev01', 'abc') -> 'serialNumbers' ->> 0, 'null')
+      || ' / ' || coalesce(public.wallet_apple_changed('m009dev02', null)::text, 'null');
+    execute 'reset role';
+    res := res || jsonb_build_array(jsonb_build_array(p || ': an unknown device, or a device whose only card is gone, gets null; a malformed tag counts as none',
+      v = 'null / ' || v_code || ' / null', v));
 
     -- the certificate step moves every card forward, so the next ask finds it
+    update public.wallet_cards x set changed_at = timestamptz 'epoch' + v_ms * interval '1 millisecond' where x.id = v_card;
     execute 'set local role service_role';
+    v_t1 := (public.wallet_apple_changed('m009dev01', null) ->> 'lastUpdated')::bigint;
+    r2 := public.wallet_apple_changed('m009dev01', v_t1::text);
     v := tst.q(format('select public.wallet_cert_installed(%L::date)', v_today - 1));
     n := public.wallet_cert_installed(v_today + 365);
-    r := public.wallet_apple_changed('m009dev01', (v_ms + 10000)::text);
+    r := public.wallet_apple_changed('m009dev01', v_t1::text);
     execute 'reset role';
     res := res || jsonb_build_array(jsonb_build_array(p || ': a new certificate: its expiry is kept, every card moves forward (re-signed), and the device is told',
-      v = 'ERROR P0001: invalid_input' and n >= 1 and r -> 'serialNumbers' = jsonb_build_array(v_code)
+      v = 'ERROR P0001: invalid_input' and n >= 1 and r2 is null and r -> 'serialNumbers' = jsonb_build_array(v_code)
       and (select s.wallet_apple_cert_expires = v_today + 365 from public.business_settings s where s.id = 1)
       and (select x.last_change = 'resign' and (extract(epoch from x.changed_at) * 1000)::bigint >= v_ms + 1000 from public.wallet_cards x where x.id = v_card)
       and n = (select count(*) from public.wallet_cards x where x.voided_at is null
