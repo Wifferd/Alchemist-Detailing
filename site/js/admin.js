@@ -146,8 +146,9 @@
     root = container;
     const sub = (location.hash.split('-')[1] || '').trim();
     if (SCREENS.some(([k]) => k === sub)) screen = sub;
-    // a wash card's code scanned with the phone's camera (#admin-cards-K7Q2M9XD, the pass's QR): its card opens
-    if (sub === 'cards') { const code = normCode(location.hash.split('-')[2]); wc().code = code; wc().last = null; wc().panel = null; }
+    // a wash card's code scanned with the phone's camera (#admin-cards-K7Q2M9XD, the pass's QR): its card opens, and
+    // the page lands on it once it's drawn, after the sign-in and authenticator steps too (landOnCard)
+    if (sub === 'cards') { const code = normCode(location.hash.split('-')[2]); Object.assign(wc(), { code, last: null, panel: null, land: !!code }); }
     if (!ready) ready = (async () => { await D.init(); [settings, menu] = await Promise.all([D.settings(), D.menu()]); })();
     // a note or link typed and not saved is let go on a new visit (a redraw, Refresh or the auto-refresh keep it,
     // and its box shows it, so Save never stores text the box doesn't show)
@@ -180,11 +181,12 @@
     if (st.panel && st.panel.kind === 'assign' && st.staffList == null) { try { await loadStaff(); } catch (e) { st.staffList = []; toast(e.message); } }
     const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, cards: cardsScreen, team: team, settings: settingsScreen, log: logScreen }[screen];
     root.replaceChildren(shell(SCREENS.find(([k]) => k === screen)[1], await body(), true));
+    if (screen === 'cards') landOnCard();
   }
   function shell(title, body, nav) {
     return el('div.bk.admin',
       U.modeBanner('example data, nothing is saved. Names and bookings here are made up for the preview.', D.isLive),
-      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => !ADMIN_ONLY.includes(k) || staff.role === 'admin').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; st.bookings = null; st.asks = null; if (k === 'cards') Object.assign(wc(), { code: null, last: null, panel: null }); history.replaceState(history.state, '', '#admin-' + k); render(); } }, label))) : null,
+      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => !ADMIN_ONLY.includes(k) || staff.role === 'admin').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; st.bookings = null; st.asks = null; if (k === 'cards') Object.assign(wc(), { code: null, last: null, panel: null, land: false }); history.replaceState(history.state, '', '#admin-' + k); render(); } }, label))) : null,
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Admin'), el('h1.display.bk-title', title)),
         staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')),
           nav ? el('button.link', { type: 'button', onclick: () => { forget(); render(); } }, 'Refresh') : null,
@@ -348,7 +350,7 @@
       canDecide && b.price_pending ? el('p.bk-muted', priceFirst) : null,
       dayLine ? el('p.bk-muted', dayLine) : null,
       // after Complete (plan 5.1): the wash card is stamped from its own screen, by the card's code or from the list
-      b.status === 'completed' && admin ? el('p.bk-muted', 'Wash card? Scan the code on the customer’s card, or find this job under ', el('a', { href: '#admin-cards', onclick: (e) => { e.preventDefault(); screen = 'cards'; Object.assign(wc(), { code: null, last: null, panel: null }); history.replaceState(history.state, '', '#admin-cards'); render().then(() => jump('wc-waiting')); } }, 'Wash cards → Waiting for a stamp'), '.') : null,
+      b.status === 'completed' && admin ? el('p.bk-muted', 'Wash card? Scan the code on the customer’s card, or find this job under ', el('a', { href: '#admin-cards', onclick: (e) => { e.preventDefault(); screen = 'cards'; Object.assign(wc(), { code: null, last: null, panel: null, land: false }); history.replaceState(history.state, '', '#admin-cards'); render().then(() => jump('wc-waiting')); } }, 'Wash cards → Waiting for a stamp'), '.') : null,
       st.panel && st.panel.id === b.id ? panel(b) : null,
       b.events && b.events.length ? el('details.adm-history', el('summary', 'History'), el('ul', b.events.map((e) => el('li', el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), ' · ', historyWords(e), e.note ? el('i', ' — ' + e.note) : null)))) : null);
     return body;
@@ -916,7 +918,23 @@
   const countWords = (n, slots) => (n <= slots ? n + ' of ' + slots : n + ' washes');
   // a card number's box: capitals as typed, no spelling marks (field() passes only its own options)
   const codeBox = (f) => { f.input.setAttribute('autocapitalize', 'characters'); f.input.setAttribute('spellcheck', 'false'); return f; };
-  function wc() { return st.wc || (st.wc = { code: null, found: null, list: null, waiting: null, last: null, panel: null, busy: false, typed: {} }); }
+  function wc() { return st.wc || (st.wc = { code: null, found: null, list: null, waiting: null, last: null, panel: null, busy: false, typed: {}, land: false }); }
+  // a sync problem in plain words (wallet_problem's codes, from the wallet and wallet-sync functions; never a card
+  // number): the fixed ones by name, Apple's and Google's answers with their reason or status, anything else as it is
+  const PLATFORM_WORDS = { apple: 'Apple', google: 'Google', setup: 'Setup' };
+  const PROBLEM_WORDS = {
+    apple_not_configured: 'Apple Wallet isn’t set up', apple_no_certificate: 'No Apple certificate installed',
+    signing_pair: 'The Apple key and certificate can’t sign', art_mismatch: 'The card’s pictures don’t match',
+    invalid_input: 'The Apple certificate can’t be read', wrong_key: 'The Apple certificate doesn’t match its key',
+    wrong_pass_type: 'The Apple certificate is for another pass type', wrong_team: 'The Apple certificate is for another team',
+    untrusted_issuer: 'The Apple certificate’s issuer isn’t trusted', not_valid_now: 'The Apple certificate has expired or isn’t valid yet',
+    save_link_too_long: 'A Google save link was too long', save_link_trimmed: 'A Google save link was shortened' };
+  const PROBLEM_KINDS = { apns: 'Apple refused a card update', get: 'Google refused a save link', patch: 'Google refused a card update', first_patch: 'Google refused to finish a saved card', message: 'Google refused a reminder' };
+  function problemWords(code) {
+    const c = String(code || ''), m = /^(apns|first_patch|patch|message|get)_(.+)$/.exec(c);
+    return PROBLEM_WORDS[c] || (m ? PROBLEM_KINDS[m[1]] + ' (' + m[2] + ')' : c);
+  }
+  const platformWords = (p) => PLATFORM_WORDS[p] || String(p || '').charAt(0).toUpperCase() + String(p || '').slice(1);
   const stampAt = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const stripImg = (stamps, member, cls) => {
     const n = member ? 10 : Math.max(0, Math.min(stamps || 0, 9)), dir = 'img/wallet/apple/' + n + '/strip';
@@ -1010,16 +1028,36 @@
   async function wcList() {
     if (D.isLive) return D.walletList(30);
     seedCards();
-    return { cards: WP.cards.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).map(previewInfo), cards_this_hour: 1, cards_today: 2, hour_cap: 30, day_cap: 200, cap_reached: false, problems: [],
+    return { cards: WP.cards.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).map(previewInfo), cards_this_hour: 1, cards_today: 2, hour_cap: 30, day_cap: 200, cap_reached: false,
+      // one example problem, as the wallet function records it when an Apple card is asked for before the certificate is in
+      problems: [{ id: 1, at: new Date(Date.now() - 2 * 36e5).toISOString(), platform: 'setup', code: 'apple_no_certificate', detail: 'No Pass Type ID key and certificate installed (wallet-sync/apple-csr, apple-cert).' }],
       apple_on: false, google_on: false, apple_ready: false, apple_cert_expires: null, reminders_on: false };
   }
 
   function openCard(code) {
     const w = wc();
-    Object.assign(w, { code, found: null, panel: null });
+    Object.assign(w, { code, found: null, panel: null, land: false });
     if (w.last && w.last.code !== code) w.last = null;
     history.replaceState(history.state, '', code ? '#admin-cards-' + code : '#admin-cards');
     render().then(() => { const c = root.querySelector(code ? '#wc-card' : '.wc-find'); if (c) c.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); focusIn(code ? '#wc-card-h' : '#wc_code'); });
+  }
+  // The card opened from the address (its QR scanned, mount): the page opens on it, as a link to a place on a page
+  // lands there (at once, no glide), with its first "Stamp" or "Complete and stamp" on the screen, so one tap does it;
+  // the keyboard's place goes to its heading, as openCard's. Once, the first time the Wash cards screen is drawn (a
+  // number that wasn't found leaves the page at the top, where the find box says so).
+  function landOnCard() {
+    const w = wc();
+    if (!w.land) return;
+    w.land = false;
+    const c = root.querySelector('#wc-card');
+    if (!c) return;
+    c.scrollIntoView({ behavior: 'auto', block: 'start' });
+    // (on a short screen, a small iPhone with Safari's bars, the first job's button can still be under the fold: the
+    // page goes on until it shows, 16px clear of the bottom)
+    const go = c.querySelector('.wc-job .wc-go'), r = go && go.getBoundingClientRect();
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    if (r && r.bottom > vh - 16) window.scrollBy(0, Math.ceil(r.bottom - vh + 16));
+    focusIn('#wc-card-h');
   }
   // the screen is drawn afresh after each step: the keyboard's place goes to what changed (the card, the stamp's notice)
   const focusIn = (sel) => { const n = root && root.querySelector(sel); if (n) n.focus({ preventScroll: true }); };
@@ -1204,7 +1242,7 @@
         el('dt', 'Reminders'), el('dd', l.reminders_on ? 'On' : 'Off, until you approve the words'),
         el('dt', 'Apple certificate'), el('dd', l.apple_cert_expires ? 'Renew by ' + shortDate(l.apple_cert_expires) : 'Not installed yet')),
       (l.problems || []).length ? el('div.wc-problems', el('h3.bk-h2', 'Sync problems', el('small', 'the latest 20')),
-        el('ul.adm-log', { role: 'list' }, l.problems.map((p) => el('li', { role: 'listitem' }, el('span.tnum', stampAt(p.at)), el('span', (p.platform === 'apple' ? 'Apple' : p.platform === 'google' ? 'Google' : p.platform) + (p.code ? ' · ' + codeWords(p.code) : '') + (p.detail ? ' · ' + p.detail : '')))))) : el('p.bk-muted', 'No sync problems.'));
+        el('ul.adm-log', { role: 'list' }, l.problems.map((p) => el('li', { role: 'listitem' }, el('span.tnum', stampAt(p.at)), el('span', platformWords(p.platform) + (p.code ? ' · ' + problemWords(p.code) : ''), p.detail ? el('small.bk-muted', ' · ' + p.detail) : null))))) : el('p.bk-muted', 'No sync problems.'));
   }
 
   window.AlchemistAdmin = { mount, refresh: forget };

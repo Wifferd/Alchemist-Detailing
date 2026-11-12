@@ -4,8 +4,9 @@ every request to Supabase), for the owner and for checks. shoot_card.py <out_dir
 
 The card page: an iPhone, an Android phone and an iPad (390x844 / 820x1180 touch), a computer (1440x900), a narrow
 phone (320x640), a holder's own page (#card-<token>: the example card) and reduced motion. The Admin screen: the owner
-in the preview (390x844 and 1440x900): the screen, a card opened from its number, "Complete and stamp" on today's job
-(the stamp and its Take back), a stamp from Waiting for a stamp, and a past wash by hand.
+in the preview: the first screen after a scan (390x844, 390x664 and 1440x900; the first job's button must be on it),
+then at 390x844 and 1440x900 the whole screen (its example sync problem at the end), "Complete and stamp" on today's
+job (the stamp and its Take back), a stamp from Waiting for a stamp, and a past wash by hand.
 Then, in each theme, the Admin screen under reduced motion, and a keyboard-only walk: the card page's controls in
 order (each with a focus ring; the privacy note opened with Enter), and the Admin steps (find a card, Complete and stamp,
 Take back with a reason, a past wash by hand), checking where the keyboard lands after each.
@@ -83,7 +84,29 @@ async def card(b, base, out, theme):
     await ctx.close()
 
 
+# the card's first job's button, where the scan lands (it must be on the first screen, no scroll: one tap)
+FIRST_GO = """() => { const g = document.querySelector('#wc-card .wc-job .wc-go'); if (!g) return null;
+  const r = g.getBoundingClientRect(), vh = window.visualViewport ? window.visualViewport.height : innerHeight;
+  return { text: g.textContent.trim(), top: Math.round(r.top), bottom: Math.round(r.bottom), vh: Math.round(vh), y: Math.round(scrollY) }; }"""
+
+
+async def scan_lands(b, base, out, theme, name, w, h, touch):
+    """The card's QR scanned (#admin-cards-<code>): the first screen, with the first job's button on it."""
+    ctx, pg = await page(b, theme, w, h, None, touch)
+    await pg.goto(base + '?noadapt#admin-cards-K7Q2M9XD')   # as the camera opens it from the card's QR
+    await pg.click('text=Look around as the admin')
+    await pg.wait_for_selector('#wc-card')
+    await shot(pg, out / f'{theme}-admin-scan-{name}.png', full=False)
+    r = await pg.evaluate(FIRST_GO)
+    if not r or r['top'] < 0 or r['bottom'] > r['vh']:
+        found.append(f'{theme}-admin-scan-{name}: the first job\'s button is not on the first screen {r}')
+    print('  scan', name, r, flush=True)
+    await ctx.close()
+
+
 async def admin(b, base, out, theme):
+    for name, w, h, touch in (('phone', 390, 844, True), ('phone-short', 390, 664, True), ('desk', 1440, 900, False)):
+        await scan_lands(b, base, out, theme, name, w, h, touch)
     for name, w, h, touch in (('phone', 390, 844, True), ('desk', 1440, 900, False)):
         ctx, pg = await page(b, theme, w, h, None, touch)
         await pg.goto(base + '?noadapt#admin-cards-K7Q2M9XD')   # as the camera opens it from the card's QR
