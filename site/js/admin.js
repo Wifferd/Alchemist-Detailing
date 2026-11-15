@@ -2,7 +2,7 @@
    For the owner (admin) and managers, after the authenticator step. Every
    action calls a database function; the console never writes to a table
    directly, except the settings and closed days the policies allow the admin
-   to edit. Screens: Morning, Requests, Calendar, Customers, Team, Settings, Log. */
+   to edit. Screens: Morning, Requests, Calendar, Customers, Wash cards, Team, Settings, Log. */
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
@@ -15,7 +15,7 @@
   // isn't this year's)
   const jobDay = (iso) => shortDate(iso) + (iso.slice(0, 4) !== H().isoDate(bizToday()).slice(0, 4) ? ', ' + iso.slice(0, 4) : '');
 
-  const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
+  const SCREENS = [['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['cards', 'Wash cards'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']];
   const LANES = [['requests', 'Requests'], ['review', 'Review'], ['spam', 'Spam']];
   const STATUS = { requested: 'Requested', needs_information: 'Needs info', confirmed: 'Confirmed', in_progress: 'In progress', completed: 'Completed', declined: 'Declined', cancelled: 'Cancelled' };
   // the database's codes, in words: roles, what holds a price (quote_booking's pending_reasons) and the log's actions
@@ -29,8 +29,9 @@
   const laneOf = (q) => (LANES.find(([k]) => k === q) || [null, q])[1];
   // what still holds time or needs doing
   const OPEN = ['requested', 'needs_information', 'confirmed', 'in_progress'];
-  // the screens only the admin has (the nav doesn't list them for a manager)
-  const ADMIN_ONLY = ['team', 'log'];
+  // the screens only the admin has (the nav doesn't list them for a manager); Wash cards: only the owner stamps
+  // (Migration 009, the database's assert_admin)
+  const ADMIN_ONLY = ['cards', 'team', 'log'];
   const pendingWords = (b) => (b.pending_reasons || []).map((c) => PENDING[c] || c).join(', ');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -140,11 +141,14 @@
   // ---------------------------------------------------------------- shell and gate
   // Every visit to #admin reads the lists again (nothing alerts the owner to a new request, so a list kept from an
   // earlier visit would hide it). Coming back to a tab left open does the same after a minute away.
-  function forget() { st.bookings = null; st.reviews = null; st.blocked = null; st.log = null; st.staffList = null; st.asks = null; }
+  function forget() { st.bookings = null; st.reviews = null; st.blocked = null; st.log = null; st.staffList = null; st.asks = null; if (st.wc) Object.assign(st.wc, { found: null, list: null, waiting: null }); }
   function mount(container) {
     root = container;
     const sub = (location.hash.split('-')[1] || '').trim();
     if (SCREENS.some(([k]) => k === sub)) screen = sub;
+    // a wash card's code scanned with the phone's camera (#admin-cards-K7Q2M9XD, the pass's QR): its card opens, and
+    // the page lands on it once it's drawn, after the sign-in and authenticator steps too (landOnCard)
+    if (sub === 'cards') { const code = normCode(location.hash.split('-')[2]); Object.assign(wc(), { code, last: null, panel: null, land: !!code }); }
     if (!ready) ready = (async () => { await D.init(); [settings, menu] = await Promise.all([D.settings(), D.menu()]); })();
     // a note or link typed and not saved is let go on a new visit (a redraw, Refresh or the auto-refresh keep it,
     // and its box shows it, so Save never stores text the box doesn't show)
@@ -175,13 +179,14 @@
     if (st.bookings == null) { try { await loadBookings(); } catch (e) { st.bookings = []; toast(e.message); } }
     // an Assign panel left open through a Refresh or a new visit (forget() lets the team list go): read it again
     if (st.panel && st.panel.kind === 'assign' && st.staffList == null) { try { await loadStaff(); } catch (e) { st.staffList = []; toast(e.message); } }
-    const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, team: team, settings: settingsScreen, log: logScreen }[screen];
+    const body = { morning: morning, requests: requests, calendar: calendar, reviews: reviewsScreen, customers: customers, cards: cardsScreen, team: team, settings: settingsScreen, log: logScreen }[screen];
     root.replaceChildren(shell(SCREENS.find(([k]) => k === screen)[1], await body(), true));
+    if (screen === 'cards') landOnCard();
   }
   function shell(title, body, nav) {
     return el('div.bk.admin',
       U.modeBanner('example data, nothing is saved. Names and bookings here are made up for the preview.', D.isLive),
-      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => k !== 'team' && k !== 'log' && k !== 'settings' || staff.role === 'admin' || k === 'settings').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; st.bookings = null; st.asks = null; history.replaceState(history.state, '', '#admin-' + k); render(); } }, label))) : null,
+      nav ? el('nav.adm-nav', { 'aria-label': 'Admin screens' }, SCREENS.filter(([k]) => !ADMIN_ONLY.includes(k) || staff.role === 'admin').map(([k, label]) => el('a', { href: '#admin-' + k, class: k === screen ? 'on' : '', 'aria-current': k === screen ? 'page' : null, onclick: (e) => { e.preventDefault(); screen = k; st.bookings = null; st.asks = null; if (k === 'cards') Object.assign(wc(), { code: null, last: null, panel: null, land: false }); history.replaceState(history.state, '', '#admin-' + k); render(); } }, label))) : null,
       el('header.bk-head.adm-head', el('div', el('p.eyebrow', 'Admin'), el('h1.display.bk-title', title)),
         staff ? el('div.adm-who', el('span', (staff.firstName || 'Signed in') + ' · ' + roleOf(staff.role || '')),
           nav ? el('button.link', { type: 'button', onclick: () => { forget(); render(); } }, 'Refresh') : null,
@@ -344,6 +349,8 @@
         admin && ['confirmed', 'in_progress', 'needs_information', 'requested'].includes(b.status) ? trig('cancel', 'Cancel booking', { cls: 'danger' }) : null),
       canDecide && b.price_pending ? el('p.bk-muted', priceFirst) : null,
       dayLine ? el('p.bk-muted', dayLine) : null,
+      // after Complete (plan 5.1): the wash card is stamped from its own screen, by the card's code or from the list
+      b.status === 'completed' && admin ? el('p.bk-muted', 'Wash card? Scan the code on the customer’s card, or find this job under ', el('a', { href: '#admin-cards', onclick: (e) => { e.preventDefault(); screen = 'cards'; Object.assign(wc(), { code: null, last: null, panel: null, land: false }); history.replaceState(history.state, '', '#admin-cards'); render().then(() => jump('wc-waiting')); } }, 'Wash cards → Waiting for a stamp'), '.') : null,
       st.panel && st.panel.id === b.id ? panel(b) : null,
       b.events && b.events.length ? el('details.adm-history', el('summary', 'History'), el('ul', b.events.map((e) => el('li', el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), ' · ', historyWords(e), e.note ? el('i', ' — ' + e.note) : null)))) : null);
     return body;
@@ -895,6 +902,347 @@
     const by = (id) => { const p = id && (st.staffList || []).find((x) => x.id === id); return p ? ' · ' + personName(p) : ''; };
     // two columns (the time, what happened); the items are display: contents, so the roles say what they are
     return el('div.bk-grid', el('p.bk-muted', 'The last 100 changes, newest first.'), st.log.length ? el('ul.adm-log', { role: 'list' }, st.log.map((e) => el('li', { role: 'listitem' }, el('span.tnum', new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), el('span', logText(e), el('small.bk-muted', by(e.actor_id)))))) : el('p.bk-empty', 'Nothing yet.'));
+  }
+
+  // ---------------------------------------------------------------- Wash cards (Migration 009, plan 5)
+  // The owner's screen for the wallet wash card. Usually the customer is at the car: he points his phone's camera at
+  // the code on their card, Admin opens here on that card (#admin-cards-<code>), and one tap on "Complete and stamp"
+  // completes today's job and fills a slot (wallet_stamp). The stamp just made can be taken back, with a reason. When
+  // the customer was out, "Waiting for a stamp" lists finished jobs with no stamp; a card already stamped for the same
+  // phone is suggested, and stamped only when he taps it. A past wash can be added by hand with its day and a reason.
+  // Every rule is the database's (only the admin, after the authenticator step; only completed jobs; one slot per
+  // booking; 60 days): this screen shows what it answers. Preview mode: clearly labelled example cards.
+  const CODE = /^[A-HJ-NP-Z2-9]{8}$/;
+  function normCode(v) { const c = String(v || '').toUpperCase().replace(/[\s-]/g, ''); return CODE.test(c) ? c : null; }
+  const codeWords = (c) => c.slice(0, 4) + ' ' + c.slice(4);
+  const countWords = (n, slots) => (n <= slots ? n + ' of ' + slots : n + ' washes');
+  // a card number's box: capitals as typed, no spelling marks (field() passes only its own options)
+  const codeBox = (f) => { f.input.setAttribute('autocapitalize', 'characters'); f.input.setAttribute('spellcheck', 'false'); return f; };
+  function wc() { return st.wc || (st.wc = { code: null, found: null, list: null, waiting: null, last: null, panel: null, busy: false, typed: {}, land: false }); }
+  // a sync problem in plain words (wallet_problem's codes, from the wallet and wallet-sync functions; never a card
+  // number): the fixed ones by name, Apple's and Google's answers with their reason or status, anything else as it is
+  const PLATFORM_WORDS = { apple: 'Apple', google: 'Google', setup: 'Setup' };
+  const PROBLEM_WORDS = {
+    apple_not_configured: 'Apple Wallet isn’t set up', apple_no_certificate: 'No Apple certificate installed',
+    signing_pair: 'The Apple key and certificate can’t sign', art_mismatch: 'The card’s pictures don’t match',
+    invalid_input: 'The Apple certificate can’t be read', wrong_key: 'The Apple certificate doesn’t match its key',
+    wrong_pass_type: 'The Apple certificate is for another pass type', wrong_team: 'The Apple certificate is for another team',
+    untrusted_issuer: 'The Apple certificate’s issuer isn’t trusted', not_valid_now: 'The Apple certificate has expired or isn’t valid yet',
+    save_link_too_long: 'A Google save link was too long', save_link_trimmed: 'A Google save link was shortened' };
+  const PROBLEM_KINDS = { apns: 'Apple refused a card update', get: 'Google refused a save link', patch: 'Google refused a card update', first_patch: 'Google refused to finish a saved card', message: 'Google refused a reminder' };
+  function problemWords(code) {
+    const c = String(code || ''), m = /^(apns|first_patch|patch|message|get)_(.+)$/.exec(c);
+    return PROBLEM_WORDS[c] || (m ? PROBLEM_KINDS[m[1]] + ' (' + m[2] + ')' : c);
+  }
+  const platformWords = (p) => PLATFORM_WORDS[p] || String(p || '').charAt(0).toUpperCase() + String(p || '').slice(1);
+  const stampAt = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const stripImg = (stamps, member, cls) => {
+    const n = member ? 10 : Math.max(0, Math.min(stamps || 0, 9)), dir = 'img/wallet/apple/' + n + '/strip';
+    return el('img', { class: cls || 'wc-adm-strip', src: dir + '@2x.png', srcset: dir + '.png 1x, ' + dir + '@2x.png 2x, ' + dir + '@3x.png 3x', width: 375, height: 144, alt: member ? 'Gold card: every slot filled' : (stamps || 0) + ' slots filled' });
+  };
+
+  // the preview's example cards (nothing is saved anywhere): made from the preview's example bookings
+  const WP = { cards: [], stamps: [], seq: 100 };
+  function seedCards() {
+    if (WP.cards.length) return;
+    seedPreview();
+    const iso = (n) => H().isoDate(H().addDays(bizToday(), n)), at = (n) => new Date(Date.now() + n * 864e5).toISOString();
+    WP.cards.push(
+      { code: 'K7Q2M9XD', member_since: null, apple_devices: 1, on_google: false, google_link_made: false, reminders_off: false, voided_at: null, void_reason: null, created_at: at(-60) },
+      { code: 'R4TW8HBN', member_since: at(-5), apple_devices: 0, on_google: true, google_link_made: true, reminders_off: true, voided_at: null, void_reason: null, created_at: at(-200) },
+      { code: 'Z9PC3FEA', member_since: null, apple_devices: 1, on_google: false, google_link_made: false, reminders_off: false, voided_at: null, void_reason: null, created_at: at(-1) });
+    const add = (code, day, o) => WP.stamps.push(Object.assign({ id: ++WP.seq, code, day, appointment: null, ref: null, reason: null, by: 'Owner', at: day + 'T18:00:00Z', taken_back: false, taken_back_at: null, taken_back_reason: null }, o));
+    add('K7Q2M9XD', iso(-41), { reason: 'Example: a wash before the card existed' });
+    add('K7Q2M9XD', iso(-26), { ref: 'AD-EXAMPLA1' });
+    add('K7Q2M9XD', iso(-12), { ref: 'AD-EXAMPLA2' });
+    for (let i = 10; i >= 1; i--) add('R4TW8HBN', iso(-5 - i * 21), { ref: 'AD-EXAMPLB' + (i % 10) });
+  }
+  const live = (code) => WP.stamps.filter((s) => s.code === code && !s.taken_back);
+  function previewInfo(c) {
+    const l = live(c.code), last = l.map((s) => s.day).sort().pop() || null;
+    return Object.assign({}, c, { code_words: codeWords(c.code), stamps: l.length, slots: 10, count_words: countWords(l.length, 10), member: !!c.member_since, last_wash_day: last, voided: !!c.voided_at });
+  }
+  // the jobs a card can be stamped for, as wallet_find gives them: completed in the last 60 days with no stamp, and
+  // today's confirmed or started jobs
+  function previewToStamp(code) {
+    const today = H().isoDate(bizToday()), from = H().isoDate(H().addDays(bizToday(), -60));
+    const stamped = new Set(WP.stamps.filter((s) => !s.taken_back && s.appointment).map((s) => s.appointment));
+    return PREVIEW.bookings.filter((b) => !stamped.has(b.id) && ((b.status === 'completed' && b.service_date >= from && b.service_date <= today) || (['confirmed', 'in_progress'].includes(b.status) && b.service_date === today)))
+      .map((b) => ({ id: b.id, ref: b.ref, day: b.service_date, start_min: b.start_min, end_min: b.start_min + b.duration_min, status: b.status, location: b.location_type, name: b.contact_first + ' ' + (b.contact_last || '').charAt(0) + '.', suggested: code === 'K7Q2M9XD' && b.id === 'ex-6', action: b.status === 'completed' ? 'stamp' : 'complete_and_stamp' }))
+      .sort((a, b) => (b.suggested - a.suggested) || (a.day < b.day ? 1 : -1));
+  }
+  function previewStamp(code, o) {
+    seedCards();
+    const c = WP.cards.find((x) => x.code === code);
+    if (!c) throw D.fail('not_found', 'No card has the number ' + code + '.', 'code');
+    if (c.voided_at) throw D.fail('wrong_state', 'Card ' + codeWords(code) + ' is no longer in use.', 'code');
+    const today = H().isoDate(bizToday());
+    let b = null, day = o.day || today;
+    if (o.appointment) {
+      b = PREVIEW.bookings.find((x) => x.id === o.appointment);
+      if (!b) throw D.fail('not_found', 'That booking wasn’t found.', 'appointment');
+      if (o.complete && ['confirmed', 'in_progress'].includes(b.status)) previewAct('complete_booking', { p_id: b.id });
+      if (b.status !== 'completed') throw D.fail('wrong_state', b.ref + ' isn’t completed yet. A wash fills a slot once its job is completed.', 'appointment');
+      if (WP.stamps.some((s) => s.appointment === b.id && !s.taken_back)) throw D.fail('wrong_state', b.ref + ' already filled a slot.', 'appointment');
+      day = b.service_date;
+    } else {
+      if (!(o.reason || '').trim()) throw D.fail('invalid_input', 'Say why this wash has no booking (for example, a wash before the card existed).', 'reason');
+      if (day > today) throw D.fail('invalid_input', 'That day is in the future.', 'day');
+    }
+    const was = !!c.member_since;
+    WP.stamps.push({ id: ++WP.seq, code, day, appointment: b ? b.id : null, ref: b ? b.ref : null, reason: b ? null : o.reason.trim(), by: 'Owner', at: new Date().toISOString(), taken_back: false, taken_back_at: null, taken_back_reason: null });
+    const n = live(code).length;
+    if (!was && n >= 10) c.member_since = new Date().toISOString();
+    return { stamp_id: WP.seq, code, code_words: codeWords(code), stamps: n, slots: 10, count_words: countWords(n, 10), member: !!c.member_since, became_member: !was && !!c.member_since, day, ref: b ? b.ref : null };
+  }
+  function previewUnstamp(id, reason) {
+    const s = WP.stamps.find((x) => x.id === id);
+    if (!s) throw D.fail('not_found', 'That stamp wasn’t found.', 'stamp');
+    if (s.taken_back) throw D.fail('wrong_state', 'That stamp was already taken back.', 'stamp');
+    if (!(reason || '').trim()) throw D.fail('invalid_input', 'Say why the stamp is taken back.', 'reason');
+    Object.assign(s, { taken_back: true, taken_back_at: new Date().toISOString(), taken_back_reason: reason.trim() });
+    const c = WP.cards.find((x) => x.code === s.code), n = live(s.code).length;
+    if (n < 10) c.member_since = null;
+    return { stamp_id: s.id, code: s.code, code_words: codeWords(s.code), stamps: n, slots: 10, count_words: countWords(n, 10), member: !!c.member_since, ref: s.ref };
+  }
+
+  // the database's answers (or the preview's)
+  async function wcFind(code) {
+    if (D.isLive) return D.walletFind(code);
+    seedCards();
+    const c = WP.cards.find((x) => x.code === code);
+    if (!c) throw D.fail('not_found', 'No card has the number ' + code + '.', 'code');
+    const stamps = WP.stamps.filter((s) => s.code === code).slice().sort((a, b) => b.id - a.id).slice(0, 20);
+    return { card: previewInfo(c), stamps, to_stamp: previewToStamp(code) };
+  }
+  async function wcWaiting() {
+    if (D.isLive) return (await D.walletWaiting(14)) || [];
+    seedCards();
+    const today = H().isoDate(bizToday()), from = H().isoDate(H().addDays(bizToday(), -14));
+    const stamped = new Set(WP.stamps.filter((s) => !s.taken_back && s.appointment).map((s) => s.appointment));
+    return PREVIEW.bookings.filter((b) => b.status === 'completed' && b.service_date >= from && b.service_date <= today && !stamped.has(b.id))
+      .sort((a, b) => (a.service_date < b.service_date ? 1 : -1))
+      .map((b) => { const k = previewInfo(WP.cards[0]); return { id: b.id, ref: b.ref, day: b.service_date, start_min: b.start_min, end_min: b.start_min + b.duration_min, first_name: b.contact_first, location: b.location_type,
+        suggestions: b.id === 'ex-6' ? [{ code: k.code, code_words: k.code_words, stamps: k.stamps, slots: 10, member: k.member, last_day: k.last_wash_day }] : [] }; });
+  }
+  async function wcList() {
+    if (D.isLive) return D.walletList(30);
+    seedCards();
+    return { cards: WP.cards.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).map(previewInfo), cards_this_hour: 1, cards_today: 2, hour_cap: 30, day_cap: 200, cap_reached: false,
+      // one example problem, as the wallet function records it when an Apple card is asked for before the certificate is in
+      problems: [{ id: 1, at: new Date(Date.now() - 2 * 36e5).toISOString(), platform: 'setup', code: 'apple_no_certificate', detail: 'No Pass Type ID key and certificate installed (wallet-sync/apple-csr, apple-cert).' }],
+      apple_on: false, google_on: false, apple_ready: false, apple_cert_expires: null, reminders_on: false };
+  }
+
+  function openCard(code) {
+    const w = wc();
+    Object.assign(w, { code, found: null, panel: null, land: false });
+    if (w.last && w.last.code !== code) w.last = null;
+    history.replaceState(history.state, '', code ? '#admin-cards-' + code : '#admin-cards');
+    render().then(() => { const c = root.querySelector(code ? '#wc-card' : '.wc-find'); if (c) c.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); focusIn(code ? '#wc-card-h' : '#wc_code'); });
+  }
+  // The card opened from the address (its QR scanned, mount): the page opens on it, as a link to a place on a page
+  // lands there (at once, no glide), with its first "Stamp" or "Complete and stamp" on the screen, so one tap does it;
+  // the keyboard's place goes to its heading, as openCard's. Once, the first time the Wash cards screen is drawn (a
+  // number that wasn't found leaves the page at the top, where the find box says so).
+  function landOnCard() {
+    const w = wc();
+    if (!w.land) return;
+    w.land = false;
+    const c = root.querySelector('#wc-card');
+    if (!c) return;
+    c.scrollIntoView({ behavior: 'auto', block: 'start' });
+    // (on a short screen, a small iPhone with Safari's bars, the first job's button can still be under the fold: the
+    // page goes on until it shows, 16px clear of the bottom)
+    const go = c.querySelector('.wc-job .wc-go'), r = go && go.getBoundingClientRect();
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    if (r && r.bottom > vh - 16) window.scrollBy(0, Math.ceil(r.bottom - vh + 16));
+    focusIn('#wc-card-h');
+  }
+  // the screen is drawn afresh after each step: the keyboard's place goes to what changed (the card, the stamp's notice)
+  const focusIn = (sel) => { const n = root && root.querySelector(sel); if (n) n.focus({ preventScroll: true }); };
+  // a panel opened or closed: drawn again, with the keyboard's place on what it opened (or on the button again)
+  const redraw = (sel) => render().then(() => focusIn(sel));
+  // one tap: the database stamps (and, for "Complete and stamp", completes today's job first, in the same step)
+  async function stamp(code, o) {
+    const w = wc();
+    if (w.busy) return false;
+    w.busy = true;
+    try {
+      const r = D.isLive ? await D.walletStamp(code, o) : previewStamp(code, o);
+      w.last = r;
+      toast('Stamped: ' + r.count_words + (r.became_member ? '. The card is gold now: Loyalty member.' : '.'));
+      Object.assign(w, { code: r.code, found: null, waiting: null, list: null, panel: null });
+      if (o.complete) st.bookings = null;   // the job is completed too: the lists read it again
+      history.replaceState(history.state, '', '#admin-cards-' + r.code);
+    } catch (e) { toast(e.message || 'That didn’t work.'); w.busy = false; return false; }
+    w.busy = false;
+    await render();
+    const c = root.querySelector('#wc-card'); if (c) c.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    focusIn('.wc-last');
+    return true;
+  }
+  async function unstamp(id, reason) {
+    const w = wc();
+    if (w.busy) return;
+    if (!(reason || '').trim()) return toast('Say why the stamp is taken back.');
+    w.busy = true;
+    try {
+      const r = D.isLive ? await D.walletUnstamp(id, reason.trim()) : previewUnstamp(id, reason);
+      toast('Taken back: ' + r.count_words + '.');
+      Object.assign(w, { last: null, found: null, waiting: null, list: null, panel: null });
+    } catch (e) { toast(e.message || 'That didn’t work.'); }
+    w.busy = false;
+    await render();
+    focusIn('#wc-card-h');
+  }
+
+  async function cardsScreen() {
+    const w = wc();
+    if (w.code && !w.found) {
+      try { w.found = await wcFind(w.code); }
+      catch (e) { w.findError = { code: w.code, text: e.message }; w.code = null; history.replaceState(history.state, '', '#admin-cards'); }
+    }
+    if (w.waiting == null) { try { w.waiting = await wcWaiting(); } catch (e) { w.waiting = []; toast(e.message); } }
+    if (w.list == null) { try { w.list = await wcList(); w.listError = null; } catch (e) { w.list = null; w.listError = e.message; } }
+    const err = w.findError; w.findError = null;
+    return el('div.bk-grid.wc-adm', findBox(err), w.found ? cardView(w.found) : null, waitingSec(), recentSec(), walletsSec());
+  }
+  function findBox(err) {
+    const form = el('form.wc-find', { novalidate: true, onsubmit: (e) => {
+      e.preventDefault();
+      const code = normCode(form.querySelector('#wc_code').value);
+      if (!code) return showError(form, 'wc_code', 'A card number is 8 letters and numbers, like K7Q2 M9XD.');
+      openCard(code);
+    } },
+      codeBox(field({ id: 'wc_code', label: 'Card number', value: err ? err.code : '', autocomplete: 'off', maxlength: 12,
+        hint: 'Scan the code on the customer’s card with your phone’s camera, or type the 8 letters and numbers under it.' })),
+      el('div.acct-actions', el('button.btn.btn-glass', { type: 'submit' }, 'Find card')));
+    if (err) setTimeout(() => showError(form, 'wc_code', err.text), 0);
+    return form;
+  }
+  function cardView(f) {
+    const c = f.card, w = wc(), admin = staff.role === 'admin';
+    const where = [c.apple_devices ? 'Apple Wallet' + (c.apple_devices > 1 ? ' (' + c.apple_devices + ' iPhones)' : '') : null, c.on_google ? 'Google Wallet' : null].filter(Boolean).join(' · ') || (c.google_link_made ? 'Not yet (a Google link was made)' : 'Not added yet');
+    const last = w.last && w.last.code === c.code ? w.last : null;
+    return el('section.acct-sec.wc-card#wc-card', { class: c.member ? 'member' : '', 'aria-labelledby': 'wc-card-h' },
+      el('h2.bk-h2#wc-card-h', { tabindex: '-1' }, 'Card ' + c.code_words, el('small', c.count_words + (c.member ? ' · Loyalty member' : ''))),
+      el('div.wc-card-top', stripImg(c.stamps, c.member),
+        el('dl.sum-body.wc-card-facts',
+          el('dt', 'Washes'), el('dd.tnum', c.count_words),
+          el('dt', 'Status'), el('dd', c.member ? 'Loyalty member' + (c.member_since ? ' since ' + shortDate(String(c.member_since).slice(0, 10)) : '') : 'Collecting'),
+          el('dt', 'Last wash'), el('dd', c.last_wash_day ? shortDate(c.last_wash_day) : 'None yet'),
+          el('dt', 'In a wallet'), el('dd', where),
+          el('dt', 'Reminders'), el('dd', c.reminders_off ? 'Turned off by the holder' : (w.list && w.list.reminders_on ? 'On' : 'Not sent to anyone yet')),
+          el('dt', 'Card made'), el('dd', c.created_at ? shortDate(String(c.created_at).slice(0, 10)) : '—'))),
+      c.voided ? el('p.bk-note', 'This card was voided' + (c.voided_at ? ' on ' + shortDate(String(c.voided_at).slice(0, 10)) : '') + (c.void_reason ? ': ' + c.void_reason : '') + '. It takes no stamps.') : null,
+      last ? el('div.bk-note.ok.wc-last', { role: 'status', tabindex: '-1' }, el('span', el('b', 'Stamped: ' + last.count_words + '.'), last.ref ? ' ' + last.ref + '.' : '', last.became_member ? ' The card is gold now: Loyalty member.' : ''),
+        admin ? unstampButton(last.stamp_id, 'Take back') : null) : null,
+      last && w.panel && w.panel.kind === 'unstamp' && w.panel.id === last.stamp_id ? unstampPanel(last.stamp_id) : null,
+      c.voided ? null : fillSec(c, f.to_stamp || []),
+      stampHistory(f.stamps || [], admin, last),
+      el('div.acct-actions', el('button.link', { type: 'button', onclick: () => openCard(null) }, 'Close this card')));
+  }
+  function fillSec(c, jobs) {
+    const w = wc(), today = H().isoDate(bizToday());
+    const row = (j) => el('div.veh.wc-job', { class: j.suggested ? 'suggested' : '' },
+      el('div.veh-main', el('b', j.ref + ' · ' + (j.day === today ? 'Today' : shortDate(j.day)) + ', ' + clock(j.start_min)),
+        el('span.bk-muted', [j.name, j.location === 'mobile' ? 'Mobile' : 'Driveway', j.status !== 'completed' ? STATUS[j.status] || j.status : null].filter(Boolean).join(' · ')),
+        j.suggested ? el('span.wc-hint', 'Same phone as an earlier stamp on this card') : null),
+      el('div.veh-actions', el('button.btn.btn-gold.wc-go', { type: 'button', onclick: (e) => { const b = e.currentTarget; b.disabled = true; stamp(c.code, { appointment: j.id, complete: j.action === 'complete_and_stamp' }).then((ok) => { if (!ok && b.isConnected) b.disabled = false; }); } },
+        j.action === 'complete_and_stamp' ? 'Complete and stamp' : 'Stamp')));
+    const hand = !!(w.panel && w.panel.kind === 'hand');
+    return el('div.wc-fill', el('h3.bk-h2', 'Fill a slot for'),
+      jobs.length ? el('div.veh-list', jobs.map(row)) : el('p.bk-empty', 'No job to stamp: nothing finished lately is waiting, and no job is booked for today.'),
+      el('div.acct-actions', el('button.btn.btn-glass#wc-hand', { type: 'button', class: hand ? 'on' : '', 'aria-expanded': hand ? 'true' : 'false', onclick: () => { w.panel = hand ? null : { kind: 'hand', day: today, reason: '' }; redraw(hand ? '#wc-hand' : '#wc_day'); } }, 'Add a past wash by hand')),
+      hand ? handPanel(c) : null);
+  }
+  function handPanel(c) {
+    const w = wc(), p = w.panel, today = H().isoDate(bizToday());
+    const box = el('div.adm-panel',
+      el('h3.bk-h2', 'A wash with no booking'),
+      el('p.bk-muted', 'For a wash before the card existed, or one that wasn’t booked online. One a day per card.'),
+      el('div.bk-row.two',
+        (() => { const f = field({ id: 'wc_day', label: 'Day of the wash', type: 'date', value: p.day, required: true, oninput: (e) => { p.day = e.target.value; } }); f.input.max = today; return f; })(),
+        field({ id: 'wc_reason', label: 'Why it has no booking', required: true, maxlength: 300, value: p.reason, oninput: (e) => { p.reason = e.target.value; } })),
+      el('div.acct-actions',
+        el('button.btn.btn-gold', { type: 'button', onclick: () => {
+          clearError(box, 'wc_day'); clearError(box, 'wc_reason');
+          if (!p.day || p.day > today) return showError(box, 'wc_day', 'Pick the day of the wash: today or a day before.');
+          if (!(p.reason || '').trim()) return showError(box, 'wc_reason', 'Say why this wash has no booking.');
+          stamp(c.code, { reason: p.reason.trim(), day: p.day });
+        } }, 'Stamp it'),
+        el('button.btn.btn-glass', { type: 'button', onclick: () => { w.panel = null; redraw('#wc-hand'); } }, 'Back')));
+    return box;
+  }
+  function unstampButton(id, label) {
+    const w = wc(), open = !!(w.panel && w.panel.kind === 'unstamp' && w.panel.id === id);
+    return el('button.link', { type: 'button', id: 'wc-tb-' + id, 'aria-expanded': open ? 'true' : 'false', onclick: () => { w.panel = open ? null : { kind: 'unstamp', id, reason: '' }; redraw(open ? '#wc-tb-' + id : '#wc_unstamp'); } }, label);
+  }
+  function unstampPanel(id) {
+    const w = wc(), p = w.panel;
+    return el('div.adm-panel',
+      el('h3.bk-h2', 'Take this stamp back'),
+      field({ id: 'wc_unstamp', label: 'Why', required: true, maxlength: 300, value: p.reason, hint: 'Kept with the card’s history. A gold card that drops under 10 turns back quietly.', oninput: (e) => { p.reason = e.target.value; } }),
+      el('div.acct-actions',
+        el('button.btn.btn-gold', { type: 'button', onclick: () => unstamp(id, p.reason) }, 'Take back'),
+        el('button.btn.btn-glass', { type: 'button', onclick: () => { w.panel = null; redraw('#wc-tb-' + id); } }, 'Back')));
+  }
+  // the card's history: the last 20 stamps, newest first; a stamp taken back stays, struck through, with the reason
+  function stampHistory(stamps, admin, last) {
+    const w = wc();
+    const mine = (s) => !!(last && last.stamp_id === s.id);   // the stamp just made: its Take back is in the notice above
+    return el('div.wc-history', el('h3.bk-h2', 'History'),
+      stamps.length ? el('ul.wc-stamps', { role: 'list' }, stamps.map((s) => el('li', { class: s.taken_back ? 'gone' : '' },
+        el('div.wc-stamp-line',
+          el('span.tnum', shortDate(s.day)),
+          el('span', s.ref ? 'Booking ' + s.ref : 'By hand: ' + (s.reason || '—'), el('small.bk-muted', ' · ' + (s.by || 'Team') + ', ' + stampAt(s.at))),
+          s.taken_back ? el('small.wc-back', 'Taken back' + (s.taken_back_at ? ' ' + stampAt(s.taken_back_at) : '') + (s.taken_back_reason ? ': ' + s.taken_back_reason : ''))
+            : admin && !mine(s) ? unstampButton(s.id, 'Take back') : null),
+        !s.taken_back && !mine(s) && w.panel && w.panel.kind === 'unstamp' && w.panel.id === s.id ? unstampPanel(s.id) : null))) : el('p.bk-empty', 'No stamps yet.'));
+  }
+  function waitingSec() {
+    const w = wc(), list = w.waiting || [];
+    const row = (r) => el('div.veh.wc-wait',
+      el('div.veh-main', el('b', r.ref + ' · ' + shortDate(r.day) + ', ' + clock(r.start_min)), el('span.bk-muted', [r.first_name, r.location === 'mobile' ? 'Mobile' : 'Driveway'].filter(Boolean).join(' · '))),
+      el('div.wc-wait-do',
+        r.suggestions && r.suggestions.length ? r.suggestions.map((s) => el('div.wc-sugg',
+          el('p', 'Card ', el('b.tnum', s.code_words), ' (' + countWords(s.stamps, s.slots || 10) + (s.member ? ', Loyalty member' : '') + ') was stamped for this phone' + (s.last_day ? ' on ' + shortDate(s.last_day) : '') + '.'),
+          el('button.btn.btn-gold.wc-go', { type: 'button', onclick: (e) => { const b = e.currentTarget; b.disabled = true; stamp(s.code, { appointment: r.id }).then((ok) => { if (!ok && b.isConnected) b.disabled = false; }); } }, 'Stamp card ' + s.code_words)))
+          : el('p.bk-muted', 'No card found for this phone. Stamp it at their next visit, or type the card number they read to you.'),
+        el('form.wc-typed', { novalidate: true, onsubmit: (e) => {
+          e.preventDefault();
+          const f = e.currentTarget, code = normCode(f.querySelector('input').value);
+          if (!code) return showError(f, 'wc_t_' + r.id, 'A card number is 8 letters and numbers, like K7Q2 M9XD.');
+          stamp(code, { appointment: r.id });
+        } },
+          codeBox(field({ id: 'wc_t_' + r.id, label: r.suggestions && r.suggestions.length ? 'Or another card number' : 'Card number', value: w.typed[r.id] || '', autocomplete: 'off', maxlength: 12, oninput: (e) => { w.typed[r.id] = e.target.value; } })),
+          el('button.btn.btn-glass', { type: 'submit' }, 'Stamp'))));
+    return el('section.acct-sec#wc-waiting', el('h2.bk-h2', 'Waiting for a stamp', el('small', 'finished in the last 14 days, no card stamped')),
+      list.length ? el('div.veh-list', list.map(row)) : el('p.bk-empty', 'Nothing waiting.'));
+  }
+  function recentSec() {
+    const w = wc(), l = w.list;
+    if (!l) return el('section.acct-sec', el('h2.bk-h2', 'Recent cards'), el('p.bk-note', w.listError || 'The cards couldn’t load.'));
+    const cards = l.cards || [];
+    return el('section.acct-sec.wc-recent', el('h2.bk-h2', 'Recent cards', el('small', 'newest first')),
+      el('p.bk-muted.tnum', l.cards_this_hour + ' new from the card page in the last hour (limit ' + l.hour_cap + '), ' + l.cards_today + ' in the last 24 hours (limit ' + l.day_cap + ').'),
+      l.cap_reached ? el('p.bk-note', el('b', 'Card limit reached.'), ' The card page makes no new cards until the count drops under the limit. A robot may have used it up; cards already made keep working.') : null,
+      cards.length ? el('div.veh-list', cards.map((c) => el('div.veh', { class: c.member ? 'wc-member' : '' },
+        el('div.veh-main', el('b.tnum', c.code_words), el('span.bk-muted', [c.count_words, c.member ? 'Loyalty member' : null, c.last_wash_day ? 'last wash ' + shortDate(c.last_wash_day) : 'no wash yet', c.voided ? 'voided' : null].filter(Boolean).join(' · '))),
+        el('div.veh-actions', el('button.link', { type: 'button', 'aria-label': 'Open card ' + c.code_words, onclick: () => openCard(c.code) }, 'Open'))))) : el('p.bk-empty', 'No cards yet.'));
+  }
+  function walletsSec() {
+    const l = wc().list;
+    if (!l) return null;
+    return el('section.acct-sec.wc-state', el('h2.bk-h2', 'The wallets', el('small', 'read-only here')),
+      el('dl.sum-body',
+        el('dt', 'Apple Wallet'), el('dd', l.apple_on ? 'On' : 'Off' + (l.apple_ready ? '' : ': it can’t go on until the mailbox address and business email are set')),
+        el('dt', 'Google Wallet'), el('dd', l.google_on ? 'On' : 'Off'),
+        el('dt', 'Reminders'), el('dd', l.reminders_on ? 'On' : 'Off, until you approve the words'),
+        el('dt', 'Apple certificate'), el('dd', l.apple_cert_expires ? 'Renew by ' + shortDate(l.apple_cert_expires) : 'Not installed yet')),
+      (l.problems || []).length ? el('div.wc-problems', el('h3.bk-h2', 'Sync problems', el('small', 'the latest 20')),
+        el('ul.adm-log', { role: 'list' }, l.problems.map((p) => el('li', { role: 'listitem' }, el('span.tnum', stampAt(p.at)), el('span', platformWords(p.platform) + (p.code ? ' · ' + problemWords(p.code) : ''), p.detail ? el('small.bk-muted', ' · ' + p.detail) : null))))) : el('p.bk-muted', 'No sync problems.'));
   }
 
   window.AlchemistAdmin = { mount, refresh: forget };

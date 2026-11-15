@@ -26,6 +26,11 @@
       "source": "/team{/}?",
       "destination": "/#team",
       "permanent": false
+    },
+    {
+      "source": "/card{/}?",
+      "destination": "/#card",
+      "permanent": false
     }
   ],
   "headers": [

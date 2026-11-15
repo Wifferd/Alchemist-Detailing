@@ -5283,6 +5283,125 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 }
 @media (max-width: 640px) { .tm-frame { aspect-ratio: 1 / 1; } }   /* the photos are portrait: a phone gets a square frame, with room for the handle and the note */
 
+/* ---------------------------------------------------------------- the wash card (#card, card.js; plan 2.2)
+   The page in the brand pages' column: the head, then the card beside what to do with it (stacked on a phone), how it
+   works, the reminders switch once reminders are on, and the privacy note. The card is drawn from the pass's own
+   pictures (img/wallet/, flat colours) and stays black, or gold at 10, in both themes: it is the card, not the page.
+   The official wallet badges are their own artwork, untouched: no shadow, glow, light or motion ever reaches them
+   (Apple's and Google's rules), and they sit outside .shine. */
+.wc-page { display: grid; gap: var(--s-4); }
+.wc-page > .bk-preview { justify-self: center; }
+.wc-gone { justify-self: center; width: min(100%, 720px); }
+.wc-main { width: min(100%, 960px); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 4vw, 56px); align-items: start; }
+.wc-show { display: grid; justify-items: center; }
+.wc-pass { width: min(100%, 400px); margin: 0; display: grid; border-radius: 18px; overflow: hidden; background: #000; color: var(--dark-ink); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .09); }
+.wc-pass.member { background: var(--au-600); color: var(--on-gold); }
+.wc-pass-top { display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px; }
+.wc-pass-top img { width: auto; height: 30px; }
+.wc-pass-name { font: 600 15px/1.2 var(--font-ui); }
+.wc-strip { display: block; width: 100%; height: auto; }
+.wc-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 16px 16px; }
+.wc-field { display: grid; gap: 5px; min-width: 0; }
+.wc-field span { font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: .08em; text-transform: uppercase; color: var(--au-500); }
+.wc-pass.member .wc-field span { color: var(--on-gold); }
+.wc-field b { font: 500 15px/1.25 var(--font-ui); color: inherit; overflow-wrap: anywhere; }
+.wc-pass-code { padding: 0 16px 16px; text-align: center; font: 600 13px/1 var(--font-ui); letter-spacing: .16em; color: var(--dark-ink-2); }
+.wc-pass.member .wc-pass-code { color: var(--on-gold); }
+.wc-side { display: grid; gap: 24px; align-content: start; }
+.wc-facts { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 10px 18px; }
+.wc-facts dt { font: 600 var(--t-0)/1.6 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink-2); }
+.wc-facts dd { margin: 0; color: var(--ink); font-size: var(--t-3); }
+.wc-facts dd.wc-code { font: 500 var(--t-5)/1.1 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: .12em; color: var(--gold-ink); }
+.wc-holder { display: grid; gap: 12px; }
+.wc-wallet { display: grid; gap: 14px; justify-items: start; }
+.wc-soon-eyebrow { margin: 0; }
+.wc-soon { margin: 0; font-size: var(--t-4); line-height: var(--lh-4); color: var(--ink); text-wrap: pretty; }
+.wc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 4px; }
+.wc-actions .btn { min-width: 200px; }
+.wc-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wc-badge { display: inline-block; margin: 5px; padding: 0; border: 0; border-radius: 10px; background: none; line-height: 0; cursor: pointer; touch-action: manipulation; }
+.wc-badge img { display: block; width: auto; height: 48px; }
+.wc-badge:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 4px; }
+.wc-badge:disabled { cursor: default; }   /* (a preview only; never dimmed: Apple's badge has no dimmed state) */
+.wc-say { margin: 0; font-size: var(--fs-hint); color: var(--ink-2); }
+.wc-say.err { color: var(--danger-text); }
+.wc-carry { display: flex; align-items: center; gap: 18px; }
+.wc-qr { flex-shrink: 0; width: 132px; height: 132px; border-radius: 10px; background: #fff; }
+.wc-inapp { display: grid; gap: 10px; }
+.wc-how, .wc-remind, .wc-privacy, .wc-fine { width: min(100%, 760px); margin-inline: auto; }
+.wc-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.wc-steps li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 12px; color: var(--ink-2); font-size: var(--t-3); line-height: 1.55; }
+.wc-steps .n { font: 600 var(--fs-xs)/1.9 var(--font-ui); letter-spacing: .08em; color: var(--gold-ink); }
+.wc-gold { grid-column: 2; width: min(100%, 230px); height: auto; margin-top: 8px; border-radius: 8px; }
+.wc-remind-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.wc-switch { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px 0 6px; border-radius: 999px; border: 1px solid var(--border-strong); background: transparent; color: var(--ink); font: 600 var(--t-1)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; cursor: pointer; touch-action: manipulation; }
+.wc-knob { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--hair); background: var(--panel-2); transition: background-color .3s var(--ease); }
+.wc-switch[aria-pressed="true"] { border-color: var(--gold); }
+.wc-switch[aria-pressed="true"] .wc-knob { border-color: var(--gold); background: var(--gold); }
+.wc-switch:disabled { opacity: .6; cursor: default; }
+.wc-switch:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
+.wc-privacy { padding: 4px 18px; border-radius: var(--r-md); border: 1px solid var(--hair); background: rgba(255, 255, 255, .02); }
+.wc-privacy summary { display: flex; align-items: center; min-height: 48px; cursor: pointer; font: 600 var(--t-0)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--ink); }
+.wc-privacy summary:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; border-radius: 6px; }
+.wc-privacy ul { margin: 2px 0 16px; padding-left: 1.1em; display: grid; gap: 8px; color: var(--ink-2); font-size: var(--t-2); line-height: 1.55; }
+.wc-fine { margin-block: 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; text-wrap: balance; }
+@media (max-width: 760px) {
+  .wc-main { grid-template-columns: minmax(0, 1fr); }
+  .wc-wallet { justify-items: stretch; }
+  .wc-actions { flex-direction: column; align-items: stretch; }
+  .wc-actions .btn { width: 100%; }
+  .wc-actions .acct-go { align-self: center; }
+  .wc-badges { justify-content: center; }
+  .wc-badge { justify-self: center; }
+}
+@media (max-width: 380px) { .wc-fields { gap: 6px; padding-inline: 12px; } .wc-field b { font-size: 14px; } .wc-carry { flex-direction: column; align-items: flex-start; } }
+@media (prefers-reduced-motion: reduce) { .wc-knob { transition: none; } }
+:where([data-theme="light"]) .wc-pass { box-shadow: 0 30px 50px -34px rgba(var(--studio-ink-rgb), .6), 0 0 0 1px rgba(var(--studio-ink-rgb), .06); }
+:where([data-theme="light"]) .wc-privacy { background: var(--stone); border-color: rgba(var(--studio-ink-rgb), .08); }
+
+/* ---------------------------------------------------------------- Admin: Wash cards (admin.js cardsScreen; plan 5)
+   The card number box, the card opened (its strip, the facts, the jobs to stamp, the history), Waiting for a stamp,
+   the recent cards and the wallets' state. A tool, like the rest of the console: nothing rises or glows. */
+.wc-find { display: grid; grid-template-columns: minmax(0, 360px) auto; align-items: start; gap: 12px; }
+.wc-find .acct-actions { margin-top: 18px; }
+.wc-card.acct-sec { padding: 18px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgba(var(--gold-rgb), .03); }
+.wc-card-top { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 18px 24px; align-items: start; }
+.wc-adm-strip { display: block; width: 100%; height: auto; border-radius: 10px; }
+.wc-last { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; }
+.wc-last .link { margin: -10px 0; }
+.wc-last:focus, #wc-card-h:focus { outline: none; }
+.wc-last:focus-visible, #wc-card-h:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
+.wc-fill, .wc-history { display: grid; gap: 12px; }
+.wc-job.suggested, .veh.wc-member { border-color: var(--line); }
+.wc-hint { color: var(--gold-ink); font-size: 13px; }
+.btn.wc-go { --h: 44px; padding: 0 18px; white-space: nowrap; }
+.wc-stamps { list-style: none; margin: 0; padding: 0; display: grid; }
+.wc-stamps li { padding: 10px 0; border-top: 1px solid var(--hair); }
+.wc-stamp-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; color: var(--ink-2); font-size: 14.5px; }
+.wc-stamp-line > .tnum { min-width: 104px; color: var(--ink); }
+.wc-stamp-line .link { margin: -12px 0 -12px auto; }
+.wc-stamps li.gone .wc-stamp-line > span { color: var(--muted); text-decoration: line-through; }
+.wc-back { flex-basis: 100%; color: var(--muted); }
+.veh.wc-wait { flex-wrap: wrap; align-items: flex-start; }
+.wc-wait-do { flex: 1 1 300px; display: grid; gap: 10px; justify-items: start; }
+.wc-sugg { display: grid; gap: 8px; justify-items: start; }
+.wc-sugg p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+.wc-typed { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+.wc-typed .fld { flex: 1 1 180px; max-width: 260px; }
+.wc-typed .btn { --h: 46px; margin-top: 18px; padding: 0 20px; }
+.wc-typed .fld-msg:empty { display: none; }
+@media (max-width: 640px) {
+  .wc-find { grid-template-columns: minmax(0, 1fr); }
+  .wc-find .acct-actions { margin-top: 0; }
+  .wc-card-top { grid-template-columns: minmax(0, 1fr); }
+  .wc-card.acct-sec { padding: 14px; }
+  .admin .sum-body.wc-card-facts { grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 8px 14px; }
+  .admin .wc-card-facts dt { margin-top: 0; }
+  .veh.wc-job .veh-actions, .wc-sugg, .wc-sugg .btn { width: 100%; }
+  .veh.wc-job .btn.wc-go, .wc-sugg .btn.wc-go { width: 100%; }
+}
+:where([data-theme="light"]) .wc-card.acct-sec { background: rgba(var(--studio-gold-rgb), .05); }
+
 /* =====================================================================
    Light mode, the white studio (doc 29; Oct 10 pass). Not an inversion:
    a cyclorama of cream (--bg) falling to a warm-grey floor (--floor), the

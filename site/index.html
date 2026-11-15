@@ -58,7 +58,7 @@
 }
 </script>
 <link rel="stylesheet" href="css/alchemist.css">
-<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), a page opening at the top of Home or Services has its dark piece under the bar (html.top-dark; Home's hero html.top-home too; until app.js's observer answers), every address but the public domain (the test site, previews, a local copy) stays out of search, a page opened directly at another page than Home keeps Home and the bar's name unseen until app.js shows that page (html.deep; let go after 3s should no script run), and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should a script be slow */(function(d,h){h.classList.remove('no-js');if(/^(services|book|appointments|reviews|tips|faq|about|contact|account|admin|team|gallery)$/.test(location.hash.slice(1).split('-')[0])){h.classList.add('deep');setTimeout(function(){h.classList.remove('deep')},3000)}try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#f8f5ee'}}catch(e){}if(/^#?(home|services)?$/.test(location.hash))h.classList.add('top-dark');if(/^#?(home)?$/.test(location.hash))h.classList.add('top-home');if(!/^(www\.)?thealchemistdetailing\.com$/.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
+<script>/* before the first paint: scripts are on (the no-JS note goes), the saved light theme is applied (app.js keeps it from then on), a page opening at the top of Home or Services has its dark piece under the bar (html.top-dark; Home's hero html.top-home too; until app.js's observer answers), every address but the public domain (the test site, previews, a local copy) stays out of search, a page opened directly at another page than Home keeps Home and the bar's name unseen until app.js shows that page (html.deep; let go after 3s should no script run), and the hero intro (html.ready, normally app.js's two frames after the hero starts) is let go after 1.5s should a script be slow */(function(d,h){h.classList.remove('no-js');if(/^(services|book|appointments|reviews|tips|faq|about|contact|account|card|admin|team|gallery)$/.test(location.hash.slice(1).split('-')[0])){h.classList.add('deep');setTimeout(function(){h.classList.remove('deep')},3000)}try{if(localStorage.getItem('ad.theme')==='light'){h.setAttribute('data-theme','light');var m=d.querySelector('meta[name="theme-color"]');if(m)m.content='#f8f5ee'}}catch(e){}if(/^#?(home|services)?$/.test(location.hash))h.classList.add('top-dark');if(/^#?(home)?$/.test(location.hash))h.classList.add('top-home');if(!/^(www\.)?thealchemistdetailing\.com$/.test(location.hostname)){var r=d.createElement('meta');r.name='robots';r.content='noindex,nofollow';d.head.appendChild(r)}setTimeout(function(){h.classList.add('ready')},1500)})(document,document.documentElement);</script>
 </head>
 <body>
 <!-- BODY START -->
@@ -535,6 +535,11 @@
   <section class="book-page" aria-label="Your appointments"><div id="appointmentsApp"></div></section>
 </div>
 
+<!-- ================================================================ WASH CARD (card.js; the printed QR's /card, plan 2.2) -->
+<div class="view" data-view="card" hidden>
+  <section class="book-page brand-page" aria-label="Wash card"><div id="cardApp"></div></section>
+</div>
+
 <!-- ================================================================ ADMIN (team only) -->
 <div class="view" data-view="admin" hidden>
   <section class="book-page" aria-label="Admin console"><div id="adminApp"></div></section>
@@ -599,6 +604,7 @@
 <script src="js/ui.js" defer></script>
 <script src="js/booking.js" defer></script>
 <script src="js/account.js" defer></script>
+<script src="js/card.js" defer></script>
 <script src="js/admin.js" defer></script>
 <script src="js/team.js" defer></script>
 <script src="js/reviews.js" defer></script>

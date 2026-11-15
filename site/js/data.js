@@ -727,6 +727,23 @@
       return rpc('review_reply', { p_id: id, p_reply: text });
     },
 
+    // ---- the wash card (Migration 009; card.js and admin.js) ----
+    // Live mode only: the card page and the Admin screen keep their own labelled examples in preview mode. The database
+    // checks everything again (the wallet flags, the caps, the token, the owner's role), so these only pass the words on.
+    // The Edge Functions' address: wallet_link's path ("/wallet/apple/d/<token>") is relative to it.
+    walletBase() { return ((window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.supabaseUrl) || '') + '/functions/v1'; },
+    async walletNewCard(requestId, website) { await init(); return rpc('wallet_new_card', { p: { request_id: requestId, website: website || '' } }); },
+    async walletLink(token, platform) { await init(); return rpc('wallet_link', { p: { token, platform } }); },
+    async walletCard(token) { await init(); return rpc('wallet_card', { p_token: token }); },
+    async walletSetReminders(token, on) { await init(); return rpc('wallet_set_reminders', { p_token: token, p_on: !!on }); },
+    // the owner's (the admin, after the authenticator step: the database's assert_admin)
+    walletFind(code) { return rpc('wallet_find', { p_code: code }); },
+    walletStamp(code, o) { o = o || {}; return rpc('wallet_stamp', { p_code: code, p_appointment: o.appointment || null, p_reason: o.reason || null, p_day: o.day || null, p_complete: !!o.complete }); },
+    walletUnstamp(stampId, reason) { return rpc('wallet_unstamp', { p_stamp: stampId, p_reason: reason }); },
+    walletWaiting(days) { return rpc('wallet_waiting', { p_days: days || 14 }); },
+    walletList(limit) { return rpc('wallet_list', { p_limit: limit || 50 }); },
+    walletVoid(code, reason) { return rpc('wallet_void', { p_code: code, p_reason: reason }); },
+
     // ---- staff side (the admin console and the team view) ----
     client() { return sb; },
     rpc(name, args) { return rpc(name, args); },
