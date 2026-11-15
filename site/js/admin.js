@@ -929,9 +929,9 @@
     wrong_pass_type: 'The Apple certificate is for another pass type', wrong_team: 'The Apple certificate is for another team',
     untrusted_issuer: 'The Apple certificate’s issuer isn’t trusted', not_valid_now: 'The Apple certificate has expired or isn’t valid yet',
     save_link_too_long: 'A Google save link was too long', save_link_trimmed: 'A Google save link was shortened' };
-  const PROBLEM_KINDS = { apns: 'Apple refused a card update', get: 'Google refused a save link', patch: 'Google refused a card update', first_patch: 'Google refused to finish a saved card', message: 'Google refused a reminder' };
+  const PROBLEM_KINDS = { apns: 'Apple refused a card update', get: 'Google refused a save link', patch: 'Google refused a card update', first_patch: 'Google refused to finish a saved card', message: 'Google refused a reminder', notice_refused: 'Google refused a card’s notice, so the update went without one' };
   function problemWords(code) {
-    const c = String(code || ''), m = /^(apns|first_patch|patch|message|get)_(.+)$/.exec(c);
+    const c = String(code || ''), m = /^(apns|first_patch|patch|message|get|notice_refused)_(.+)$/.exec(c);
     return PROBLEM_WORDS[c] || (m ? PROBLEM_KINDS[m[1]] + ' (' + m[2] + ')' : c);
   }
   const platformWords = (p) => PLATFORM_WORDS[p] || String(p || '').charAt(0).toUpperCase() + String(p || '').slice(1);
