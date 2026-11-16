@@ -323,8 +323,23 @@
   // booking met again by Back, Forward or a reload (the router), not a new arrival. A token met again was taken in when
   // its link was followed, so where that request is still here (on the page, or kept for a reload) it is not taken
   // again: a WetGloss let go would come back, a service kept would be asked about again
+  // Online booking switched off by the owner (config.js bookingClosed, Nov 16): the note, the phone number, a Call
+  // button and Back, in place of the form. Nothing else of the booking is set up (no draft kept, no menu loaded).
+  const closed = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.bookingClosed);
+  function closedNote() {
+    const p = '(945) 361-7551';
+    const note = U.outage(['Online booking is down for now. Please come back later, and sorry for the inconvenience. To book now, call ', tel(p), '.'], p);
+    // Back: the top bar's own Back (the page before this one in the tab, or home when there is none)
+    note.appendChild(el('button.btn.btn-glass', { type: 'button', onclick: () => {
+      const b = document.getElementById('barBack');
+      if (b && !b.hidden && !b.classList.contains('off')) b.click(); else location.hash = 'home';
+    } }, 'Back'));
+    return note;
+  }
+
   function mount(container, opts) {
     root = container;
+    if (closed()) { root.replaceChildren(closedNote()); return; }
     if (!draftWired) {
       draftWired = true;
       // any change on the booking (a key, a choice, a tap) is kept a moment later. The capture comes before the

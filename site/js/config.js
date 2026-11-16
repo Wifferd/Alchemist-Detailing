@@ -26,6 +26,14 @@
   // database that can't be reached means booking is down, not a preview: the pages give the phone number instead
   // (data.js isDown, doc 42). Anywhere else (a local copy, a claude.ai preview) the preview runs as before.
   window.ALCHEMIST_CONFIG.deployed = /(^|\.)thealchemistdetailing\.com$/.test(location.hostname) || /\.vercel\.app$/.test(location.hostname);
+  // Online booking is switched off by the owner while the new menu and prices are worked out (Nov 16: "shut down
+  // bookings and have my phone number appear on the page with a back button and a \"booking down, come back later,
+  // sorry for the inconvenience\""). On the site's own addresses the booking page shows that note, the phone number, a
+  // Call button and Back instead of the form; the live database refuses requests too (business_settings.guest_booking
+  // set to false the same day). To reopen: set this to false and guest_booking back to true. On the test project,
+  // ?booking=open shows the form; ?booking=closed shows the note anywhere (a local copy, for screenshots).
+  window.ALCHEMIST_CONFIG.bookingClosed = /[?&]booking=closed\b/.test(location.search) ||
+    (window.ALCHEMIST_CONFIG.deployed && !(useTest && /[?&]booking=open\b/.test(location.search)));
   // Sign-in is by text code (Twilio Verify, set in Supabase). The optional email and its code show only once the
   // site can email codes (an email sender in Supabase): set this to true then.
   window.ALCHEMIST_CONFIG.emailCodes = false;
