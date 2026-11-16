@@ -261,15 +261,20 @@
     return mark;
   }
 
-  // Choice cards, tiles (compact cards in a grid) or chips. opts: { id, label, hint, required, items: [{code, label, sub, price, priceText, note, icon, disabled, exclusive, featured, cls}], value: [] or string, multi, onchange, size: 'tile' | 'chip' }
+  // Choice cards, tiles (compact cards in a grid) or chips. opts: { id, label, hint, required, disabled, items: [{code, label, sub, price, priceText, note, icon, disabled, exclusive, featured, cls}], value: [] or string, multi, onchange, size: 'tile' | 'chip' }
+  // opts.disabled greys the whole list out and takes it out of reach (no tap, no Tab stop): every item is disabled, the
+  // group says so to a screen reader, and the hint (why) describes it. The vehicle Type while "Not sure?" is ticked.
   function choices(opts) {
-    const multi = !!opts.multi;
+    const multi = !!opts.multi, off = !!opts.disabled;
     const selected = new Set(multi ? (opts.value || []) : (opts.value ? [opts.value] : []));
-    const list = el('div.choice-list', { role: multi ? 'group' : 'radiogroup', 'aria-labelledby': opts.id + '-label', class: opts.size === 'chip' ? 'chips' : opts.size === 'tile' ? 'tiles' : 'cards' });
-    const wrap = el('div.choice', { dataset: { field: opts.id } },
+    const list = el('div.choice-list', {
+      role: multi ? 'group' : 'radiogroup', 'aria-labelledby': opts.id + '-label', 'aria-disabled': off ? 'true' : null,
+      'aria-describedby': off && opts.hint ? opts.id + '-msg' : null, class: opts.size === 'chip' ? 'chips' : opts.size === 'tile' ? 'tiles' : 'cards',
+    });
+    const wrap = el('div.choice', { class: off ? 'off' : null, dataset: { field: opts.id } },
       opts.label ? el('p.choice-label', { id: opts.id + '-label' }, opts.label, opts.required ? star() : null) : null,
       list,
-      el('p.choice-msg', { role: 'status', dataset: { hint: opts.hint || '' } }, opts.hint || ''));
+      el('p.choice-msg', { id: off && opts.hint ? opts.id + '-msg' : null, role: 'status', dataset: { hint: opts.hint || '' } }, opts.hint || ''));
     let mark = null;
     function paint() {
       list.querySelectorAll('.choice-item').forEach((b) => {
@@ -281,8 +286,8 @@
     }
     opts.items.forEach((it) => {
       const btn = el('button.choice-item', {
-        type: 'button', dataset: { code: it.code }, role: multi ? null : 'radio', disabled: !!it.disabled,
-        class: (it.disabled ? 'disabled' : '') + (it.featured ? ' featured' : '') + (it.cls ? ' ' + it.cls : ''),
+        type: 'button', dataset: { code: it.code }, role: multi ? null : 'radio', disabled: off || !!it.disabled,
+        class: (off || it.disabled ? 'disabled' : '') + (it.featured ? ' featured' : '') + (it.cls ? ' ' + it.cls : ''),
         onclick: () => {
           if (multi) {
             if (selected.has(it.code)) selected.delete(it.code);
