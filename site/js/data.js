@@ -423,7 +423,9 @@
     // the pages show the phone number instead of the preview, which would take requests that go nowhere. Read after init().
     get isDown() { return mode !== 'live' && !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.deployed); },
     // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
-    get guestBooking() { return !!(settingsCache && settingsCache.guest_booking); },
+    // (also on while online booking is switched off, config.js bookingClosed: the Account and Appointments pages keep
+    // their "coming soon" panel instead of a text-code sign-in that can't work yet; the booking itself shows its note)
+    get guestBooking() { return !!(settingsCache && settingsCache.guest_booking) || !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.bookingClosed); },
     helpers: { normalizePhone, isValidName, nameProblem, nameMessage, refusalText, cleanName, textProblem, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
 
     async settings() { await init(); return settingsCache; },

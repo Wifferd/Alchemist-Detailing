@@ -17,7 +17,7 @@
   // An allowlist: a practice booking from a preview, a branch build or a screenshot walk can't land in the owner's
   // real requests. (index.html's head script keeps every other address out of search with the same test, and
   // vercel.json sends X-Robots-Tag: noindex off the domain.)
-  var h = location.hostname;
+  var h = location.hostname.replace(/\.$/, '');   // (a trailing dot, thealchemistdetailing.com., is the same host)
   var publicHost = /^(www\.)?thealchemistdetailing\.com$/.test(h) || h === 'alchemist-detailing.vercel.app';
   var useTest = /[?&]project=test\b/.test(location.search) || !publicHost;
   window.ALCHEMIST_CONFIG = useTest ? TEST : LIVE;
@@ -25,15 +25,16 @@
   // The site's own addresses: the domain and every Vercel address (the test site and previews too). There, a
   // database that can't be reached means booking is down, not a preview: the pages give the phone number instead
   // (data.js isDown, doc 42). Anywhere else (a local copy, a claude.ai preview) the preview runs as before.
-  window.ALCHEMIST_CONFIG.deployed = /(^|\.)thealchemistdetailing\.com$/.test(location.hostname) || /\.vercel\.app$/.test(location.hostname);
+  window.ALCHEMIST_CONFIG.deployed = /(^|\.)thealchemistdetailing\.com$/.test(h) || /\.vercel\.app$/.test(h);
   // Online booking is switched off by the owner while the new menu and prices are worked out (Nov 16: "shut down
   // bookings and have my phone number appear on the page with a back button and a \"booking down, come back later,
   // sorry for the inconvenience\""). On the site's own addresses the booking page shows that note, the phone number, a
   // Call button and Back instead of the form; the live database refuses requests too (business_settings.guest_booking
-  // set to false the same day). To reopen: set this to false and guest_booking back to true. On the test project,
-  // ?booking=open shows the form; ?booking=closed shows the note anywhere (a local copy, for screenshots).
+  // set to false the same day). To reopen: set this to false and guest_booking back to true. On the test site and
+  // other Vercel addresses (never the public ones), ?booking=open shows the form; ?booking=closed shows the note
+  // anywhere (a local copy, for screenshots).
   window.ALCHEMIST_CONFIG.bookingClosed = /[?&]booking=closed\b/.test(location.search) ||
-    (window.ALCHEMIST_CONFIG.deployed && !(useTest && /[?&]booking=open\b/.test(location.search)));
+    (window.ALCHEMIST_CONFIG.deployed && !(!publicHost && /[?&]booking=open\b/.test(location.search)));
   // Sign-in is by text code (Twilio Verify, set in Supabase). The optional email and its code show only once the
   // site can email codes (an email sender in Supabase): set this to true then.
   window.ALCHEMIST_CONFIG.emailCodes = false;
