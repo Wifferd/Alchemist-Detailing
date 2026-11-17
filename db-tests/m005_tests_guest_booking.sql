@@ -22,7 +22,7 @@ begin
   -- A Saturday 25 to 52 days ahead with 10 AM and 1 PM free at the shop.
   for i in 0..3 loop
     v_sat := current_date + 25 + ((6 - extract(isodow from current_date + 25)::int + 7) % 7) + 7 * i;
-    exit when 600 = any (public.get_availability(v_sat, 120, 'shop')) and 780 = any (public.get_availability(v_sat, 120, 'shop'));
+    exit when 600 = any (public.get_availability(v_sat, 163, 'shop')) and 780 = any (public.get_availability(v_sat, 163, 'shop'));
   end loop;
 
   -- A visitor with no account (the anon role).
@@ -116,7 +116,7 @@ begin
   -- A Saturday with 10 AM, 1 PM and 4 PM free at the shop (the same day for all three).
   for i in 0..3 loop
     v_sat := current_date + 25 + ((6 - extract(isodow from current_date + 25)::int + 7) % 7) + 7 * i;
-    exit when array[600, 780, 960] <@ public.get_availability(v_sat, 120, 'shop');
+    exit when array[600, 780, 960] <@ public.get_availability(v_sat, 163, 'shop');
   end loop;
   perform tst.logout();
   execute 'set local role anon';
@@ -168,7 +168,7 @@ begin
     for i in 1..13 loop
       d := null;
       for k in 25..60 loop
-        s := (public.get_availability(current_date + k, 120, 'shop'))[1];
+        s := (public.get_availability(current_date + k, 163, 'shop'))[1];
         if s is not null then d := current_date + k; exit; end if;
       end loop;
       begin

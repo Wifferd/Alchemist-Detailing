@@ -109,7 +109,7 @@ language sql volatile as $$
            'start_min', p_start,
            'vehicle_make', 'Honda', 'vehicle_model', 'Civic', 'vehicle_year', '2019', 'vehicle_color', 'Blue',
            'vehicle_type', 'sedan', 'vehicle_size', 'standard',
-           'bundle', 'signature_combo',
+           'bundle', 'inside_out',   -- Migration 011: the new menu (Signature Combo is retired)
            'damage', jsonb_build_array('none'),
            'conditions', jsonb_build_array('none'),   -- required with an interior service since Migration 002
            'address', case when p_loc = 'mobile' then '123 Main St' end,

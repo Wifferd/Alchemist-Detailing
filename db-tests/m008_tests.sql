@@ -33,14 +33,14 @@ begin
   -- a free driveway start a month ahead (staff_create_booking enters a confirmed booking there)
   for i in 0..14 loop
     v_day := v_today + 30 + i;
-    exit when 600 = any (public.get_availability(v_day, 120, 'shop')) and 660 = any (public.get_availability(v_day, 120, 'shop'));
+    exit when 600 = any (public.get_availability(v_day, 163, 'shop')) and 780 = any (public.get_availability(v_day, 163, 'shop'));
   end loop;
 
   -- ------------------------------------------------------------ part 1: start and complete on the job's day
   begin
     perform tst.login(mgr, 'aal2');
     execute 'set local role authenticated';
-    a := public.staff_create_booking(tst.booking('shop', v_day, 600, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3801","special_request":"m008 test","bundle":null,"exterior":"ext_basic","conditions":[]}'));
+    a := public.staff_create_booking(tst.booking('shop', v_day, 600, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3801","special_request":"m008 test","bundle":null,"exterior":"basic_wash","conditions":[]}'));
     v_id := a.id;
     res := res || jsonb_build_array(jsonb_build_array(p || ': fixture: a confirmed job a month ahead', a.status = 'confirmed' and a.service_date = v_day, a.status || ' ' || a.service_date));
 
@@ -90,7 +90,7 @@ begin
     -- a job started on its day and left open: completed the next day
     perform tst.login(mgr, 'aal2');
     execute 'set local role authenticated';
-    a := public.staff_create_booking(tst.booking('shop', v_day, 660, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3802","special_request":"m008 test","bundle":null,"exterior":"ext_basic","conditions":[]}'));
+    a := public.staff_create_booking(tst.booking('shop', v_day, 780, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3802","special_request":"m008 test","bundle":null,"exterior":"basic_wash","conditions":[]}'));
     v_id2 := a.id;
     execute 'reset role';
     update public.appointments set service_date = v_today where id = v_id2;
@@ -113,8 +113,8 @@ begin
   begin
     perform tst.login(mgr, 'aal2');
     execute 'set local role authenticated';
-    v_id := (public.staff_create_booking(tst.booking('shop', v_day, 600, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3803","special_request":"m008 test","bundle":null,"exterior":"ext_basic","conditions":[]}'))).id;
-    v_id2 := (public.staff_create_booking(tst.booking('shop', v_day, 660, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3804","special_request":"m008 test","bundle":null,"exterior":"ext_basic","conditions":[]}'))).id;
+    v_id := (public.staff_create_booking(tst.booking('shop', v_day, 600, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3803","special_request":"m008 test","bundle":null,"exterior":"basic_wash","conditions":[]}'))).id;
+    v_id2 := (public.staff_create_booking(tst.booking('shop', v_day, 780, '{"contact_first":"Sweep","contact_last":"Eight","contact_phone":"(972) 555-3804","special_request":"m008 test","bundle":null,"exterior":"basic_wash","conditions":[]}'))).id;
     execute 'reset role';
     update public.appointments set service_date = v_today where id = v_id;
     update public.appointments set service_date = v_today - 2 where id = v_id2;
@@ -220,11 +220,11 @@ begin
       update public.business_settings set shop_address = 'm008 placeholder address' where id = 1;
       perform tst.login(rec.who, rec.aal);
       execute 'set local role authenticated';
-      v_id := (public.submit_booking(tst.booking('shop', v_day, 600, '{"conditions":["pet_hair","other"],"special_request":"m008 test"}')) ->> 'id')::uuid;
+      v_id := (public.submit_booking(tst.booking('shop', v_day, 600, '{"conditions":["pet_hair_some","other"],"special_request":"m008 test"}')) ->> 'id')::uuid;
       select x into r from public.my_bookings() x where x ->> 'id' = v_id::text;
       if rec.name = 'a customer' then
         res := res || jsonb_build_array(jsonb_build_array(p || ': my_bookings returns the booking''s conditions',
-          r -> 'conditions' @> '["pet_hair", "other"]'::jsonb and jsonb_array_length(r -> 'conditions') = 2, coalesce(r ->> 'conditions', 'none')));
+          r -> 'conditions' @> '["pet_hair_some", "other"]'::jsonb and jsonb_array_length(r -> 'conditions') = 2, coalesce(r ->> 'conditions', 'none')));
         res := res || jsonb_build_array(jsonb_build_array(p || ': a request carries no address', r ? 'shop_address' and r ->> 'shop_address' is null, r ->> 'status'));
       end if;
       execute 'reset role';

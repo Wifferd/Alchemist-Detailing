@@ -98,7 +98,7 @@ begin
   begin
     perform tst.logout();
     execute 'set local role anon';
-    r := public.submit_guest_booking(tst.booking('mobile', v_day, 600, '{"phone":"(972) 555-3701","first_name":"Sweep","last_name":"Seven","special_request":"m007 test","bundle":null,"exterior":"ext_basic","conditions":[]}'));
+    r := public.submit_guest_booking(tst.booking('mobile', v_day, 600, '{"phone":"(972) 555-3701","first_name":"Sweep","last_name":"Seven","special_request":"m007 test","bundle":null,"exterior":"basic_wash","conditions":[]}'));
     execute 'reset role';
     v_id := (r ->> 'id')::uuid;
     perform tst.login(adm, 'aal2');
@@ -158,20 +158,20 @@ begin
   for i in 0..10 loop
     v_day2 := public.local_today() + 30 + i;
     exit when extract(isodow from v_day2) in (6, 7)
-          and 600 = any (public.get_availability(v_day2, 60, 'shop')) and 660 = any (public.get_availability(v_day2, 60, 'shop'))
-          and 780 = any (public.get_availability(v_day2, 120, 'shop'));
+          and 600 = any (public.get_availability(v_day2, 92, 'shop')) and 720 = any (public.get_availability(v_day2, 92, 'shop'))
+          and 780 = any (public.get_availability(v_day2, 163, 'shop'));
   end loop;
   begin
     perform tst.logout();
     execute 'set local role anon';
-    pl := tst.booking('shop', v_day2, 600, '{"phone":"(972) 555-3711","first_name":"Sweep","last_name":"Seven","special_request":"m007 test","bundle":null,"exterior":"ext_basic","conditions":[]}');
+    pl := tst.booking('shop', v_day2, 600, '{"phone":"(972) 555-3711","first_name":"Sweep","last_name":"Seven","special_request":"m007 test","bundle":null,"exterior":"basic_wash","conditions":[]}');
     r := public.submit_guest_booking(pl);
     r2 := public.submit_guest_booking(pl);
     res := res || jsonb_build_array(jsonb_build_array(p || ': the same request again returns the first booking', (r2 ->> 'repeat')::boolean and r2 ->> 'ref' = r ->> 'ref', r2 ->> 'ref'));
     begin r2 := public.submit_guest_booking(pl || '{"phone":"(972) 555-3712"}'); v_err := 'no error: ' || (r2 ->> 'ref'); v_hint := null;
     exception when others then get stacked diagnostics v_state = returned_sqlstate, v_msg = message_text, v_hint = pg_exception_hint; v_err := case when v_state = 'P0001' then v_msg else v_state end; end;
     res := res || jsonb_build_array(jsonb_build_array(p || ': the same request with a corrected phone is refused, not booked twice', v_err = 'wrong_state' and v_hint = 'request_id', v_err || ' / ' || coalesce(v_hint, '')));
-    r2 := public.submit_guest_booking(pl || jsonb_build_object('request_id', gen_random_uuid(), 'phone', '(972) 555-3712', 'start_min', 660));
+    r2 := public.submit_guest_booking(pl || jsonb_build_object('request_id', gen_random_uuid(), 'phone', '(972) 555-3712', 'start_min', 720));
     res := res || jsonb_build_array(jsonb_build_array(p || ': a new request from that phone books as usual', r2 ->> 'ref' is distinct from r ->> 'ref' and r2 ->> 'status' = 'requested', r2 ->> 'ref'));
     execute 'reset role';
     select count(*) into n from public.appointments where request_id = (pl ->> 'request_id')::uuid;
@@ -185,14 +185,14 @@ begin
   begin
     perform tst.logout();
     execute 'set local role anon';
-    r := public.submit_guest_booking(tst.booking('shop', v_day2, 600, '{"phone":"(972) 555-3721","first_name":"Sweep","special_request":"m007 test","bundle":null,"exterior":"ext_basic","addons":["perfect_finish_sealant"],"conditions":[],"not_sure":true,"vehicle_description":"Sweep m007 van","vehicle_size":"xl","vehicle_make":null,"vehicle_model":null,"vehicle_year":null,"vehicle_color":null,"vehicle_type":null}'));
-    r2 := public.submit_guest_booking(tst.booking('shop', v_day2, 780, '{"phone":"(972) 555-3722","first_name":"Sweep","special_request":"m007 test","conditions":["pet_hair"]}'));
+    r := public.submit_guest_booking(tst.booking('shop', v_day2, 600, '{"phone":"(972) 555-3721","first_name":"Sweep","special_request":"m007 test","bundle":null,"exterior":"basic_wash","conditions":[],"not_sure":true,"vehicle_description":"Sweep m007 van","vehicle_size":"xl","vehicle_make":null,"vehicle_model":null,"vehicle_year":null,"vehicle_color":null,"vehicle_type":null}'));
+    r2 := public.submit_guest_booking(tst.booking('shop', v_day2, 780, '{"phone":"(972) 555-3722","first_name":"Sweep","special_request":"m007 test","conditions":["pet_hair_some"]}'));
     execute 'reset role';
     select * into v_row from office.requests where "Reference" = r ->> 'ref';
     res := res || jsonb_build_array(jsonb_build_array(p || ': a vehicle described in words keeps its XL', v_row."Vehicle" = 'Sweep m007 van (XL)', v_row."Vehicle"));
-    res := res || jsonb_build_array(jsonb_build_array(p || ': a price to set says what holds it', v_row."Total" like 'Price to set: %WetGloss for this vehicle type%' and v_row."Total" like '%XL vehicle%', v_row."Total"));
+    res := res || jsonb_build_array(jsonb_build_array(p || ': a price to set says what holds it', v_row."Total" like 'Price to set: %price for this vehicle (van, other or not sure)%' and v_row."Total" like '%XL vehicle%', v_row."Total"));
     select * into v_row from office.requests where "Reference" = r2 ->> 'ref';
-    res := res || jsonb_build_array(jsonb_build_array(p || ': the condition shows the form''s label', v_row."Condition" = 'Pet hair', v_row."Condition"));
+    res := res || jsonb_build_array(jsonb_build_array(p || ': the condition shows the form''s label', v_row."Condition" = 'Some pet hair', v_row."Condition"));
     res := res || jsonb_build_array(jsonb_build_array(p || ': a known price is still the amount', v_row."Total" ~ '^\$[0-9]+\.[0-9]{2}$', v_row."Total"));
     raise exception 'm007 rollback';
   exception when others then
