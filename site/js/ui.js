@@ -355,7 +355,7 @@
     // straight under the bundle's own line, so it never reads as part of the line above it.
     if (q.bundle_savings_cents) {
       const at = (q.lines || []).findIndex((l) => l.kind === 'bundle' && !l.included);
-      after(at, el('p.pr-note', 'The bundle price saves you ' + money(q.bundle_savings_cents) + ' against booking its services separately' + (q.mobile_cents ? ', before the mobile charge.' : '.')));
+      after(at, el('p.pr-note', 'Saves ' + money(q.bundle_savings_cents) + ' against booking its services apart' + (q.mobile_cents ? ', before the mobile charge.' : '.')));
     }
     const fv = q.first_visit || null, offerAt = (q.lines || []).findIndex((l) => l.regular_cents != null && !l.included);
     if (offerAt >= 0) {

@@ -164,61 +164,54 @@
     {
      "step": 1,
      "product": "Brake Buster",
-     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only.",
+     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only. After you buy Magic Wheel Cleaner: use it here instead (mix: follow the label); Brake Buster stays as the alternate.",
      "when": "every job",
      "status": "have"
     },
     {
      "step": 2,
-     "product": "Magic Wheel Cleaner",
-     "how": "Takes over as the standard wheel cleaner once bought (your list); Brake Buster stays as the alternate. Mix: follow the label.",
-     "when": "every job",
-     "status": "after you buy"
-    },
-    {
-     "step": 3,
      "product": "Green Star",
      "how": "Tires: spray, scrub with the tire brush, rinse. Mix: follow the label (Koch lists 1:5 to 1:30 for outside work, never stronger than 1:3).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 4,
+     "step": 3,
      "product": "Green Star (pre-wash)",
      "how": "Pre-wash foam or spray over the whole car. Let it work, never let it dry, then rinse. Mix: follow the label (Koch lists 1:5 to 1:30 outside; weaker for light dirt).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 5,
+     "step": 4,
      "product": "Gentle Snow Foam (contact wash)",
      "how": "Two-bucket hand wash: one soap bucket, one rinse bucket, grit guards. Koch: 50 ml per 10 L bucket. Top down; a second mitt for the lower panels.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 6,
+     "step": 5,
      "product": "Water",
      "how": "Rinse the whole car, top down.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 7,
+     "step": 6,
      "product": "Drying towels + blower",
      "how": "Hand dry. Blow out mirrors, handles, badges and gaps.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 8,
+     "step": 7,
      "product": "Your glass cleaner",
      "how": "Outside glass. Mix: follow the label. Must be safe on tinted windows.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 9,
+     "step": 8,
      "product": "Koch Tire Glaze",
      "how": "Tire shine on an applicator pad. Let it sit, then wipe off the extra so it doesn't fling. Never on the tread.",
      "when": "every job",
@@ -239,124 +232,117 @@
     {
      "step": 1,
      "product": "Brake Buster",
-     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only.",
+     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only. After you buy Magic Wheel Cleaner: use it here instead (mix: follow the label); Brake Buster stays as the alternate.",
      "when": "every job",
      "status": "have"
     },
     {
      "step": 2,
-     "product": "Magic Wheel Cleaner",
-     "how": "Takes over as the standard wheel cleaner once bought (your list); Brake Buster stays as the alternate. Mix: follow the label.",
-     "when": "every job",
-     "status": "after you buy"
-    },
-    {
-     "step": 3,
      "product": "Green Star",
      "how": "Tires: spray, scrub with the tire brush, rinse. Mix: follow the label (Koch lists 1:5 to 1:30 for outside work, never stronger than 1:3).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 4,
+     "step": 3,
      "product": "Green Star (pre-wash)",
      "how": "Pre-wash foam or spray over the whole car. Let it work, never let it dry, then rinse. Mix: follow the label (Koch lists 1:5 to 1:30 outside; weaker for light dirt).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 5,
+     "step": 4,
      "product": "Gentle Snow Foam (contact wash)",
      "how": "Two-bucket hand wash: one soap bucket, one rinse bucket, grit guards. Koch: 50 ml per 10 L bucket. Top down; a second mitt for the lower panels.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 6,
+     "step": 5,
      "product": "Water",
      "how": "Rinse the whole car, top down.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 7,
+     "step": 6,
      "product": "Drying towels + blower",
      "how": "Hand dry. Blow out mirrors, handles, badges and gaps.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 8,
+     "step": 7,
      "product": "Your glass cleaner",
      "how": "Outside glass. Mix: follow the label. Must be safe on tinted windows.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 9,
+     "step": 8,
      "product": "Koch Tire Glaze",
      "how": "Tire shine on an applicator pad. Let it sit, then wipe off the extra so it doesn't fling. Never on the tread.",
      "when": "every job",
      "status": "after you buy"
     },
     {
-     "step": 10,
+     "step": 9,
      "product": "By hand",
      "how": "Take out the mats and loose items; set the customer's things aside.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 11,
+     "step": 10,
      "product": "Vacuum",
      "how": "Seats, carpets and trunk. Top down, front to back.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 12,
+     "step": 11,
      "product": "Green Star",
      "how": "Mats scrubbed and rinsed. Rubber mats are left DRY and non-slip: never dressed. Mix: follow the label (Koch lists 1:10 to 1:20 inside).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 13,
+     "step": 12,
      "product": "Pol Star",
      "how": "Dash, doors, console and cup holders wiped (your pick for plastics and leather). Mix: Koch lists 1:5 heavy to 1:20 light.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 14,
+     "step": 13,
      "product": "Green Star (strong APC)",
      "how": "Only where plastics are really dirty. Koch lists 1:10 to 1:20 inside. Wipe it off; never let it dry.",
      "when": "as needed",
      "status": "have"
     },
     {
-     "step": 15,
+     "step": 14,
      "product": "Quick & Shine",
      "how": "Glossy trim (piano black, screens, gauge glass): spray the towel, not the surface. Mix: follow the label.",
      "when": "every job",
      "status": "after you buy"
     },
     {
-     "step": 16,
+     "step": 15,
      "product": "Koch Top Star",
      "how": "Protectant on the dash and trim, thin, with an applicator pad (a few ml per surface). Satin finish. Nothing slick on the pedals.",
      "when": "every job",
      "status": "after you buy"
     },
     {
-     "step": 17,
+     "step": 16,
      "product": "Your glass cleaner",
      "how": "Inside windows and mirrors. Must be safe on tinted windows.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 18,
+     "step": 17,
      "product": "Vacuum",
      "how": "Last pass; mats back in, dry.",
      "when": "every job",
@@ -391,194 +377,187 @@
     {
      "step": 3,
      "product": "Brake Buster",
-     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only.",
+     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only. After you buy Magic Wheel Cleaner: use it here instead (mix: follow the label); Brake Buster stays as the alternate.",
      "when": "every job",
      "status": "have"
     },
     {
      "step": 4,
-     "product": "Magic Wheel Cleaner",
-     "how": "Takes over as the standard wheel cleaner once bought (your list); Brake Buster stays as the alternate. Mix: follow the label.",
-     "when": "every job",
-     "status": "after you buy"
-    },
-    {
-     "step": 5,
      "product": "Green Star",
      "how": "Tires: spray, scrub with the tire brush, rinse. Mix: follow the label (Koch lists 1:5 to 1:30 for outside work, never stronger than 1:3).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 6,
+     "step": 5,
      "product": "Green Star (pre-wash)",
      "how": "Pre-wash foam or spray over the whole car. Let it work, never let it dry, then rinse. Mix: follow the label (Koch lists 1:5 to 1:30 outside; weaker for light dirt).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 7,
+     "step": 6,
      "product": "Gentle Snow Foam (contact wash)",
      "how": "Two-bucket hand wash: one soap bucket, one rinse bucket, grit guards. Koch: 50 ml per 10 L bucket. Top down; a second mitt for the lower panels.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 8,
+     "step": 7,
      "product": "Eulex",
      "how": "Tar, sap and sticker glue left after the wash: ready to use, on a dry cloth, rub the spot. Keep it off headlights, bare plastic and hot surfaces.",
      "when": "as needed",
      "status": "after you buy"
     },
     {
-     "step": 9,
+     "step": 8,
      "product": "Water",
      "how": "Rinse the whole car, top down.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 10,
+     "step": 9,
      "product": "S0.03 (hydrophobic finish)",
      "how": "Foam it on the clean, wet car, then rinse. Detail King lists 1:50 to 1:150; your own foam-cannon mix sets the real amount.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 11,
+     "step": 10,
      "product": "Drying towels + blower",
      "how": "Hand dry. Blow out mirrors, handles, badges and gaps.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 12,
+     "step": 11,
      "product": "Your glass cleaner",
      "how": "Outside glass. Mix: follow the label. Must be safe on tinted windows.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 13,
+     "step": 12,
      "product": "Koch Tire Glaze",
      "how": "Tire shine on an applicator pad. Let it sit, then wipe off the extra so it doesn't fling. Never on the tread.",
      "when": "every job",
      "status": "after you buy"
     },
     {
-     "step": 14,
+     "step": 13,
      "product": "By hand",
      "how": "Take out the mats and loose items; set the customer's things aside.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 15,
+     "step": 14,
      "product": "Green Star",
      "how": "Mats scrubbed and rinsed. Rubber mats are left DRY and non-slip: never dressed. Mix: follow the label (Koch lists 1:10 to 1:20 inside).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 16,
+     "step": 15,
      "product": "Vacuum + dry brush",
      "how": "Vacuum seats and carpet, brushing them dry first to lift the dirt.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 17,
+     "step": 16,
      "product": "Terminator",
      "how": "Only if Stain and spill removal is booked (up to 5 spots; see the add-on). Spot spray on stains only: straight from the bottle (stores say ready to use; if your bottle says concentrate, follow the label). About 3 minutes, keep it damp, then brush. Fabric and carpet only, never leather or vinyl.",
      "when": "as needed",
      "status": "have"
     },
     {
-     "step": 18,
+     "step": 17,
      "product": "Carpet Bomber",
      "how": "Spray on seats and carpets (method and mix per the label; being confirmed from your bottle). Let it sit as the label says, then scrub with a brush.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 19,
+     "step": 18,
      "product": "Extractor (plain water)",
      "how": "Plain water in the clean tank. Go over each area until the water coming back is clean. Your extractor's manual decides what may go in its tank. Watch the dirty tank for foam; empty it early.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 20,
+     "step": 19,
      "product": "Air and time",
      "how": "Mist, don't flood. Seats stay damp a few hours: tell the customer.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 21,
+     "step": 20,
      "product": "Pol Star",
      "how": "Leather seats and trim: clean with a soft brush or microfiber. Koch lists 1:5 heavy to 1:20 light. Wipe dry.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 22,
+     "step": 21,
      "product": "Your leather conditioner",
      "how": "Thin coat, worked in with a pad, left to dry. Mix: follow the label.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 23,
+     "step": 22,
      "product": "Pol Star",
      "how": "Dash, doors, console and cup holders wiped (your pick for plastics and leather). Mix: Koch lists 1:5 heavy to 1:20 light.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 24,
+     "step": 23,
      "product": "Green Star (strong APC)",
      "how": "Only where plastics are really dirty. Koch lists 1:10 to 1:20 inside. Wipe it off; never let it dry.",
      "when": "as needed",
      "status": "have"
     },
     {
-     "step": 25,
+     "step": 24,
      "product": "Quick & Shine",
      "how": "Glossy trim (piano black, screens, gauge glass): spray the towel, not the surface. Mix: follow the label.",
      "when": "every job",
      "status": "after you buy"
     },
     {
-     "step": 26,
+     "step": 25,
      "product": "Koch Top Star",
      "how": "Protectant on the dash and trim, thin, with an applicator pad (a few ml per surface). Satin finish. Nothing slick on the pedals.",
      "when": "every job",
      "status": "after you buy"
     },
     {
-     "step": 27,
+     "step": 26,
      "product": "Your glass cleaner",
      "how": "Inside windows and mirrors. Must be safe on tinted windows.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 28,
+     "step": 27,
      "product": "Steamer + brush",
      "how": "Console, vents, seams and cup holders steamed and brushed; wipe as you go. Unplug the steamer while the vac or washer runs on the same power.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 29,
+     "step": 28,
      "product": "Gummifix",
      "how": "Door seals ONLY, thin layer, wipe the extra off. Never on mats, pedals or anything a foot or hand grips.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 30,
+     "step": 29,
      "product": "Vacuum",
      "how": "Last pass; mats back in, dry.",
      "when": "every job",
@@ -805,33 +784,26 @@
     {
      "step": 1,
      "product": "Brake Buster",
-     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only.",
+     "how": "Wheel faces and barrels. 1 part Brake Buster to 5 parts water for normal wheels; straight for heavy brake dust (store listings: the label gives no mix). Brush, rinse. Use the dirty-set towels only. After you buy Magic Wheel Cleaner: use it here instead (mix: follow the label); Brake Buster stays as the alternate.",
      "when": "every job",
      "status": "have"
     },
     {
      "step": 2,
-     "product": "Magic Wheel Cleaner",
-     "how": "Takes over as the standard wheel cleaner once bought (your list); Brake Buster stays as the alternate. Mix: follow the label.",
-     "when": "every job",
-     "status": "after you buy"
-    },
-    {
-     "step": 3,
      "product": "Green Star",
      "how": "Tires: spray, scrub with the tire brush, rinse. Mix: follow the label (Koch lists 1:5 to 1:30 for outside work, never stronger than 1:3).",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 4,
+     "step": 3,
      "product": "Water",
      "how": "Rinse the wheels before the pre-wash.",
      "when": "every job",
      "status": "have"
     },
     {
-     "step": 5,
+     "step": 4,
      "product": "Koch Tire Glaze",
      "how": "Tire shine on an applicator pad. Let it sit, then wipe off the extra so it doesn't fling. Never on the tread.",
      "when": "every job",
@@ -1323,7 +1295,7 @@
       s.notes && s.notes.length ? el('ul.guide-notes', s.notes.map((n) => el('li', n))) : null);
     return el('div.guide',
       el('p.bk-note', GUIDE.intro),
-      el('p.bk-muted', 'Updated ' + updated + '. Read-only: ask Claude Code to change it.'),
+      el('p.bk-muted', 'Updated ' + updated + '. Read-only. Changes go through the owner.'),
       el('div.guide-legend', { 'aria-label': 'Legend' }, tag('have'), tag('after you buy'), when('every job'), when('as needed')),
       el('nav.guide-jump', { 'aria-label': 'Jump to' }, groups.map((g) => el('div.guide-jump-row', el('span.guide-jump-k', KIND[g.kind] || g.kind),
         g.list.map((s) => el('a', { href: '#admin-guide', onclick: jump(s.id) }, s.title.replace(/^(Add-on|Inside answer): /, '')))))),

@@ -494,6 +494,44 @@ begin
   execute 'reset role';
   perform tst.logout();
 
+  -- ===================== D. Verifier fixes (Nov 17): address key v2 (part 11), the list's tag, outside-only answers =====================
+  update public.appointments set status = 'cancelled' where special_request = 'm011 test' and status in ('requested', 'needs_information', 'confirmed');
+  v_key := public.address_key('8820 Wrenmoor Lane', '75002');
+  perform tst.eq(v_key, '75002|8820|wrenmoor', 'm011 D1: address key v2 is zip|number|first street word');
+  perform tst.eq((select string_agg(coalesce(public.address_key(x, '75002'), 'NULL'), ',') from unnest(array[
+                    '8820 Wrenmoor Lane Parker TX', 'Home 8820 Wrenmoor Ln', 'Home, 8820 Wrenmoor Lane',
+                    'Unit 3, 8820 Wrenmoor Ln', '8820-A Wrenmoor Lane', '8820A Wrenmoor Lane', '8820 W. Wrenmoor Ln #2']) as x),
+                 '75002|8820|wrenmoor,75002|8820|wrenmoor,75002|8820|wrenmoor,75002|8820|wrenmoor,75002|8820|wrenmoor,75002|8820|wrenmoor,75002|8820|wrenmoor',
+                 'm011 D2: city words after the street, a word before the number, a unit before a comma, 8820-A and 8820A all give one key (verifier S-1)');
+  perform tst.ok(public.address_key('Apt 4B 8820 Wrenmoor Lane', '75002') is null and public.address_key('8820 Wrenmoor Lane', null) is null
+                 and public.address_key('Wrenmoor Ranch', '75002') is null,
+                 'm011 D3: no key (phone check only) without a readable house number or a ZIP');
+  ap := tst.m011_guest('{"phone":"(469) 820-1150","address":"8820 Wrenmoor Lane","address_zip":"75002"}');
+  perform tst.ok(ap.first_visit_offer, 'm011 D4: a first request at 8820 Wrenmoor Lane gets the new-customer price');
+  set local enable_seqscan = off;
+  perform tst.ok(exists (select 1 from pg_index i join pg_class c on c.oid = i.indexrelid
+                         where c.relname = 'appointments_address_key_idx' and i.indisvalid and i.indisready)
+                 and (select count(*) from public.appointments a where public.address_key(a.address, a.address_zip) = v_key) = 1
+                 and (select count(*) from public.appointments a where public.address_key(a.address, a.address_zip) = '75002|4711|quillfeather')
+                     = (select count(*) from public.appointments a where public.address_key(a.address, a.address_zip) || '' = '75002|4711|quillfeather'),
+                 'm011 D5: the address-key index is valid after the rebuild and finds the same rows as a full read');
+  reset enable_seqscan;
+  ap2 := tst.m011_guest('{"phone":"(469) 820-1151","address":"Home 8820 Wrenmoor Ln","address_zip":"75002"}');
+  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5000, 'm011 D6: "Home 8820 Wrenmoor Ln", another phone: regular price');
+  ap2 := tst.m011_guest('{"phone":"(469) 820-1152","address":"8820 Wrenmoor Lane Parker TX","address_zip":"75002"}');
+  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5000, 'm011 D7: "8820 Wrenmoor Lane Parker TX", another phone: regular price');
+  ap2 := tst.m011_guest('{"phone":"(469) 820-1153","address":"Wrenmoor Ranch","address_zip":"75002"}');
+  perform tst.ok(ap2.first_visit_offer
+                 and (select "Total" from office.requests where "Reference" = ap2.ref) = '$35.00 (new-customer price: phone checked; address not recognised)',
+                 'm011 D8: an address with no house number: the owner''s list says only the phone was checked (verifier S-2)');
+  perform tst.err($q$select public.quote_core('{"location_type":"mobile","exterior":"basic_wash","vehicle_type":"sedan","conditions":["other"]}')$q$,
+                  'invalid_input', 'm011 D9: "Other" is refused on an outside-only booking (verifier S-5)');
+  perform tst.err($q$select tst.m011_guest('{"phone":"(469) 820-1154","address":"9 Wrenmoor Lane","address_zip":"75002","conditions":["other"],"special_request":"m011 test"}')$q$,
+                  'invalid_input', 'm011 D10: and on a saved outside-only request');
+  q := public.quote_core('{"location_type":"mobile","exterior":"hand_wash","vehicle_type":"sedan","conditions":["none"]}');
+  perform tst.ok((q ->> 'total_cents')::int = 7500, 'm011 D11: "None" is still accepted on an outside-only booking', q::text);
+  update public.appointments set status = 'cancelled' where special_request = 'm011 test' and status in ('requested', 'needs_information', 'confirmed');
+
   -- ===================== Results (then everything is rolled back) =====================
   select count(*) filter (where passed), count(*),
          string_agg(case when passed then 'ok   ' else 'FAIL ' end || label

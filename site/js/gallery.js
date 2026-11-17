@@ -35,8 +35,8 @@
   const PAIRS = [{ key: 'front', title: 'Exterior detail', before: null, after: 'front' }];
   const NEXT = ['Wheels', 'Interior'];   // the pairs still to shoot, shown as dashed "Next pair" tiles
   // the service group behind a photo, by its tags: the group, never a package (which one the car got is the owner's to say)
-  const groupOf = (p) => (p.tags.includes('interior') ? ['#services-interior', 'Interior services']
-    : p.tags.some((t) => ['exterior', 'details', 'wheels'].includes(t)) ? ['#services-exterior', 'Exterior services'] : null);
+  const groupOf = (p) => (p.tags.includes('interior') ? ['#services-interior', 'Inside only']
+    : p.tags.some((t) => ['exterior', 'details', 'wheels'].includes(t)) ? ['#services-exterior', 'Washes'] : null);
   const two = (n) => String(n).padStart(2, '0');
   const src = (k, w) => 'img/work/' + k + '-' + w + '.webp';
   const srcset = (k) => src(k, 600) + ' 600w, ' + src(k, 1200) + ' 1200w';

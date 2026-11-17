@@ -323,7 +323,7 @@
     });
 
     const feeCodes = condOpts.filter((o) => o.fee_code && conds.includes(o.code)).map((o) => o.fee_code);
-    if (feeCodes.length && !kinds.includes('interior')) throw fail('invalid_input', 'Those answers apply to services with an inside part. Choose one, or choose None.', 'conditions');
+    if (!kinds.includes('interior') && condOpts.some((o) => !o.is_none && conds.includes(o.code))) throw fail('invalid_input', 'Those answers apply to services with an inside part. Choose one, or choose None.', 'conditions');
     feeCodes.forEach((code) => {
       const s = byCode(code);
       if (!s) return;

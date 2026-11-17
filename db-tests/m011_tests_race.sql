@@ -7,15 +7,32 @@
 --   Result on Nov 17: "offer t, advisory locks held: 7311:true, 7312:true ; all advisory: 7302,7305,7311,7312".
 --
 -- Blocks A and B (two sessions at once): the Supabase MCP runs execute_sql calls one after another (two calls sent
--- together ran 18:12:42-18:12:50 and 18:12:52-18:12:54), so it can't overlap them. Run A and B from two SQL Editor
--- tabs (or two psql sessions) started within a second of each other:
+-- together ran 18:12:42-18:12:50 and 18:12:52-18:12:54), so it can't overlap them, and dblink isn't installed. Run A
+-- and B from two SQL Editor tabs (or two psql sessions) started within a second of each other:
 --   A: a guest Basic Wash for phone P on day D1, then holds its transaction open for 8 seconds;
 --   B: 2 seconds later, a signed-in customer whose confirmed phone is P sends a Basic Wash on another day D2.
 -- They share no day lock (different days) and no guest lock (B is not a guest), so only the 7311 phone lock can make B
--- wait. Expected: B's "saved" time is after A's end (B waited about 6 seconds), no deadlock, both finish. A rolls back,
--- so B then gets the offer; the same-transaction checks in m011_tests_menu.sql (C5-C7, C39-C41) show that a booking
--- that exists when the lock is granted takes the offer away. For the address lock, give B another phone and
--- A's street spelled differently ('9901 quillfeather ln').
+-- wait.
+--
+-- What A and B as written prove, and what they don't (verifier S-3, Nov 17):
+--   - They prove only that B WAITS on the phone lock: B's "saved" time is after A's end (about 6 seconds later), with
+--     no deadlock and both finishing.
+--   - They do NOT prove that B then loses the offer. A ends by raising, so its booking rolls back and B rightly gets the
+--     offer whether the lock works or not.
+--   - What makes the outcome right is read from the code: pg_advisory_xact_lock is released only at commit; save_booking
+--     is volatile, so in READ COMMITTED its first_visit_eligible statement after the lock takes a fresh snapshot and
+--     sees A's committed row; every path normalizes the phone; and the lock order is day, then phone, then address on
+--     every path, so no deadlock cycle is possible. The same-transaction checks in m011_tests_menu.sql (C5-C7,
+--     C39-C41, D6-D7) show that a booking that exists when the lock is granted takes the offer away.
+--
+-- For a real proof (TEST only, owner's choice): turn the Migration 010 booking alert off first, then run A2 below (A
+-- with a commit instead of the final raise) in tab 1 and B in tab 2. Expected: B waits, then saves with offer f
+-- (regular price). Afterwards cancel A2's booking with office.cancel('<its ref>') and turn the alert back on. For the
+-- address lock, give B another phone and A's street spelled differently ('9901 quillfeather ln').
+--
+--   -- block A2 (commits; run only on TEST, alert off):
+--   select (tst.m011_guest(jsonb_build_object('phone', '(469) 820-9901', 'address', '9901 Quillfeather Lane',
+--            'address_zip', '75002', 'from_day', 5))).ref, pg_sleep(8);
 
 -- ---------------------------------------------------------------- block L
 do $$

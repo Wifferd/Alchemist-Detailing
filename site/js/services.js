@@ -500,14 +500,15 @@
 
   // ---------------------------------------------------------------- the Ritual
   // (the page's plates have the front and the mirror, so the last two steps take the side skirt and the lip)
+  // The order is the Products guide's: wheels first, then the pre-wash (guide question Q1 asks the owner to confirm it)
   // Migration 011's menu (Nov 17): the products named are the owner's own (the Products guide); the seal is the Full
   // Detail's, or Gloss wax foam added to a wash
   const STEPS = [
-    { n: '01', title: 'Pre-wash', text: 'A Green Star pre-wash loosens the dirt before anything touches the paint.', chips: ['Green Star'], media: () => texture('foam', 1200, 900), pos: '30% 50%' },
-    { n: '02', title: 'Wheels', text: 'Hand Wash and up: wheels and tires cleaned, then tire shine. On a Basic Wash they are rinsed with the car, or add Wheels & Tire Shine.', chips: ['Hand Wash and up', 'Wheels & Tire Shine · add-on'], media: () => photo('wheel', 'Rear wheel and arch after cleaning'), pos: '45% 62%' },
+    { n: '01', title: 'Wheels', text: 'Hand Wash and up: wheels and tires go first, so their grime never splashes a clean car; tire shine comes at the end. On a Basic Wash they are rinsed with the car, or add Wheels & Tire Shine.', chips: ['Hand Wash and up', 'Wheels & Tire Shine · add-on'], media: () => photo('wheel', 'Rear wheel and arch after cleaning'), pos: '45% 62%' },
+    { n: '02', title: 'Pre-wash', text: 'A Green Star pre-wash loosens the dirt before anything touches the paint.', chips: ['Green Star'], media: () => texture('foam', 1200, 900), pos: '30% 50%' },
     { n: '03', title: 'Hand wash', text: 'A careful two-bucket hand wash with Gentle Snow Foam.', chips: ['Two buckets', 'By hand'], media: () => photo('badge', 'M2 badge on wet white paint'), pos: '50% 50%' },
     { n: '04', title: 'Hand dry', text: 'Rinsed and dried by hand. Hand Wash and up: blown out, and the outside glass.', chips: ['Outside glass · Hand Wash and up'], media: () => photo('side', 'Side skirt and carbon trim after a wash'), pos: '40% 100%' },
-    { n: '05', title: 'Seal', text: 'The Full Detail ends with a water-repellent sealant foam. Or add Gloss wax foam to a Basic Wash, Hand Wash or Inside & Out.', chips: ['Sealant foam · Full Detail', 'Gloss wax foam · add-on'], media: () => photo('lip', 'Carbon-fibre front lip with water beading'), pos: '50% 100%' },
+    { n: '05', title: 'Seal', text: 'The Full Detail’s wash finishes with a water-repellent sealant foam. Or add Gloss wax foam to a Basic Wash, Hand Wash or Inside & Out.', chips: ['Sealant foam · Full Detail', 'Gloss wax foam · add-on'], media: () => photo('lip', 'Carbon-fibre front lip with water beading'), pos: '50% 100%' },
   ];
   function mountRitual(container) {
     let open = 4;
@@ -564,7 +565,7 @@
         el('p', spray ? el('span.bead-how', 'Press and drag across the panel. ') : null, 'On bare paint the water lies flat. A water-repellent sealant foam pulls it into beads that roll off.')),   // (the panel's own words: not in print)
       el('div.bead-cmp', bare, gloss, el('span.bead-seam', { 'aria-hidden': 'true' }), el('span.bead-badge', { 'aria-hidden': 'true' }, '✦')),
       el('div.bead-foot',
-        el('div.wg', el('b', 'Sealant foam'), el('p', 'The last step of every Full Detail. Or add Gloss wax foam to a Basic Wash, Hand Wash or Inside & Out.')),
+        el('div.wg', el('b', 'Sealant foam'), el('p', 'The finish on every Full Detail’s wash. Or add Gloss wax foam to a Basic Wash, Hand Wash or Inside & Out.')),
         el('div.bead-prices', el('div.bead-chips', el('span.bead-price', 'Full Detail, ', size, ' ', price))),
         el('a.btn.btn-gold.shine', { href: '#book-au' }, 'Book a Full Detail ', arrow())));
   }
@@ -697,11 +698,13 @@
     if (table) table.refresh();
     if (bead) bead.refresh();
   }
-  let menuP = null, offerP = null;
+  let menuP = null, offerP = null, pubSettings = null;
   function loadMenu() {
     const D = window.AlchemistData;
     if (!D) return Promise.reject(new Error('no data layer'));
-    if (!menuP) menuP = D.init().then(() => D.menu()).catch((e) => { menuP = null; throw e; });
+    // the public settings come with the menu: the cards' "Weekends only" is worked out from the opening hours
+    if (!menuP) menuP = D.init().then(() => Promise.all([D.menu(), D.settings ? D.settings().catch(() => null) : null]))
+      .then(([m, st]) => { pubSettings = st; return m; }).catch((e) => { menuP = null; throw e; });
     return menuP;
   }
   function loadOffer() {
@@ -733,7 +736,16 @@
     if (m.sizes && m.sizes.length) sizes = m.sizes;
     all('[data-size-name]').forEach((n) => put(n, n.dataset.sizeName === 'short' ? sizeShort(size) : sizeName()));
     all('[data-price]').forEach((n) => { const p = priceOf(m, n.dataset.price); put(n, p == null ? 'We confirm' : money(p)); });
-    all('[data-time]').forEach((n) => { const s = svcOf(m, n.dataset.time), r = rateOf(m, n.dataset.time); if (s && r) put(n, timeText(r.minutes, s.kind === 'addon')); });
+    // a service that fits only some days says so (plan d: "2-row and larger: weekends only"), as booking step 04 does
+    all('[data-time]').forEach((n) => {
+      const s = svcOf(m, n.dataset.time), r = rateOf(m, n.dataset.time);
+      if (!s || !r) return;
+      put(n, timeText(r.minutes, s.kind === 'addon'));
+      const fit = s.kind === 'addon' ? null : window.AlchemistUI.dayFit(pubSettings, Math.ceil(r.minutes));
+      let f = n.parentElement.querySelector('dd.day-fit');   // (a second dd under Time)
+      if (fit && !f) n.after(f = el('dd.day-fit'));
+      if (f) { f.hidden = !fit; if (fit) put(f, fit.text); }
+    });
     all('[data-saving]').forEach((p) => putSaving(p, savingOf(m, p.dataset.saving)));
     // "every size": the four prices of a card, the size shown in gold (aria-current)
     all('[data-every]').forEach((n) => {

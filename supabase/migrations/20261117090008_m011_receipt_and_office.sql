@@ -4,7 +4,8 @@
 -- path return it, so the account's Appointments and the "Request sent" page get them with no other change.
 -- office.requests (Migration 007 part 5, same columns, same order, same types): Total names the new held reason
 -- (size_price) and tags a booking that got the new-customer price, saying what was checked: the phone, and the street
--- address for a mobile booking ("Come to us" bookings have no address, review S6).
+-- address for a mobile booking ("Come to us" bookings have no address, review S6), or that the address could not be
+-- read as a house number and street (no address check; verifier S-2).
 
 create or replace function public.booking_receipt(a public.appointments) returns jsonb
 language sql stable security definer set search_path = ''
@@ -94,6 +95,8 @@ create or replace view office.requests as
         || case when not a.first_visit_offer then ''::text
                 when a.location_type = 'shop'::public.location_type
                   then ' (new-customer price: phone checked; no address for Come to us)'::text
+                when public.address_key(a.address, a.address_zip) is null
+                  then ' (new-customer price: phone checked; address not recognised)'::text
                 else ' (new-customer price: phone and address checked)'::text
            end as "Total",
     nullif(( select string_agg(coalesce(f.label, c.code), ', '::text order by c.n)

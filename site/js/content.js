@@ -82,9 +82,9 @@
   const PRODUCTS = [
     ['Koch-Chemie Green Star', 'Pre-wash', 'Every wash'],
     ['Koch-Chemie Gentle Snow Foam', 'Paint', 'Every wash'],
-    ['Brake Buster', 'Wheels and tires', 'Hand Wash'],
+    ['Brake Buster', 'Wheels and tires', 'Hand Wash and up; Wheels & Tire Shine'],
     ['Koch-Chemie Pol Star', 'Plastics and leather', 'Inside services'],
-    ['Koch-Chemie Gummifix', 'Door seals', 'Full Detail'],
+    ['Koch-Chemie Gummifix', 'Door seals', 'Full Detail, Interior Detail'],
     ['Koch-Chemie Hydro Foam Sealant S0.03', 'Paint', 'Full Detail'],
   ];
   // The week, Monday first. These must match the footer, the FAQ and the LD+JSON in index.html (CLAUDE.md lists all four).
@@ -115,10 +115,32 @@
   // when they left the page is open again when Back or Forward brings them to it (mount's open, from app.js): set
   // open as it is built, so it shows unfolded with no fold to watch, and the page lays out as it was left.
   const folding = new WeakSet();   // (a question folding shut: still open until its fold has ended)
+  // The new-customer price's answer follows the database (get_first_visit_offer): its prices and end date, and the
+  // question is hidden once the offer has ended or been turned off. Until the answer comes, the typed words show only
+  // up to their own end date (verifier, Nov 17).
+  const OFFER_Q = 'Is there a new-customer price?', OFFER_TYPED_END = '2027-02-17';
+  // the small print without its first prices, which the answer has just said ("... address. Car $35; ... After that, ...")
+  const fineAfter = (fine) => { const i = fine.indexOf(' Car '), j = fine.indexOf(' After that'); return i >= 0 && j > i ? fine.slice(0, i) + fine.slice(j) : fine; };
+  function offerAnswer(d) {
+    const now = new Date(), today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    d.hidden = today > OFFER_TYPED_END;
+    if (!D || !D.firstVisitOffer) return;
+    D.firstVisitOffer().then((o) => {
+      const P = (o && o.active && o.prices) || {};
+      if (!P.car) { d.hidden = true; return; }
+      const big = [P.two_rows, P.three_rows, P.minivan].filter(Boolean);
+      const bigFirst = big.length && big.every((x) => x.first_visit_cents === big[0].first_visit_cents) ? U.money(big[0].first_visit_cents) : null;
+      const p = d.querySelector('.faq-body p');
+      if (p) p.textContent = 'Yes: your first Basic Wash is ' + U.money(P.car.first_visit_cents) + ' for a car' +
+        (bigFirst ? ', and ' + bigFirst + ' for an SUV, 3-row, pickup or minivan' : '') + '. ' + fineAfter(U.offerFine(o));
+      d.hidden = false;
+    }).catch(() => {});
+  }
   function faqItem([q, a], open) {
     const go = FAQ_LINKS[q];
     const body = el('div.faq-body', el('div', el('p', withPhone(a)), go ? el('a.note-link', { href: go[0] }, go[1], arrow()) : null));
     const d = el('details.faq-item', { open: open || null, class: open ? 'is-open' : null }, el('summary', q), body);
+    if (q === OFFER_Q) offerAnswer(d);
     if (reduce) { d.addEventListener('toggle', () => d.classList.toggle('is-open', d.open)); return d; }
     let closing = 0;
     const done = () => { clearTimeout(closing); closing = 0; body.removeEventListener('transitionend', onEnd); folding.delete(d); d.open = false; };

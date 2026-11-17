@@ -341,7 +341,7 @@
           el('dt', 'Phone'), el('dd', el('a', { href: 'tel:+' + (b.contact_phone || '') }, phonePretty(b.contact_phone || '')), b.contact_email ? ' · ' + b.contact_email : ''),
           el('dt', 'Where'), el('dd', where(b)),
           el('dt', 'Vehicle'), el('dd', vehicle(b) + (b.vehicle_size === 'xl' ? ' · XL' : '') + (typeWords(b) ? ' · ' + typeWords(b) : '')),
-          b.first_visit_offer ? [el('dt', 'Price'), el('dd', 'New-customer price (first visit, checked by phone' + (b.location_type === 'mobile' ? ' and address' : '') + ')')] : null,
+          b.first_visit_offer ? [el('dt', 'Price'), el('dd', 'New-customer price (first visit: checked by phone' + (b.location_type === 'mobile' ? ', and by address when it has a house number' : '') + ')')] : null,
           el('dt', 'Inside'), el('dd', (b.conditions || []).map((c) => labelOf('condition', c)).join(', ') || '—'),
           el('dt', 'Damage'), el('dd', (b.damage || []).map((c) => labelOf('damage', c)).join(', ') || '—'),
           notes.map(([k, v]) => [el('dt', k), el('dd.adm-quote', v)]),
@@ -857,11 +857,25 @@
     }
     return null;
   }
-  // The Products guide (guide.js): read-only, no database
-  function guideScreen() {
-    const G = window.AlchemistGuide;
+  // The Products guide (guide.js): read-only, no database. Loaded only when this screen first opens, so the public
+  // pages never download it (verifier, Nov 17: the owner asked for it "admin sided")
+  let guideP = null;
+  function loadGuide() {
+    if (window.AlchemistGuide) return Promise.resolve(window.AlchemistGuide);
+    if (!guideP) guideP = new Promise((done) => {
+      const s = document.createElement('script');
+      s.src = 'js/guide.js';
+      s.onload = () => done(window.AlchemistGuide || null);
+      s.onerror = () => { guideP = null; done(null); };   // (a later visit to the screen tries again)
+      document.head.appendChild(s);
+    });
+    return guideP;
+  }
+  async function guideScreen() {
+    const G = await loadGuide();
     return G ? G.render() : el('p.bk-note', 'The products guide couldn’t load. Reload the page.');
   }
+
   const SETTINGS_COLS = 'first_start_min,last_start_min,slot_step_min,latest_end_min,min_days_ahead,max_days_ahead,hold_hours,max_shop_jobs,max_mobile_jobs,shop_buffer_min,mobile_buffer_min,public_phone,public_area,mobile_radius_miles,require_mfa_for_managers,first_visit_offer_ends_on,first_visit_popup_days,visit_overhead_min';
   async function settingsScreen() {
     let s = Object.assign({}, settings);

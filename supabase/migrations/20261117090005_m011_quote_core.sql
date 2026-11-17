@@ -292,11 +292,13 @@ begin
   end loop;
 
   -- "What's the inside like?" answers with a fee add a line, unless a chosen service covers it (shown Included).
-  -- They only apply with an inside part; exterior-only bookings have none.
+  -- They only apply with an inside part; exterior-only bookings have none, so any answer but None is refused there
+  -- (fee answers and "Other" alike; verifier S-5: bugs, tar and the like go in the notes).
   v_fee_codes := array(select o.fee_code from public.form_options o
                        where o.list = 'condition' and o.fee_code is not null and o.code = any (v_conds)
                        order by o.sort);
-  if cardinality(v_fee_codes) > 0 and not ('interior' = any (main_kinds)) then
+  if not ('interior' = any (main_kinds)) and exists (
+       select 1 from public.form_options o where o.list = 'condition' and not o.is_none and o.code = any (v_conds)) then
     perform public.fail('invalid_input', 'Those answers apply to services with an inside part. Choose one, or choose None.', 'conditions');
   end if;
   foreach v_code in array v_fee_codes loop

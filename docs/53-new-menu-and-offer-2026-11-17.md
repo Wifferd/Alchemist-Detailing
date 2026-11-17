@@ -61,7 +61,8 @@ Ten files, `supabase/migrations/20261117090001…090010_m011_*.sql`: new tables 
 32 minutes when a wash and an inside service are booked apart, add-on limits, one pet-hair answer); `quote_booking` with
 the "if first visit" price; `save_booking` deciding the offer under phone and address locks; the receipt and
 `office.requests` with the offer; `get_first_visit_offer()` and `my_first_visit_offer()`; the switch that retires the old
-menu with `active = false` and sets `mobile_pct = 0`. 125 of 125 checks in `db-tests/m011_tests_menu.sql`.
+menu with `active = false` and sets `mobile_pct = 0`; part 11 (`…090011_m011_address_key_v2.sql`) is the sturdier
+"same address" key. 136 of 136 checks in `db-tests/m011_tests_menu.sql`.
 
 ### Website
 
@@ -123,8 +124,8 @@ Full Detail ($190) is not gold on its own (C15). The Products guide's own 15 que
 
 ## Going live (not done)
 
-1. Live, read-only first, then Migration 011's ten parts in order (the build's `db-report.md`, section 6), part 10 at
-   the same sitting as the deploy; only with his OK (CLAUDE.md rule 7).
+1. Live, read-only first, then Migration 011's eleven parts in order (the build's `db-report.md`, section 6), parts 10
+   and 11 at the same sitting as the deploy; only with his OK (CLAUDE.md rule 7).
 2. Merge `new-menu` into `main`, push, check both Vercel projects deployed the commit.
 3. Only with his go-ahead for that step: `update public.business_settings set guest_booking = true where id = 1;` on live.
 
@@ -145,3 +146,30 @@ Full Detail ($190) is not gold on its own (C15). The Products guide's own 15 que
   CLAUDE.md lists them, and they were checked against `service_size_rates` this time.
 - **The MCP's held words shape the database work** (no replacing a function whose text says "delete"): the offer moved
   into `save_booking` instead of `read_booking_details`.
+
+## After the two verifiers (Nov 17, later)
+
+Database (test project): part 11 makes the "same address" key `zip | house number | first street word`, so "4711
+Testerly Lane Parker TX", "Home 4711 Testerly Ln", "Unit 3, 4711 Testerly Ln", "4711-A" and "4711A" all match "4711
+Testerly Lane" (before, they escaped the one-per-address check), and rebuilds the index. The owner's list says
+"address not recognised" when a mobile address has no house number (no address check), and the Admin page's words no
+longer claim an address check for every mobile booking. An outside-only booking now refuses every inside answer but
+None ("Other" too). `m011_tests_race.sql` now says exactly what it proves (B waits on the phone lock) and how to prove
+the rest on the test project.
+
+Website: the Alchemist's Table symbols scale with their tiles (they were cut off at 1180 px and wider); the Services
+cards say "Weekends only" (or the days that fit) under the time; the FAQ's new-customer answer follows the database and
+hides when the offer ends; the Ritual follows the guide's order (wheels first); the sealant foam is "the finish on the
+Full Detail's wash", not its last step; About names every service a product is used in; the guide folds Magic Wheel
+Cleaner into the Brake Buster step and loads only when the Products screen opens; the saving note reads "Saves $X
+against booking its services apart"; the gallery's links name the new groups.
+
+Lessons:
+- **Test a matching rule with the spellings people really type** ("Home 4711 …", "… Parker TX", "4711-A"), not only
+  the textbook ones. A key that is too exact is a key that is easy to miss.
+- **A changed function behind an expression index needs a REINDEX** in the same migration, or the index keeps the old
+  keys.
+- **A race test that rolls back can only show waiting, not the outcome.** Say so in the test, and give the commit
+  variant for the test project.
+- **Measure text against its box at every desktop width** (1100 px was worse than 1440 px): sizes tied to the box
+  (`cqi`) beat one fixed size.
