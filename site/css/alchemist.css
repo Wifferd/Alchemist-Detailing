@@ -3137,6 +3137,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .choice-item.on { border-color: var(--gold); background: rgba(var(--gold-rgb), .08); box-shadow: 0 0 26px -10px rgba(var(--gold-rgb), .6); }   /* the 1px rim is drawn by ::after (the motion system) */
 .choice-item.on .choice-name { color: var(--gold-hi); }
 .choice-item:disabled, .choice-item.disabled { opacity: .45; cursor: not-allowed; }
+.choice.off .choice-label { color: var(--muted); }   /* a whole list out of reach (the vehicle Type while "Not sure?" is ticked): its title steps back with its tiles */
 .choice-main { display: grid; gap: 3px; min-width: 0; flex: 1; }
 .choice-name { font: 600 15px/1.3 var(--font-ui); }
 .choice-sub { font-size: var(--fs-hint); line-height: 1.45; color: var(--muted); }

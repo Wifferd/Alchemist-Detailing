@@ -190,7 +190,7 @@
     if (!c.phone) c.phone = txt(dc.phone);
     Object.assign(v, {
       year: txt(dv.year), make: txt(dv.make), model: txt(dv.model), color: txt(dv.color),
-      type: known(dv.type, menu.vehicleTypes) ? dv.type : null, size: dv.size === 'xl' ? 'xl' : 'standard',
+      type: dv.notSure !== true && known(dv.type, menu.vehicleTypes) ? dv.type : null, size: dv.size === 'xl' ? 'xl' : 'standard',
       notSure: dv.notSure === true, description: txt(dv.description),
       conditions: codes(dv.conditions, menu.options.condition, []), damage: codes(dv.damage, menu.options.damage, ['none']),
       damageNote: txt(dv.damageNote), modifications: codes(dv.modifications, menu.options.modification, []), moreOpen: dv.moreOpen === true,
@@ -1008,9 +1008,21 @@
         field({ id: 'vehicle_model', label: 'Model', required: !v.notSure, value: v.model, maxlength: 40, oninput: (e) => { v.model = e.target.value; clearError(root, 'vehicle_model'); } }),
         field({ id: 'vehicle_color', label: 'Color', optional: true, value: v.color, maxlength: 30, oninput: (e) => { v.color = e.target.value; clearError(root, 'vehicle_color'); } })));
       const typeItems = menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name }));
-      carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, size: 'tile', value: v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
+      // "Not sure? Type here" greys the Type tiles out (owner, Nov 16): a type picked before is let go, so the request
+      // never carries a type the customer wasn't sure of, and unticking brings none back (they pick again)
+      carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, disabled: v.notSure, hint: v.notSure ? 'Not needed: describe the vehicle below.' : '', size: 'tile', value: v.notSure ? null : v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
       carBox.push(el('div.bk-inline',
-        el('label.bk-toggle', el('input', { type: 'checkbox', checked: v.notSure, onchange: (e) => { v.notSure = e.target.checked; invalidateQuotes(); render(); } }), el('span', 'Not sure? Type here')),
+        el('label.bk-toggle', el('input', {
+          type: 'checkbox', id: 'vehicle_not_sure', checked: v.notSure,
+          onchange: (e) => {
+            const had = document.activeElement === e.target;
+            v.notSure = e.target.checked;
+            if (v.notSure) v.type = null;
+            invalidateQuotes(); render();
+            // the step is drawn again: the focus stays on the box (a keyboard's Tab goes on from it, past the grey tiles)
+            const box = had && root.querySelector('#vehicle_not_sure'); if (box) box.focus({ preventScroll: true });
+          },
+        }), el('span', 'Not sure? Type here')),
         v.notSure ? field({ id: 'vehicle_description', label: 'Describe the vehicle', required: true, value: v.description, maxlength: 1000, oninput: (e) => { v.description = e.target.value; clearError(root, 'vehicle_description'); } }) : null));
       carBox.push(choices({
         id: 'vehicle_size', label: 'Size', value: v.size, items: [
