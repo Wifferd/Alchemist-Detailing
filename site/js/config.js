@@ -26,15 +26,16 @@
   // database that can't be reached means booking is down, not a preview: the pages give the phone number instead
   // (data.js isDown, doc 42). Anywhere else (a local copy, a claude.ai preview) the preview runs as before.
   window.ALCHEMIST_CONFIG.deployed = /(^|\.)thealchemistdetailing\.com$/.test(h) || /\.vercel\.app$/.test(h);
-  // Online booking is switched off by the owner while the new menu and prices are worked out (Nov 16: "shut down
-  // bookings and have my phone number appear on the page with a back button and a \"booking down, come back later,
-  // sorry for the inconvenience\""). On the site's own addresses the booking page shows that note, the phone number, a
-  // Call button and Back instead of the form; the live database refuses requests too (business_settings.guest_booking
-  // set to false the same day). To reopen: set this to false and guest_booking back to true. On the test site and
-  // other Vercel addresses (never the public ones), ?booking=open shows the form; ?booking=closed shows the note
-  // anywhere (a local copy, for screenshots).
+  // Online booking switch. Off on Nov 16 while the new menu and prices were worked out (the owner: "shut down bookings
+  // and have my phone number appear on the page with a back button and a \"booking down, come back later, sorry for the
+  // inconvenience\""); reopened with the new menu on Nov 17 (the owner: "Go live with fixes and learn from this").
+  // To close it again: set BOOKING_CLOSED to true (and business_settings.guest_booking to false); the booking page then
+  // shows that note, the phone number, a Call button and Back instead of the form on the site's own addresses.
+  // ?booking=closed shows the note anywhere (a local copy, for screenshots); while closed, ?booking=open shows the form
+  // on the test site and other Vercel addresses (never the public ones).
+  var BOOKING_CLOSED = false;
   window.ALCHEMIST_CONFIG.bookingClosed = /[?&]booking=closed\b/.test(location.search) ||
-    (window.ALCHEMIST_CONFIG.deployed && !(!publicHost && /[?&]booking=open\b/.test(location.search)));
+    (BOOKING_CLOSED && window.ALCHEMIST_CONFIG.deployed && !(!publicHost && /[?&]booking=open\b/.test(location.search)));
   // Sign-in is by text code (Twilio Verify, set in Supabase). The optional email and its code show only once the
   // site can email codes (an email sender in Supabase): set this to true then.
   window.ALCHEMIST_CONFIG.emailCodes = false;

@@ -13,7 +13,8 @@
 
   let root = null, staff = null, settings = null, menu = null, ready = null;
   const st = { jobs: null, open: null, openJobs: null, ask: null, signin: { phone: '', sent: false }, photos: {} };
-  const labelOf = (list, code) => ((menu.options[list] || []).find((o) => o.code === code) || {}).label || code;
+  // an answer's words, retired ones too (an older booking keeps its Migration 002 answers: menu.allOptions)
+  const labelOf = (list, code) => (((menu.allOptions || menu.options)[list] || []).find((o) => o.code === code) || {}).label || code;
   const ROLE = { admin: 'Admin', manager: 'Manager', detailer: 'Detailer' };
 
   const PREVIEW = [];
@@ -21,8 +22,8 @@
     if (PREVIEW.length) return;
     const iso = (n) => H().isoDate(H().addDays(bizToday(), n));
     PREVIEW.push(
-      { id: 'tx-1', ref: 'AD-EXAMPL1', service_date: iso(0), start_min: 630, duration_min: 120, location_type: 'mobile', address: '100 Example Ln', address_zip: '75002', status: 'confirmed', vehicle_year: 2021, vehicle_make: 'Toyota', vehicle_model: '4Runner', vehicle_color: 'Black', vehicle_type: 'suv', vehicle_size: 'standard', conditions: ['pet_hair'], damage: ['none'], special_request: 'Dog hair in the back seat. Gate code 1234.', photo_paths: [], modifications: [], items: [{ code: 'signature_combo', name: 'Signature Combo', included: false }, { code: 'cond_pet_hair', name: 'Pet hair', included: false }] },
-      { id: 'tx-2', ref: 'AD-EXAMPL2', service_date: iso(1), start_min: 600, duration_min: 210, location_type: 'shop', address: null, address_zip: null, status: 'confirmed', vehicle_year: 2019, vehicle_make: 'Ford', vehicle_model: 'F-150', vehicle_color: 'White', vehicle_type: 'truck', vehicle_size: 'xl', conditions: ['none'], damage: ['scratches'], damage_note: 'Light scratches on the tailgate.', special_request: null, photo_paths: [], modifications: ['aftermarket_wheels'], items: [{ code: 'full_detail', name: 'Full Detail Bundle', included: false }, { code: 'steam_cleaning', name: 'Steam Cleaning', included: true }] });
+      { id: 'tx-1', ref: 'AD-EXAMPL1', service_date: iso(0), start_min: 630, duration_min: 214, location_type: 'mobile', address: '100 Example Ln', address_zip: '75002', status: 'confirmed', vehicle_year: 2021, vehicle_make: 'Toyota', vehicle_model: '4Runner', vehicle_color: 'Black', vehicle_type: 'suv', vehicle_size: 'standard', conditions: ['pet_hair_some'], damage: ['none'], special_request: 'Dog hair in the back seat. Gate code 1234.', photo_paths: [], modifications: [], items: [{ code: 'inside_out', name: 'Inside & Out', included: false }, { code: 'cond_pet_some', name: 'Some pet hair', included: false }] },
+      { id: 'tx-2', ref: 'AD-EXAMPL2', service_date: iso(1), start_min: 600, duration_min: 437, location_type: 'shop', address: null, address_zip: null, status: 'confirmed', vehicle_year: 2019, vehicle_make: 'Ford', vehicle_model: 'F-150', vehicle_color: 'White', vehicle_type: 'truck', vehicle_size: 'standard', conditions: ['none'], damage: ['scratches'], damage_note: 'Light scratches on the tailgate.', special_request: null, photo_paths: [], modifications: ['aftermarket_wheels'], items: [{ code: 'full_detail_v2', name: 'Full Detail', included: false }, { code: 'leather_care', name: 'Leather care', included: true }] });
   }
 
   function mount(container) {
@@ -102,7 +103,7 @@
   }
   async function loadOpenJobs() {
     st.openJobsError = null;
-    if (!D.isLive) { st.openJobs = [{ id: 'open-1', ref: 'AD-EXAMPL7', service_date: H().isoDate(H().addDays(bizToday(), 3)), start_min: 720, duration_min: 60, area: 'Plano 75074', vehicle: '2020 Honda Civic (Blue)', services: ['Exterior Basic'], requested_by_me: false }]; return; }
+    if (!D.isLive) { st.openJobs = [{ id: 'open-1', ref: 'AD-EXAMPL7', service_date: H().isoDate(H().addDays(bizToday(), 3)), start_min: 720, duration_min: 92, area: 'Plano 75074', vehicle: '2020 Honda Civic (Blue)', services: ['Basic Wash'], requested_by_me: false }]; return; }
     try { st.openJobs = (await D.rpc('open_jobs', { p_days: 14 })) || []; }
     catch (e) { st.openJobs = []; st.openJobsError = said(e, 'Open jobs couldn’t load. Press Refresh.'); }
   }

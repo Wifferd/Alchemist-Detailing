@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  // ---------------------------------------------------------------- the menu, as seeded in Migrations 001 and 002
+  // ---------------------------------------------------------------- the menu, as Migration 011 sets it (Nov 17, 2026)
   const SEED = {
     settings: {
       timezone: 'America/Chicago', first_start_min: 600, last_start_min: 1140, latest_end_min: 1200, slot_step_min: 30,
@@ -19,37 +19,69 @@
       // Migration 005: bookings without an account until text codes work (?guest=0 previews the text-code flow)
       guest_booking: true,
     },
-    services: [
-      { code: 'ext_basic', kind: 'exterior', name: 'Exterior Basic', description: 'Snow-foam pre-wash, Brake Buster wheel and tire cleaning, tire cleaning, exterior glass, and a thorough hand wash and hand dry with professional-grade chemicals.', base_price_cents: 4999, priced_by_vehicle_type: false, duration_min: 60, mobile_pct: 2.5, sort: 10 },
-      { code: 'ext_deluxe', kind: 'exterior', name: 'Exterior Deluxe', description: 'Everything in Exterior Basic, plus Green Star pre-treatment where appropriate, Koch-Chemie Hydro Foam Sealant S0.03, enhanced gloss and water-beading protection.', base_price_cents: 9499, priced_by_vehicle_type: false, duration_min: 90, mobile_pct: 7, sort: 20 },
-      { code: 'int_basic', kind: 'interior', name: 'Interior Basic', description: 'Full interior vacuum, dash and plastics cleaned, Top Star on plastics, Gummifix on rubber and mats, interior glass and a general wipe-down.', base_price_cents: 5999, priced_by_vehicle_type: false, duration_min: 60, mobile_pct: 2.5, sort: 30 },
-      { code: 'int_deluxe', kind: 'interior', name: 'Interior Deluxe', description: 'Everything in Interior Basic, plus deep steam or shampoo, carpet and upholstery cleaning, drill-brush agitation, Pol Star and Green Star, deeper stain and dirt removal, and Leather Star conditioning. Steam cleaning included.', base_price_cents: 13499, priced_by_vehicle_type: false, duration_min: 120, mobile_pct: 7, sort: 40 },
-      { code: 'signature_combo', kind: 'bundle', name: 'Signature Combo', description: 'Exterior Basic and Interior Basic together.', base_price_cents: 9999, priced_by_vehicle_type: false, duration_min: 120, mobile_pct: 7, sort: 50 },
-      { code: 'full_detail', kind: 'bundle', name: 'Full Detail Bundle', description: 'Exterior Deluxe and Interior Deluxe together. Steam cleaning included.', base_price_cents: 20999, priced_by_vehicle_type: false, duration_min: 210, mobile_pct: 7, sort: 60 },
-      { code: 'perfect_finish_sealant', kind: 'addon', name: 'WetGloss', description: 'Spray-on sealant for gloss and water beading, added after a wash with an exterior service. Lasts several weeks, depending on weather and washing.', base_price_cents: null, priced_by_vehicle_type: true, duration_min: 30, mobile_pct: 2.5, sort: 70 },
-      { code: 'steam_cleaning', kind: 'addon', name: 'Steam Cleaning', description: 'Deep steam treatment for carpets, upholstery and interior surfaces. Already included in Interior Deluxe.', base_price_cents: 4999, priced_by_vehicle_type: false, duration_min: 30, mobile_pct: 2.5, sort: 80 },
-      { code: 'cond_pet_hair', kind: 'addon', name: 'Pet hair', description: 'Pet hair removal from seats, carpets and crevices.', base_price_cents: 1500, priced_by_vehicle_type: false, duration_min: 0, mobile_pct: 2.5, sort: 110 },
-      { code: 'cond_dirt_sand', kind: 'addon', name: 'Excessive dirt, mud or sand', description: 'Extra time for heavy dirt, mud or sand inside the car.', base_price_cents: 1000, priced_by_vehicle_type: false, duration_min: 0, mobile_pct: 2.5, sort: 120 },
-      { code: 'cond_spills', kind: 'addon', name: 'Spills or light stains', description: 'Spills, food or drink, and light stains.', base_price_cents: 1000, priced_by_vehicle_type: false, duration_min: 0, mobile_pct: 2.5, sort: 130 },
-      { code: 'cond_heavy_stains', kind: 'addon', name: 'Heavy or set-in stains', description: 'Grease, oil, ink, mold or mildew, and set-in stains.', base_price_cents: 3000, priced_by_vehicle_type: false, duration_min: 0, mobile_pct: 2.5, sort: 140 },
+    // Migration 011 (Nov 17): the first-time Basic Wash price ends at the end of this day, Parker's time
+    // (business_settings.first_visit_offer_ends_on; get_first_visit_offer gives it to the site); one shared visit
+    // (setup, pack-up, handover) when an exterior and an interior are booked apart (visit_overhead_min)
+    offer_ends_on: '2027-02-17',
+    visit_overhead_min: 32,
+    // the four priced sizes (size_groups); van, other and "Not sure" have none: the price is held
+    sizes: [
+      { code: 'car', name: 'Car', short_name: 'Car', sort: 1 },
+      { code: 'two_rows', name: 'SUV or crossover, 2 rows', short_name: '2 rows', sort: 2 },
+      { code: 'three_rows', name: '3 rows or pickup', short_name: '3 rows or pickup', sort: 3 },
+      { code: 'minivan', name: 'Minivan', short_name: 'Minivan', sort: 4 },
     ],
-    bundle_parts: { signature_combo: ['ext_basic', 'int_basic'], full_detail: ['ext_deluxe', 'int_deluxe'] },
-    includes: { int_deluxe: ['steam_cleaning', 'cond_pet_hair', 'cond_dirt_sand', 'cond_spills'], full_detail: ['steam_cleaning', 'cond_pet_hair', 'cond_dirt_sand', 'cond_spills'] },
-    addon_rules: { perfect_finish_sealant: 'exterior', steam_cleaning: 'interior', cond_pet_hair: 'interior', cond_dirt_sand: 'interior', cond_spills: 'interior', cond_heavy_stains: 'interior' },
-    type_prices: { perfect_finish_sealant: { sedan: 4499, coupe: 4499, crossover: 5499, suv: 5499, minivan: 5499, truck: 6499, large_suv: 6499 } },
+    // rates: [price, real on-site minutes, first-visit price] for car, two_rows, three_rows, minivan (service_size_rates)
+    services: [
+      { code: 'basic_wash', kind: 'exterior', name: 'Basic Wash', sort: 10, description: 'Thick foam to loosen the dirt, then a careful two-bucket hand wash. Rinsed and hand-dried. Wheels and tires are rinsed with the car. For cars with normal road dirt. Not included: wheel and tire scrubbing, tire shine, bug and tar removal, window cleaning. Add Wheels & Tire Shine for $20.',
+        rates: [[5000, 92, 3500], [5500, 103.25, 4000], [5500, 114.5, 4000], [5500, 114.5, 4000]] },
+      { code: 'hand_wash', kind: 'exterior', name: 'Hand Wash', sort: 20, description: 'Thick foam to loosen the dirt, then a careful two-bucket hand wash. Wheels and tires cleaned; tire shine. Rinsed, hand-dried and blown out. Outside glass.',
+        rates: [[7500, 91], [8000, 101], [8000, 111], [8000, 111]] },
+      { code: 'inside_out', kind: 'bundle', name: 'Inside & Out', sort: 30, description: 'Everything in the Hand Wash, plus: seats, carpets and trunk vacuumed. Dash, doors, console and cup holders wiped. Mats scrubbed and left dry; inside windows. A protectant on the dash and trim.',
+        rates: [[10000, 163], [11500, 190.75], [12500, 218.5], [13500, 236.25]] },
+      { code: 'full_detail_v2', kind: 'bundle', name: 'Full Detail', sort: 40, description: 'Everything in Inside & Out, plus: outside, a bug and road-grime pre-soak, wheel wells scrubbed and a water-repellent sealant foam. Cloth seats and carpets shampooed and the dirty water pulled back out with an extractor (seats stay damp a few hours); leather cleaned and conditioned instead where the car has it. Console, vents, seams and cup holders steamed and brushed. Door seals dressed.',
+        rates: [[16500, 315], [19000, 375.75], [21500, 436.5], [23500, 483.25]] },
+      { code: 'interior_clean', kind: 'interior', name: 'Interior Clean', sort: 50, description: 'The inside of Inside & Out, no wash: seats, carpets and trunk vacuumed. Dash, doors, console and cup holders wiped. Mats scrubbed and left dry; inside windows. A protectant on the dash and trim.',
+        rates: [[7500, 103], [8500, 120.75], [9000, 138.5], [10000, 156.25]] },
+      { code: 'interior_detail', kind: 'interior', name: 'Interior Detail', sort: 60, description: 'The inside of the Full Detail, no wash: everything in the Interior Clean, plus cloth seats and carpets shampooed and the dirty water pulled back out with an extractor (seats stay damp a few hours); leather cleaned and conditioned instead where the car has it. Console, vents, seams and cup holders steamed and brushed. Door seals dressed.',
+        rates: [[12500, 229], [14500, 275.75], [16500, 322.5], [18500, 369.25]] },
+      { code: 'wheels_tire_shine', kind: 'addon', name: 'Wheels & Tire Shine', sort: 110, description: 'Wheels and tires scrubbed, then tire shine. Goes with the Basic Wash (the Hand Wash already has it).',
+        rates: [[2000, 19], [2000, 21.5], [2000, 24], [2000, 24]] },
+      { code: 'gloss_wax', kind: 'addon', name: 'Gloss wax foam', sort: 120, description: 'A gloss wax foam after the wash, for shine and water beading.',
+        rates: [[2000, 10], [2000, 11.5], [2000, 13], [2000, 13]] },
+      { code: 'engine_bay', kind: 'addon', name: 'Engine bay clean', sort: 130, description: 'The engine bay cleaned.',
+        rates: [[5000, 25], [5000, 27.5], [5000, 30], [5000, 30]] },
+      { code: 'film_care', kind: 'addon', name: 'Clear film (PPF) care', sort: 140, description: 'Every wash is already safe for clear film. This adds a hand clean of the film\'s edges and any spots on it, with a cleaner made for film.',
+        rates: [[1500, 12], [1500, 13.5], [1500, 15], [1500, 15]] },
+      { code: 'leather_care', kind: 'addon', name: 'Leather care', sort: 150, description: 'Leather seats cleaned and conditioned. Already in the Full Detail and the Interior Detail.',
+        rates: [[3500, 25], [3500, 30], [3500, 35], [3500, 35]] },
+      { code: 'stain_removal', kind: 'addon', name: 'Stain and spill removal (up to 5 spots)', sort: 160, description: 'Set-in stains and spills treated one by one, up to 5 spots. More than 5? We tell you the price first.',
+        rates: [[4000, 33], [4000, 41.25], [4000, 49.5], [4000, 57.75]] },
+      { code: 'cond_pet_some', kind: 'addon', name: 'Some pet hair', sort: 210, description: 'Hair on the seats and carpet that comes up with a vacuum and a rubber brush.',
+        rates: [[3000, 20], [3000, 22.5], [3000, 25], [3000, 25]] },
+      { code: 'cond_pet_lots', kind: 'addon', name: 'A lot of pet hair', sort: 220, description: 'Hair woven into the fabric, on most seats and in the cargo area.',
+        rates: [[6000, 45], [6000, 52.5], [6000, 60], [6000, 60]] },
+      { code: 'cond_heavy_dirt', kind: 'addon', name: 'Heavy dirt, mud or sand', sort: 230, description: 'Heavy dirt, mud or sand inside the vehicle.',
+        rates: [[4000, 25], [4000, 30], [4000, 35], [4000, 35]] },
+    ].map((s) => Object.assign({ priced_by_size: true, priced_by_vehicle_type: false, mobile_pct: 0, base_price_cents: s.rates[0][0], duration_min: Math.ceil(s.rates[0][1]) }, s)),
+    bundle_parts: { inside_out: ['hand_wash', 'interior_clean'], full_detail_v2: ['hand_wash', 'interior_detail'] },
+    includes: { full_detail_v2: ['leather_care'], interior_detail: ['leather_care'] },
+    addon_rules: { wheels_tire_shine: 'exterior', gloss_wax: 'exterior', engine_bay: 'any_main', film_care: 'exterior', leather_care: 'interior', stain_removal: 'interior', cond_pet_some: 'interior', cond_pet_lots: 'interior', cond_heavy_dirt: 'interior' },
+    // an add-on that goes only with the services named here (addon_allowed_with)
+    allowed_with: { wheels_tire_shine: ['basic_wash'], gloss_wax: ['basic_wash', 'hand_wash', 'inside_out'], leather_care: ['inside_out', 'interior_clean'] },
+    type_prices: {},
     vehicle_types: [
-      { code: 'sedan', name: 'Sedan' }, { code: 'coupe', name: 'Coupe' }, { code: 'convertible', name: 'Convertible' },
-      { code: 'crossover', name: 'Crossover' }, { code: 'suv', name: 'SUV' }, { code: 'minivan', name: 'Minivan' },
-      { code: 'truck', name: 'Truck' }, { code: 'large_suv', name: 'Large SUV' }, { code: 'van', name: 'Van' }, { code: 'other', name: 'Other' },
+      { code: 'sedan', name: 'Sedan, hatchback or wagon', size_group: 'car' }, { code: 'coupe', name: 'Coupe', size_group: 'car' }, { code: 'convertible', name: 'Convertible', size_group: 'car' },
+      { code: 'crossover', name: 'Crossover, 2 rows', size_group: 'two_rows' }, { code: 'suv', name: 'SUV, 2 rows', size_group: 'two_rows' }, { code: 'minivan', name: 'Minivan', size_group: 'minivan' },
+      { code: 'truck', name: 'Pickup', size_group: 'three_rows' }, { code: 'large_suv', name: 'SUV, 3 rows', size_group: 'three_rows' }, { code: 'van', name: 'Van', size_group: null }, { code: 'other', name: 'Other', size_group: null },
     ],
     options: {
       condition: [
-        { code: 'none', label: 'None', is_none: true, sends_to_review: false, requires_note: false, fee_code: null },
-        { code: 'pet_hair', label: 'Pet hair', is_none: false, sends_to_review: false, requires_note: false, fee_code: 'cond_pet_hair' },
-        { code: 'dirt_sand', label: 'Excessive dirt, mud or sand', is_none: false, sends_to_review: false, requires_note: false, fee_code: 'cond_dirt_sand' },
-        { code: 'spills', label: 'Spills, food or drink, light stains', is_none: false, sends_to_review: false, requires_note: false, fee_code: 'cond_spills' },
-        { code: 'heavy_stains', label: 'Heavy or set-in stains', is_none: false, sends_to_review: false, requires_note: false, fee_code: 'cond_heavy_stains' },
-        { code: 'other', label: 'Other (describe it in the notes)', is_none: false, sends_to_review: true, requires_note: true, fee_code: null },
+        { code: 'none', label: 'None', is_none: true, sends_to_review: false, requires_note: false, fee_code: null, choice_group: null, description: null },
+        { code: 'pet_hair_some', label: 'Some pet hair', is_none: false, sends_to_review: false, requires_note: false, fee_code: 'cond_pet_some', choice_group: 'pet', description: 'Hair on the seats and carpet that comes up with a vacuum and a rubber brush.' },
+        { code: 'pet_hair_lots', label: 'A lot of pet hair', is_none: false, sends_to_review: false, requires_note: false, fee_code: 'cond_pet_lots', choice_group: 'pet', description: 'Hair woven into the fabric, on most seats and in the cargo area.' },
+        { code: 'heavy_dirt', label: 'Heavy dirt, mud or sand', is_none: false, sends_to_review: false, requires_note: false, fee_code: 'cond_heavy_dirt', choice_group: null, description: null },
+        { code: 'other', label: 'Other (describe it in the notes)', is_none: false, sends_to_review: true, requires_note: true, fee_code: null, choice_group: null, description: 'Tell us in the notes. We confirm the price before we start.' },
       ],
       modification: [
         { code: 'lowered', label: 'Lowered / coilovers' }, { code: 'aftermarket_wheels', label: 'Aftermarket wheels' }, { code: 'wide_body', label: 'Wide-body kit' },
@@ -62,8 +94,19 @@
         { code: 'unknown', label: 'Unknown', sends_to_review: true, requires_note: true }, { code: 'other', label: 'Other', sends_to_review: true, requires_note: true },
       ],
     },
+    // the retired inside answers of Migration 002, kept for the labels of older bookings (the console, the Team page)
+    retired_options: {
+      condition: [
+        { code: 'pet_hair', label: 'Pet hair' }, { code: 'dirt_sand', label: 'Excessive dirt, mud or sand' },
+        { code: 'spills', label: 'Spills, food or drink, light stains' }, { code: 'heavy_stains', label: 'Heavy or set-in stains' },
+      ],
+    },
     zips: ['75002', '75094', '75074', '75082', '75013', '75098', '75023', '75025', '75048', '75075', '75044', '75040', '75070', '75080', '75069', '75081', '75089', '75252', '75072', '75407', '75042'],
   };
+  const SIZE_CODES = SEED.sizes.map((g) => g.code);
+  // { code: { size: { price, minutes, first } } }, as the live menu() builds it from service_size_rates
+  const SEED_RATES = {};
+  SEED.services.forEach((s) => { SEED_RATES[s.code] = {}; s.rates.forEach((r, i) => { SEED_RATES[s.code][SIZE_CODES[i]] = { price: r[0], minutes: r[1], first: r[2] == null ? null : r[2] }; }); });
   const THROWAWAY = ['mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com', 'yopmail.com', 'trashmail.com', 'sharklasers.com', 'dispostable.com'];
 
   // ---------------------------------------------------------------- shared helpers
@@ -183,8 +226,17 @@
   const isoDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
-  // ---------------------------------------------------------------- preview mode: the quote, line for line from quote_booking
-  function previewQuote(p) {
+  // ---------------------------------------------------------------- preview mode: the quote, line for line from quote_core
+  // (Migration 011) and quote_booking's new-customer price (apply_first_visit). status: 'if_first_visit' (a visitor's
+  // quote), 'applied' (a preview request that got it), 'not_eligible' or 'none' (it didn't).
+  const PREVIEW_TODAY = () => isoDate(todayIn('America/Chicago'));
+  function previewRate(code, group) {
+    const all = SEED_RATES[code] || {}, r = group ? all[group] : null;
+    const minutes = r ? r.minutes : Math.max(...Object.values(all).map((x) => x.minutes));
+    const price = r ? r.price : null;
+    return { price, minutes, pending: price == null ? 'size_price' : null };
+  }
+  function previewCore(p) {
     const m = SEED;
     const loc = p.location_type;
     const bundle = (p.bundle || '').trim() || null;
@@ -197,52 +249,59 @@
     const conds = Array.isArray(p.conditions) ? p.conditions : [];
     const byCode = (c) => m.services.find((s) => s.code === c);
     if (!loc || !['mobile', 'shop'].includes(loc)) throw fail('invalid_input', 'Choose "We come to you" or "Come to us".', 'location_type');
-    const mobile = loc === 'mobile';
     if (!['standard', 'xl'].includes(size)) throw fail('invalid_input', 'Choose Standard or XL for the vehicle size.', 'vehicle_size');
     if (vtype && !m.vehicle_types.some((t) => t.code === vtype)) throw fail('invalid_input', 'Choose a vehicle type from the list.', 'vehicle_type');
     const condOpts = m.options.condition;
-    if (conds.some((c) => !condOpts.some((o) => o.code === c))) throw fail('invalid_input', "Choose the vehicle's condition from the list.", 'conditions');
-    if (conds.length > 1 && conds.some((c) => condOpts.find((o) => o.code === c).is_none)) throw fail('invalid_input', '"None" can\'t be combined with other conditions.', 'conditions');
+    if (conds.some((c) => !condOpts.some((o) => o.code === c))) throw fail('invalid_input', 'Choose what the inside is like from the list.', 'conditions');
+    if (conds.length > 1 && conds.some((c) => condOpts.find((o) => o.code === c).is_none)) throw fail('invalid_input', '"None" can\'t be combined with other answers.', 'conditions');
+    const groups = {};
+    conds.forEach((c) => { const g = condOpts.find((o) => o.code === c).choice_group; if (g) groups[g] = (groups[g] || 0) + 1; });
+    const dup = Object.keys(groups).find((g) => groups[g] > 1);
+    if (dup) throw fail('invalid_input', dup === 'pet' ? 'Choose one pet-hair answer.' : 'Choose only one of those answers.', 'conditions');
+    const group = !notSure && vtype ? (m.vehicle_types.find((t) => t.code === vtype) || {}).size_group || null : null;
 
     const lines = [];
-    let mains = [], kinds = [], value = 0, savings = 0, mob = 0, minutes = 0;
+    let mains = [], kinds = [], chosen = [], value = 0, savings = 0, minutes = 0;
     const pending = new Set();
-    const mobOf = (price, pct) => mobile && price != null ? roundHalfUp(price * pct / 100) : 0;
+    const line = (s, r, extra) => Object.assign({ code: s.code, name: s.name, kind: s.kind, price_cents: r.price, mobile_cents: 0, duration_min: Math.ceil(r.minutes), minutes_exact: r.minutes, included: false }, extra || {});
     if (bundle) {
       if (ext || intr) throw fail('invalid_input', 'Choose a bundle, or exterior and interior services, not both.', 'services');
       const s = byCode(bundle);
       if (!s || s.kind !== 'bundle') throw fail('invalid_input', "That bundle isn't available.", 'bundle');
-      if (s.duration_min == null) throw fail('not_bookable_yet', s.name + " can't be booked yet.", 'bundle');
+      const r = previewRate(bundle, group);
       const parts = (m.bundle_parts[bundle] || []).map(byCode);
-      if (!parts.length) throw fail('not_bookable_yet', s.name + " can't be booked yet.", 'bundle');
-      const partsValue = parts.reduce((a, x) => a + x.base_price_cents, 0);
+      let partsValue = 0, known = true;
+      parts.forEach((x) => { const pr = previewRate(x.code, group); if (pr.price == null) known = false; else partsValue += pr.price; });
       mains = parts.map((x) => x.code).concat(bundle);
       kinds = parts.map((x) => x.kind).concat('bundle');
-      const lm = mobOf(s.base_price_cents, s.mobile_pct);
-      lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: s.base_price_cents, mobile_cents: lm, duration_min: s.duration_min, included: false });
-      value += Math.max(partsValue, s.base_price_cents);
-      savings += Math.max(partsValue - s.base_price_cents, 0);
-      mob += lm; minutes += s.duration_min;
+      chosen = [bundle];
+      if (r.pending) pending.add(r.pending);
+      lines.push(line(s, r));
+      if (r.price != null) {
+        if (known) { value += Math.max(partsValue, r.price); savings += Math.max(partsValue - r.price, 0); } else value += r.price;
+      }
+      minutes += r.minutes;
     } else {
       [[ext, 'exterior'], [intr, 'interior']].forEach(([code, kind]) => {
         if (!code) return;
         const s = byCode(code);
         if (!s || s.kind !== kind) throw fail('invalid_input', 'That ' + kind + " service isn't available.", kind);
-        if (s.duration_min == null) throw fail('not_bookable_yet', s.name + " can't be booked yet.", kind);
-        const lm = mobOf(s.base_price_cents, s.mobile_pct);
-        lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: s.base_price_cents, mobile_cents: lm, duration_min: s.duration_min, included: false });
-        mains.push(s.code); kinds.push(s.kind);
-        value += s.base_price_cents; mob += lm; minutes += s.duration_min;
+        const r = previewRate(code, group);
+        if (r.pending) pending.add(r.pending);
+        lines.push(line(s, r));
+        mains.push(s.code); kinds.push(s.kind); chosen.push(s.code);
+        value += r.price || 0; minutes += r.minutes;
       });
     }
     if (!mains.length) throw fail('invalid_input', "Choose at least one service. Add-ons can't be booked on their own.", 'services');
+    if (chosen.length > 1) minutes -= m.visit_overhead_min * (chosen.length - 1);   // one shared visit
 
     const includedCodes = [];
     const includedSet = new Set();
     mains.forEach((c) => (m.includes[c] || []).forEach((i) => includedSet.add(i)));
     m.services.filter((s) => includedSet.has(s.code) && !s.code.startsWith('cond_')).sort((a, b) => a.sort - b.sort).forEach((s) => {
       includedCodes.push(s.code);
-      lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: 0, mobile_cents: 0, duration_min: 0, included: true });
+      lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: 0, mobile_cents: 0, duration_min: 0, minutes_exact: 0, included: true });
     });
 
     addons.forEach((code) => {
@@ -250,56 +309,77 @@
       if (code.startsWith('cond_')) throw fail('invalid_input', "That add-on isn't available.", 'addons');
       const s = byCode(code);
       if (!s || s.kind !== 'addon') throw fail('invalid_input', "That add-on isn't available.", 'addons');
-      if (s.duration_min == null) throw fail('not_bookable_yet', s.name + " can't be booked yet.", 'addons');
+      const allow = m.allowed_with[code];
+      if (allow && !allow.some((c) => chosen.includes(c))) {
+        const names = allow.map((c) => byCode(c).name);
+        throw fail('invalid_input', s.name + ' goes with the ' + (names.length <= 1 ? names[0] : names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1]) + '.', 'addons');
+      }
       const needs = m.addon_rules[code] || 'any_main';
       if ((needs === 'exterior' || needs === 'interior') && !kinds.includes(needs)) throw fail('invalid_input', s.name + ' needs an ' + needs + ' service in the same booking.', 'addons');
-      let price;
-      if (s.priced_by_vehicle_type) {
-        price = (!notSure && vtype) ? (m.type_prices[code] || {})[vtype] : undefined;
-        if (price == null) { price = null; pending.add('vehicle_price'); }
-      } else price = s.base_price_cents;
-      const lm = mobOf(price, s.mobile_pct);
-      lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: price, mobile_cents: lm, duration_min: s.duration_min, included: false });
-      value += price || 0; mob += lm; minutes += s.duration_min;
+      const r = previewRate(code, group);
+      if (r.pending) pending.add(r.pending);
+      lines.push(line(s, r));
+      value += r.price || 0; minutes += r.minutes;
     });
 
     const feeCodes = condOpts.filter((o) => o.fee_code && conds.includes(o.code)).map((o) => o.fee_code);
-    if (feeCodes.length && !kinds.includes('interior')) throw fail('invalid_input', 'Those options apply to interior services. Choose an interior service, or choose None.', 'conditions');
+    if (feeCodes.length && !kinds.includes('interior')) throw fail('invalid_input', 'Those answers apply to services with an inside part. Choose one, or choose None.', 'conditions');
     feeCodes.forEach((code) => {
       const s = byCode(code);
       if (!s) return;
-      if (includedSet.has(code)) {
-        lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: 0, mobile_cents: 0, duration_min: 0, included: true, condition: true });
-        return;
-      }
-      const lm = mobOf(s.base_price_cents, s.mobile_pct);
-      lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: s.base_price_cents, mobile_cents: lm, duration_min: s.duration_min || 0, included: false, condition: true });
-      value += s.base_price_cents; mob += lm; minutes += s.duration_min || 0;
+      if (includedSet.has(code)) { lines.push({ code: s.code, name: s.name, kind: s.kind, price_cents: 0, mobile_cents: 0, duration_min: 0, minutes_exact: 0, included: true, condition: true }); return; }
+      const r = previewRate(code, group);
+      if (r.pending) pending.add(r.pending);
+      lines.push(line(s, r, { condition: true }));
+      value += r.price || 0; minutes += r.minutes || 0;
     });
 
     if (size === 'xl') pending.add('xl');
     const pend = Array.from(pending).sort();
 
     let suggestion = null;
-    if (!bundle && ext && intr) {
-      const here = value - savings + mob;
-      m.services.filter((b) => b.kind === 'bundle' && b.duration_min != null).sort((a, b) => a.sort - b.sort).forEach((b) => {
-        const parts = (m.bundle_parts[b.code] || []).slice().sort();
-        if (parts.join() !== [ext, intr].slice().sort().join()) return;
+    if (!bundle && ext && intr && !pend.length) {
+      const here = value - savings;
+      const extSort = byCode(ext).sort;
+      m.services.filter((b) => b.kind === 'bundle').sort((a, b) => a.sort - b.sort).forEach((b) => {
+        const parts = m.bundle_parts[b.code] || [];
+        if (parts.length !== 2 || !parts.includes(intr) || !parts.some((c) => byCode(c).kind === 'exterior' && (c === ext || byCode(c).sort > extSort))) return;
         try {
-          const q2 = previewQuote(Object.assign({}, p, { exterior: null, interior: null, bundle: b.code }));
-          const there = q2.value_cents - q2.bundle_savings_cents + q2.mobile_cents;
-          if (there < here && (!suggestion || here - there > suggestion.saves_cents)) {
+          const q2 = previewCore(Object.assign({}, p, { exterior: null, interior: null, bundle: b.code }));
+          const there = q2.value_cents - q2.bundle_savings_cents;
+          if (!q2.price_pending && there < here && (!suggestion || here - there > suggestion.saves_cents)) {
             suggestion = { bundle: b.code, name: b.name, saves_cents: here - there, total_cents: q2.total_cents, duration_min: q2.duration_min };
           }
         } catch (e) { /* that bundle can't be quoted; no suggestion */ }
       });
     }
     return {
-      location_type: loc, lines, value_cents: value, bundle_savings_cents: savings, subtotal_cents: value - savings,
-      mobile_cents: mob, price_pending: pend.length > 0, pending_reasons: pend,
-      total_cents: pend.length ? null : value - savings + mob, duration_min: minutes, suggestion,
+      location_type: loc, size_group: group, lines, value_cents: value, bundle_savings_cents: savings, subtotal_cents: value - savings,
+      mobile_cents: 0, price_pending: pend.length > 0, pending_reasons: pend,
+      total_cents: pend.length ? null : value - savings, duration_min: Math.ceil(minutes), suggestion,
     };
+  }
+  // apply_first_visit: the Basic Wash line at the new-customer price while the offer runs (null: no offer here)
+  function previewFirstVisit(q, status) {
+    const r = q.size_group && SEED_RATES.basic_wash[q.size_group];
+    const at = q.lines.findIndex((l) => l.code === 'basic_wash' && !l.included);
+    if (status == null || !r || r.first == null || q.price_pending || at < 0 || PREVIEW_TODAY() > SEED.offer_ends_on) return Object.assign(q, { first_visit: null });
+    if (status === 'if_first_visit' || status === 'applied') {
+      const diff = r.price - r.first;
+      q.lines[at] = Object.assign({}, q.lines[at], { price_cents: r.first, regular_cents: r.price, first_visit: true });
+      q.value_cents -= diff; q.subtotal_cents -= diff; if (q.total_cents != null) q.total_cents -= diff;
+    }
+    q.first_visit = { status, ends_on: SEED.offer_ends_on, price_cents: r.first, regular_cents: r.price };
+    return q;
+  }
+  const previewPhonesBooked = new Set();   // the phones a preview request used: their next one is at the regular price
+  function previewQuote(p, status) {
+    const q = previewFirstVisit(previewCore(p), status === undefined ? (previewSession && previewBookings.some((b) => !b.example) ? 'not_eligible' : 'if_first_visit') : status);
+    if (q.suggestion && q.first_visit && q.first_visit.status === 'if_first_visit') {
+      const saves = q.total_cents - q.suggestion.total_cents;
+      if (saves > 0) q.suggestion = Object.assign({}, q.suggestion, { saves_cents: saves }); else q.suggestion = null;
+    }
+    return q;
   }
 
   // Preview availability: every day open, start times on the grid, with a few
@@ -347,7 +427,7 @@
     const weekend = (weeks, sunday) => { let d = addDays(todayLocal(), -7 * weeks); while (d.getDay() !== 6) d = addDays(d, -1); return sunday ? addDays(d, 1) : d; };
     const at = (day, daysBefore, min) => { const d = addDays(day, -daysBefore); d.setHours(0, min, 0, 0); return d.toISOString(); };
     const make = (day, start, p, status, extra) => {
-      const q = previewQuote(p), kind = SEED.vehicle_types.find((t) => t.code === p.vehicle_type);
+      const q = previewQuote(p, p.fv || 'none'), kind = SEED.vehicle_types.find((t) => t.code === p.vehicle_type);
       const steps = status === 'cancelled'
         ? [['requested', at(day, 6, 1210)], ['confirmed', at(day, 5, 570)], ['cancelled', at(day, 1, 1085)]]
         : [['requested', at(day, 5, 1182)], ['confirmed', at(day, 4, 555)], ['in_progress', at(day, 0, start)], ['completed', at(day, 0, start + q.duration_min)]];
@@ -357,14 +437,17 @@
         vehicle: { make: null, model: null, year: null, color: null, type: p.vehicle_type, size: 'standard', not_sure: true, description: kind ? kind.name : null },   // the type it is priced for, in the menu's word: no make or model is made up
         hold_expires_at: null, value_cents: q.value_cents, bundle_savings_cents: q.bundle_savings_cents, mobile_cents: q.mobile_cents,
         extra_cost_cents: null, extra_cost_note: null, price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
+        first_visit_offer: !!(q.first_visit && q.first_visit.status === 'applied'),
         created_at: steps[0][1], preview: true, example: true, shop_address: null, team: [], history: steps.map(([s, t]) => ({ status: s, at: t, note: null })),
       }, extra || {});
     };
     return [
-      make(weekend(1), 600, { location_type: 'mobile', bundle: 'full_detail', vehicle_type: 'sedan', conditions: ['none'] }, 'completed'),
-      make(weekend(3, true), 600, { location_type: 'shop', bundle: 'signature_combo', vehicle_type: 'sedan', conditions: ['none'] }, 'cancelled'),
-      make(weekend(5, true), 660, { location_type: 'shop', interior: 'int_deluxe', vehicle_type: 'sedan', conditions: ['pet_hair'] }, 'completed'),
-      make(weekend(8), 840, { location_type: 'shop', exterior: 'ext_basic', vehicle_type: 'sedan' }, 'completed'),
+      // a 3-row Full Detail ($215): over $200, so the account shows the gold (doc 22)
+      make(weekend(1), 600, { location_type: 'mobile', bundle: 'full_detail_v2', vehicle_type: 'large_suv', conditions: ['none'] }, 'completed'),
+      make(weekend(3, true), 600, { location_type: 'shop', bundle: 'inside_out', vehicle_type: 'large_suv', conditions: ['none'] }, 'cancelled'),
+      make(weekend(5, true), 660, { location_type: 'shop', interior: 'interior_detail', vehicle_type: 'large_suv', conditions: ['pet_hair_some'] }, 'completed'),
+      // the first visit: a Basic Wash at the new-customer price (Migration 011)
+      make(weekend(8), 840, { location_type: 'shop', exterior: 'basic_wash', vehicle_type: 'large_suv', fv: 'applied' }, 'completed'),
     ];
   }
   const authListeners = [];
@@ -430,39 +513,87 @@
 
     async settings() { await init(); return settingsCache; },
 
+    // The menu (Migration 011): services and their price and minutes per size (rates[code][size] = { price, minutes,
+    // first }: first is the new-customer price, Basic Wash only), the sizes, which size each vehicle type is
+    // (typeSize; none for van and other: the price is held), what an add-on goes with (allowedWith), the inside answers
+    // with their pet-hair pair (choice_group) and one-line descriptions. allOptions keeps every answer the database lets
+    // this reader see, retired ones too, so an older booking's answers keep their words (the console, the Team page).
     async menu() {
       await init();
       if (menuCache) return menuCache;
       if (mode === 'preview') {
+        const allOptions = {};
+        Object.keys(SEED.options).forEach((k) => { allOptions[k] = SEED.options[k].concat((SEED.retired_options[k] || [])); });
         menuCache = {
-          services: SEED.services.slice(), vehicleTypes: SEED.vehicle_types.slice(), options: SEED.options,
+          services: SEED.services.slice(), vehicleTypes: SEED.vehicle_types.slice(), options: SEED.options, allOptions,
           bundleParts: SEED.bundle_parts, includes: SEED.includes, addonRules: SEED.addon_rules, typePrices: SEED.type_prices, zips: new Set(SEED.zips),
+          sizes: SEED.sizes.slice(), rates: SEED_RATES, allowedWith: SEED.allowed_with,
+          typeSize: Object.fromEntries(SEED.vehicle_types.map((t) => [t.code, t.size_group])),
         };
         return menuCache;
       }
       const q = (t, cols, order) => sb.from(t).select(cols).order(order || 'sort');
-      const [svc, vt, fo, bp, si, ar, tp, zz] = await Promise.all([
-        q('services', 'id,code,kind,name,description,base_price_cents,priced_by_vehicle_type,duration_min,mobile_pct,sort,active'),
-        q('vehicle_types', 'code,name,sort,active'),
-        q('form_options', 'list,code,label,is_none,sends_to_review,holds_price,requires_note,sort,active,fee_code'),
+      const [svc, vt, fo, bp, si, ar, tp, zz, sg, sr, aw] = await Promise.all([
+        q('services', 'id,code,kind,name,description,base_price_cents,priced_by_vehicle_type,priced_by_size,duration_min,mobile_pct,sort,active'),
+        q('vehicle_types', 'code,name,sort,active,size_group'),
+        q('form_options', 'list,code,label,is_none,sends_to_review,holds_price,requires_note,sort,active,fee_code,choice_group,description'),
         sb.from('bundle_parts').select('bundle_id,part_id'),
         sb.from('service_includes').select('service_id,included_id'),
         sb.from('addon_rules').select('addon_id,needs'),
         sb.from('service_type_prices').select('service_id,vehicle_type,price_cents'),
         sb.from('service_zip_codes').select('zip'),
+        q('size_groups', 'code,name,short_name,sort'),
+        sb.from('service_size_rates').select('service_id,size_group,price_cents,minutes,first_visit_price_cents'),
+        sb.from('addon_allowed_with').select('addon_id,service_id'),
       ]);
-      for (const r of [svc, vt, fo, bp, si, ar, tp, zz]) if (r.error) throw fromDb(r.error);
+      for (const r of [svc, vt, fo, bp, si, ar, tp, zz, sg, sr, aw]) if (r.error) throw fromDb(r.error);
       const byId = {}; svc.data.forEach((s) => { byId[s.id] = s.code; });
+      const activeId = new Set(svc.data.filter((s) => s.active).map((s) => s.id));
       const bundleParts = {}; bp.data.forEach((r) => { (bundleParts[byId[r.bundle_id]] = bundleParts[byId[r.bundle_id]] || []).push(byId[r.part_id]); });
       const includes = {}; si.data.forEach((r) => { (includes[byId[r.service_id]] = includes[byId[r.service_id]] || []).push(byId[r.included_id]); });
       const addonRules = {}; ar.data.forEach((r) => { addonRules[byId[r.addon_id]] = r.needs; });
       const typePrices = {}; tp.data.forEach((r) => { (typePrices[byId[r.service_id]] = typePrices[byId[r.service_id]] || {})[r.vehicle_type] = r.price_cents; });
-      const options = {}; fo.data.filter((o) => o.active).forEach((o) => { (options[o.list] = options[o.list] || []).push(o); });
+      const rates = {}; sr.data.filter((r) => activeId.has(r.service_id)).forEach((r) => {
+        (rates[byId[r.service_id]] = rates[byId[r.service_id]] || {})[r.size_group] = { price: r.price_cents, minutes: Number(r.minutes), first: r.first_visit_price_cents };
+      });
+      // (an add-on limited to services the menu retired: only the active ones count)
+      const allowedWith = {}; aw.data.filter((r) => activeId.has(r.service_id)).forEach((r) => { (allowedWith[byId[r.addon_id]] = allowedWith[byId[r.addon_id]] || []).push(byId[r.service_id]); });
+      const sortOf = (c) => (svc.data.find((s) => s.code === c) || {}).sort || 0;
+      Object.values(allowedWith).forEach((l) => l.sort((x, y) => sortOf(x) - sortOf(y)));
+      const options = {}, allOptions = {};
+      fo.data.forEach((o) => { (allOptions[o.list] = allOptions[o.list] || []).push(o); if (o.active) (options[o.list] = options[o.list] || []).push(o); });
+      const types = vt.data.filter((t) => t.active);
       menuCache = {
         services: svc.data.filter((s) => s.active).map((s) => Object.assign({}, s, { mobile_pct: Number(s.mobile_pct) })),
-        vehicleTypes: vt.data.filter((t) => t.active), options, bundleParts, includes, addonRules, typePrices, zips: new Set(zz.data.map((z) => z.zip)),
+        vehicleTypes: types, options, allOptions, bundleParts, includes, addonRules, typePrices, zips: new Set(zz.data.map((z) => z.zip)),
+        sizes: sg.data, rates, allowedWith, typeSize: Object.fromEntries(types.map((t) => [t.code, t.size_group || null])),
       };
       return menuCache;
+    },
+
+    // The first-time Basic Wash price, for the Services page and the cards: { active, ends_on, prices: { size:
+    // { first_visit_cents, regular_cents } } } (get_first_visit_offer; the end date is the owner's, in business_settings)
+    async firstVisitOffer() {
+      await init();
+      if (mode === 'preview') {
+        const on = PREVIEW_TODAY() <= SEED.offer_ends_on;
+        const prices = {};
+        if (on) SIZE_CODES.forEach((g) => { const r = SEED_RATES.basic_wash[g]; prices[g] = { first_visit_cents: r.first, regular_cents: r.price }; });
+        return { active: on, ends_on: on ? SEED.offer_ends_on : null, prices };
+      }
+      return rpc('get_first_visit_offer');
+    },
+    // The 4-week pop-up (my_first_visit_offer): { show, ends_on, prices } for the signed-in customer; the database
+    // decides (an account at least 28 days old with no booking yet, while the offer runs). Preview: ?offerpopup shows it.
+    async myFirstVisitOffer() {
+      await init();
+      if (mode === 'preview') {
+        const o = await api.firstVisitOffer();
+        return Object.assign({ show: /[?&]offerpopup\b/.test(location.search) && o.active }, o);
+      }
+      const { data } = await sb.auth.getSession();
+      if (!(data && data.session)) return { show: false };
+      return rpc('my_first_visit_offer');
     },
 
     async session() {
@@ -687,7 +818,9 @@
       await init();
       if (mode === 'preview') {
         await new Promise((r) => setTimeout(r, 900));
-        const q = previewQuote(p);
+        // the new-customer price is decided as save_booking decides it: once per phone (this preview's own requests)
+        const ph = normalizePhone(p.phone || (previewSession && previewSession.phone)) || 'preview';
+        const q = previewQuote(p, previewPhonesBooked.has(ph) ? 'none' : 'applied');
         if (nameMessage('first', p.first_name)) throw fail('invalid_input', nameMessage('first', p.first_name), 'first_name');
         if (!p.service_date) throw fail('invalid_input', 'Choose a day.', 'service_date');
         if (p.start_min == null) throw fail('invalid_input', 'Choose one of the start times shown.', 'start_min');
@@ -706,7 +839,9 @@
           created_at: created.toISOString(), preview: true, shop_address: null, team: [],
           history: [{ status: 'requested', at: created.toISOString(), note: null }],   // as my_bookings logs a new request
           conditions: (p.conditions || []).slice(),   // as my_bookings returns them (Migration 008 part 3)
+          first_visit_offer: !!(q.first_visit && q.first_visit.status === 'applied'),
         };
+        previewPhonesBooked.add(ph);
         previewBookings.unshift(r);
         return r;
       }

@@ -37,9 +37,12 @@
   // The owner's Alchemist's Table (services.js): each service's symbol and number, the same map the booking uses.
   // Only these come from there; every price is the database's. Condition fees have no mark.
   const signs = () => (window.AlchemistServices && window.AlchemistServices.signs) || [];
+  // Au: the Full Detail's mark, the new one (full_detail_v2) and the retired Full Detail Bundle's on older bookings
+  const isAu = (g) => g.key === 'au' || g.legacy === 'au';
+  const FULL = ['full_detail_v2', 'full_detail'];
   function sigMark(code, seal) {
     const g = signs().find((x) => x.code === code);
-    return g ? el('span.sig', { class: (g.key === 'au' ? 'au' : '') + (seal ? ' seal' : '') || null, 'aria-hidden': 'true' }, el('small.tnum', g.num), g.sym) : null;
+    return g ? el('span.sig', { class: (isAu(g) ? 'au' : '') + (seal ? ' seal' : '') || null, 'aria-hidden': 'true' }, el('small.tnum', g.num), g.sym) : null;
   }
   const mains = (b) => (b.lines || []).filter((l) => !l.included && !/^cond_/.test(l.code));
   const names = (b) => mains(b).map((l) => l.name).join(' + ');
@@ -199,7 +202,7 @@
   }
   // the services with their marks; on a gold card a Full Detail's own Au mark is the seal (sealed)
   function what(b, sealed) {
-    return el('span.appt-what', el('span.appt-sigs', mains(b).map((l) => sigMark(l.code, sealed && l.code === 'full_detail'))), el('span.appt-names', names(b)));
+    return el('span.appt-what', el('span.appt-sigs', mains(b).map((l) => sigMark(l.code, sealed && FULL.includes(l.code)))), el('span.appt-names', names(b)));
   }
   // the reference as the database wrote it, grouped for reading aloud, with Copy (which takes it exactly)
   function refValue(b) {
@@ -336,7 +339,8 @@
         field({ id: 'vehicle_model', label: 'Model', required: true, value: f.model, maxlength: 40, oninput: (e) => { f.model = e.target.value; } }),
         field({ id: 'vehicle_color', label: 'Color', optional: true, value: f.color || '', maxlength: 30, oninput: (e) => { f.color = e.target.value; } })),
       choices({ id: 'vehicle_type', label: 'Type', required: true, size: 'tile', value: f.vehicle_type, items: menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name })), onchange: (c) => { f.vehicle_type = c; } }),
-      choices({ id: 'vehicle_size', label: 'Size', value: f.size, items: [{ code: 'standard', label: 'Standard' }, { code: 'xl', label: 'XL', sub: 'Minivans and some modified trucks. We confirm the price before the appointment.' }], onchange: (c) => { f.size = c; } }),
+      // (sizes go by rows since Migration 011: the Standard / XL choice shows only for a vehicle saved as XL, to take it off)
+      f.size === 'xl' ? choices({ id: 'vehicle_size', label: 'Size', value: f.size, items: [{ code: 'standard', label: 'Standard', sub: 'Priced by its type' }, { code: 'xl', label: 'XL', sub: 'We confirm the price before the appointment.' }], onchange: (c) => { f.size = c; } }) : null,
       choices({ id: 'modifications', label: 'Modifications', size: 'tile', multi: true, value: f.modifications || [], items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (v) => { f.modifications = v; } }),
       el('div.acct-actions', el('button.btn.btn-gold', { type: 'button', onclick: saveVehicle }, 'Save vehicle'), el('button.btn.btn-glass', { type: 'button', onclick: () => { acct.editing = null; acct.form = null; renderAccount(); } }, 'Cancel')));
     return box;
@@ -448,7 +452,7 @@
     const open = appts.open === b.id;
     const done = b.status === 'completed', gold = isGold(b);
     const au = done && b.total_cents != null ? Math.min(b.total_cents / 20000, 1) : 0;
-    const hasAu = mains(b).some((l) => l.code === 'full_detail');   // its own Au mark is the seal: never two Au tiles in one row
+    const hasAu = mains(b).some((l) => FULL.includes(l.code));   // its own Au mark is the seal: never two Au tiles in one row
     const head = [
       done ? el('span.appt-au', { 'aria-hidden': 'true' }) : null,
       el('span.appt-when', el('b', longDate(b.service_date)), el('span', clock(b.start_min) + ' · ' + whereText(b)), b.example ? el('small.appt-ex', 'Example') : null),
@@ -524,5 +528,62 @@
   }
 
   // A booking sent, or a sign-out elsewhere: the next visit starts from the data layer's session again.
-  window.AlchemistAccount = { mountAccount, mountAppointments, refresh: () => { appts.list = null; acct.loading = true; acct.confirm = null; session = null; ready = null; } };
+  // ---------------------------------------------------------------- the new-customer pop-up (owner, Nov 17: "4 weeks after
+  // account is made, pop up notification showing the promo")
+  // The database decides (my_first_visit_offer): a customer account at least first_visit_popup_days (28) old with no
+  // booking yet, while the offer runs. Shown at most once a day on this device (Parker's date in localStorage
+  // ad-offer-seen; with storage blocked, once a page load), never on the staff screens or the booking, and only where
+  // this browser keeps a login (a visitor's page asks nothing). Accounts need text codes (Twilio Verify), so until those
+  // work it shows to nobody. ?offerpopup shows it in a preview.
+  const NO_POP = ['admin', 'team', 'book'];
+  let popAsked = false, popOpen = null;
+  const routeNow = () => (decodeURIComponent(location.hash.slice(1)).split('-')[0]) || 'home';
+  async function offerPopup(r) {
+    if (NO_POP.includes(r) || popAsked || popOpen) return;
+    const preview = /[?&]offerpopup\b/.test(location.search);
+    if (!preview && !D.hasStoredLogin()) return;
+    popAsked = true;
+    try {
+      await D.init();
+      const today = D.helpers.isoDate(D.helpers.todayIn('America/Chicago'));
+      try { if (localStorage.getItem('ad-offer-seen') === today) return; } catch (e) { /* storage blocked: once a page load */ }
+      if (D.isLive && !(await D.session())) return;
+      const o = await D.myFirstVisitOffer();
+      if (!o || !o.show) return;
+      if (NO_POP.includes(routeNow())) { popAsked = false; return; }   // (the page changed meanwhile: asked again on the next)
+      showPopup(o);
+      try { localStorage.setItem('ad-offer-seen', today); } catch (e) { /* storage blocked */ }
+    } catch (e) { /* no pop-up: the offer is on the Services page all the same */ }
+  }
+  function showPopup(o) {
+    const back = document.activeElement;
+    const prices = o.prices || {}, car = prices.car;
+    if (!car) return;
+    const close = () => {
+      if (!popOpen) return;
+      document.removeEventListener('keydown', onKey, true);
+      popOpen.remove(); popOpen = null;
+      if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+    };
+    const book = el('a.btn.btn-gold.shine', { href: '#book-bw', onclick: () => close() }, 'Book my Basic Wash ', arrow());
+    const later = el('button.btn.btn-glass', { type: 'button', onclick: close }, 'Not now');
+    const card = el('div.offer-card', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'offerPopTitle', 'aria-describedby': 'offerPopText' },
+      el('p.eyebrow', 'New customers'),
+      el('h2.display', { id: 'offerPopTitle' }, 'Your first Basic Wash: ' + U.money(car.first_visit_cents)),
+      el('p', { id: 'offerPopText' }, U.offerFine(o)),
+      el('div.offer-actions', book, later));
+    popOpen = el('div.offer-pop', { onclick: (e) => { if (e.target === popOpen) close(); } }, card);
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key !== 'Tab') return;
+      const f = [book, later];
+      const i = f.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); later.focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); book.focus(); }
+    }
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(popOpen);
+    book.focus({ preventScroll: true });
+  }
+
+  window.AlchemistAccount = { mountAccount, mountAppointments, offerPopup, refresh: () => { appts.list = null; acct.loading = true; acct.confirm = null; session = null; ready = null; } };
 })();

@@ -1,7 +1,7 @@
 /* Alchemist Detailing — the Services page showroom (the owner's own designs,
    doc 32): the Alchemist's Table (the menu as a periodic table of elements),
    the Ritual (how an exterior is done, five opening panels) and the Bead Test
-   (bare paint beside WetGloss). app.js mounts the three once, when the
+   (bare paint beside the Full Detail's sealant foam since Nov 17; WetGloss is retired). app.js mounts the three once, when the
    services page first opens. Every price, time and description below is the
    menu as it stands on the page; nothing here invents a fact. */
 (function () {
@@ -12,51 +12,55 @@
   const stacked = window.matchMedia('(max-width: 980px)');   // the Table's panel sits under the grid
   const SVG = 'http://www.w3.org/2000/svg';
 
-  // ---------------------------------------------------------------- the elements (the menu, Oct 10, 2026)
-  // WetGloss is priced by vehicle type: three prices for the types the database prices (the Bead Test's chips)
-  const WG = [
-    { label: 'Car, coupe or sedan', lower: 'car, coupe or sedan', types: ['sedan', 'coupe'], price: '$44.99' },
-    { label: 'Crossover, SUV or minivan', lower: 'crossover, SUV or minivan', types: ['crossover', 'suv', 'minivan'], price: '$54.99' },
-    { label: 'Truck or large SUV', lower: 'truck or large SUV', types: ['truck', 'large_suv'], price: '$64.99' },
-  ];
-  function wgDesc() {
-    return 'Spray-on sealant for gloss and water beading, added after a wash with an exterior service. Lasts several weeks. ' +
-      WG.map((g) => g.price + ' ' + g.lower).join('; ') + '. Van, convertible or other: priced by us before your appointment.';
-  }
-  // code: the service in the database; the key is also the booking's route token (#book-ed opens it chosen).
-  // A bundle's lead is the start of its description; the saving after it comes from the prices (fromMenu).
+  // ---------------------------------------------------------------- the elements (the menu of Migration 011, Nov 17, 2026)
+  // code: the service in the database; the key is also the booking's route token (#book-bw opens it chosen). Price and
+  // time are the database's for the size picked on the page (the size switch); what is written here is the menu as
+  // seeded, for a car, shown until the database answers. A bundle's lead is the start of its description; the saving
+  // after it comes from the prices (fromMenu).
   const ELEMENTS = [
-    { key: 'eb', code: 'ext_basic', sym: 'Eb', num: '1', name: 'Exterior Basic', short: 'Exterior Basic', price: '$49.99', time: '60 min', mobile: '+2.5%', eq: '',
-      desc: 'Snow-foam pre-wash, Brake Buster on wheels and tires, exterior glass, then a thorough hand wash and hand dry.' },
-    { key: 'ib', code: 'int_basic', sym: 'Ib', num: '3', name: 'Interior Basic', short: 'Interior Basic', price: '$59.99', time: '60 min', mobile: '+2.5%', eq: '',
-      desc: 'Full vacuum, dash and plastics with Top Star, Gummifix on rubber and mats, interior glass and a general wipe-down.' },
-    { key: 'sc', code: 'signature_combo', sym: 'Sc', num: '5', name: 'Signature Combo', short: 'Signature Combo', price: '$99.99', time: '2 h', mobile: '+7%', eq: 'Eb + Ib → Sc',
-      lead: 'Exterior Basic and Interior Basic together',
-      desc: 'Exterior Basic and Interior Basic together: $109.98 booked separately, so you save $9.99 before any mobile charge.' },
-    { key: 'wg', code: 'perfect_finish_sealant', sym: 'Wg', num: '7', name: 'WetGloss', short: 'WetGloss', price: 'from $44.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
-      desc: wgDesc() },
-    { key: 'ed', code: 'ext_deluxe', sym: 'Ed', num: '2', name: 'Exterior Deluxe', short: 'Exterior Deluxe', price: '$94.99', time: '90 min', mobile: '+7%', eq: '',
-      desc: 'Everything in Exterior Basic, plus Green Star pre-treatment where appropriate and Koch-Chemie Hydro Foam Sealant for gloss and water beading.' },
-    { key: 'id', code: 'int_deluxe', sym: 'Id', num: '4', name: 'Interior Deluxe', short: 'Interior Deluxe', price: '$134.99', time: '2 h', mobile: '+7%', eq: '',
-      desc: 'Everything in Interior Basic, plus deep steam or shampoo, drill-brush agitation, deeper stain removal and Leather Star conditioning. Steam cleaning included.' },
-    { key: 'au', code: 'full_detail', sym: 'Au', num: '79', name: 'Full Detail Bundle', short: 'Full Detail', price: '$209.99', time: '3½ h', mobile: '+7%', eq: 'Ed + Id → Au',
-      lead: 'Exterior Deluxe and Interior Deluxe together, steam cleaning included',
-      desc: 'Exterior Deluxe and Interior Deluxe together, steam cleaning included: $229.98 booked separately, so you save $19.99 before any mobile charge.' },
-    { key: 'st', code: 'steam_cleaning', sym: 'St', num: '8', name: 'Steam Cleaning', short: 'Steam Cleaning', price: '$49.99', time: '+30 min', mobile: '+2.5%', eq: '', addon: true,
-      desc: 'Deep steam for carpets, upholstery and interior surfaces. Already included in Interior Deluxe and the Full Detail Bundle.' },
+    { key: 'bw', code: 'basic_wash', sym: 'Bw', num: '1', name: 'Basic Wash', tile: 'Basic Wash', short: 'Basic Wash', price: '$50', time: '1 h 32 min', eq: '',
+      desc: 'Thick foam to loosen the dirt, then a careful two-bucket hand wash. Rinsed and hand-dried; wheels and tires rinsed with the car. For cars with normal road dirt.' },
+    { key: 'hw', code: 'hand_wash', sym: 'Hw', num: '2', name: 'Hand Wash', tile: 'Hand Wash', short: 'Hand Wash', price: '$75', time: '1 h 31 min', eq: '',
+      desc: 'Thick foam, a careful two-bucket hand wash, wheels and tires cleaned, tire shine. Rinsed, hand-dried and blown out. Outside glass.' },
+    { key: 'io', code: 'inside_out', sym: 'Io', num: '3', name: 'Inside & Out', tile: 'Inside & Out', short: 'Inside & Out', price: '$100', time: '2 h 43 min', eq: 'Hw + Ic → Io',
+      lead: 'Everything in the Hand Wash, plus the inside of the Interior Clean' },
+    { key: 'au', code: 'full_detail_v2', sym: 'Au', num: '79', name: 'Full Detail', tile: 'Full Detail', short: 'Full Detail', price: '$165', time: '5 h 15 min', eq: 'Hw + Id → Au',
+      lead: 'Everything in Inside & Out, plus a pre-soak, wheel wells, a water-repellent sealant foam, seats and carpets shampooed and extracted, and steam' },
+    { key: 'ic', code: 'interior_clean', sym: 'Ic', num: '4', name: 'Interior Clean', tile: 'Interior Clean', short: 'Interior Clean', price: '$75', time: '1 h 43 min', eq: '',
+      desc: 'The inside of Inside & Out, no wash: vacuumed, wiped, mats scrubbed and left dry, inside windows, a protectant on the dash and trim.' },
+    { key: 'idt', code: 'interior_detail', sym: 'Id', num: '5', name: 'Interior Detail', tile: 'Interior Detail', short: 'Interior Detail', price: '$125', time: '3 h 49 min', eq: '',
+      desc: 'The inside of the Full Detail, no wash: seats and carpets shampooed and extracted, leather cleaned and conditioned, steam, door seals dressed.' },
+    { key: 'wt', code: 'wheels_tire_shine', sym: 'Wt', num: '6', name: 'Wheels & Tire Shine', tile: 'Wheels & Tires', short: 'Wheels & Tire Shine', price: '$20', time: '+19 min', eq: '', addon: true,
+      desc: 'Wheels and tires scrubbed, then tire shine. Goes with the Basic Wash (the Hand Wash already has it).' },
+    { key: 'gw', code: 'gloss_wax', sym: 'Gw', num: '7', name: 'Gloss wax foam', tile: 'Gloss wax', short: 'Gloss wax foam', price: '$20', time: '+10 min', eq: '', addon: true,
+      desc: 'A gloss wax foam after the wash, for shine and water beading. With the Basic Wash, Hand Wash or Inside & Out.' },
+    { key: 'en', code: 'engine_bay', sym: 'En', num: '8', name: 'Engine bay clean', tile: 'Engine bay', short: 'Engine bay clean', price: '$50', time: '+25 min', eq: '', addon: true,
+      desc: 'The engine bay cleaned. With any service.' },
+    { key: 'pf', code: 'film_care', sym: 'Pf', num: '9', name: 'Clear film (PPF) care', tile: 'Film care', short: 'Clear film care', price: '$15', time: '+12 min', eq: '', addon: true,
+      desc: 'Every wash is already safe for clear film. This adds a hand clean of the film’s edges and any spots on it, with a cleaner made for film.' },
+    { key: 'lc', code: 'leather_care', sym: 'Lc', num: '10', name: 'Leather care', tile: 'Leather care', short: 'Leather care', price: '$35', time: '+25 min', eq: '', addon: true,
+      desc: 'Leather seats cleaned and conditioned. With Inside & Out or the Interior Clean; already in the Full Detail and the Interior Detail.' },
+    { key: 'sr', code: 'stain_removal', sym: 'Sr', num: '11', name: 'Stain and spill removal', tile: 'Stains', short: 'Stain removal', price: '$40', time: '+33 min', eq: '', addon: true,
+      desc: 'Set-in stains and spills treated one by one, up to 5 spots. More than 5? We tell you the price first.' },
   ];
   const BY = Object.fromEntries(ELEMENTS.map((e) => [e.key, e]));
-  // what the booking takes from the Table: the symbol, the number and the token of each service, never its prices
-  const SIGNS = ELEMENTS.map((e) => ({ key: e.key, code: e.code, sym: e.sym, num: e.num }));
-  // column heads: the group, its element, and a small mark
+  // what the booking takes from the Table: the symbol, the number and the token of each service, never its prices.
+  // The retired menu's marks stay for older bookings (the account's Appointments), with no token: an old link (#book-ed)
+  // opens the Services page instead (app.js)
+  const LEGACY = [['eb', 'ext_basic', 'Eb', '1'], ['ed', 'ext_deluxe', 'Ed', '2'], ['ib', 'int_basic', 'Ib', '3'], ['id', 'int_deluxe', 'Id', '4'],
+    ['sc', 'signature_combo', 'Sc', '5'], ['wg', 'perfect_finish_sealant', 'Wg', '7'], ['st', 'steam_cleaning', 'St', '8'], ['au', 'full_detail', 'Au', '79']];
+  const SIGNS = ELEMENTS.map((e) => ({ key: e.key, code: e.code, sym: e.sym, num: e.num }))
+    .concat(LEGACY.map(([key, code, sym, num]) => ({ key: null, legacy: key, code, sym, num })));
+  const OLD_TOKENS = LEGACY.map((l) => l[0]).filter((k) => !BY[k]);
+  // column heads: the group, its element, and a small mark (the add-ons take two columns)
   const COLS = [
-    { area: 'c1', name: 'Exterior', elem: 'Water', icon: ['M4 6h16L12 20z'] },
-    { area: 'c2', name: 'Interior', elem: 'Air', icon: ['M12 4l8 14H4z', 'M7.4 13h9.2'] },
-    { area: 'c3', name: 'Bundles', elem: 'Gold', icon: ['circle', 'M11 12h2'] },
+    { area: 'c1', name: 'Washes', elem: 'Water', icon: ['M4 6h16L12 20z'] },
+    { area: 'c2', name: 'Inside & out', elem: 'Gold', icon: ['circle', 'M11 12h2'] },
+    { area: 'c3', name: 'Inside only', elem: 'Air', icon: ['M12 4l8 14H4z', 'M7.4 13h9.2'] },
     { area: 'c4', name: 'Add-ons', elem: 'Salt', icon: ['circle', 'M4 12h16'] },
   ];
-  // row heads: the tier; the second pair repeats them on a phone, where the grid is two columns wide
-  const ROWS = [['r1', 'I', 'Basic'], ['r2', 'II', 'Deluxe'], ['r1b', 'I', 'Basic', true], ['r2b', 'II', 'Deluxe', true]];
+  // row heads: the step up within each group; the second pair repeats them on a phone (hidden there since Nov 17)
+  const ROWS = [['r1', 'I', 'Start'], ['r2', 'II', 'Step up'], ['r1b', 'I', 'Start', true], ['r2b', 'II', 'Step up', true]];
 
   function mark(paths) {
     const s = document.createElementNS(SVG, 'svg');
@@ -108,9 +112,9 @@
         type: 'button', class: (e.addon ? 'addon' : '') + (au ? ' au' : ''), 'aria-pressed': 'false', 'aria-label': tileName(e), tabindex: -1,
         dataset: { key: e.key }, style: { gridArea: e.key }, onclick: (ev) => pick(e.key, false, ev.detail > 0),
       },
-        el('span.meta.tnum', { 'aria-hidden': 'true' }, el('span', e.num), el('span', e.time)),
+        el('span.meta.tnum', { 'aria-hidden': 'true' }, el('span', e.num), el('span', tileTime(e))),
         el('span.sym', { class: au ? null : 'gold-text', 'aria-hidden': 'true' }, e.sym),
-        el('span.nm', el('b', e.name), el('span.tnum', e.price)));
+        el('span.nm', el('b', e.tile || e.name), el('span.tnum', e.price)));
       tiles.set(e.key, t);
       list.push(t);
     });
@@ -132,7 +136,7 @@
 
     // the side panel
     const pNo = el('span.no.tnum'), pSym = el('div.sym.gold-text', { 'aria-hidden': 'true' }), pName = el('h3', { 'aria-live': 'polite' });
-    const pEq = el('div.el-eq'), pDesc = el('p'), pPrice = el('b.price.tnum'), pTime = el('b.tnum'), pMobile = el('b.tnum');
+    const pEq = el('div.el-eq'), pDesc = el('p'), pPrice = el('b.price.tnum'), pTime = el('b.tnum'), pMobile = el('b');
     const pLabel = document.createTextNode('');
     const pBook = el('a.btn.btn-gold.shine', { href: '#book' }, pLabel, arrow());   // opens the booking with the picked element chosen
     // under the grid (phones, tablets), a text action takes the visitor back up to the tile they tapped
@@ -143,7 +147,7 @@
     } }, 'Back to the table ', el('span.arrow.up', { 'aria-hidden': 'true' }, '↑'));   // (Archivo draws ↑: .up keeps the glyph)
     const panel = el('section.el-panel', { 'aria-label': 'The picked element' },   // (a region in the page: an aside inside main would be a stray landmark)
       el('div.top', el('span.eyebrow', 'Element'), pNo), pSym, pName, pEq, pDesc,
-      el('div.el-facts', el('div', el('span', 'Price'), pPrice), el('div', el('span', 'Time'), pTime), el('div', el('span', 'Mobile'), pMobile)),
+      el('div.el-facts', el('div', el('span', 'Price'), pPrice), el('div', el('span', 'Time'), pTime), el('div', el('span', 'Size'), pMobile)),
       el('div.el-actions', pBook, back));
     function pick(key, focus, tapped) {
       const e = BY[key];
@@ -153,7 +157,7 @@
       tiles.forEach((t, k) => { const on = k === key; t.setAttribute('aria-pressed', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1; });
       same(pNo, 'No. ' + e.num); same(pSym, e.sym); same(pName, e.name);
       same(pEq, e.eq); pEq.hidden = !e.eq; same(pDesc, e.desc);
-      same(pPrice, e.price); same(pTime, e.time); same(pMobile, e.mobile);
+      same(pPrice, e.price); same(pTime, e.time); same(pMobile, e.addon ? 'Every size' : sizeName());
       pLabel.data = 'Book ' + e.short + ' ';
       pBook.setAttribute('href', '#book-' + e.key);
       if (changed && !reduce) { panel.classList.remove('swap'); void panel.offsetWidth; panel.classList.add('swap'); }
@@ -166,31 +170,31 @@
 
     // the legend reads the first element (the design's mini tile), and the mobile note is the menu's own sentence
     const eb = ELEMENTS[0];
-    const miniTime = el('span', eb.time.replace(' min', '')), miniPrice = el('span.pr.tnum', eb.price);
+    const miniTime = el('span', tileTime(eb)), miniPrice = el('span.pr.tnum', eb.price);
     const legend = el('div.el-legend',
       el('div.el-mini', { 'aria-hidden': 'true' }, el('span.meta.tnum', el('span', eb.num), miniTime), el('span.sym', eb.sym), miniPrice),
       el('div.el-key',
         el('span', el('b', 'Top left'), ' · its place on the menu'), el('span', el('b', 'Top right'), ' · time on the job'),
-        el('span', el('b', 'Centre'), ' · the element'), el('span', el('b', 'Bottom'), ' · price, standard-size vehicle')));
+        el('span', el('b', 'Centre'), ' · the element'), el('span', el('b', 'Bottom'), ' · price for the size you picked')));
     const main = el('div.el-main', el('div.el-scroll', grid), legend), box = el('div.el-table', main, panel);
     container.replaceChildren(
       el('div.section-head', el('p.eyebrow', 'At a glance'), el('h2.display', { id: 'tableTitle' }, 'The Alchemist’s Table'),
         el('p', el('span.lead-s', 'Every service is an element.'), ' ', el('span.lead-s', 'Pick one to see what goes into it.')), el('span.rule', { 'data-reveal': '' })),   // (a line breaks between its sentences: CSS .lead-s)
       box,
-      el('p.el-note', 'Prices are for standard-size vehicles. Mobile service adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.'));
+      el('p.el-note', 'Prices and times are for the size you picked above. Add-ons cost the same for every size. We come to you or you come to us: the same price.'));
     transmute(box, main, grid, tiles, panel);
     table = {
       refresh() {
-        ELEMENTS.forEach((e) => { const t = tiles.get(e.key); put(t.querySelector('.meta span:last-child'), e.time); put(t.querySelector('.nm .tnum'), e.price); if (t.getAttribute('aria-label') !== tileName(e)) t.setAttribute('aria-label', tileName(e)); });
-        put(miniTime, eb.time.replace(' min', '')); put(miniPrice, eb.price);
+        ELEMENTS.forEach((e) => { const t = tiles.get(e.key); put(t.querySelector('.meta span:last-child'), tileTime(e)); put(t.querySelector('.nm .tnum'), e.price); if (t.getAttribute('aria-label') !== tileName(e)) t.setAttribute('aria-label', tileName(e)); });
+        put(miniTime, tileTime(eb)); put(miniPrice, eb.price);
         pick(picked, false);   // the panel as it stands, with the new figures
       },
     };
   }
 
   // ---------------------------------------------------------------- the transmutation: Ed + Id → Au
-  // The Table's one moment (the owner's §18, given to the menu's top service: the Full Detail Bundle is Exterior Deluxe
-  // and Interior Deluxe together). The case arrives unlit (data-tm): the tiles dimmed; Au charcoal, its letters unlit
+  // The Table's one moment (the owner's §18, given to the menu's top service: the Full Detail is the Hand Wash and the
+  // Interior Detail together, Hw + Id → Au, since Nov 17; it was Ed + Id → Au). The case arrives unlit (data-tm): the tiles dimmed; Au charcoal, its letters unlit
   // but legible; the panel's Au faint and a little low, its equation undrawn. The first time the grid is 35% on the
   // screen its tiles come up to full light in .5s, all but Ed and Id (.tm-lit). Then a turn of the gold light
   // (window.AlchemistLight: one at a time, the shines on the screen waiting): Ed's letters take it, then Id's 300ms
@@ -230,7 +234,7 @@
   }
   const STEPS_IO = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.75, 0.9, 1];
   function transmute(box, main, grid, tiles, panel) {
-    const L = window.AlchemistLight, au = tiles.get('au'), ed = tiles.get('ed'), id = tiles.get('id');
+    const L = window.AlchemistLight, au = tiles.get('au'), ed = tiles.get('hw'), id = tiles.get('idt');
     if (reduce || !L || L.off || !au || !ed || !id || !window.IntersectionObserver || !window.MutationObserver || seenTm()) return;
     const gold = el('span.tm-gold', { 'aria-hidden': 'true' }, el('span.tm-fill'), el('span.tm-edge'), el('span.tm-bloom'));
     au.prepend(gold);
@@ -496,12 +500,14 @@
 
   // ---------------------------------------------------------------- the Ritual
   // (the page's plates have the front and the mirror, so the last two steps take the side skirt and the lip)
+  // Migration 011's menu (Nov 17): the products named are the owner's own (the Products guide); the seal is the Full
+  // Detail's, or Gloss wax foam added to a wash
   const STEPS = [
-    { n: '01', title: 'Snow foam', text: 'A snow-foam pre-wash covers the car first. Deluxe adds Green Star pre-treatment where appropriate.', chips: ['Snow foam', 'Green Star · Deluxe'], media: () => texture('foam', 1200, 900), pos: '30% 50%' },
-    { n: '02', title: 'Wheels', text: 'Brake Buster on the wheels and tires, then the tires are cleaned.', chips: ['Brake Buster'], media: () => photo('wheel', 'Rear wheel and arch after cleaning'), pos: '45% 62%' },
-    { n: '03', title: 'Hand wash', text: 'A thorough hand wash with professional-grade chemicals.', chips: ['By hand'], media: () => photo('badge', 'M2 badge on wet white paint'), pos: '50% 50%' },
-    { n: '04', title: 'Hand dry', text: 'Dried by hand, panel by panel, exterior glass included.', chips: ['Exterior glass'], media: () => photo('side', 'Side skirt and carbon trim after a wash'), pos: '40% 100%' },
-    { n: '05', title: 'Seal', text: 'Koch-Chemie Hydro Foam Sealant for gloss and water beading. Or add WetGloss to any exterior.', chips: ['Hydro Foam Sealant · Deluxe', 'WetGloss · add-on'], media: () => photo('lip', 'Carbon-fibre front lip with water beading'), pos: '50% 100%' },
+    { n: '01', title: 'Pre-wash', text: 'A Green Star pre-wash loosens the dirt before anything touches the paint.', chips: ['Green Star'], media: () => texture('foam', 1200, 900), pos: '30% 50%' },
+    { n: '02', title: 'Wheels', text: 'Hand Wash and up: wheels and tires cleaned, then tire shine. On a Basic Wash they are rinsed with the car, or add Wheels & Tire Shine.', chips: ['Hand Wash and up', 'Wheels & Tire Shine · add-on'], media: () => photo('wheel', 'Rear wheel and arch after cleaning'), pos: '45% 62%' },
+    { n: '03', title: 'Hand wash', text: 'A careful two-bucket hand wash with Gentle Snow Foam.', chips: ['Two buckets', 'By hand'], media: () => photo('badge', 'M2 badge on wet white paint'), pos: '50% 50%' },
+    { n: '04', title: 'Hand dry', text: 'Rinsed and dried by hand. Hand Wash and up: blown out, and the outside glass.', chips: ['Outside glass · Hand Wash and up'], media: () => photo('side', 'Side skirt and carbon trim after a wash'), pos: '40% 100%' },
+    { n: '05', title: 'Seal', text: 'The Full Detail ends with a water-repellent sealant foam. Or add Gloss wax foam to a Basic Wash, Hand Wash or Inside & Out.', chips: ['Sealant foam · Full Detail', 'Gloss wax foam · add-on'], media: () => photo('lip', 'Carbon-fibre front lip with water beading'), pos: '50% 100%' },
   ];
   function mountRitual(container) {
     let open = 4;
@@ -531,13 +537,15 @@
       show(next, true);
     });
     container.replaceChildren(
-      el('div.show-head', el('div', el('p.eyebrow', 'How an exterior is done'), el('h2.display', { id: 'ritualTitle' }, 'The Ritual')),
-        el('p', 'The order every exterior detail follows. Deluxe adds the seal.', el('span.tap-only', ' Tap a step to open it.'), el('span.click-only', ' Click a step to open it.'))),   // (the verb for the pointer; paper has every step open: the CSS leaves it off)
+      el('div.show-head', el('div', el('p.eyebrow', 'How a wash is done'), el('h2.display', { id: 'ritualTitle' }, 'The Ritual')),
+        el('p', 'The order every wash follows. The Full Detail adds the seal.', el('span.tap-only', ' Tap a step to open it.'), el('span.click-only', ' Click a step to open it.'))),   // (the verb for the pointer; paper has every step open: the CSS leaves it off)
       el('div.rit-scroll', row));
   }
 
   // ---------------------------------------------------------------- the Bead Test
-  let bead = null;   // the mounted Bead Test: refresh() writes WetGloss's prices again (fromMenu)
+  // WetGloss, its first subject, is retired (Migration 011). PROPOSED until the owner says (design C10): the Full Detail's
+  // water-repellent sealant foam beside bare paint, with no price of its own here (it is part of the Full Detail).
+  let bead = null;
   function mountBead(container) {
     const root = document.documentElement;
     const gl = !root.classList.contains('no-webgl') && window.AlchemistHero && typeof window.AlchemistHero.art === 'function';
@@ -547,20 +555,18 @@
     const bare = el('div.bead-pane.bare', texture('water-film', 1400, 900), art('film'), el('span.scrim', { 'aria-hidden': 'true' }),
       el('span.bead-pill', 'Bare paint'), el('span.bead-cap', 'Water lies flat in a film'));
     const gloss = el('div.bead-pane.gloss', texture('water-beads', 1400, 900), art('beads'), el('span.scrim', { 'aria-hidden': 'true' }),
-      el('span.bead-pill', 'WetGloss'), el('span.bead-cap', 'Water beads up and rolls off'));
+      el('span.bead-pill', 'Sealant foam'), el('span.bead-cap', 'Water beads up and rolls off'));
     if (spray) armSpray(gloss);
-    const prices = WG.map((g) => el('b.tnum', g.price));
-    bead = { refresh() { WG.forEach((g, i) => put(prices[i], g.price)); } };
+    const price = el('b.tnum', BY.au.price), size = el('span', sizeName());
+    bead = { refresh() { put(price, BY.au.price); put(size, sizeName()); } };
     container.replaceChildren(
       el('div.show-head', el('div', el('p.eyebrow', 'Protection'), el('h2.display', { id: 'beadTitle' }, 'The Bead Test')),
-        el('p', spray ? el('span.bead-how', 'Press and drag across the panel. ') : null, 'On bare paint the water lies flat. WetGloss pulls it into beads that roll off.')),   // (the panel's own words: not in print)
+        el('p', spray ? el('span.bead-how', 'Press and drag across the panel. ') : null, 'On bare paint the water lies flat. A water-repellent sealant foam pulls it into beads that roll off.')),   // (the panel's own words: not in print)
       el('div.bead-cmp', bare, gloss, el('span.bead-seam', { 'aria-hidden': 'true' }), el('span.bead-badge', { 'aria-hidden': 'true' }, '✦')),
       el('div.bead-foot',
-        el('div.wg', el('b', 'WetGloss'), el('p', 'Spray-on sealant, added after a wash with any exterior service. Lasts several weeks, depending on weather and washing.')),
-        // the database has no WetGloss price for these types: the quote holds the price (the FAQ's words)
-        el('div.bead-prices', el('div.bead-chips', WG.map((g, i) => el('span.bead-price', g.label + ' ', prices[i]))),
-          el('p.bead-ask', 'Van, convertible or other: priced by us before your appointment')),
-        el('a.btn.btn-gold.shine', { href: '#book-wg' }, 'Add WetGloss ', arrow())));
+        el('div.wg', el('b', 'Sealant foam'), el('p', 'The last step of every Full Detail. Or add Gloss wax foam to a Basic Wash, Hand Wash or Inside & Out.')),
+        el('div.bead-prices', el('div.bead-chips', el('span.bead-price', 'Full Detail, ', size, ' ', price))),
+        el('a.btn.btn-gold.shine', { href: '#book-au' }, 'Book a Full Detail ', arrow())));
   }
   // Press and drag to spray (desktop only): a film of water comes back under the pointer and the
   // beads show through a growing hole in it; on release the whole panel clears to beads again.
@@ -602,48 +608,63 @@
   }
 
   // ---------------------------------------------------------------- the menu's figures, from the database
-  // The prices, times and mobile charges on the services page and the home cards name their service (data-price,
-  // data-time, data-mobile, data-saving); the Table and the Bead Test keep theirs in ELEMENTS and WG. Once the menu has
-  // loaded, all of them are written from it, so a price the owner changes in the database shows everywhere at once;
-  // until then, and should it never load, the page shows the menu as seeded (the same figures). Every figure already
-  // has its place, so nothing moves; one that does change fades in.
-  // Still typed by hand (change them too when a price, a fee or a mobile charge changes in the database): the LD+JSON
-  // priceRange in index.html; the mobile sentence under the home cards, in the Mobile note and in the Table's note
-  // (below); the condition fees in the Interior condition note and the FAQ (content.js, with its mobile answer); and
-  // the Steam add-on's "Already included in Interior Deluxe and the Full Detail Bundle".
+  // Migration 011: every price and time goes by size. The page has one size switch (Car / 2 rows / 3 rows or pickup /
+  // Minivan, remembered on this device as ad-size; the booking sets it too when a vehicle type is chosen), and every
+  // [data-price], [data-time], [data-saving], [data-every] and the Table show that size's figures from the database's
+  // service_size_rates. [data-size-name] says which size is shown. The new-customer price ([data-offer], [data-offer-fine])
+  // and its end date come from get_first_visit_offer, so the date the owner sets shows everywhere. Until the database
+  // answers, and should it never, the page shows the menu as seeded (a car). Never a "from" price.
+  // Still typed by hand (change them too when the menu changes in the database): the LD+JSON priceRange in index.html,
+  // the FAQ's prices and times (content.js), the Full Detail's "not included" line and the home cards' lines.
   const money = window.AlchemistUI.money;
+  const SIZES_SEED = [{ code: 'car', name: 'Car', short_name: 'Car' }, { code: 'two_rows', name: 'SUV or crossover, 2 rows', short_name: '2 rows' },
+    { code: 'three_rows', name: '3 rows or pickup', short_name: '3 rows or pickup' }, { code: 'minivan', name: 'Minivan', short_name: 'Minivan' }];
+  let sizes = SIZES_SEED;
+  let size = (() => { try { const v = localStorage.getItem('ad-size'); return SIZES_SEED.some((z) => z.code === v) ? v : 'car'; } catch (e) { return 'car'; } })();
+  const sizeName = () => (sizes.find((z) => z.code === size) || SIZES_SEED[0]).name;
+  const sizeShort = (code) => (sizes.find((z) => z.code === code) || {}).short_name || code;
   function timeText(min, addon) {
     if (min == null) return null;
+    min = Math.ceil(min);
     const h = Math.floor(min / 60), r = min % 60;
-    return (addon ? '+' : '') + (min < 120 ? min + ' min' : h + (r === 30 ? '½' : '') + ' h' + (r && r !== 30 ? ' ' + r + ' min' : ''));
+    return (addon ? '+' : '') + (min < 60 ? min + ' min' : h + ' h' + (r ? ' ' + r + ' min' : ''));
   }
-  // '90 min', '2 h', '3½ h' back to minutes (the step-up's time, from the cards as they stand)
+  // a tile's short time: minutes under two hours, else hours to the quarter
+  function tileTime(e) {
+    const m = minutesOf(e.time);
+    if (m == null) return e.time;
+    if (e.addon || m < 120) return e.time.replace(/ h /, ':').replace(/ min$/, e.addon ? ' min' : '');
+    const q = Math.round(m / 15) / 4, w = Math.floor(q), f = q - w;
+    return w + (f === 0.25 ? '¼' : f === 0.5 ? '½' : f === 0.75 ? '¾' : '') + ' h';
+  }
+  // '1 h 32 min', '92 min', '+19 min' back to minutes (the step-up's time, from the cards as they stand)
   function minutesOf(text) {
-    const m = /^\+?(\d+)(½)?\s*(h|min)(?:\s*(\d+)\s*min)?$/.exec(String(text || '').trim());
-    return !m ? null : m[3] === 'min' ? +m[1] : +m[1] * 60 + (m[2] ? 30 : 0) + (+m[4] || 0);
+    const m = /^\+?(?:(\d+)\s*h)?\s*(?:(\d+)\s*min)?$/.exec(String(text || '').trim());
+    return !m || (!m[1] && !m[2]) ? null : (+m[1] || 0) * 60 + (+m[2] || 0);
   }
   const svcOf = (m, code) => m.services.find((s) => s.code === code) || null;
-  // a service's price: its own, or (priced by vehicle type, as WetGloss is) the lowest of its type prices
-  function priceOf(m, code) {
+  // a service's rate for the size shown: { price, minutes }; an add-on has one price for every size
+  function rateOf(m, code) {
+    const r = m.rates && m.rates[code];
+    if (r && r[size]) return r[size];
     const s = svcOf(m, code);
-    if (!s) return null;
-    if (s.base_price_cents != null) return s.base_price_cents;
-    const t = Object.values(m.typePrices[code] || {});
-    return t.length ? Math.min(...t) : null;
+    return s ? { price: s.base_price_cents, minutes: s.duration_min } : null;
   }
-  // what a service includes (service_includes); a bundle also includes what its parts include, as quote_booking
-  // works it out (the database keeps steam with Interior Deluxe, not with the Full Detail Bundle itself)
+  const priceOf = (m, code) => { const r = rateOf(m, code); return r ? r.price : null; };
+  // what a service includes (service_includes); a bundle also includes what its parts include, as quote_core works it out
   function includedBy(m, code) {
     const out = new Set();
     [code].concat(m.bundleParts[code] || []).forEach((c) => (m.includes[c] || []).forEach((i) => out.add(i)));
     return out;
   }
-  // a bundle against its parts booked one by one: { sum, save }, or null when it saves nothing
+  // a bundle against its parts booked one by one, for the size shown: { sum, save }, or null when it saves nothing
   function savingOf(m, code) {
-    const parts = m.bundleParts[code], s = svcOf(m, code);
-    if (!parts || !parts.length || !s || s.base_price_cents == null) return null;
-    const sum = parts.reduce((t, c) => t + (priceOf(m, c) || 0), 0);
-    return sum > s.base_price_cents ? { sum, save: sum - s.base_price_cents } : null;
+    const parts = m.bundleParts[code], p = priceOf(m, code);
+    if (!parts || !parts.length || p == null) return null;
+    const v = parts.map((c) => priceOf(m, c));
+    if (v.some((x) => x == null)) return null;
+    const sum = v.reduce((t, x) => t + x, 0);
+    return sum > p ? { sum, save: sum - p } : null;
   }
   // a figure swapped in place fades in over a panel's time, on the feedback curve (both read from the stylesheet's tokens)
   function fade(node) {
@@ -658,60 +679,127 @@
   }
   function putSaving(p, sv) {
     p.hidden = !sv;
-    if (!sv || p.textContent === money(sv.sum) + ' booked separately. You save ' + money(sv.save) + ', before any mobile charge.') return;
-    p.replaceChildren(money(sv.sum) + ' booked separately. You save ', el('b.tnum', money(sv.save)), ', before any mobile charge.');
+    if (!sv) return;
+    const text = money(sv.sum) + ' booked separately. You save ' + money(sv.save) + '.';
+    if (p.textContent === text) return;
+    p.replaceChildren(money(sv.sum) + ' booked separately. You save ', el('b.tnum', money(sv.save)), '.');
     fade(p);
   }
-  // the Table's elements and WetGloss's chips, from the menu
+  // the Table's elements, from the menu, for the size shown
   function fromMenu(m) {
     ELEMENTS.forEach((e) => {
-      const s = svcOf(m, e.code), p = priceOf(m, e.code);
-      if (!s) return;
-      if (p != null) e.price = (s.base_price_cents == null ? 'from ' : '') + money(p);
-      if (s.duration_min != null) e.time = timeText(s.duration_min, e.addon);
-      if (s.mobile_pct != null) e.mobile = '+' + Number(s.mobile_pct) + '%';
-      if (e.lead) { const sv = savingOf(m, e.code); e.desc = e.lead + (sv ? ': ' + money(sv.sum) + ' booked separately, so you save ' + money(sv.save) + ' before any mobile charge.' : '.'); }
+      const s = svcOf(m, e.code), r = rateOf(m, e.code);
+      if (!s || !r) return;
+      if (r.price != null) e.price = money(r.price);
+      if (r.minutes != null) e.time = timeText(r.minutes, e.addon);
+      if (e.lead) { const sv = savingOf(m, e.code); e.desc = e.lead + (sv ? ': ' + money(sv.sum) + ' booked separately, so you save ' + money(sv.save) + '.' : '.'); }
     });
-    const tp = m.typePrices.perfect_finish_sealant || {};
-    WG.forEach((g) => {
-      const v = g.types.map((t) => tp[t]).filter((x) => x != null);
-      if (v.length) g.price = (v.length === g.types.length && v.every((x) => x === v[0]) ? '' : 'from ') + money(Math.min(...v));
-    });
-    BY.wg.desc = wgDesc();
     if (table) table.refresh();
     if (bead) bead.refresh();
   }
-  let menuP = null;
+  let menuP = null, offerP = null;
   function loadMenu() {
     const D = window.AlchemistData;
     if (!D) return Promise.reject(new Error('no data layer'));
     if (!menuP) menuP = D.init().then(() => D.menu()).catch((e) => { menuP = null; throw e; });
     return menuP;
   }
+  function loadOffer() {
+    const D = window.AlchemistData;
+    if (!D || !D.firstVisitOffer) return Promise.resolve(null);
+    if (!offerP) offerP = D.init().then(() => D.firstVisitOffer()).catch(() => { offerP = null; return null; });
+    return offerP;
+  }
+  const longDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  // The new-customer lines: the gold line, and the small print with the real prices and end date (the owner's words,
+  // spec Nov 17). Hidden when the offer has ended or the database has none.
+  function paintOffer(o) {
+    const on = !!(o && o.active && o.prices && o.prices.car);
+    document.querySelectorAll('[data-offer]').forEach((n) => {
+      const wrap = n.closest('[data-offer-wrap]') || n;
+      wrap.hidden = !on;
+      if (!on) return;
+      const p = o.prices[n.dataset.offer === 'size' ? size : 'car'] || o.prices.car;
+      put(n, 'New customers: your first Basic Wash is ' + money(p.first_visit_cents));
+    });
+    document.querySelectorAll('[data-offer-fine]').forEach((n) => {
+      n.hidden = !on;
+      if (on) put(n, window.AlchemistUI.offerFine(o));
+    });
+  }
+  // every figure on the page for the size shown (the menu already loaded)
+  function paint(m) {
+    const all = (sel) => document.querySelectorAll(sel);
+    if (m.sizes && m.sizes.length) sizes = m.sizes;
+    all('[data-size-name]').forEach((n) => put(n, n.dataset.sizeName === 'short' ? sizeShort(size) : sizeName()));
+    all('[data-price]').forEach((n) => { const p = priceOf(m, n.dataset.price); put(n, p == null ? 'We confirm' : money(p)); });
+    all('[data-time]').forEach((n) => { const s = svcOf(m, n.dataset.time), r = rateOf(m, n.dataset.time); if (s && r) put(n, timeText(r.minutes, s.kind === 'addon')); });
+    all('[data-saving]').forEach((p) => putSaving(p, savingOf(m, p.dataset.saving)));
+    // "every size": the four prices of a card, the size shown in gold (aria-current)
+    all('[data-every]').forEach((n) => {
+      const r = m.rates && m.rates[n.dataset.every];
+      if (!r) return;
+      const key = JSON.stringify([sizes.map((z) => z.code), r, size]);
+      if (n.dataset.key === key) return;
+      n.dataset.key = key;
+      n.replaceChildren(...sizes.filter((z) => r[z.code]).map((z) => el('span', { class: z.code === size ? 'on' : null, 'aria-current': z.code === size ? 'true' : null }, z.short_name + ' ', el('b.tnum', r[z.code].price == null ? '—' : money(r[z.code].price)))));
+    });
+    // a line naming what a service includes shows while the menu still includes every one of them
+    all('[data-includes]').forEach((li) => {
+      const has = includedBy(m, li.dataset.service);
+      li.hidden = !li.dataset.includes.split(' ').every((c) => has.has(c));
+    });
+    fromMenu(m);
+    if (lineup) syncLineup(m);
+    paintSwitches();
+  }
   let synced = null;   // the latest answer: true once the page's figures are the database's
   function syncMenu() {
-    synced = loadMenu().then((m) => {
-      const all = (sel) => document.querySelectorAll(sel);
-      all('[data-price]').forEach((n) => {
-        const v = n.dataset.price.split(' ').map((c) => priceOf(m, c)).filter((x) => x != null);
-        if (v.length) put(n, money(Math.min(...v)));
-      });
-      all('[data-time]').forEach((n) => { const s = svcOf(m, n.dataset.time); if (s) put(n, timeText(s.duration_min, s.kind === 'addon')); });
-      all('[data-mobile]').forEach((n) => { const s = svcOf(m, n.dataset.mobile); if (s && s.mobile_pct != null) put(n, '+' + Number(s.mobile_pct) + '%'); });
-      all('[data-saving]').forEach((p) => putSaving(p, savingOf(m, p.dataset.saving)));
-      // a line naming what a service includes shows while the menu still includes every one of them
-      all('[data-includes]').forEach((li) => {
-        const has = includedBy(m, li.dataset.service);
-        li.hidden = !li.dataset.includes.split(' ').every((c) => has.has(c));
-      });
-      fromMenu(m);
-      if (lineup) syncLineup(m);
-      return window.AlchemistData.isLive;   // true: the figures on the page are the database's (the home row's light glints in them)
-    }).catch(() => false);   // the menu couldn't load: the page keeps the menu as seeded
+    loadOffer().then(paintOffer);
+    synced = loadMenu().then((m) => { paint(m); return window.AlchemistData.isLive; }).catch(() => false);   // the menu couldn't load: the page keeps the menu as seeded
     return synced;
   }
   // whether the figures on the page are the database's (a price card arrives with its figure once they are: app.js)
   const priced = () => synced || Promise.resolve(false);
+
+  // ---------------------------------------------------------------- the size switch
+  // A radio group (arrow keys move and choose, as the booking's choices do); the choice is kept on this device.
+  const switches = [];
+  function paintSwitches() {
+    switches.forEach((box) => {
+      if (box.dataset.sizes !== sizes.map((z) => z.code).join()) buildSwitch(box);
+      box.querySelectorAll('[role="radio"]').forEach((b) => { const on = b.dataset.size === size; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+    });
+  }
+  function setSize(code, focus) {
+    if (code === size || !sizes.some((z) => z.code === code)) return;
+    size = code;
+    try { localStorage.setItem('ad-size', code); } catch (e) { /* storage blocked: the switch keeps it for this page */ }
+    paintSwitches();
+    if (focus) { const b = document.querySelector('.size-switch [data-size="' + code + '"]'); if (b) b.focus({ preventScroll: true }); }
+    loadMenu().then(paint).catch(() => {});
+    loadOffer().then(paintOffer);
+  }
+  function buildSwitch(box) {
+    box.dataset.sizes = sizes.map((z) => z.code).join();
+    const row = el('div.size-row', { role: 'radiogroup', 'aria-labelledby': 'sizeLabel' }, sizes.map((z) => el('button.size-opt', {
+      type: 'button', role: 'radio', dataset: { size: z.code }, 'aria-checked': z.code === size ? 'true' : 'false', tabindex: z.code === size ? 0 : -1,
+      onclick: () => setSize(z.code, false) }, z.short_name)));
+    row.addEventListener('keydown', (e) => {
+      const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      const i = sizes.findIndex((z) => z.code === size);
+      setSize(sizes[(i + d + sizes.length) % sizes.length].code, true);
+    });
+    box.replaceChildren(el('p.size-label', { id: 'sizeLabel' }, 'Your vehicle'), row,
+      el('p.size-note', 'Van, unusual vehicle or not sure? Book it and we confirm the price before your appointment.'));
+  }
+  function mountSize(box) {
+    if (!box || switches.includes(box)) return;
+    switches.push(box);
+    buildSwitch(box);
+  }
 
   // ---------------------------------------------------------------- the bundle lineup: what stepping up adds
   // Built when the page first opens, from the two bundle cards as they stand (their parts' links and the part cards'
@@ -763,17 +851,20 @@
     const adds = Array.from(hi.querySelectorAll('[data-includes]:not([hidden])'))
       .filter((li) => !li.dataset.includes.split(' ').every((c) => loHas.has(c)))
       .map((li) => li.textContent.trim().replace(/\s+included$/i, ''));
+    // what the bigger one adds beyond its parts (the Full Detail's pre-soak, wheel wells and sealant foam: [data-extra])
+    const extras = Array.from(hi.querySelectorAll('[data-extra]'), (li) => li.textContent.trim());
     const tLo = lo.querySelector('[data-time]'), tHi = hi.querySelector('[data-time]');
     const mLo = tLo && minutesOf(tLo.textContent), mHi = tHi && minutesOf(tHi.textContent);
     const time = mLo && mHi && mHi > mLo ? { plus: timeText(mHi - mLo, true), from: tLo.textContent, to: tHi.textContent } : null;
-    const key = JSON.stringify([ok, parts, adds, time, folds.matches]);
+    const key = JSON.stringify([ok, parts, adds, extras, time, folds.matches]);
     if (key === stepKey) return;
     stepKey = key;
-    if (!ok || (!parts.length && !adds.length)) { panel.hidden = true; box.classList.remove('has-step'); return; }
+    if (!ok || (!parts.length && !adds.length && !extras.length)) { panel.hidden = true; box.classList.remove('has-step'); return; }
     const short = (ELEMENTS.find((e) => e.code === hi.dataset.code) || {}).short || nameOf(hi);
     panel.setAttribute('aria-labelledby', 'stepTitle');
     panel.replaceChildren(...[
       el('h3.eyebrow', { id: 'stepTitle' }, 'What you add with ' + short),
+      extras.length ? el('div.su-part', el('h4', 'Outside'), el('ul.su-list', extras.map((t) => el('li', t)))) : null,
       ...parts.map(stepPart),
       adds.length ? el('div.su-part', el('h4', 'Included'), el('ul.su-list', adds.map((t) => el('li', t)))) : null,
       time ? el('p.su-time', el('span', 'Time'), el('b.tnum', time.plus), el('small.tnum', time.from + ' → ' + time.to)) : null,
@@ -794,5 +885,5 @@
     buildStep(m);
   }
 
-  window.AlchemistServices = { mountTable, mountRitual, mountBead, mountLineup, syncMenu, priced, signs: SIGNS };
+  window.AlchemistServices = { mountTable, mountRitual, mountBead, mountLineup, mountSize, syncMenu, priced, signs: SIGNS, oldTokens: OLD_TOKENS, size: () => size };
 })();

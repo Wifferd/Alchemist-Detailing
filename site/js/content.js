@@ -25,9 +25,9 @@
         ['Never wash in direct sun', 'Hot panels dry soap and water into spots before you can rinse. Early morning, late afternoon, or shade.'],
         ['Dry with a towel, not the wind', 'Air-drying leaves mineral spots. A plush microfiber drying towel, laid flat and dragged, is gentler than rubbing.'],
         ['Mats out, then vacuum', 'Pull the floor mats, shake them, and vacuum the carpet underneath. Most of the grit lives there.'],
-        ['Deal with spills the same day', 'Blot, don’t rub. The longer a coffee or soda sits, the more it sets. Tell us about older stains when you book and we’ll plan for them.'],
+        ['Deal with spills the same day', 'Blot, don’t rub. The longer a coffee or soda sits, the more it sets. Older stains? Add stain and spill removal when you book.'],
         ['Pet hair: a rubber glove works', 'A damp rubber glove pulled across the seat gathers hair the vacuum misses. For the deep stuff, that’s what our pet-hair option is for.'],
-        ['Sealant is a habit, not a one-off', 'A spray sealant like WetGloss keeps water beading for several weeks. Reapply after a few washes and the paint stays easier to clean.'],
+        ['Protection is a habit, not a one-off', 'A wax or a sealant makes the next wash easier: water beads up and dirt lets go. Top it up every few washes and the paint stays easier to clean.'],
       ],
     },
     faq: {
@@ -37,15 +37,18 @@
         ['Where do you work?', 'We come to you within about 10 miles of Parker, Texas, or you come to us in Parker. We send our address with your confirmation.'],
         // Home's Why Alchemist repeats the next answer's faucet and outlet, and Home's Why and the Services Payment note
         // repeat 'How do I pay?' (index.html): change them there too
-        ['What does mobile service need from me?', 'An outdoor water faucet and a power outlet. Mobile adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.'],
+        ['What does mobile service need from me?', 'An outdoor water faucet and a power outlet. It costs the same as coming to us.'],
         ['How do I book?', 'Online in a few minutes: your contact, the car, where, the service, a day and time. Your request holds that time for 24 hours while we review it, and we contact you to confirm.'],
         ['How far ahead can I book?', 'From tomorrow up to 60 days ahead. Start times run every 30 minutes from 10 AM to 7 PM, and every job finishes by 8 PM. Monday to Thursday, jobs finish by 4 PM; on Fridays we’re closed from noon to 5 PM.'],
         ['How do I pay?', 'In person after your detail: card, Apple Pay or tap to pay, cash, or Zelle. Nothing is charged online.'],
-        ['Why does the price say “confirmed by us”?', 'XL vehicles, and WetGloss on a van, convertible or an unusual vehicle, are priced by us before your appointment. Everything else is the price you see.'],
-        ['What are the condition fees?', 'With an interior service: pet hair $15, excessive dirt, mud or sand $10, spills or light stains $10, heavy or set-in stains $30. Interior Deluxe and the Full Detail Bundle include the lighter ones. Exterior-only details have no condition fees.'],
+        // the prices below are the menu of Migration 011 (Nov 17), typed by hand: change them here too when the menu changes
+        ['What do the services cost?', 'Prices go by the size of your vehicle: car, SUV or crossover with 2 rows, 3 rows or pickup, minivan. Basic Wash $50, $55, $55, $55. Hand Wash $75, $80, $80, $80. Inside & Out $100, $115, $125, $135. Full Detail $165, $190, $215, $235. Interior Clean $75, $85, $90, $100. Interior Detail $125, $145, $165, $185. Add-ons cost the same for every size. These are launch prices while we earn our first reviews.'],
+        ['Is there a new-customer price?', 'Yes: your first Basic Wash is $35 for a car, and $40 for an SUV, 3-row, pickup or minivan. First visit only: one per phone number and one per address. After that, $50 car; $55 SUV, 3-row, pickup or minivan. Cars with normal road dirt. Offer ends February 17, 2027.'],
+        ['Why does the price say “confirmed by us”?', 'Vans, unusual vehicles and “Not sure” are priced by us before your appointment, and so is “Other” for the inside. Everything else is the price you see.'],
+        ['What’s the inside like?', 'With a service that has an inside part, we ask: none; some pet hair, $30; a lot of pet hair, $60; heavy dirt, mud or sand, $40; or other, which we price. The washes have none. Stains or spills? Add stain and spill removal ($40, up to 5 spots). If what we find is different from what you chose, we’ll tell you the price before we start, and you choose: we add it, or we do what you booked without it.'],
         ['Can I cancel or change my booking online?', 'Not online. Call ' + PHONE + ' and we’ll sort it out.'],
         ['Do you do ceramic coatings or paint correction?', 'Not through the website yet. Ask us when you book and we’ll talk it through.'],
-        ['How long does a detail take?', 'About an hour for a basic exterior or interior, two hours for the Signature Combo, and around three and a half hours for the Full Detail Bundle. Add-ons add about 30 minutes each.'],
+        ['How long does a detail take?', 'On a car, about 1½ hours for a wash, 2¾ hours for Inside & Out, 3¾ hours for the Interior Detail and 5¼ hours for the Full Detail. Bigger vehicles take longer, and add-ons add a little. The booking shows the time for your vehicle.'],
       ],
     },
     about: {
@@ -65,9 +68,9 @@
 
   // The tips that have a service (or an FAQ answer) behind them: one quiet link under the words, navigation only.
   const TIP_LINKS = {
-    'Deal with spills the same day': ['#faq', 'Condition fees in the FAQ'],
-    'Pet hair: a rubber glove works': ['#services-interior', 'Interior services'],
-    'Sealant is a habit, not a one-off': ['#services-protection', 'Protection and add-ons'],
+    'Deal with spills the same day': ['#services-protection', 'Stain and spill removal'],
+    'Pet hair: a rubber glove works': ['#faq', 'What’s the inside like? in the FAQ'],
+    'Protection is a habit, not a one-off': ['#services-protection', 'Gloss wax foam and the add-ons'],
   };
   // The FAQ answers with a page behind them: one quiet link after the approved words, which stay as they are.
   // "Check your ZIP" opens Contact on its ZIP box, ready to type in (#contact-zip, app.js toZip).
@@ -75,13 +78,14 @@
     'Where do you work?': ['#contact-zip', 'Check your ZIP'],
   };
   // About's "What we use": only products the menu already names, each with the surface and the service it belongs to.
+  // (Migration 011, Nov 17: the owner's own products, as the Products guide names them; nothing he doesn't have yet)
   const PRODUCTS = [
-    ['Koch-Chemie Hydro Foam Sealant', 'Paint', 'Exterior Deluxe'],
-    ['WetGloss', 'Paint', 'Add-on'],
-    ['Brake Buster', 'Wheels and tires', 'Exterior Basic'],
-    ['Top Star', 'Plastics', 'Interior Basic'],
-    ['Gummifix', 'Rubber and mats', 'Interior Basic'],
-    ['Leather Star', 'Leather', 'Interior Deluxe'],
+    ['Koch-Chemie Green Star', 'Pre-wash', 'Every wash'],
+    ['Koch-Chemie Gentle Snow Foam', 'Paint', 'Every wash'],
+    ['Brake Buster', 'Wheels and tires', 'Hand Wash'],
+    ['Koch-Chemie Pol Star', 'Plastics and leather', 'Inside services'],
+    ['Koch-Chemie Gummifix', 'Door seals', 'Full Detail'],
+    ['Koch-Chemie Hydro Foam Sealant S0.03', 'Paint', 'Full Detail'],
   ];
   // The week, Monday first. These must match the footer, the FAQ and the LD+JSON in index.html (CLAUDE.md lists all four).
   const HOURS = [

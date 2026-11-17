@@ -41,11 +41,13 @@
   // The owner's Alchemist's Table (services.js): each service's symbol, number and route token (#book-ed). Only
   // these come from there; every price is the database's.
   const signs = () => (window.AlchemistServices && window.AlchemistServices.signs) || [];
+  // Au: the Full Detail's mark, the new one (full_detail_v2) and the retired Full Detail Bundle's on older bookings
+  const isAu = (g) => g.key === 'au' || g.legacy === 'au';
   const signOf = (code) => signs().find((g) => g.code === code) || null;
   // A service's mark: its symbol, the number at the top left, in a hairline square (gold for Au, the Full Detail Bundle)
   function sigMark(code) {
     const g = signOf(code);
-    return g ? el('span.sig', { class: g.key === 'au' ? 'au' : null, 'aria-hidden': 'true' }, el('small.tnum', g.num), g.sym) : null;
+    return g ? el('span.sig', { class: isAu(g) ? 'au' : null, 'aria-hidden': 'true' }, el('small.tnum', g.num), g.sym) : null;
   }
 
   // ---------------------------------------------------------------- state
@@ -104,13 +106,14 @@
           location_type: r.location_type, address: r.address || null, address_zip: r.address_zip || null,
           vehicle: v ? { year: v.year, make: v.make, model: v.model, color: v.color, not_sure: v.not_sure, description: v.description } : null,
           hold_expires_at: r.hold_expires_at || null, created_at: r.created_at || null, total_cents: src.total_cents,
-          lines: (src.lines || []).map((l) => ({ code: l.code, name: l.name, kind: l.kind, price_cents: l.price_cents, included: l.included })),
+          lines: (src.lines || []).map((l) => ({ code: l.code, name: l.name, kind: l.kind, price_cents: l.price_cents, included: l.included, regular_cents: l.regular_cents != null ? l.regular_cents : null })),
+          first_visit_offer: !!r.first_visit_offer,
           bundle_savings_cents: src.bundle_savings_cents, mobile_cents: src.mobile_cents, extra_cost_cents: src.extra_cost_cents,
           extra_cost_note: src.extra_cost_note, pending_reasons: src.pending_reasons,
         },
         // who booked, as Book another detail carries them into the next request (reset): the names and the phone, as
         // the answers kept for a reload hold them (never the email, a code's state or the spam field)
-        sentAsGuest: st.sentAsGuest, receiptOther: st.receiptOther, phone: st.contact.phone, first: st.contact.first, last: st.contact.last,
+        sentAsGuest: st.sentAsGuest, receiptOther: st.receiptOther, receiptMissed: !!st.receiptMissed, phone: st.contact.phone, first: st.contact.first, last: st.contact.last,
       }));
     } catch (e) { /* storage blocked or full: the receipt lasts as long as the page, as before */ }
   }
@@ -190,7 +193,7 @@
     if (!c.phone) c.phone = txt(dc.phone);
     Object.assign(v, {
       year: txt(dv.year), make: txt(dv.make), model: txt(dv.model), color: txt(dv.color),
-      type: dv.notSure !== true && known(dv.type, menu.vehicleTypes) ? dv.type : null, size: dv.size === 'xl' ? 'xl' : 'standard',
+      type: dv.notSure !== true && known(dv.type, menu.vehicleTypes) ? dv.type : null, size: 'standard',   // (sizes go by rows since Migration 011: no XL choice for a vehicle typed in)
       notSure: dv.notSure === true, description: txt(dv.description),
       conditions: codes(dv.conditions, menu.options.condition, []), damage: codes(dv.damage, menu.options.damage, ['none']),
       damageNote: txt(dv.damageNote), modifications: codes(dv.modifications, menu.options.modification, []), moreOpen: dv.moreOpen === true,
@@ -229,7 +232,7 @@
     dropSent();
     clearDraft();
     const c = st.contact;
-    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, requestId: D.helpers.uuid(), direction: 1, prices: {} });
+    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, receiptMissed: false, requestId: D.helpers.uuid(), direction: 1, prices: {} });
     if (keepContact) {
       c.phoneSent = false; c.phoneConfirmed = !!(session && session.phoneConfirmed);
       if (c.emailState !== 'skipped' && !(session && session.email)) c.emailState = 'none';
@@ -248,7 +251,12 @@
   // the "Other" condition (with an interior service): the owner prices it, so every total on the page says the price
   // is confirmed before the appointment (doc 46). The quote can't tell: "Other" adds no line.
   const otherCond = () => condsForQuote().includes('other');
+  // An add-on that goes only with named services (addon_allowed_with, Migration 011): one of them must be the request's
+  // own choice (the bundle, or the exterior or the interior chosen), as quote_core checks
+  const allowedFor = (code) => (menu.allowedWith && menu.allowedWith[code]) || null;
   const canHaveAddon = (code) => {
+    const allow = allowedFor(code);
+    if (allow && !allow.some((c) => mainCodes().includes(c))) return false;
     const needs = menu.addonRules[code] || 'any_main';
     if (needs === 'exterior') return hasExterior();
     if (needs === 'interior') return hasInterior();
@@ -262,6 +270,8 @@
     });
     return set;
   };
+  // the size the visitor's vehicle is priced as, remembered on this device for the Services page's size switch
+  const rememberSize = (code) => { const g = menu.typeSize && menu.typeSize[code]; if (!g) return; try { localStorage.setItem('ad-size', g); } catch (e) { /* storage blocked: the switch starts on Car */ } };
   const savedVehicle = () => (st.vehicle.vehicleId ? st.vehicle.saved.find((x) => x.id === st.vehicle.vehicleId) || null : null);
   // The vehicle every price is for: the saved one chosen, or the one typed in.
   function vehicleFacts() {
@@ -379,7 +389,7 @@
         // Otherwise the answers kept for a reload come back (a request that was sent keeps none: Send forgot them).
         const kept = opts && opts.returning ? loadSent() : null;
         if (kept) {
-          st.receipt = kept.receipt; st.sentAsGuest = !!kept.sentAsGuest; st.receiptOther = !!kept.receiptOther;
+          st.receipt = kept.receipt; st.sentAsGuest = !!kept.sentAsGuest; st.receiptOther = !!kept.receiptOther; st.receiptMissed = !!kept.receiptMissed;
           // who booked fills only empty fields, as the kept answers do (a signed-in account's own win)
           const c = st.contact, txt = (x) => (typeof x === 'string' ? x : '');
           if (!c.phone) c.phone = String(kept.phone || '');
@@ -1007,10 +1017,14 @@
         field({ id: 'vehicle_make', label: 'Make', required: !v.notSure, value: v.make, maxlength: 40, oninput: (e) => { v.make = e.target.value; clearError(root, 'vehicle_make'); } }),
         field({ id: 'vehicle_model', label: 'Model', required: !v.notSure, value: v.model, maxlength: 40, oninput: (e) => { v.model = e.target.value; clearError(root, 'vehicle_model'); } }),
         field({ id: 'vehicle_color', label: 'Color', optional: true, value: v.color, maxlength: 30, oninput: (e) => { v.color = e.target.value; clearError(root, 'vehicle_color'); } })));
-      const typeItems = menu.vehicleTypes.map((t) => ({ code: t.code, label: t.name }));
+      // the types by size (Migration 011: prices go by size, by rows), each tile naming the size it is priced as; a van
+      // or other has no size: we confirm the price
+      const sizeOrder = (t) => { const g = (menu.typeSize || {})[t.code]; const i = (menu.sizes || []).findIndex((x) => x.code === g); return i < 0 ? 99 : i; };
+      const sizeName = (t) => { const g = (menu.typeSize || {})[t.code]; const z = (menu.sizes || []).find((x) => x.code === g); return z ? z.name : 'We confirm the price'; };
+      const typeItems = menu.vehicleTypes.slice().sort((a, b) => sizeOrder(a) - sizeOrder(b) || a.sort - b.sort).map((t) => ({ code: t.code, label: t.name, sub: sizeName(t) }));
       // "Not sure? Type here" greys the Type tiles out (owner, Nov 16): a type picked before is let go, so the request
       // never carries a type the customer wasn't sure of, and unticking brings none back (they pick again)
-      carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, disabled: v.notSure, hint: v.notSure ? 'Not needed: describe the vehicle below.' : '', size: 'tile', value: v.notSure ? null : v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); } }));
+      carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, disabled: v.notSure, hint: v.notSure ? 'Not needed: describe the vehicle below. We confirm the price before your appointment.' : 'Prices go by size: car, 2 rows, 3 rows or pickup, minivan.', size: 'tile', value: v.notSure ? null : v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); rememberSize(code); } }));
       carBox.push(el('div.bk-inline',
         el('label.bk-toggle', el('input', {
           type: 'checkbox', id: 'vehicle_not_sure', checked: v.notSure,
@@ -1024,12 +1038,9 @@
           },
         }), el('span', 'Not sure? Type here')),
         v.notSure ? field({ id: 'vehicle_description', label: 'Describe the vehicle', required: true, value: v.description, maxlength: 1000, oninput: (e) => { v.description = e.target.value; clearError(root, 'vehicle_description'); } }) : null));
-      carBox.push(choices({
-        id: 'vehicle_size', label: 'Size', value: v.size, items: [
-          { code: 'standard', label: 'Standard', sub: 'Most cars, crossovers, SUVs and trucks' },
-          { code: 'xl', label: 'XL', sub: 'Minivans and some modified trucks, such as a Raptor. We confirm the price before your appointment.' }],
-        onchange: (code) => { v.size = code; invalidateQuotes(); },
-      }));
+      // (the Standard / XL choice is gone since Migration 011: sizes go by rows, a minivan has its own price, and a
+      // lifted or unusual vehicle is "Other", whose price we confirm. A saved vehicle marked XL still quotes with it.)
+      v.size = 'standard';
     }
 
     // Damage
@@ -1078,7 +1089,7 @@
     box.appendChild(choices({
       id: 'location_type', label: 'Where', required: true, value: l.type,
       items: [
-        { code: 'mobile', label: 'We come to you', sub: 'Within about ' + settings.mobile_radius_miles + ' miles of ' + settings.public_area + '. Mobile adds 2.5% to basic services and add-ons, and 7% to deluxe services and bundles.' },
+        { code: 'mobile', label: 'We come to you', sub: 'Within about ' + settings.mobile_radius_miles + ' miles of ' + settings.public_area + '. The same price as coming to us.' },
         { code: 'shop', label: 'Come to us', sub: settings.public_area + '. We send the address with your confirmation.' },
       ],
       onchange: (code) => { l.type = code; invalidateQuotes(); render(); },
@@ -1121,7 +1132,9 @@
     const s = st.service;
     const box = el('div.bk-grid');
     const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind));
-    const groups = [['bundle', 'Bundles', 'Exterior and interior together, for less.'], ['exterior', 'Exterior', 'Choose one.'], ['interior', 'Interior', 'Choose one.']];
+    // Migration 011's menu: the washes, then the wash and the inside together (Inside & Out carries the one "Best value"
+    // badge), then the inside alone
+    const groups = [['exterior', 'Washes', 'Choose one.'], ['bundle', 'Inside and out', 'The wash and the inside together, for less.'], ['interior', 'Inside only?', 'No wash.']];
     const wrap = el('div.bk-services', { dataset: { field: 'services' }, 'aria-busy': Object.keys(st.prices).length ? null : 'true' },
       el('p.choice-msg', { role: 'status' }),   // the step's own message sits under the heading, where it is seen
       el('div.bk-carried', { id: 'bk-carried' }, carriedNotes()));
@@ -1131,10 +1144,13 @@
         const on = s.bundle === x.code || s.exterior === x.code || s.interior === x.code;
         const card = el('button.svc-opt', { type: 'button', class: on ? 'on' : '', 'aria-pressed': on ? 'true' : 'false', dataset: { code: x.code }, onclick: () => pickMain(x) },
           el('span.svc-opt-icon', { innerHTML: ICONS[kind], 'aria-hidden': 'true' }),
-          el('span.svc-opt-name', x.name),
+          el('span.svc-opt-name', x.name, x.code === 'inside_out' ? el('span.svc-opt-tag', 'Best value') : null),
           el('span.svc-opt-price.tnum', { id: 'price-' + x.code }, priceNodes(x.code)),
+          el('span.svc-opt-offer', { id: 'offer-' + x.code }, offerNodes(x.code)),
+          kind === 'bundle' ? el('span.svc-opt-save', { id: 'save-' + x.code }, savingText(x.code)) : null,
           el('span.svc-opt-desc', x.description),
-          el('span.svc-opt-meta', 'About ' + minutesText(x.duration_min)),
+          x.code === 'full_detail_v2' ? el('span.svc-opt-not', notIncluded()) : null,
+          el('span.svc-opt-meta', { id: 'meta-' + x.code }, metaText(x.code)),
           el('span.svc-opt-check', { 'aria-hidden': 'true' }, tick(), 'Selected'));
         list.appendChild(card);
       });
@@ -1157,29 +1173,61 @@
     if (s.glow) { s.glow = false; setTimeout(litOnce, 380); }
     return box;
   }
-  // The inside of the car (doc 24): mandatory with an interior service or a bundle, with the fees that apply to them.
-  // Hidden while the request has no interior (paintMains shows and hides it in place); the answer is kept meanwhile,
-  // so choosing an interior again brings it back. "Other" adds its note under the cards (otherField).
+  // The inside of the car ("What's the inside like?", Migration 011): mandatory with any service that has an inside part,
+  // each answer with its one-line description and its price (one for every size). Only one of the two pet-hair answers
+  // (their choice_group): choosing one lets the other go. Under it, the stain line and the promise (the owner's words,
+  // plan v3). Hidden while the request has no inside part (paintMains shows and hides it in place); the answer is kept
+  // meanwhile, so choosing an inside service again brings it back. "Other" adds its note under the cards (otherField).
   function condsBlock() {
     const v = st.vehicle;
     const feeOf = (o) => o.fee_code ? svc(o.fee_code) : null;
+    const stain = svc('stain_removal'), stainPrice = stain ? anyPrice('stain_removal') : null;
     return el('div.bk-grid', { id: 'bk-conds', hidden: !hasInterior() },
       choices({
-        id: 'conditions', label: 'What’s the inside of the car like?', required: true, multi: true, value: v.conditions,
-        hint: 'Choose everything that applies, or None. Fees apply with an interior service; Interior Deluxe and the Full Detail Bundle include the lighter ones.',
+        id: 'conditions', label: 'What’s the inside like?', required: true, multi: true, value: v.conditions,
+        hint: 'Choose what applies, or None. These apply only with a service that has an inside part.',
         items: menu.options.condition.map((o) => {
-          const f = feeOf(o);
-          const sub = o.code === 'heavy_stains' ? 'If your car’s condition is similar to the one listed, you may select it. If the selection turns out to be inaccurate, you will be charged ' + money(f.base_price_cents) + '.'
-            : o.code === 'other' ? 'Toothpaste, coffee, anything unusual: tell us in the notes below and we’ll price it.' : null;
+          const f = feeOf(o), price = f ? anyPrice(f.code) : null;
+          const sub = o.description || null;
           return {
             code: o.code, label: o.label, exclusive: !!o.is_none, sub,
-            priceText: f ? '+' + money(f.base_price_cents) : (o.is_none ? 'No fee' : (o.sends_to_review ? 'We price it' : null)),
+            priceText: f && price != null ? '+' + money(price) : (o.is_none ? 'No fee' : (o.sends_to_review ? 'We price it' : null)),
             cls: sub ? null : 'short',   // a card with no note is short: the short ones sit side by side
           };
         }),
-        onchange: (vals) => { v.conditions = vals; invalidateQuotes(); updatePrices(); paintOther(); },
+        onchange: (vals) => {
+          // one answer per choice group (the two pet-hair answers): the one just chosen stays
+          const was = v.conditions, added = vals.filter((c) => !was.includes(c));
+          const groupOf = (c) => (menu.options.condition.find((o) => o.code === c) || {}).choice_group || null;
+          let next = vals;
+          added.forEach((c) => { const g = groupOf(c); if (g) next = next.filter((x) => x === c || groupOf(x) !== g); });
+          v.conditions = next;
+          if (next.length !== vals.length) {   // the other pet answer let go: its card follows
+            const box = root.querySelector('#bk-conds');
+            if (box) { const fresh = condsBlock(); box.replaceWith(fresh); const btn = fresh.querySelector('[data-code="' + added[0] + '"]'); if (btn) btn.focus({ preventScroll: true }); }
+          }
+          invalidateQuotes(); updatePrices(); paintOther();
+        },
       }),
+      stain ? el('p.bk-note.conds-stain', 'Stains or spills? Add ' + stain.name.replace(/\s*\(.*\)$/, '') + (stainPrice != null ? ' (' + money(stainPrice) + ')' : '') + ' below.') : null,
+      el('p.bk-quiet.conds-promise', 'If what we find is different from what you chose, we’ll tell you the price before we start, and you choose: we add it, or we do what you booked without it.'),
       v.conditions.includes('other') ? otherField() : null);
+  }
+  // A price that is the same for every size (the add-ons and the inside answers): the car's figure, else any size's
+  function anyPrice(code) {
+    const r = (menu.rates || {})[code];
+    if (!r) { const x = svc(code); return x ? x.base_price_cents : null; }
+    const vals = Object.values(r).map((x) => x.price).filter((x) => x != null);
+    return vals.length ? vals[0] : null;
+  }
+  // The size this vehicle is priced as (null: van, other, "Not sure"; the price is held), and a rate for it: the
+  // minutes for this size, or the longest size's (as quote_core holds the calendar for an unknown size)
+  function sizeNow() { const vf = vehicleFacts(); return vf.notSure || !vf.type ? null : (menu.typeSize || {})[vf.type] || null; }
+  function rateNow(code) {
+    const r = (menu.rates || {})[code], g = sizeNow();
+    if (!r) { const x = svc(code); return x ? { price: x.base_price_cents, minutes: x.duration_min } : null; }
+    if (g && r[g]) return r[g];
+    return { price: null, minutes: Math.max(...Object.values(r).map((x) => x.minutes)) };
   }
   // "Other": its note, required, under the cards (the same notes as step 02's field; only one of the two is ever on
   // the page)
@@ -1252,7 +1300,7 @@
   }
   // Quiet lines over the cards: the service still as chosen on the Services page, and an add-on that waits for the
   // service it goes with (WetGloss for an exterior, steam for an interior)
-  const waitsFor = (a) => (menu.addonRules[a] === 'interior' ? 'an interior service' : menu.addonRules[a] === 'exterior' ? 'an exterior service' : 'a service') + (menu.addonRules[a] === 'any_main' ? '' : ' or a bundle');
+  const waitsFor = (a) => allowedFor(a) ? 'the ' + nameList(allowedFor(a)) : (menu.addonRules[a] === 'interior' ? 'an interior service' : menu.addonRules[a] === 'exterior' ? 'an exterior service' : 'a service') + (menu.addonRules[a] === 'any_main' ? '' : ' or a bundle');
   function carriedNotes() {
     const s = st.service, out = [];
     // (the verb for the pointer, as the CSS's .tap-only and .click-only)
@@ -1260,38 +1308,79 @@
     s.addons.filter((a) => !canHaveAddon(a)).forEach((a) => out.push(el('p.bk-quiet', svc(a).name + ' is added once you choose ' + waitsFor(a) + '.')));
     return out;
   }
-  // The add-ons: what each needs, what the chosen services already include, the price for this vehicle.
+  // The add-ons: one price for every size, and the minutes for this vehicle's size; what each goes with
+  // (addon_allowed_with: "Goes with the Basic Wash"), what the chosen services already include ("Already in the Full
+  // Detail"), or the kind of service it needs.
+  const nameList = (codes) => { const n = codes.map((c) => (svc(c) || {}).name).filter(Boolean); return n.length <= 1 ? (n[0] || '') : n.slice(0, -1).join(', ') + ' or ' + n[n.length - 1]; };
+  function addonWhy(code) {
+    const allow = allowedFor(code);
+    if (allow) return 'Goes with the ' + nameList(allow);
+    const needs = menu.addonRules[code];
+    return needs === 'exterior' ? 'Goes with a service that has a wash' : needs === 'interior' ? 'Goes with a service that has an inside part' : 'Goes with any service';
+  }
   function addonsBlock() {
     const s = st.service;
     const addons = menu.services.filter((x) => x.kind === 'addon' && !x.code.startsWith('cond_'));
     const inc = includedCodes();
-    const vf = vehicleFacts();
+    const incBy = (code) => mainCodes().filter((c) => (menu.includes[c] || []).includes(code) || (menu.bundleParts[c] || []).some((p) => (menu.includes[p] || []).includes(code)));
     return choices({
       id: 'addons', label: 'Add-ons', multi: true, value: s.addons.filter((a) => !inc.has(a)),
-      hint: 'WetGloss goes with an exterior service; steam with an interior one.',
+      hint: 'One price for every size. Each adds a little time to the visit.',
       items: addons.map((x) => {
         const included = inc.has(x.code);
         const allowed = canHaveAddon(x.code);
-        const typed = x.priced_by_vehicle_type;
-        const tp = typed ? (menu.typePrices[x.code] || {})[vf.type] : null;
+        const r = rateNow(x.code), price = anyPrice(x.code);
+        const mins = r && r.minutes ? Math.ceil(r.minutes) : null;
         return {
           code: x.code, label: x.name, disabled: included || !allowed,
-          priceText: included ? 'Included' : typed ? (tp != null ? money(tp) : 'Price confirmed by us') : money(x.base_price_cents),
-          sub: included ? 'Already part of your service' : !allowed ? (s.addons.includes(x.code) ? 'Added once you choose ' + waitsFor(x.code) : menu.addonRules[x.code] === 'exterior' ? 'Needs an exterior service' : 'Needs an interior service') : x.description + ' About ' + minutesText(x.duration_min) + ' more.',
+          priceText: included ? 'Included' : price != null ? money(price) : 'Price confirmed by us',
+          sub: included ? 'Already in the ' + nameList(incBy(x.code))
+            : !allowed ? (s.addons.includes(x.code) && mainsChosen() ? 'Left off: ' : '') + addonWhy(x.code) + '.'
+            : x.description + (mins ? ' About ' + minutesText(mins) + ' more.' : ''),
         };
       }),
       onchange: (vals) => { s.addons = vals; updatePrices(); },
     });
   }
-  // The price on a card: the service alone, for this vehicle and these conditions, as the breakdown shows it
-  // (the base price, then the conditions and the mobile fee as their own small lines). Empty until it is known.
+  // The price on a card: the service alone, for this vehicle and these inside answers, as the breakdown shows it
+  // (the service's price, then the inside answers as a small line). Empty until it is known. The Basic Wash at the
+  // new-customer price shows it, with the regular price after the first visit beside it (never a "was" price).
   function priceNodes(code) {
     const p = st.prices[code];
     if (!p) return null;
-    if (p.base == null) return '—';   // that service could not be quoted (the database said why in the breakdown)
+    if (p.base === undefined) return '—';   // that service could not be quoted (the database said why in the breakdown)
+    if (p.base == null) return el('small.held', 'We confirm the price');
     return [el('span.svc-fig', money(p.base)),
-      p.conds ? el('small', '+ ' + money(p.conds) + ' conditions') : (p.condsIncluded ? el('small.inc', 'conditions included') : null),
-      p.mobile ? el('small', '+ ' + money(p.mobile) + ' mobile') : null];
+      p.regular != null ? el('small', 'first visit · then ' + money(p.regular)) : null,
+      p.conds ? el('small', '+ ' + money(p.conds) + ' inside') : null];
+  }
+  // The gold line on the Basic Wash card while the offer runs, for this vehicle's size (the quote's first_visit)
+  function offerNodes(code) {
+    const p = st.prices[code];
+    if (!p || !p.offer || p.offer.status !== 'if_first_visit') return null;
+    return 'New customers: your first ' + svc(code).name + ' is ' + money(p.offer.price_cents);
+  }
+  // The card's time for this vehicle (the quote's), and the days a job that long fits on (the hours)
+  function metaText(code) {
+    const p = st.prices[code];
+    const mins = p && p.minutes ? p.minutes : null;
+    if (!mins) return '';
+    const fit = U.dayFit(settings, mins);
+    return 'About ' + minutesText(mins) + (fit ? ' · ' + (fit.none ? fit.text + ': call ' + phone : fit.text) : '');
+  }
+  // A bundle's saving for this vehicle, as a note (never a minus line): "Saves $50 against a Hand Wash and an Interior
+  // Clean booked apart."
+  function savingText(code) {
+    const p = st.prices[code];
+    if (!p || !p.savings) return '';
+    const parts = (menu.bundleParts[code] || []).map((c) => (svc(c) || {}).name).filter(Boolean);
+    return 'Saves ' + money(p.savings) + ' against ' + (parts.length ? parts.map((n) => (/^[AEIOU]/.test(n) ? 'an ' : 'a ') + n).join(' and ') + ' booked apart.' : 'booking its services separately.');
+  }
+  // The Full Detail's "not included" line (plan v3), with the menu's own prices
+  function notIncluded() {
+    const sr = svc('stain_removal'), eb = svc('engine_bay');
+    if (!sr || !eb) return null;
+    return 'Not included: stain removal (up to 5 set-in spots, ' + money(anyPrice('stain_removal')) + ') and the engine bay (' + money(anyPrice('engine_bay')) + ').';
   }
   // A main service chosen (a bundle stands alone; an exterior and an interior go together); toggle: choosing the
   // chosen one again lets it go, as on the cards
@@ -1342,13 +1431,13 @@
       over[x.kind] = x.code;
       over.conditions = x.kind === 'exterior' ? [] : st.vehicle.conditions;
       const q = await getQuote(quoteInput(over));
-      if (q.error) st.prices[x.code] = { base: null };
+      if (q.error) st.prices[x.code] = { base: undefined };
       else {
         const base = q.lines.find((l) => l.code === x.code);
         st.prices[x.code] = {
-          base: base.price_cents, mobile: q.mobile_cents,
-          conds: q.lines.filter((l) => l.condition && !l.included).reduce((a, l) => a + l.price_cents, 0),
-          condsIncluded: q.lines.some((l) => l.condition && l.included),
+          base: base.price_cents, regular: base.regular_cents != null ? base.regular_cents : null, offer: q.first_visit || null,
+          minutes: q.duration_min, savings: q.bundle_savings_cents || 0,
+          conds: q.lines.filter((l) => l.condition && !l.included).reduce((a, l) => a + (l.price_cents || 0), 0),
         };
       }
       if (each) each(x.code);
@@ -1364,6 +1453,12 @@
       await mainPrices((code) => {
         const elp = root.querySelector('#price-' + code), next = el('span', priceNodes(code));
         if (elp && !(elp.firstChild && elp.textContent === next.textContent)) elp.replaceChildren(...next.childNodes);
+        const off = root.querySelector('#offer-' + code), ot = offerNodes(code) || '';
+        if (off && off.textContent !== ot) off.textContent = ot;
+        const meta = root.querySelector('#meta-' + code), mt = metaText(code);
+        if (meta && meta.textContent !== mt) meta.textContent = mt;
+        const sv = root.querySelector('#save-' + code), stx = savingText(code);
+        if (sv && sv.textContent !== stx) sv.textContent = stx;
       });
       const wrap = root.querySelector('.bk-services'); if (wrap) wrap.removeAttribute('aria-busy');
       q = await refreshQuote();
@@ -1450,6 +1545,11 @@
     const main = el('div.bk-when-main');
     box.appendChild(main);
     if (settings.customer_notice) main.appendChild(el('div.bk-notice', el('span.eyebrow', 'A note from Alchemist'), el('p', settings.customer_notice)));
+    // a job longer than any day's open hours (a minivan Full Detail with a lot of pet hair and stain removal): no day can
+    // show a start, so the reason and the phone come first; a job that fits only some days says which (the hours)
+    const fit = U.dayFit(settings, q.duration_min);
+    if (fit && fit.none) main.appendChild(el('div.bk-notice', { role: 'status' }, el('span.eyebrow', 'Too long for one day online'), el('p', 'No day has room for a job this long online. Call ', tel(phone), ' and we’ll plan it with you.')));
+    else if (fit) main.appendChild(el('p.bk-quiet.bk-fit', 'About ' + minutesText(q.duration_min) + ': ' + fit.text.replace(/^Fits /, 'fits on ').replace(/^Weekends only$/, 'weekends only') + '.'));
     const cal = el('div.cal', { dataset: { field: 'service_date' } });
     // The month changes under the arrows (only the title and the days are rebuilt), so the arrow pressed keeps
     // the focus; at the edge of the booking window it can't go further and hands the focus to the other one.
@@ -1524,7 +1624,7 @@
         type: 'button', dataset: { code: x.code }, 'aria-pressed': 'false', onclick: () => switchMain(x) },
         sigMark(x.code),
         el('span.sw-name', x.name),
-        el('span.sw-meta', el('span.sw-price.tnum', { id: 'sw-price-' + x.code }), el('span', minutesText(x.duration_min)))))),
+        el('span.sw-meta', el('span.sw-price.tnum', { id: 'sw-price-' + x.code }), el('span', { id: 'sw-time-' + x.code }))))),
       el('p.sw-hint', { id: 'bk-sw-hint' }, swHint()),
       el('div.sw-foot', el('div', { id: 'bk-sw-notes', role: 'status' }), el('button.link', { type: 'button', onclick: () => go(4) }, 'Add-ons and notes')));
     if (st.when.switching) setTimeout(() => { paintSwitch(); showChosenTile(); }, 0);
@@ -1583,7 +1683,11 @@
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     const hint = root.querySelector('#bk-sw-hint'); if (hint) hint.textContent = swHint();
-    const price = (code) => { const n = root.querySelector('#sw-price-' + code), p = st.prices[code]; if (n) n.textContent = !p ? '' : p.base == null ? '—' : money(p.base); };
+    const price = (code) => {
+      const n = root.querySelector('#sw-price-' + code), t = root.querySelector('#sw-time-' + code), p = st.prices[code];
+      if (n) n.textContent = !p ? '' : p.base === undefined ? '—' : p.base == null ? 'We confirm' : money(p.base);
+      if (t) t.textContent = p && p.minutes ? minutesText(p.minutes) : '';
+    };
     if (Object.keys(st.prices).length) Object.keys(st.prices).forEach(price);
     else { mainPrices(price); wave(); }
     const notes = root.querySelector('#bk-sw-notes');
@@ -1884,6 +1988,8 @@
 
   // ---------------------------------------------------------------- 06 Summary
   // The vehicle in words: the saved one, the description of one the customer isn't sure of, or year, make, model, colour
+  // the size a type is priced as, in the menu's words ("SUV or crossover, 2 rows"); a van or other: we confirm the price
+  function sizeLabel(type) { const g = (menu.typeSize || {})[type]; const z = (menu.sizes || []).find((x) => x.code === g); return z ? z.name : 'Price confirmed by us'; }
   function vehicleText() {
     const v = st.vehicle, sv = savedVehicle();
     if (sv) return [sv.year, sv.make, sv.model, sv.color && '· ' + sv.color].filter(Boolean).join(' ');
@@ -1924,7 +2030,7 @@
       sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]),
       sec('Vehicle', 2, [
         ['Vehicle', vehicleText()],
-        !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : 'Standard'].filter(Boolean).join(' · ')] : null,
+        !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : sizeLabel(vf.type)].filter(Boolean).join(' · ')] : null,
         ['Known damage', v.damage.map((d) => (menu.options.damage.find((o) => o.code === d) || {}).label).join(', ') + (v.damageNote.trim() ? ' — ' + v.damageNote.trim() : '')],
         !savedV && v.modifications.length ? ['Modifications', v.modifications.map((m) => (menu.options.modification.find((o) => o.code === m) || {}).label).join(', ')] : null,
         v.photos.length ? ['Photos', v.photos.length + ' added'] : null], 'wide')));
@@ -1961,6 +2067,8 @@
       tap.end();
       clearDraft();   // (the request is in: a reload no longer brings it back)
       st.receipt = r; st.sentAsGuest = asGuest; st.receiptOther = otherCond();
+      // quoted "if this is your first visit", saved at the regular price: the database decided (Migration 011)
+      st.receiptMissed = !!(st.quote && st.quote.first_visit && st.quote.first_visit.status === 'if_first_visit' && r && r.first_visit_offer === false);
       saveSent();
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
@@ -2109,7 +2217,7 @@
         el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at\u00a0' + clock(r.start_min).replace(' ', '\u00a0'), minutes ? ['\u00a0· ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
         el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? 'We come to you · ' + r.address + ', ' + r.address_zip : 'Come to us · ' + settings.public_area + ' — we send the address with your confirmation')),   // in the summary's words
         vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
-      rec ? priceLines(rec, { mark: sigMark, otherCondition: st.receiptOther }) : el('p.bk-muted', r.total_cents == null || st.receiptOther ? 'We confirm the price before your appointment' : money(r.total_cents)));
+      rec ? priceLines(rec === r ? Object.assign({}, r, { first_visit: null }) : rec, { mark: sigMark, otherCondition: st.receiptOther, offerMissed: st.receiptMissed }) : el('p.bk-muted', r.total_cents == null || st.receiptOther ? 'We confirm the price before your appointment' : money(r.total_cents)));
     const sent = el('div.bk.bk-sent', { class: play ? SENT_PARTS.map((x) => 'wait-' + x).join(' ') : null },
       el('div.sent-mark', sentMark()),
       el('p.eyebrow', 'Request received'),

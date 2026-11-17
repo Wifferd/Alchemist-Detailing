@@ -463,7 +463,7 @@
   const side = { site: '#home', staff: '#admin-requests' };
   // the Admin screens by name (admin.js SCREENS), for the tag; a bare #admin opens whichever screen the Admin page
   // last showed, so it is named Admin
-  const SCREEN = new Map([['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']]);
+  const SCREEN = new Map([['morning', 'Morning'], ['requests', 'Requests'], ['calendar', 'Calendar'], ['reviews', 'Reviews'], ['customers', 'Customers'], ['guide', 'Products'], ['team', 'Team'], ['settings', 'Settings'], ['log', 'Log']]);
   const ADMIN_ONLY = ['team', 'log'];   // as admin.js: a manager is never sent to these (Requests instead)
   let doorSeq = 0, doorRole = null;
   function showDoor(s) {
@@ -2718,6 +2718,7 @@
     if (servicesMounted || !S) return;
     servicesMounted = true;
     try {
+      if (S.mountSize) S.mountSize($('#svc-size'));   // the size every price and time below is for (Migration 011)
       S.mountTable($('#svc-table'));
       S.mountRitual($('#svc-ritual'));
       S.mountBead($('#svc-bead'));
@@ -2934,6 +2935,9 @@
   function parse() {
     const h = decodeURIComponent((location.hash || '').slice(1));
     const [r, sub] = h.split('-');
+    // a link to a service the menu retired on Nov 17 (#book-ed, #book-sc...): the Services page, never an empty pick
+    const S = window.AlchemistServices;
+    if (r === 'book' && sub && S && S.oldTokens && S.oldTokens.includes(sub)) return { r: 'services', sub: null, t: 'services' };
     return NAMES[r] ? { r, sub: sub || null, t: h } : { r: 'home', sub: null, t: 'home' };
   }
   // Where each page was left. Every entry of the site in the tab's history carries an id, its depth (how many of the
@@ -3172,6 +3176,9 @@
         if (view === 'gallery' && window.AlchemistGallery) window.AlchemistGallery.mount($('#galleryApp'));
         if (view === 'services') mountServices();
         if (view === 'home') startHero(first);
+        // the new-customer pop-up for a signed-in customer (account.js decides with the database; never on the staff
+        // screens or the booking)
+        if (window.AlchemistAccount && window.AlchemistAccount.offerPopup) window.AlchemistAccount.offerPopup(r);
       }
       if (r === 'admin' && !changed && window.AlchemistAdmin) window.AlchemistAdmin.mount($('#adminApp'));
       // already booking: offered, never forced; met again by Back or Forward, it was offered when its link was followed

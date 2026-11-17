@@ -2363,8 +2363,8 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .el-main { flex: 999 1 620px; min-width: 0; }
 .el-grid {
   display: grid;
-  grid-template-columns: 56px repeat(4, minmax(0, 1fr));
-  grid-template-areas: ". c1 c2 c3 c4" "r1 eb ib sc wg" "r2 ed id au st";
+  grid-template-columns: 56px repeat(6, minmax(0, 1fr));
+  grid-template-areas: ". c1 c2 c3 c4 c4 c4" "r1 bw io ic wt gw en" "r2 hw au idt pf lc sr";   /* Migration 011: three groups of two, then the six add-ons */
   gap: 12px;
 }
 .el-col { display: grid; gap: 6px; align-content: end; padding: 0 4px 8px; }
@@ -2466,15 +2466,15 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 @media screen and (prefers-reduced-motion: no-preference) {
   /* the case: dimmed, then lit (only opacity, the border and the hover lift move meanwhile) */
   .el-grid[data-tm] .el-tile { opacity: .45; }
-  .el-grid[data-tm]:is(.tm-lit, .tm-rest) .el-tile:not([data-key="ed"], [data-key="id"]), .el-grid[data-tm].tm-rest .el-tile { opacity: 1; transition: opacity .5s var(--ease-unveil), border-color .35s var(--ease), transform .35s var(--ease); }
-  .el-grid[data-tm].tm-go .el-tile:is([data-key="ed"], [data-key="id"]) { opacity: 1; transition: opacity .6s var(--ease-in-out) calc(var(--tm-pass) + 250ms), border-color .35s var(--ease), transform .35s var(--ease); }
-  .el-grid[data-tm] .el-tile[data-key="ed"] { --tm-pass: 100ms; }
-  .el-grid[data-tm] .el-tile[data-key="id"] { --tm-pass: 400ms; }
+  .el-grid[data-tm]:is(.tm-lit, .tm-rest) .el-tile:not([data-key="hw"], [data-key="idt"]), .el-grid[data-tm].tm-rest .el-tile { opacity: 1; transition: opacity .5s var(--ease-unveil), border-color .35s var(--ease), transform .35s var(--ease); }
+  .el-grid[data-tm].tm-go .el-tile:is([data-key="hw"], [data-key="idt"]) { opacity: 1; transition: opacity .6s var(--ease-in-out) calc(var(--tm-pass) + 250ms), border-color .35s var(--ease), transform .35s var(--ease); }
+  .el-grid[data-tm] .el-tile[data-key="hw"] { --tm-pass: 100ms; }
+  .el-grid[data-tm] .el-tile[data-key="idt"] { --tm-pass: 400ms; }
   [data-theme="light"] .el-grid[data-tm] .el-tile { opacity: 1; }
   [data-theme="light"] .el-grid[data-tm] .el-tile :is(.sym, .nm b) { opacity: .6; }
-  [data-theme="light"] .el-grid[data-tm]:is(.tm-lit, .tm-rest) .el-tile:not([data-key="ed"], [data-key="id"]) :is(.sym, .nm b), [data-theme="light"] .el-grid[data-tm].tm-rest .el-tile :is(.sym, .nm b) { opacity: 1; transition: opacity .5s var(--ease-unveil); }
-  [data-theme="light"] .el-grid[data-tm].tm-go .el-tile:is([data-key="ed"], [data-key="id"]) :is(.sym, .nm b) { opacity: 1; transition: opacity .6s var(--ease-in-out) calc(var(--tm-pass) + 250ms); }
-  .el-grid.tm-go .el-tile:is([data-key="ed"], [data-key="id"]) .sym {
+  [data-theme="light"] .el-grid[data-tm]:is(.tm-lit, .tm-rest) .el-tile:not([data-key="hw"], [data-key="idt"]) :is(.sym, .nm b), [data-theme="light"] .el-grid[data-tm].tm-rest .el-tile :is(.sym, .nm b) { opacity: 1; transition: opacity .5s var(--ease-unveil); }
+  [data-theme="light"] .el-grid[data-tm].tm-go .el-tile:is([data-key="hw"], [data-key="idt"]) :is(.sym, .nm b) { opacity: 1; transition: opacity .6s var(--ease-in-out) calc(var(--tm-pass) + 250ms); }
+  .el-grid.tm-go .el-tile:is([data-key="hw"], [data-key="idt"]) .sym {
     background: linear-gradient(var(--au-angle), transparent 25%, var(--au-glint) 50%, transparent 75%) calc(var(--au-p) * 200% - 50%) 0 / 40% 100% no-repeat, var(--gold-text);
     -webkit-background-clip: text;
     background-clip: text;
@@ -2670,10 +2670,11 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 }
 @media (max-width: 720px) {
   /* two columns: the first pair of groups, then the second, each tier captioned above its pair */
-  .el-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "c1 c2" "r1 r1" "eb ib" "r2 r2" "ed id" "c3 c4" "r1b r1b" "sc wg" "r2b r2b" "au st"; gap: 10px; }
+  /* each group captioned above its pair, the add-ons three rows of two (the row heads are for the wide table only) */
+  .el-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "c1 c1" "bw hw" "c2 c2" "io au" "c3 c3" "ic idt" "c4 c4" "wt gw" "en pf" "lc sr"; gap: 10px; }
   .el-col { padding: 0 2px 4px; }
-  .el-grid .el-col:nth-child(3), .el-grid .el-col:nth-child(4) { margin-top: 14px; }
-  .el-row, .el-row.dup { display: flex; align-items: baseline; justify-content: flex-start; gap: 10px; padding: 6px 2px 0; }
+  .el-grid .el-col:not(:first-child) { margin-top: 14px; }
+  .el-row, .el-row.dup { display: none; }
   .el-row i { font-size: 22px; }
   .el-tile { height: 160px; padding: 12px 12px 14px; }
   .el-tile .sym { font-size: 46px; }
@@ -3211,7 +3212,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .bk-services { display: grid; gap: 22px; }
 .svc-group-pick { display: grid; gap: 12px; }
 .svc-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.svc-opt { position: relative; display: grid; grid-template-columns: 34px 1fr auto; grid-template-areas: "icon name price" "icon desc desc" "icon meta meta"; column-gap: 14px; row-gap: 6px; align-items: start; text-align: left; padding: 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .09); background: var(--sheen, none), linear-gradient(180deg, rgb(var(--grey-17)), rgb(var(--grey-11))); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: transform .4s var(--ease-unveil), border-color .4s var(--ease), box-shadow .4s var(--ease); }
+.svc-opt { position: relative; display: grid; grid-template-columns: 34px 1fr auto; grid-template-areas: "icon name price" "icon offer offer" "icon desc desc" "icon save save" "icon not not" "icon meta meta"; column-gap: 14px; row-gap: 6px; align-items: start; text-align: left; padding: 18px; border-radius: var(--r-md); border: 1px solid rgba(255, 255, 255, .09); background: var(--sheen, none), linear-gradient(180deg, rgb(var(--grey-17)), rgb(var(--grey-11))); color: var(--ink); cursor: pointer; touch-action: manipulation; transition: transform .4s var(--ease-unveil), border-color .4s var(--ease), box-shadow .4s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .svc-opt:hover { border-color: rgba(var(--gold-rgb), .45); } }
 .svc-opt.on { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .9), 0 0 36px -12px rgba(var(--gold-rgb), .45); }   /* the 1px rim, and the light that runs it once, are ::after (the motion system) */
 .svc-opt-icon { grid-area: icon; width: 30px; height: 30px; color: var(--gold); }
@@ -3637,7 +3638,7 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 }
 @media (max-width: 480px) {
   /* a service option on a phone: the name runs the full width, the price under it with the "Selected" mark beside it */
-  .svc-opt { grid-template-columns: 26px 1fr auto; grid-template-areas: "icon name name" "icon price check" "icon desc desc" "icon meta meta"; column-gap: 12px; padding: 16px; }
+  .svc-opt { grid-template-columns: 26px 1fr auto; grid-template-areas: "icon name name" "icon price check" "icon offer offer" "icon desc desc" "icon save save" "icon not not" "icon meta meta"; column-gap: 12px; padding: 16px; }
   .svc-opt-icon { width: 24px; height: 24px; }
   .svc-opt-price { padding-top: 2px; justify-items: start; text-align: left; }
   .svc-opt-check { position: static; grid-area: check; align-self: center; }
@@ -5787,3 +5788,98 @@ html.vt-dim::view-transition-new(root) {
   .foot-grid > div:first-child { grid-column: 1 / -1; }
   .footer { break-inside: avoid; page-break-inside: avoid; }
 }
+
+/* ---------------------------------------------------------------- the menu of Migration 011 (Nov 17, 2026)
+   The gold launch line and the new-customer price over the Services cards, the size switch, each card's "every size"
+   line and its not-included note; on the booking's service step the "Best value" tag, the offer's gold line, the saving
+   note and the not-included line; the new-customer pop-up; the console's Products guide and its "New-customer price"
+   tag. Gold is a material here too: one gold line, gold-outlined tags, never a second solid gold next to the 200+ one. */
+.menu-lead { display: grid; justify-items: center; gap: var(--s-3, 16px); margin: clamp(28px, 5vw, 56px) auto clamp(24px, 4vw, 40px); max-width: 760px; text-align: center; }
+.launch-line { margin: 0; font: 300 clamp(17px, 2.4vw, 22px)/1.3 var(--font-title); font-stretch: var(--wdth-title, 112%); letter-spacing: .04em; text-transform: uppercase; text-wrap: balance; }
+.offer-line { display: grid; gap: 6px; justify-items: center; padding: 14px 20px; border: 1px solid rgba(var(--gold-rgb), .45); border-radius: var(--r-md, 14px); background: linear-gradient(180deg, rgba(var(--gold-rgb), .08), rgba(var(--gold-rgb), .02)); }
+.offer-line[hidden], .card-offer[hidden], [data-offer-fine][hidden] { display: none; }
+.offer-head { margin: 0; display: inline-flex; align-items: baseline; gap: 8px; font: 600 var(--t-3, 17px)/1.35 var(--font-ui); color: var(--gold-hi); }
+.offer-mark { color: var(--gold); font-size: .9em; }
+.offer-fine { margin: 0; max-width: 62ch; font-size: var(--fs-hint, 13px); line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+.card-offer .offer-head { font-size: var(--fs-hint, 14px); }
+.price-card .card-offer { margin: -4px 0 0; }
+.price-card .every { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.price-card .every:empty { display: none; }
+.price-card .every span { white-space: nowrap; }
+.price-card .every b { font-weight: 600; color: var(--ink-2); }
+.price-card .every .on, .price-card .every .on b { color: var(--gold-ink); }
+.price-card .not-inc { margin: 0; font-size: var(--fs-hint, 13px); line-height: 1.5; color: var(--muted); }
+[data-theme="light"] .offer-head { color: var(--gold-deep); }
+
+.size-switch { display: grid; justify-items: center; gap: 8px; width: 100%; }
+.size-label { margin: 0; font: 600 var(--fs-xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.size-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 4px; border: 1px solid var(--hair); border-radius: 999px; background: rgba(var(--gold-rgb), .03); }
+.size-opt { min-height: 44px; padding: 0 16px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--ink-2); font: 600 14px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; transition: color .25s var(--ease), border-color .25s var(--ease), background-color .25s var(--ease); }
+@media (hover: hover) and (pointer: fine) { .size-opt:hover { color: var(--ink); } }
+.size-opt[aria-checked="true"] { color: var(--gold-hi); border-color: rgba(var(--gold-rgb), .6); background: rgba(var(--gold-rgb), .1); }
+[data-theme="light"] .size-opt[aria-checked="true"] { color: var(--gold-deep); }
+.size-opt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.size-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); text-align: center; }
+@media (max-width: 520px) { .size-row { border-radius: var(--r-md, 14px); } .size-opt { padding: 0 12px; font-size: 13px; } }
+
+/* booking, step 04 */
+.svc-opt-tag { display: inline-block; margin-left: 8px; padding: 3px 7px; border: 1px solid rgba(var(--gold-rgb), .6); border-radius: 999px; font: 600 10px/1 var(--font-ui-caps); letter-spacing: var(--tr-label); color: var(--gold-ink); vertical-align: 2px; }
+.svc-opt-offer { grid-area: offer; font: 600 var(--fs-hint)/1.4 var(--font-ui); color: var(--gold-hi); }
+.svc-opt-save { grid-area: save; font-size: 12px; line-height: 1.45; color: var(--gold-ink); }
+.svc-opt-not { grid-area: not; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.svc-opt-offer:empty, .svc-opt-save:empty, .svc-opt-not:empty { display: none; }
+.svc-opt-price small.held { font-size: 12px; color: var(--ink-2); white-space: normal; text-align: right; max-width: 9em; }
+[data-theme="light"] .svc-opt-offer { color: var(--gold-deep); }
+.conds-stain { margin: 0; }
+.conds-promise { margin: 0; }
+.bk-fit { margin: 0 0 8px; }
+
+/* the new-customer pop-up: a dialog over a dimmed page; it rises 12px as it comes, and under reduced motion simply shows */
+.offer-pop { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .62); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: offerFade .35s var(--ease) both; }
+.offer-card { width: min(440px, 100%); display: grid; gap: 12px; padding: clamp(22px, 5vw, 32px); border: 1px solid rgba(var(--gold-rgb), .5); border-radius: var(--r-lg, 20px); background: linear-gradient(180deg, var(--panel), var(--bg-2)); color: var(--ink); box-shadow: 0 40px 80px -40px rgba(0, 0, 0, .9), 0 0 50px -20px rgba(var(--gold-rgb), .45); animation: offerRise .5s var(--ease-unveil) both; }
+.offer-card h2 { margin: 0; font-size: clamp(22px, 5vw, 28px); line-height: 1.15; color: var(--gold-hi); }
+[data-theme="light"] .offer-card h2 { color: var(--gold-deep); }
+.offer-card p:not(.eyebrow) { margin: 0; font-size: var(--fs-hint, 14px); line-height: 1.55; color: var(--ink-2); }
+.offer-card .eyebrow { margin: 0; }
+.offer-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+@keyframes offerFade { from { opacity: 0; } }
+@keyframes offerRise { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .offer-pop, .offer-card { animation: none; } }
+
+/* the console: a booking at the new-customer price (gold-outlined; the solid gold stays the 200+ rule's) */
+.adm-new { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border: 1px solid rgba(var(--gold-rgb), .6); border-radius: 999px; color: var(--gold-ink); font: 600 var(--fs-2xs, 11px)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; white-space: nowrap; }
+.cal-item .adm-new { height: 18px; padding: 0 6px; justify-self: start; margin-top: 2px; }
+
+/* the console's Products guide (guide.js): read-only */
+.guide { display: grid; gap: 22px; }
+.guide .bk-note, .guide .bk-muted { margin: 0; }
+.guide-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.guide-tag, .guide-when { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font: 600 11px/1 var(--font-ui-caps); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; vertical-align: 1px; }
+.guide-tag.have { border: 1px solid rgba(var(--gold-rgb), .6); color: var(--gold-ink); }
+.guide-tag.buy { border: 1px dashed var(--muted); color: var(--ink-2); }
+.guide-when { border: 1px solid var(--hair); color: var(--muted); }
+.guide-when.every { color: var(--ink-2); }
+.guide-jump { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--hair); border-radius: var(--r-md, 14px); }
+.guide-jump-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.guide-jump-k { min-width: 9em; font: 600 var(--fs-xs)/1.4 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+.guide-jump a { color: var(--ink); text-decoration: underline; text-decoration-color: rgba(var(--gold-rgb), .5); text-underline-offset: 3px; font-size: 14px; }
+.guide-group { display: grid; gap: 14px; }
+.guide-group-h { margin: 10px 0 0; color: var(--gold-ink); }
+.guide-sec { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--hair); border-radius: var(--r-md, 14px); background: var(--panel); scroll-margin-top: 90px; }
+.guide-sec h3 { margin: 0; }
+.guide-sec h3:focus { outline: none; }
+.guide-card { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); font-style: italic; }
+.guide-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.guide-step { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+.guide-n { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid rgba(var(--gold-rgb), .55); border-radius: 50%; font: 600 13px/1 var(--font-ui); color: var(--gold-ink); }
+.guide-body { display: grid; gap: 4px; min-width: 0; }
+.guide-prod, .guide-how { margin: 0; }
+.guide-prod b { font-weight: 600; color: var(--ink); }
+.guide-how { font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.guide-notes, .guide-qlist, .guide-plist { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.guide-plist { list-style: none; padding-left: 0; }
+.guide-plist li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.guide-plist li > span:last-child { flex-basis: 100%; color: var(--muted); font-size: 13px; }
+.guide-q { border-color: rgba(var(--gold-rgb), .35); }
+@media print { .guide-jump { display: none; } .guide-sec { break-inside: avoid; } }
+

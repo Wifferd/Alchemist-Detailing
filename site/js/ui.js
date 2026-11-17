@@ -41,7 +41,9 @@
   const money = (cents) => {
     if (cents == null) return '—';
     const n = Math.round(Math.abs(cents)), d = String(Math.floor(n / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return '$' + (cents < 0 ? '-' : '') + d + '.' + String(n % 100).padStart(2, '0');
+    // the menu is in whole dollars since Migration 011 ($50, not $50.00); an amount with cents (an older booking's
+    // $49.99, an extra the owner typed) keeps them
+    return '$' + (cents < 0 ? '-' : '') + d + (n % 100 ? '.' + String(n % 100).padStart(2, '0') : '');
   };
   const minutesText = (m) => {
     if (!m) return '';
@@ -321,41 +323,109 @@
   }
 
   // The price breakdown shared by the booking (a quote), the summary, the account and the appointments (a
-  // booking row): the lines, bundle savings, the mobile fee, an extra the owner added, and the total or the
-  // "we confirm" note with its reason. opts.withTime adds the length and the payment line; opts.mark(code) puts a
-  // service's mark before its name (the booking's build sheet and receipt). opts.otherCondition (the caller knows the
-  // booking's conditions; a quote doesn't say) marks a booking with the "Other" condition: the lines stay, the total
-  // row says we confirm the price, and a note gives the menu price so far (doc 46).
+  // booking row): the lines, bundle savings, an extra the owner added, and the total or the "we confirm" note with its
+  // reason. opts.withTime adds the length and the payment line; opts.mark(code) puts a service's mark before its name
+  // (the booking's build sheet and receipt). opts.otherCondition (the caller knows the booking's conditions; a quote
+  // doesn't say) marks a booking with the "Other" condition: the lines stay, the total row says we confirm the price,
+  // and a note gives the menu price so far (doc 46). opts.offerMissed: a request that was quoted "if this is your first
+  // visit" and that the database saved at the regular price (Migration 011: the saved request decides).
+  // The new-customer price (Migration 011): a line that carries it (regular_cents) reads "Basic Wash, new-customer
+  // price" with its own price, and a note under it gives the regular price after the first visit; never a "was" price.
+  const longDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const PENDING_WORDS = {
+    size_price: 'Vans, unusual vehicles and “Not sure” are priced by us before the appointment.',
+    xl: 'XL vehicles are priced by us before the appointment.',
+    vehicle_price: 'WetGloss on this vehicle type is priced by us before the appointment.',
+    stains: 'Stains are priced by us before the appointment.',
+  };
+  // a service line with no menu price (a van, other or "Not sure" since Migration 011): the owner's amount prices it
+  const heldLine = (q) => (q.lines || []).some((l) => !l.included && l.price_cents == null && !/^cond_/.test(l.code || ''));
   function priceLines(q, opts) {
     opts = opts || {};
-    const rows = (q.lines || []).map((l) => el('div.pr-line', { class: l.included ? 'inc' : '' },
-      el('span', opts.mark && !l.included ? opts.mark(l.code) : null, l.name, l.included ? el('small', ' · Included') : null),
-      el('span.tnum', l.included ? '$0.00' : l.price_cents == null ? 'Confirmed by us' : money(l.price_cents))));
+    const rows = (q.lines || []).map((l) => {
+      const offer = l.regular_cents != null && !l.included;
+      return el('div.pr-line', { class: (l.included ? 'inc' : '') + (offer ? ' offer' : '') },
+        el('span', opts.mark && !l.included ? opts.mark(l.code) : null, l.name, offer ? ', new-customer price' : null, l.included ? el('small', ' · Included') : null),
+        el('span.tnum', l.included ? '$0' : l.price_cents == null ? 'Confirmed by us' : money(l.price_cents)));
+    });
     const out = el('div.pr', rows);
+    const after = (i, node) => { if (i >= 0) rows[i].after(node); else out.appendChild(node); };
     // the bundle line already carries the bundle price, so the saving is said once, as a note with no amount in
-    // the price column (shown as a minus line, the column would add up to less than the total). The saving is on
-    // the base prices: bundles and basics carry different mobile rates, so a mobile booking says so. The note sits
+    // the price column (shown as a minus line, the column would add up to less than the total). The note sits
     // straight under the bundle's own line, so it never reads as part of the line above it.
     if (q.bundle_savings_cents) {
-      const note = el('p.pr-note', 'The bundle price saves you ' + money(q.bundle_savings_cents) + ' against booking its services separately' + (q.location_type === 'mobile' ? ', before the mobile charge.' : '.'));
       const at = (q.lines || []).findIndex((l) => l.kind === 'bundle' && !l.included);
-      if (at >= 0) rows[at].after(note); else out.appendChild(note);
+      after(at, el('p.pr-note', 'The bundle price saves you ' + money(q.bundle_savings_cents) + ' against booking its services separately' + (q.mobile_cents ? ', before the mobile charge.' : '.')));
     }
-    if (q.location_type === 'mobile') out.appendChild(el('div.pr-line', el('span', 'Mobile service'), el('span.tnum', money(q.mobile_cents))));
-    if (q.extra_cost_cents) out.appendChild(el('div.pr-line', el('span', 'Extra' + (q.extra_cost_note ? ' · ' + q.extra_cost_note : '')), el('span.tnum', money(q.extra_cost_cents))));
+    const fv = q.first_visit || null, offerAt = (q.lines || []).findIndex((l) => l.regular_cents != null && !l.included);
+    if (offerAt >= 0) {
+      const l = q.lines[offerAt];
+      const notes = [el('p.pr-note.gold-note', 'After your first visit, the ' + l.name + ' is ' + money(l.regular_cents) + '.')];
+      if (fv && fv.status === 'if_first_visit') notes.push(el('p.pr-note', 'First visit only: one per phone number and one per address. We check when you send.' + (fv.ends_on ? ' Offer ends ' + longDay(fv.ends_on) + '.' : '')));
+      notes.reverse().forEach((n) => rows[offerAt].after(n));
+    }
+    const missed = !!opts.offerMissed || !!(fv && fv.status === 'not_eligible');
+    if (missed && offerAt < 0) {
+      const at = (q.lines || []).findIndex((l) => l.code === 'basic_wash' && !l.included);
+      if (at >= 0) after(at, el('p.pr-note', 'The new-customer price is for a first visit only (one per phone number and one per address), so this request is at the regular price.'));
+    }
+    // no mobile fee since Migration 011: the line shows only on an older booking that had one
+    if (q.location_type === 'mobile' && q.mobile_cents) out.appendChild(el('div.pr-line', el('span', 'Mobile service'), el('span.tnum', money(q.mobile_cents))));
+    const why = Array.isArray(q.pending_reasons) ? q.pending_reasons : [];
+    // the owner's amount on a booking whose vehicle had no menu price is that vehicle's price (S5), not an extra
+    if (q.extra_cost_cents) out.appendChild(el('div.pr-line', el('span', (why.includes('size_price') || heldLine(q) ? 'Price for this vehicle' : 'Extra') + (q.extra_cost_note ? ' · ' + q.extra_cost_note : '')), el('span.tnum', money(q.extra_cost_cents))));
     const pending = q.total_cents == null;
     const other = !!opts.otherCondition;
     out.appendChild(el('div.pr-total', el('span', pending || other ? 'Price' : 'Total'), el('span.tnum', pending || other ? 'We confirm the price before your appointment' : money(q.total_cents))));
-    const why = Array.isArray(q.pending_reasons) ? q.pending_reasons : [];
-    if (pending && why.length) out.appendChild(el('p.bk-muted', why.includes('xl') ? 'XL vehicles are priced by us before the appointment.' : 'WetGloss on this vehicle type is priced by us before the appointment.'));
+    if (pending && why.length) out.appendChild(el('p.bk-muted', why.map((c) => PENDING_WORDS[c]).filter(Boolean)[0] || 'We confirm the price before the appointment.'));
     if (other) out.appendChild(el('p.bk-muted', otherConditionNote(q.total_cents)));
     if (opts.withTime) out.appendChild(el('p.bk-muted', 'About ' + minutesText(q.duration_min) + '. Payment in person after your detail.'));
     return out;
   }
 
-  // The "Other" condition's note, with the menu price so far when there is one (none while XL, or WetGloss on a
-  // vehicle type it has no price for, holds the price too).
-  const otherConditionNote = (cents) => (cents != null ? 'Menu price so far: ' + money(cents) + '. ' : '') + 'You chose “Other” for the car’s condition, so we confirm the final price before your appointment.';
+  // The "Other" condition's note, with the menu price so far when there is one (none while a held vehicle price, or XL,
+  // holds the price too).
+  const otherConditionNote = (cents) => (cents != null ? 'Menu price so far: ' + money(cents) + '. ' : '') + 'You chose “Other” for the inside, so we confirm the final price before your appointment.';
+
+  // Which days a job of this many minutes fits on, from the hours (business_settings: first_start_min, last_start_min,
+  // slot_step_min, latest_end_min and the weekly closures, Migration 003), as open_starts tests a start: on the grid,
+  // finished by the latest end, clear of the day's closed hours. null when it fits every day; otherwise the words, such
+  // as "Weekends only" or "Mon–Thu, Sat–Sun" (an empty calendar then has its reason before the customer meets it).
+  // { none: true } words when no day is long enough: the phone books it. Only the week's shape: the calendar decides.
+  const DAY3 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  function dayFit(st, minutes) {
+    if (!st || !minutes) return null;
+    const fits = [];
+    for (let wd = 1; wd <= 7; wd++) {
+      const shut = (st.weekly_closures || []).filter((w) => w.weekday === wd);
+      let ok = false;
+      for (let m = st.first_start_min; m <= st.last_start_min && !ok; m += st.slot_step_min) {
+        if (m + minutes > st.latest_end_min) break;
+        if (!shut.some((w) => m < w.end_min && m + minutes > w.start_min)) ok = true;
+      }
+      if (ok) fits.push(wd);
+    }
+    if (fits.length === 7) return null;
+    if (!fits.length) return { none: true, text: 'Too long for one day online' };
+    if (fits.length === 2 && fits[0] === 6 && fits[1] === 7) return { text: 'Weekends only' };
+    const runs = [];
+    fits.forEach((d) => { const r = runs[runs.length - 1]; if (r && r[1] === d - 1) r[1] = d; else runs.push([d, d]); });
+    return { text: 'Fits ' + runs.map(([a, b]) => DAY3[a - 1] + (b > a ? '–' + DAY3[b - 1] : '')).join(', ') };
+  }
+
+  // The new-customer price's small print (the owner's words, Nov 17), from get_first_visit_offer's prices and end date:
+  // "First visit only: one per phone number and one per address. Car $35; SUV, 3-row, pickup or minivan $40. After that,
+  // $50 car; $55 SUV, 3-row, pickup or minivan. Cars with normal road dirt. Offer ends February 17, 2027."
+  function offerFine(o) {
+    const P = (o && o.prices) || {};
+    if (!P.car) return '';
+    const big = [P.two_rows, P.three_rows, P.minivan].filter(Boolean);
+    const same = (k) => big.length && big.every((x) => x[k] === big[0][k]);
+    const bigFirst = same('first_visit_cents') ? money(big[0].first_visit_cents) : null, bigReg = same('regular_cents') ? money(big[0].regular_cents) : null;
+    return 'First visit only: one per phone number and one per address. Car ' + money(P.car.first_visit_cents) +
+      (bigFirst ? '; SUV, 3-row, pickup or minivan ' + bigFirst : '') + '. After that, ' + money(P.car.regular_cents) + ' car' +
+      (bigReg ? '; ' + bigReg + ' SUV, 3-row, pickup or minivan' : '') + '. Cars with normal road dirt.' + (o.ends_on ? ' Offer ends ' + longDay(o.ends_on) + '.' : '');
+  }
 
   // A small inline button inside a field box (Send code, Confirm, Change).
   const miniBtn = (label, onclick, attrs) => el('button.mini-btn', Object.assign({ type: 'button', onclick }, attrs || {}), label);
@@ -459,5 +529,5 @@
   const modeBanner = (previewText, isLive) => !isLive ? el('div.bk-preview', el('b', 'Preview'), ' — ' + previewText)
     : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — practice data on the test database, not real bookings.') : null);
 
-  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, outage, loading, star, field, choices, roving, flash, priceLines, otherConditionNote, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady, modeBanner };
+  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, outage, loading, star, field, choices, roving, flash, priceLines, heldLine, dayFit, offerFine, otherConditionNote, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady, modeBanner };
 })();
