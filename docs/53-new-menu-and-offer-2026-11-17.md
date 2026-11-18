@@ -122,7 +122,7 @@ hidden on new bookings (C8); staff-entered bookings get the offer by the same ru
 (C10); inside fees with the Full Detail and Interior Detail too (C11); which statuses use up the offer (C12); the 2-row
 Full Detail ($190) is not gold on its own (C15). The Products guide's own 15 questions are at the end of its screen.
 
-## Going live (not done)
+## Going live (done Nov 17-18; the plan as it was)
 
 1. Live, read-only first, then Migration 011's eleven parts in order (the build's `db-report.md`, section 6), parts 10
    and 11 at the same sitting as the deploy; only with his OK (CLAUDE.md rule 7).
@@ -173,3 +173,32 @@ Lessons:
   variant for the test project.
 - **Measure text against its box at every desktop width** (1100 px was worse than 1440 px): sizes tied to the box
   (`cqi`) beat one fixed size.
+
+## Live (Nov 17-18)
+
+With the owner's "Go live with fixes and learn from this":
+- Read-only pre-checks on live all passed: no m011 yet; `quote_booking`, `read_booking_details`, `save_booking`,
+  `booking_receipt`, `check_catalog_links` and `office.requests` hashed the same as the test project before m011; the
+  12 old service codes and 10 vehicle types present; `submit_booking`, `submit_guest_booking` and
+  `staff_create_booking` each normalize the phone, then call `read_booking_details`, `lock_day`, `save_booking` in that
+  order; `is_staff()` and the form_options policy present; guest_booking was off, mobile buffer 10.
+- The eleven parts applied one at a time from commit 0f5d4c9 (none contains a held word). Part 11's first call came
+  back "did not run" after a worker restart; `schema_migrations` showed parts 1-10 only, so it was applied again once.
+- After: 15 active services; `address_key('Home 4711 Testerly Ln Parker TX','75002')` = `75002|4711|testerly`;
+  `get_first_visit_offer()` active to 2027-02-17 with $35/$40 against $50/$55; as `anon`: car Basic Wash + Wheels &
+  Tire Shine $55, 2-row Inside & Out + some pet hair + gloss wax $165, minivan Full Detail $235, pickup Basic Wash
+  "if first visit" $40 (regular $55); vehicle types labelled by rows.
+- `guest_booking = true` on live (the owner's Nov 17 decision to reopen booking). `main` = 0f5d4c9; both Vercel
+  projects built it (READY), and the domain serves the new config.js (`BOOKING_CLOSED = false`).
+- Not done from here: a click-through on the public domain. This container's proxy refuses both the domain and the
+  live database, so the browser walks ran in preview mode; the database calls the site makes were checked directly.
+
+Lessons:
+- **Keep a log file while applying a long migration.** The worker restarted several times during the live apply;
+  `live-apply.log` (one line per part) and `supabase_migrations.schema_migrations` told exactly where to pick up, and
+  nothing was applied twice.
+- **"Did not run" is a claim to check, not a fact.** Read `schema_migrations` (and test the function) before retrying,
+  so a part that did run is never applied a second time.
+- **Pre-check the paths you don't replace.** Live's submit functions differ from the test project's (no Migration
+  004); the plan only held because all three still end in `save_booking` after the day lock, and that was read on live
+  before the first write.
