@@ -1,4 +1,4 @@
-"""(QA kit, doc 54) Copy site/ and rewrite viewport units as iOS Safari resolves them: vh and lvh = LVH px, svh = SVH px; dvh left to the
+"""(QA kit, doc 55) Copy site/ and rewrite viewport units as iOS Safari resolves them: vh and lvh = LVH px, svh = SVH px; dvh left to the
 browser (it follows the emulated viewport, as dvh follows the toolbar). Usage: mksim.py <site> <out> <LVH> <SVH>
 iPhone 13 in Safari: 750 664 (toolbar.py then opens it 664 tall with the toolbar shown, 750 once collapsed). For
 wash.py's 390x844 phone: 844 758 (its screen is the toolbar-collapsed one) or 930 844 (the toolbar-shown one).

@@ -81,7 +81,7 @@ the entrances in view.
 ## The phone toolbar (mksim.py, toolbar.py)
 
 Playwright, and so `wash.py` and every other script here, has svh = lvh: no toolbar ever collapses. A stage sized by the
-small viewport then looks right here and stops about 86px short of an iPhone's screen in Safari (doc 54, Nov 19: the
+small viewport then looks right here and stops about 86px short of an iPhone's screen in Safari (doc 55, Nov 19: the
 owner's "white box" under the foam). Run the wash on a `mksim.py` copy to see that class of bug:
 
 ```bash

@@ -1,4 +1,4 @@
-# 54. Light mode: Home turns white and gold (Nov 19, 2026)
+# 55. Light mode: Home turns white and gold (Nov 19, 2026)
 
 Branch `light-home` in a worktree, based on live `main` 4b2df4b. Nothing is pushed, nothing is deployed, and no
 database was touched.
@@ -185,7 +185,7 @@ they built, doc 35's jump fix holds (0 undos, 0 jumps), `foam.js` is untouched. 
 ### 5. Booking and the account keep their quick feedback
 
 - Round 2's longer `--dur-rise` (1 s) had reached the booking steps, the sent booking's sheet, the account and
-  Appointments. Those views and the consoles keep 600 ms and 60 ms apart, as doc 54 round 2 said they would.
+  Appointments. Those views and the consoles keep 600 ms and 60 ms apart, as doc 55 round 2 said they would.
 
 ### 6. The QA kit can see this kind of bug now
 

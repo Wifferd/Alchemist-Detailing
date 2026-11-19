@@ -1,4 +1,4 @@
-"""iPhone Safari toolbar emulation through the Home wash (doc 54, Nov 19). Playwright has svh = lvh, so wash.py and
+"""iPhone Safari toolbar emulation through the Home wash (doc 55, Nov 19). Playwright has svh = lvh, so wash.py and
 every other run here cannot see a stage sized by the wrong one; run this on a mksim.py copy of site/ instead:
     python3 tools/qa/mksim.py site $S/sim750 750 664
     python3 tools/qa/toolbar.py $S/sim750 $S/tb-light light mixed
