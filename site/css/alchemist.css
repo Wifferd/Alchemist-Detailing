@@ -5796,7 +5796,7 @@ html.vt-dim::view-transition-new(root) {
   .rit .txt { max-width: none; color: var(--print-ink-2); }
   .rit .chip { background: none; border-color: var(--print-line); color: var(--studio-gold-ink); }
   .svc-group + .svc-group, .foot-grid, .addon-row + .addon-row { border-color: var(--print-rule); }
-  :is(.price-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band, .door) { break-inside: avoid; page-break-inside: avoid; background: var(--paper) !important; border: 1px solid var(--print-line) !important; box-shadow: none !important; }
+  :is(.price-card, .deal-card, .addon-list, .svc-card, .why-item, .step, .tip, .faq-item, .rv, .svc-notes > div, .el-tile, .el-mini, .el-panel, .appt, .bk, .page .card, .cta-band, .door) { break-inside: avoid; page-break-inside: avoid; background: var(--paper) !important; border: 1px solid var(--print-line) !important; box-shadow: none !important; }
   .about-photo, .about-photo img { clip-path: none !important; transform: none !important; transition: none !important; }
   /* the FAQ on paper: every answer under its question (the screen opens one at a time; content.js opens the closed ones
      for the print where a browser can't show a closed one's content), no + to press; and the screen's "Tap ..."
@@ -5972,6 +5972,7 @@ html.vt-dim::view-transition-new(root) {
 .guide-plist li > span:last-child { flex-basis: 100%; color: var(--muted); font-size: 13px; }
 .guide-q { border-color: rgba(var(--gold-rgb), .35); }
 @media print { .guide-jump { display: none; } .guide-sec { break-inside: avoid; } }
+@media print { .hero .hero-deals { display: none !important; } }   /* Home's floating line would print over the monogram; the deals section prints the offer */
 
 /* ---------------------------------------------------------------- First Timer Deals (Migration 012, Nov 18, 2026)
    The gold line at the top of Home and Services (owner: "on the top"), the Services section's three cards, the line on
@@ -5982,18 +5983,31 @@ html.vt-dim::view-transition-new(root) {
 .deals-banner .arrow { transition: transform .25s var(--ease); }
 @media (hover: hover) and (pointer: fine) { .deals-banner:hover { border-color: var(--gold); } .deals-banner:hover .arrow { transform: translateX(3px); } }
 .deals-banner:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-.deals-banner.arrive { animation: dealsIn var(--dur-panel, .45s) var(--ease-unveil) both; }
-@keyframes dealsIn { from { opacity: 0; transform: translateY(-6px); } }
+.deals-banner.arrive { animation: dealsFade var(--dur-fade, 900ms) var(--ease-fade) both, dealsIn var(--dur-rise, 1000ms) var(--ease-glide) both; }   /* the hero's calm arrival (doc 55): it fades on --ease-fade and settles on --ease-glide, no pop */
+@keyframes dealsFade { from { opacity: 0; } }
+@keyframes dealsIn { from { transform: translateY(-6px); } }   /* (Home's centring is translate, a property of its own) */
 /* on Home: over the hero, under the glass top bar, centred; it takes no room, so nothing in the hero moves */
 .hero .hero-deals { position: absolute; z-index: 2; top: calc(84px + env(safe-area-inset-top, 0px)); left: 50%; translate: -50% 0; width: max-content; max-width: calc(100% - 2 * var(--gutter, 16px)); }
 .page-head .deals-banner { margin-bottom: var(--s-2, 8px); }
-/* (both lines sit on a dark plate, the hero and the Services photo, in the white studio too: the dark colours stay) */
+/* on a short phone (an iPhone SE, or Safari with its toolbar showing) the line sits a little higher and slimmer, so it
+   clears the monogram's star (Nov 19) */
+@media (max-width: 520px) and (max-height: 720px) { .hero .hero-deals { top: calc(72px + env(safe-area-inset-top, 0px)); min-height: 34px; } }
+/* a short window wider than a phone (a 1366x768 laptop's browser, a phone on its side): the hero's words start a little
+   lower, always, so nothing moves when the line arrives */
+@media (min-width: 521px) and (max-height: 720px) { .hero-inner { padding-top: calc(136px + env(safe-area-inset-top, 0px)); } }
+/* Home's line follows the theme (the white studio's hero is ivory: the studio's gold ink there); Services' line sits on
+   the header's dark photo in both themes, so it keeps the showroom gold */
+@media screen {
+  [data-theme="light"] .svc-top .deals-banner { color: var(--au-200); }
+  .svc-top .deals-banner { background: linear-gradient(180deg, rgba(var(--gold-rgb), .14), rgba(var(--gold-rgb), .04)), rgba(0, 0, 0, .4); }   /* smoked under the gold, so the line reads over the photo's light spots (6:1 and up, Nov 19) */
+}   /* (on paper it takes the print block's ink) */
 @media (prefers-reduced-motion: reduce) { .deals-banner.arrive { animation: none; } .deals-banner .arrow { transition: none; } }
 @media (max-width: 520px) { .deals-banner { font-size: 13px; padding: 0 14px; } }
 
 /* the section on Services: three cards side by side, one column on a phone */
 .deals-sec { display: grid; justify-items: center; gap: var(--s-3, 16px); margin: 0 auto clamp(32px, 5vw, 56px); text-align: center; scroll-margin-top: 120px; }
 .deals-sec[hidden] { display: none; }
+.deals-head { display: grid; justify-items: center; gap: var(--s-3, 16px); }   /* its kicker and title: a head (app.js HEADS), so the title floats in as the page's others do */
 .deals-sec .eyebrow { margin: 0; }
 .deals-sec h2 { margin: 0; font-size: clamp(26px, 4vw, 40px); }
 .deal-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; max-width: 1040px; }
@@ -6034,10 +6048,20 @@ a.card-offer:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px
 .bk-deal-chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .bk-deals-fine { margin: 0; font-size: 12px; }
 [data-theme="light"] .bk-deal-chip { background: var(--panel); }
+[data-theme="light"] .bk-deal-chip.on { background: rgba(var(--gold-rgb), .12); }   /* the chosen one keeps its gold fill */
 @media (max-width: 720px) { .bk-deal-chips { grid-template-columns: minmax(0, 1fr); } }
 .svc-opt-price small.every-size { display: grid; justify-items: end; gap: 2px; font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .svc-opt-price small.every-size b { color: var(--ink-2); font-weight: 600; }
 @media (max-width: 640px) { .svc-opt-price small.every-size { justify-items: start; grid-template-columns: repeat(2, auto); column-gap: 12px; } }
+/* a phone's booking cards never push the page sideways (Nov 19: the price smalls' nowrap and the "Selected" column
+   added up to 367-381px against a 336px column, and the step scrolled sideways at 390 and 360): the column may shrink
+   under its content's widest line, and the smalls wrap */
+@media (max-width: 640px) {
+  .svc-pick { grid-template-columns: minmax(0, 1fr); }
+  .svc-opt { grid-template-columns: 26px minmax(0, 1fr) auto; }
+  .svc-opt-price small { white-space: normal; }
+  .svc-opt-price small.every-size { grid-template-columns: auto; }
+}
 .conds-later { margin: 0; }
 .conds-later[hidden] { display: none; }
 /* steps 03 and 04: "Your booking" with its Change links, and what a change did to the held time (the re-fit) */

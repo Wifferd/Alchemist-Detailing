@@ -234,3 +234,43 @@ Database notes from the verifier, not changed:
   it is alone; with a two-service deal each card shows its share (S-2).
 - **The database orders add-ons.** `json_text_array` makes them distinct and sorts them; the preview now does the same,
   or its lines come out in another order.
+
+## Merged release (Nov 19)
+
+Branch `release-nov19` joins this branch with `light-home` (doc 55). Two verifiers walked the merge in preview mode.
+They found one bug that stops the release and five smaller ones from this branch. All were already on `menu-v2`, and
+all are now fixed:
+
+- **Blocking: booking step 01 scrolled sideways on phones.** At 390 px and narrower the service cards came out wider
+  than the screen (408 px on a 390 px phone). Their right edges were cut off, "SELECTED" touched the edge, and a finger
+  could pan the page. The cause was the size prices: each kept to one line, and with the "Selected" column the card
+  needed about 370-380 px inside a 336 px column. On phones the column may now shrink, the small price lines wrap, and
+  "every size" stacks in one column. Before and after a size is picked the page is now exactly the screen's width at
+  390, 360 and 320. `smoke.py` had caught it (2 FAILs). Our own walks had not: they compared against `innerWidth`,
+  which a phone browser stretches to fit the page. The walks now compare against `clientWidth`, as `smoke.py` does.
+- **The Services gold line was hard to read in light mode** (about 1.7:1, dark gold on the dark photo). It keeps the
+  showroom gold there, and both themes now get a smoked glass under it. That measures 9:1 typical and 6:1 at the
+  photo's brightest spot (dark was 3.6:1 there). Home's line still follows the theme: dark gold on the ivory hero.
+- **On short phones the Home line covered the tip of the monogram's star** (iPhone SE 375 x 667, and Safari with its
+  toolbar showing). On phones up to 720 px tall it now sits a little higher and slimmer, between the top bar and the
+  star. On short windows wider than a phone (a 1366 x 768 laptop) the hero's words start a little lower instead. That
+  happens whether or not the line shows, so nothing moves when it arrives. Checked at 16 sizes in both themes: no
+  overlap.
+- **The line arrived with a quick pop.** It now arrives the hero's calm way (doc 55): it fades in and settles.
+- **Print:** Home's floating line is left off the printout, because the deals section prints the offer. Deal cards no
+  longer split across pages.
+- **Light mode: the chosen deal chip in booking step 01** now keeps its gold fill, so you no longer have to spot the
+  border to see which one is chosen.
+- **"First time? Start here." now floats in letter by letter** like every other heading on Services. Its look is
+  unchanged.
+
+Checked after the fixes, in preview mode:
+
+- `smoke.py`: 72 of 72 ok.
+- Booking step 01 (`#book` and the three deal links) at 390, 360 and 320: page width equals screen width every time.
+- The menu walk (`walk.py`, phone light): 60 of 60.
+- Services contrast, measured from screenshots: light 8.2:1 typical and 5.1:1 worst; dark 9.0:1 typical and 6.2:1
+  worst.
+- Print: Home's line hidden; the Services line printed in the print ink.
+- The chosen chip in light: gold fill.
+- The banner still lands on `#services-deals` (6 of 6).

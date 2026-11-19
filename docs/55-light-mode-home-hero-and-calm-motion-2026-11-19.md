@@ -217,3 +217,29 @@ they built, doc 35's jump fix holds (0 undos, 0 jumps), `foam.js` is untouched. 
   time on this sandbox's software graphics (about 18 frames a second, so it looks choppier than his iPhone will).
 - Questions 3 and 4 above still stand; question 4 now also asks whether the room between the cards and "Why
   Alchemist" feels right.
+
+## Merged release (Nov 19)
+
+Branch `release-nov19` joins this branch with `menu-v2` (doc 54; this doc was 54 on its own branch). The merge broke
+one rule from round 3, "the letters float where the eye is", and it is fixed:
+
+- **On Services, "The Alchemist's Table" floated its letters while it was off the screen.** It happened in every cold
+  load the verifier tried (6 of 6). When Services opens, its title is queued to float in. The First Timer Deals
+  section (doc 54) then shows above it and pushes it 500-1,500 px down, below the screen, before its turn comes. A
+  queued heading is now checked once more when its turn comes. If it is wholly off the screen by then, it waits until
+  it is scrolled into view, as every other heading does. (`app.js` `readHeads`. Plates with a moment of their own,
+  the rinse, the cabin and the beading, keep their own timing.) The verifier's check now gives 0 of 6, and the title
+  floats in once it is scrolled to.
+- The gold line at the top of Home and Services now arrives on this doc's calm curves (it fades and settles) instead
+  of the quick pop it had on `menu-v2`.
+
+Checked after the fix:
+
+- `tablehead.py`: 0 of 6 cold loads float the Table's letters off the screen, and the title sets once scrolled to.
+- `heads.py`: 70 of 70 PASS.
+- `back_walk.py`: phone light all 15 of 15, plus owner phone light and desk dark.
+- `wash.py ios,chromium,desk all`: 33 of 33 ok against the baseline, 0 undos, 0 jumps.
+- `toolbar.py` on the 750/664 iPhone copy (light mixed, dark flick, light slow, dark keys): 0 frames with a strip, 0
+  errors.
+- `smoke.py`: 72 of 72 ok.
+- Every display heading on Services floats in, 9 of 9, "First time? Start here." included.

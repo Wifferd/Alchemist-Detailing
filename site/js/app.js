@@ -1014,6 +1014,13 @@
     const r = h.getBoundingClientRect();
     return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight * HEAD_SIGHT;
   };
+  // a head's heading is wholly off the screen (above or below it)
+  const offScreen = (c) => {
+    const h = c && $('[data-hd="h"]', c);
+    if (!h) return false;
+    const r = h.getBoundingClientRect();
+    return r.height > 0 && (r.top >= window.innerHeight || r.bottom <= 0);
+  };
   // a plate's moment sends its title on its own clock (the Interior's cabin, Protection's beading): it sets then if it
   // is in sight, else once it comes into sight, so its letters never float up unseen below the screen (Nov 19)
   function whenSeen(c, fn) {
@@ -1096,6 +1103,10 @@
     [...turn].sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)).forEach((c) => {
       turn.delete(c);
       if (c.classList.contains('in')) return;
+      // a head queued while in view can be pushed off the screen before its turn (Services: the First Timer Deals
+      // section shows above the Table after its head was queued): it waits until it is in sight again, so its letters
+      // never float up unseen (Nov 19). A plate's moment sends its own title (whenSeen there)
+      if (!c.closest('.wet, .cabin, .beading') && offScreen(c)) { heads.delete(c); whenSeen(c, () => headGo(c)); return; }
       if (last && last !== c && on && free - t > 16) {
         heads.set(c, { at: free, lead: LINE.at + LINE.lead });   // what follows it waits for its later start too
         setTimeout(() => headTurn(c), free - t);
@@ -1207,7 +1218,7 @@
   // landed, at once on a new width, and at once if a translator rewrites it. One head sets at a time on the screen;
   // after the wash, only once it has ended. A page already seen this session shows its heads set. Not under reduced
   // motion (armReveals stops first): the heads are simply there, as without JavaScript and in print.
-  const HEADS = '.section-head, .page-head, .show-head, .group-plate figcaption, .cta-band';
+  const HEADS = '.section-head, .page-head, .show-head, .group-plate figcaption, .cta-band, .deals-head';
   const LINE = { at: 80, gap: tokMs('--line-gap', 140), dur: tokMs('--dur-line', 1300), lead: 360 };   // the first line's start, --line-gap, --dur-line; the lead's wait after the last line starts
   // A heading's letters float up one by one (Nov 19, the owner's "letters floating up into place"): --dur-letter each,
   // --letter-gap apart, or closer, so the last starts within --letter-span; over 24 letters or 3 lines, word by word,
