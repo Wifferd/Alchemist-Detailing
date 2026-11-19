@@ -71,7 +71,7 @@
   --danger-text: #f0a090;
   --border-strong: rgba(255, 255, 255, .38);  /* inputs and checkboxes: 3.4:1 */
   --floor: #000;                              /* the studio floor the hero and the wash stand on */
-  --shade-rgb: 10, 7, 3;                      /* the black showroom's shade under the hero's words (the hero stays black in both themes): warm, so over the bar's core it reads as deeper gold, not grey */
+  --shade-rgb: 10, 7, 3;                      /* the black showroom's shade under the hero's words: warm, so over the bar's core it reads as deeper gold, not grey (in the white studio the hero's own is a soft ivory: below) */
   /* the type: Archivo for everything but the logo's italic tagline (Cormorant Garamond). Each family token carries
      the metric fallback of its width (below), so nothing moves when the font arrives. The widths are tokens because
      the font shorthand resets font-stretch: a rule that sets font: also sets font-stretch: var(--wdth-...) */
@@ -698,7 +698,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   position: relative;
 }
 /* as the page first shows, the bar takes the glass of what is under it at once (the white studio's ivory over the
-   black hero), not by a fade from the plain glass: its colours change on their own only once the page is up */
+   hero and the Services header), not by a fade from the plain glass: its colours change on their own only once the page is up */
 html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 /* the glass catches the studio light: over the hero, its top edge is brightest right above where the light bar is
    on the paint (app.js places .bar-light i after each of the hero's pictures, along the bar, and fades it toward the
@@ -1028,7 +1028,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   z-index: -1;
   background:
     radial-gradient(60% 46% at 50% 50%, rgba(var(--grey-3), .72), rgba(var(--grey-3), .2) 70%, transparent),
-    linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--hero-foot, var(--bg)) 100%);   /* black to its foot, then the page (in the white studio: black to a clean floor line, --hero-foot) */
+    linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--bg) 100%);   /* black to its foot, then the page (the white studio's hero has its own: ivory into the cream page) */
 }
 .hero-inner {
   text-align: center;
@@ -2753,7 +2753,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
     background:
       radial-gradient(90% 34% at 50% 66%, rgba(var(--grey-3), .55), transparent 70%),
       radial-gradient(60% 46% at 50% 50%, rgba(var(--grey-3), .72), rgba(var(--grey-3), .2) 70%, transparent),
-      linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--hero-foot, var(--bg)) 100%);
+      linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--bg) 100%);
   }
   .door-grid { grid-template-columns: 1fr; }
   .door { padding: 0 0 30px; }
@@ -5356,24 +5356,8 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 /* over the Services header's dark photo (.over-dark from app.js) the same, from the top of the page */
 :where([data-theme="light"]) .topbar.over-dark .bar, :where([data-theme="light"].top-dark) .topbar .bar { background: rgba(var(--studio-panel-rgb), .94); border-color: rgba(var(--studio-ink-rgb), .08); }   /* (html.top-dark: the head script's, as the page first paints) */
 :where([data-theme="light"]) .bar-light { display: none; }   /* solid there: no studio light in the glass */
-/* over Home's black hero (black in both themes) the bar keeps the showroom's smoked glass, its inks and gold, and its
-   dark keys, so no ivory slab crosses the black and outshines the wordmark and Book Now; the ivory bar everywhere
-   else. html.top-home: the head script's guess for Home's first paint, until the observer answers (app.js). Through
-   a page change's cut (.shade, app.js) it is the cover's ivory, whatever is laid out under it; where its glass changes
-   with the cut, the bar fades in with the cover, on the cover's clock: coming on (.glass-in, the cut's 200ms) and
-   lifting (.glass-up, the lift's), so in every frame it matches what is under it. Opacity only; nothing moves */
-[data-theme="light"] :is(.topbar.over-hero:not(.over-wash, .shade), .top-home .topbar:not(.shade)) .bar {
-  --ink: var(--dark-ink); --ink-2: var(--dark-ink-2); --gold: var(--au-500); --gold-hi: var(--au-200);
-  background: linear-gradient(180deg, rgba(var(--grey-22), .66), rgba(var(--grey-6), .6));
-  border-color: rgba(255, 255, 255, .1);
-  box-shadow: 0 18px 50px -20px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(var(--gold-pale-rgb), .07);
-}
-[data-theme="light"] .topbar.over-hero.scrolled:not(.over-wash, .shade) .bar { background: linear-gradient(180deg, rgba(var(--grey-16), .86), rgba(var(--grey-4), .86)); border-color: rgba(var(--gold-rgb), .14); }
-[data-theme="light"] :is(.topbar.over-hero:not(.over-wash, .shade), .top-home .topbar:not(.shade)) .icon-btn { background: linear-gradient(180deg, rgb(var(--grey-28)), rgb(var(--grey-7))); border-color: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(var(--gold-pale-rgb), .18), inset 0 -2px 6px rgba(0, 0, 0, .6), 0 4px 14px -6px rgba(0, 0, 0, .8); }
-@keyframes glassOn { from { opacity: 0; } }
-@keyframes glassUp { from { opacity: 0; } }
-[data-theme="light"] .topbar.glass-in .bar { animation: glassOn var(--cut-out) var(--ease-in-out) both; }   /* (the cover's own: cutDark) */
-[data-theme="light"] .topbar.glass-up .bar { animation: glassUp var(--cut-up) var(--ease) both; }   /* (the cover's lift: .scrim.cut:not(.on)) */
+/* over Home's hero the bar is the ivory glass too, from the first paint (html.top-dark, above): the hero is white and
+   gold in the white studio since the owner's Nov 19 call (below), so no smoked bar crosses it any more */
 :where([data-theme="light"]) .icon-btn { background: linear-gradient(180deg, rgb(var(--studio-panel-rgb)), var(--studio-key-foot)); border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: inset 0 1px 0 var(--studio-card), 0 4px 14px -8px rgba(var(--studio-shade-rgb), .4); }
 /* the gold for icons and large numerals (--gold: 3.3:1 at worst, on the floor; the large-text floor is 3:1); small gold text is --gold-ink */
 [data-theme="light"] :is(.icon-btn, .amount, .adm-tile b, .el-row i, .tip-no) { color: var(--gold); }
@@ -5417,20 +5401,43 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
   :where([data-theme="light"]) .bk-muted a:hover, :where([data-theme="light"]) .sent-know-list a:hover { color: var(--gold); }
   :where([data-theme="light"]) .link.danger:hover { color: var(--danger); }
 }
-/* ---- the hero stays the black showroom (the hero stays black; §31: not an inversion), as the Services header does: the
-   shader keeps its black paint (app.js starts it with studio: false), the hero keeps the dark tokens, so the wordmark
-   is gold and the words, buttons and focus ring are the dark theme's, and only its foot fades into the ivory page.
-   The bar over it goes nearly solid ivory (.over-dark, above) */
+/* ---- the hero in the white studio: white and gold. Until Nov 19 it stayed the black showroom (§31); the owner
+   reversed that on Nov 19 ("home page doesnt turn white and gold in white mode"), so Home follows the theme now (the
+   Services header keeps its dark photo). The shader paints its studio preset (ivory paint under a white softbox, the
+   warm bar faint in it: hero-gl.js, which follows the theme live); the hero takes the studio's tokens: the words in
+   ink, Detailing and the small gold in the deep gold ink, Book Now's polished gold as everywhere, the glass button in
+   frosted ivory on a gold hairline. The wordmark is a deeper gold metal (every stop 4:1 or more on white; it is display
+   type, 3:1 would do) with a warm gold sheen in place of the dark theme's near-white one, which would wash a resting
+   band of it out on white (at its peak it keeps 3.2:1; only the passing foil, a moment, lightens it further); the monogram's picture is pressed a shade deeper on a warm contact shadow.
+   Where the dark theme lays a shade under the words while the bar passes, the studio lays a soft ivory clearing (the
+   bar's core is white here); the halos under the small words are ivory too. The foot fades into the cream page */
 [data-theme="light"] .hero {
-  --ink: var(--dark-ink); --ink-2: var(--dark-ink-2); --muted: var(--dark-muted); --hair: rgba(255, 255, 255, .09); --line: rgba(var(--gold-rgb), .3); --line-soft: rgba(var(--gold-rgb), .13);
-  --gold: var(--au-500); --gold-hi: var(--au-200); --gold-ink: var(--au-500); --gold-pale: var(--au-100); --gold-deep: var(--au-900);
-  --gold-text: linear-gradient(180deg, var(--au-50) 0%, var(--au-300) 30%, var(--au-500) 56%, var(--gold-t4) 80%, var(--gold-t5) 100%);
-  color-scheme: dark;
-  --hero-foot: #000;   /* the black plate ends on a crisp floor line over the ivory page: a 40px blend into it would pass through grey */
+  --shade-rgb: 255, 253, 248;
+  --sheen-rgb: 204, 150, 50;
+  --foil-rgb: 255, 236, 190;
+  --gold-text: linear-gradient(180deg, #8a5c07 0%, #a87310 30%, #74500a 58%, #9a6a0e 80%, #684606 100%);
+  background: radial-gradient(80% 60% at 50% 45%, #fffdf8, #ebe6dc 70%, #e2dccf);
 }
-[data-theme="light"] .hero .btn-glass { border-color: var(--line); color: var(--ink); box-shadow: none; }
-[data-theme="light"] .hero .btn-glass::after { background: linear-gradient(118deg, transparent 40%, rgba(255, 255, 255, .08) 50%, transparent 60%); }
-[data-theme="light"] .hero :focus-visible { outline-color: var(--gold-hi); }
+[data-theme="light"] .hero::before {
+  background:
+    radial-gradient(60% 46% at 50% 48%, rgba(var(--studio-panel-rgb), .7), rgba(var(--studio-panel-rgb), .2) 70%, transparent),
+    linear-gradient(180deg, rgba(var(--studio-panel-rgb), .55) 0%, transparent 22%, transparent 72%, rgba(var(--studio-bg-rgb), .7) calc(100% - 40px), var(--bg) 100%);
+}
+@media (max-width: 720px) {
+  [data-theme="light"] .hero::before {
+    background:
+      radial-gradient(90% 34% at 50% 66%, rgba(var(--studio-panel-rgb), .45), transparent 70%),
+      radial-gradient(60% 46% at 50% 48%, rgba(var(--studio-panel-rgb), .7), rgba(var(--studio-panel-rgb), .2) 70%, transparent),
+      linear-gradient(180deg, rgba(var(--studio-panel-rgb), .55) 0%, transparent 22%, transparent 72%, rgba(var(--studio-bg-rgb), .7) calc(100% - 40px), var(--bg) 100%);
+  }
+}
+[data-theme="light"] .hero-mark { filter: saturate(1.12) brightness(.9) contrast(1.06) drop-shadow(0 8px 18px rgba(var(--studio-gold-deep-rgb), .3)); }
+[data-theme="light"] .hero :is(.sub, h1 .l2, .place, .scroll-cue) { text-shadow: 0 0 12px rgba(var(--studio-panel-rgb), .95), 0 0 3px rgba(var(--studio-panel-rgb), .85); }
+[data-theme="light"] .hero .btn-glass { background: linear-gradient(180deg, rgba(var(--studio-glass-hi-rgb), .82), rgba(var(--studio-glass-lo-rgb), .62)); border-color: rgba(var(--studio-gold-rgb), .55); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 10px 24px -14px rgba(var(--studio-shade-rgb), .35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+/* without the shader (no WebGL, no script): the ivory studio and its light as one still stripe, a white core in a warm
+   gold edge */
+[data-theme="light"]:is(.no-webgl, .no-hero-gl, .no-js) .hero { background: radial-gradient(70% 55% at 50% 42%, #fffdf8 0%, #efeae0 60%, #e2dbcd 100%); }
+[data-theme="light"]:is(.no-webgl, .no-hero-gl, .no-js) .hero::after { background: linear-gradient(118deg, transparent 44%, rgba(var(--studio-glow-rgb), 0) 46%, rgba(var(--studio-glow-rgb), .3) 49%, rgba(255, 255, 255, .9) 50%, rgba(var(--studio-glow-rgb), .3) 51%, rgba(var(--studio-glow-rgb), 0) 54%, transparent 56%); }
 /* ---- the wash stage: white falling to the floor, a warm-grey backdrop behind the foam (.floor, fading as the
    rinse clears, --clean from foam.js), the beads picture multiplied in faintly, a thin cream veil */
 :where([data-theme="light"]) .wash-stage { background: linear-gradient(180deg, var(--studio-card) 0%, var(--bg) 58%, var(--floor) 100%); }
@@ -5667,7 +5674,7 @@ html.vt-dim::view-transition-new(root) {
   .standard .statement em { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }   /* the promise in gold, lit or not */
   .standard .statement em::after { content: none !important; }
   .amount, .price-card .tag, .svc-card .price, .eyebrow { color: var(--studio-gold-ink) !important; text-shadow: none !important; }
-  .hero :is(.sub, h1 .l2, .place, .scroll-cue), .svc-note { text-shadow: none !important; }   /* the screen's dark halos (for the light bar) never print grey (the studio's black hero and Services header print in ink: above) */
+  .hero :is(.sub, h1 .l2, .place, .scroll-cue), .svc-note { text-shadow: none !important; }   /* the screen's dark halos (for the light bar) never print grey (the hero and the studio's Services header print in ink: above) */
   .svc-card .price { background: none !important; -webkit-text-fill-color: currentColor !important; }   /* the row's glint, mid-pass, never prints */
   .au-band { display: none !important; }
   .hero { min-height: 0 !important; background: none !important; }

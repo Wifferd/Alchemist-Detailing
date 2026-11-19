@@ -454,8 +454,10 @@ float motes(vec2 uv, float asp, float t){
 void main(){
   vec2 uv = gl_FragCoord.xy/uRes;
   float asp = uRes.x/uRes.y;
-  // the studio's clearing behind the text, on wide screens only (a phone's drops already leave the text its room)
-  vec3 c = paint(uv, asp, uTime, uDensity, uZoom, uStudio*smoothstep(0.9, 1.2, asp));
+  // the studio's clearing behind the text: whole on wide screens, most of it on a phone (on the black paint a phone's
+  // drops leave the text its room; on the ivory, where Home's hero is now in light mode, their grey rims would sit in
+  // the gold words' strokes)
+  vec3 c = paint(uv, asp, uTime, uDensity, uZoom, uStudio*max(0.7, smoothstep(0.9, 1.2, asp)));
   if (uMotes > 0.0){
     float m = motes(uv, asp, uTime);
     if (m > 0.0){

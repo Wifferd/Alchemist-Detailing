@@ -52,13 +52,14 @@
       const plays = !late && !met && !light.off;
       if (plays && heroWord && heroMono) spots = { w: pageBox(heroWord), m: pageBox(heroMono) };
       if (glassLight && glassBar) glassBox = barBox(glassBar.getBoundingClientRect());
-      // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
+      // the paint follows the theme (hero-gl.js's studio preset, live through its theme observer): black in the
+      // showroom, ivory in the white studio (the owner's Nov 19 call: Home is white and gold in light mode; CSS)
       // the canvas fades in over the CSS glow with its first picture (CSS .hero-gl.lit). Under less motion the hero is
       // one still at a fixed, composed moment of the light's drift (STILL_T): the bar on the left of the paint, clear
       // of the place line at every width from a 360px phone to a desk, never a random moment parked behind the words
       const heroGl = $('#heroGl');
       const onFrame = (h) => { if (!heroGl.classList.contains('lit')) heroGl.classList.add('lit'); glass(h); };
-      try { hero = window.AlchemistHero.start(heroGl, { scene, still: reduce, time: reduce ? STILL_T : null, studio: false, entrance: plays, onFrame, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
+      try { hero = window.AlchemistHero.start(heroGl, { scene, still: reduce, time: reduce ? STILL_T : null, entrance: plays, onFrame, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
     }
     // The studio light's path is worked out now too, with the page laid out (arithmetic only: no frame carries it).
     const p = hero && hero.enter && spots ? plan() : null;
@@ -794,15 +795,16 @@
   }
   new IntersectionObserver((es) => overWash(es[es.length - 1].isIntersecting), { rootMargin: '-10% 0px -10% 0px' }).observe(washSection);
   washSection.addEventListener('washend', () => topbar.classList.remove('over-wash'));   // the canvas has stopped for good
-  // While a dark piece is under the bar (the black hero, the Services header's photo), .over-dark: in the white studio
-  // the bar goes nearly solid ivory there (CSS), so it never reads as a grey band. The observed strip is the bar's: from
+  // While Home's hero or the Services header's photo is under the bar, .over-dark (black pieces in the showroom; in the
+  // white studio the hero is ivory since Nov 19, the header still dark): there the studio's bar goes nearly solid ivory
+  // (CSS), so it never reads as a grey band. The observed strip is the bar's: from
   // its top edge to the foot of the top tenth of the screen; the two are on different pages, so whichever is in it
   // counts.
   const darkTops = [$('.hero'), $('.svc-top')].filter(Boolean), underBar = new Set();
   function overDark() {
     topbar.classList.toggle('over-dark', underBar.size > 0);
     topbar.classList.toggle('over-hero', [...underBar].some((el) => el.matches('.hero')));   // the studio light is under the glass
-    if (root.classList.contains('top-dark')) root.classList.remove('top-dark', 'top-home');   // (the head script's guesses for the first paint: the observer's answer from now on)
+    if (root.classList.contains('top-dark')) root.classList.remove('top-dark');   // (the head script's guess for the first paint: the observer's answer from now on)
   }
   // The strip starts at the bar's top edge (the bar's padding above it, with any notch: CSS), not the screen's: a hero
   // whose foot is still in that gap has nothing under the glass. A piece counts only with some of its height in the
@@ -3269,24 +3271,14 @@
     v.classList.remove('cut-in', 'from-above');
     v.removeEventListener('animationend', fn);
   }
-  // The white studio's bar through the cut (CSS .topbar.shade): while the cover is up the bar is the cover's ivory,
-  // whatever has been laid out under it; as the cover lifts it takes the glass of what is under it then (read at once:
-  // the observer answers a frame later). Where its glass changes with the cut (Home's black hero: the smoked glass)
-  // the bar fades in with the cover, on its clock (.glass-in coming on, .glass-up lifting), so no dark slab sits on the
-  // cream and no ivory one on the black, in any frame. Nothing moves; in the dark theme the class changes nothing.
-  let glassT = 0;
-  const smoked = () => root.getAttribute('data-theme') === 'light' && !topbar.classList.contains('shade') &&
-    (root.classList.contains('top-home') || (topbar.classList.contains('over-hero') && !topbar.classList.contains('over-wash')));
+  // The bar through the cut (.topbar.shade): while the cover is up it is marked as under the cover; as the cover lifts
+  // it takes the glass of what is under it then (read at once: the observer answers a frame later). (Until Nov 19 the
+  // white studio's bar went smoked over Home's black hero and faded with the cover; the hero is ivory there now, so
+  // the bar is the ivory glass on both sides of the cut and nothing has to fade.)
   function glassTo(on, under) {
     if (topbar.classList.contains('shade') === on) return;
-    const was = smoked();
     if (!on) setDarkTops(under || darkTopsNow());
     topbar.classList.toggle('shade', on);
-    if (smoked() === was) return;
-    topbar.classList.remove('glass-in', 'glass-up');
-    topbar.classList.add(on ? 'glass-in' : 'glass-up');
-    clearTimeout(glassT);
-    glassT = setTimeout(() => topbar.classList.remove('glass-in', 'glass-up'), 700);
   }
   function blackOut(back, bare) {   // (the click handler, as the page is chosen; the router, for Back and the like)
     if (dark) return;
