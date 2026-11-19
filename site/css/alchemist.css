@@ -71,7 +71,7 @@
   --danger-text: #f0a090;
   --border-strong: rgba(255, 255, 255, .38);  /* inputs and checkboxes: 3.4:1 */
   --floor: #000;                              /* the studio floor the hero and the wash stand on */
-  --shade-rgb: 10, 7, 3;                      /* the black showroom's shade under the hero's words (the hero stays black in both themes): warm, so over the bar's core it reads as deeper gold, not grey */
+  --shade-rgb: 10, 7, 3;                      /* the black showroom's shade under the hero's words: warm, so over the bar's core it reads as deeper gold, not grey (in the white studio the hero's own is a soft ivory: below) */
   /* the type: Archivo for everything but the logo's italic tagline (Cormorant Garamond). Each family token carries
      the metric fallback of its width (below), so nothing moves when the font arrives. The widths are tokens because
      the font shorthand resets font-stretch: a rule that sets font: also sets font-stretch: var(--wdth-...) */
@@ -99,6 +99,12 @@
   --ease: cubic-bezier(.2, .8, .2, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
   --ease-unveil: cubic-bezier(.16, 1, .3, 1);   /* unveils and glides: a long, calm settle, no overshoot */
+  /* the arrivals (the owner's Nov 19 "slow down the text pop ups ... calm motions"): what comes on as the page is
+     read moves on --ease-glide (an ease-out cubic: half its way at a fifth of its time, so it settles instead of
+     snapping; the unveil above is half there at a tenth) and fades on --ease-fade (half seen at a third of its time),
+     never on one curve together: a fade on an out-curve is half seen in its first frames, the "pop" */
+  --ease-glide: cubic-bezier(.33, 1, .68, 1);
+  --ease-fade: cubic-bezier(.4, 0, .2, 1);
   /* the press: it lands under the finger within 80ms and springs back in 180ms (app.js holds it 80ms after the lift) */
   --dur-press: 80ms;
   --dur-release: 180ms;
@@ -112,14 +118,24 @@
   --dur-bar: 360ms;
   --dur-bar-out: 220ms;
   --bar-out: calc(-78px - env(safe-area-inset-top, 0px));
-  /* the arrivals: a heading's line rises over --dur-line, the next one --line-gap after it (app.js LINE keeps the same
-     numbers), the blocks after a head rise over --dur-rise, --stagger apart (60ms; 90ms on the public pages), a room's
+  /* the arrivals: a heading's line rises over --dur-line, the next one --line-gap after it (app.js LINE reads the same
+     tokens), the blocks after a head rise over --dur-rise, --stagger apart (70ms; 110ms on the public pages), a room's
      studio light comes up over --dur-room and drifts --room-drift either way with the scroll (less on a phone; in
      viewport units, so the drift runs on the compositor: a length of the box's own would hold it on the main thread) */
-  --dur-line: 800ms;
-  --line-gap: 90ms;
-  --dur-rise: 600ms;
-  --stagger: 60ms;
+  --dur-line: 1300ms;
+  --line-gap: 140ms;
+  --dur-rise: 1000ms;
+  --stagger: 70ms;
+  --dur-fade: 900ms;    /* a kicker, a heading that could not be split, anything that only fades in */
+  --rise: 14px;         /* how far a block rises (it was 18px) */
+  /* a heading's letters float up into place one by one (app.js LETTER reads these): each over --dur-letter, the
+     next --letter-gap later, all of them started within --letter-span (a long heading's letters closer together);
+     one of over 24 letters or 3 lines goes word by word, --word-gap apart */
+  --dur-letter: 1100ms;
+  --dur-letter-fade: 660ms;   /* a letter is seen sooner than it lands, so the float itself shows (Nov 19, round 3) */
+  --letter-gap: 34ms;
+  --letter-span: 520ms;
+  --word-gap: 70ms;
   --dur-room: 1.4s;
   --room-drift: 4vw;
   /* a room's studio light: a warm pool on the black (--room-light; the Services groups' lower one --group-light), with
@@ -698,7 +714,7 @@ p .tnum, .bk-note .tnum, .cta-band .tnum { white-space: nowrap; }   /* a phone n
   position: relative;
 }
 /* as the page first shows, the bar takes the glass of what is under it at once (the white studio's ivory over the
-   black hero), not by a fade from the plain glass: its colours change on their own only once the page is up */
+   hero and the Services header), not by a fade from the plain glass: its colours change on their own only once the page is up */
 html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 /* the glass catches the studio light: over the hero, its top edge is brightest right above where the light bar is
    on the paint (app.js places .bar-light i after each of the hero's pictures, along the bar, and fades it toward the
@@ -852,7 +868,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   overflow-y: auto;
   visibility: hidden;
 }
-.menu.on { transform: none; visibility: visible; transition: transform .6s var(--ease), visibility 0s; }
+.menu.on { transform: none; visibility: visible; transition: transform .7s var(--ease-glide), visibility 0s; }
 /* a page chosen in it (app.js .chose): the panel holds a breath (160ms) so the gold line under the finger is seen,
    then leaves as usual; the page has already begun to change */
 .menu.chose:not(.on) { transition-delay: .16s, .56s; }
@@ -869,7 +885,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   opacity: 0;
   pointer-events: none;
 }
-.menu.on::after { animation: menuEdge .6s var(--ease-in-out) both; }
+.menu.on::after { animation: menuEdge .7s var(--ease-in-out) both; }
 @keyframes menuEdge { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: .25; } }
 /* a computer or tablet with the height for the whole menu: the panel floats 12px off the edges, level with the
    bar, rounded all round (below 780px tall the 24px it costs would push the foot into a scroll). The 8px top
@@ -893,19 +909,19 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 .menu-brand b { display: block; font: 500 17px/1.05 var(--font-title); font-stretch: var(--wdth-title); letter-spacing: var(--tr-title); text-transform: uppercase; }
 .menu-brand small { display: block; font: 600 10px/1 var(--font-ui); letter-spacing: var(--tr-logo); text-transform: uppercase; color: var(--gold-ink); margin-top: 6px; }
 .menu nav { display: flex; flex-direction: column; }
-/* the items arrive 28ms apart from 140ms (owner §7), like plates set into a case: each word rises from behind its own
-   row (450ms; its clip moves against it, so the mask stays at the line's foot), the hairline under it draws just
+/* the items arrive 40ms apart from 180ms (owner §7; calmer since Nov 19), like plates set into a case: each word rises
+   from behind its own row (700ms; its clip moves against it, so the mask stays at the line's foot), the hairline under it draws just
    behind it, and the foot rises 12px after the last. Only the entrance moves; a pointer or the keyboard lights an item
    at once (its 4px step is translate). The current page's word takes its pass of gold light once risen (app.js). */
 .menu nav a, .menu-foot { --i: 0; }
 .menu nav a { transition: color .3s var(--ease), translate .3s var(--ease); }
-.menu.on nav a > span { animation: menuWord .45s var(--ease-unveil) calc(var(--i) * 28ms + 140ms) backwards; }
-.menu.on nav a.au-run > span { animation: menuWord .45s var(--ease-unveil) calc(var(--i) * 28ms + 140ms) backwards, auPass var(--au-dur) var(--au-ease) 1 both; }   /* (by name: the rise is not played again) */
+.menu.on nav a > span { animation: menuWord .7s var(--ease-glide) calc(var(--i) * 40ms + 180ms) backwards; }
+.menu.on nav a.au-run > span { animation: menuWord .7s var(--ease-glide) calc(var(--i) * 40ms + 180ms) backwards, auPass var(--au-dur) var(--au-ease) 1 both; }   /* (by name: the rise is not played again) */
 @keyframes menuWord {
   from { transform: translateY(110%); clip-path: inset(-.4em -1em calc(110% - .12em) -1em); }
   to { clip-path: inset(-.4em -1em -.12em -1em); }
 }
-.menu.on .menu-foot { animation: menuFoot .45s var(--ease-unveil) calc(var(--i) * 28ms + 140ms) backwards; }
+.menu.on .menu-foot { animation: menuFoot .7s var(--ease-glide) calc(var(--i) * 40ms + 180ms) backwards; }
 @keyframes menuFoot { from { opacity: 0; transform: translateY(12px); } }
 .menu nav a > span { display: block; }
 .menu nav a::after {
@@ -919,7 +935,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   transform-origin: 0 50%;
   pointer-events: none;
 }
-.menu.on nav a::after { animation: menuRule .6s var(--ease-unveil) calc(var(--i) * 28ms + 200ms) backwards; }
+.menu.on nav a::after { animation: menuRule .9s var(--ease-glide) calc(var(--i) * 40ms + 260ms) backwards; }
 @keyframes menuRule { from { transform: scaleX(0); } }
 /* the page chosen (a tap, a click or Enter: app.js .chosen): its gold line shoots across the row under the word in
    220ms, the choice confirmed under the finger, as the page begins to change */
@@ -1028,7 +1044,7 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
   z-index: -1;
   background:
     radial-gradient(60% 46% at 50% 50%, rgba(var(--grey-3), .72), rgba(var(--grey-3), .2) 70%, transparent),
-    linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--hero-foot, var(--bg)) 100%);   /* black to its foot, then the page (in the white studio: black to a clean floor line, --hero-foot) */
+    linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--bg) 100%);   /* black to its foot, then the page (the white studio's hero has its own: ivory into the cream page) */
 }
 .hero-inner {
   text-align: center;
@@ -1092,10 +1108,13 @@ html:not(.ready) .topbar .bar { transition-property: transform, opacity; }
 .hero .place > span + span::before { content: "· "; content: "· " / ""; }   /* the dot drawn between its two parts (not read), as the 404's sign-off */
 .hero .scroll-cue { color: var(--ink-2); }
 .hero .btn-glass { background: rgba(0, 0, 0, .42); }
-.hero [data-in] { opacity: 0; transform: translateY(14px); filter: blur(4px); animation: heroIn 1.1s var(--ease) forwards; animation-delay: calc(var(--d, 0) * 1ms + 250ms); }
-.hero h1[data-in] { filter: none; animation-name: heroInFlat; }   /* the letters carry their own blur: never two */
-@keyframes heroIn { to { opacity: 1; transform: none; filter: none; } }
-@keyframes heroInFlat { to { opacity: 1; transform: none; } }
+/* each line fades in on the arrivals' fade curve as it rises 12px and comes into focus on their glide (1.4s; until
+   Nov 19 1.1s on one out-curve, half seen in 140ms) */
+.hero [data-in] { opacity: 0; transform: translateY(12px); filter: blur(4px); animation: heroFade 1.4s var(--ease-fade) forwards, heroIn 1.4s var(--ease-glide) forwards; animation-delay: calc(var(--d, 0) * 1ms + 250ms); }
+.hero h1[data-in] { filter: none; animation-name: heroFade, heroInFlat; }   /* the letters carry their own blur: never two */
+@keyframes heroFade { to { opacity: 1; } }
+@keyframes heroIn { to { transform: none; filter: none; } }
+@keyframes heroInFlat { to { transform: none; } }
 .scroll-cue {
   position: absolute;
   left: 0;
@@ -1124,6 +1143,14 @@ section { position: relative; }
 /* home after the wash: every section carries the same half beat above and below, so the gaps between them (and the
    centred hairlines at their feet) fall at equal intervals; a phone takes a shorter beat. The Standard keeps its own */
 .why, .work, .doors, .how, .cta { padding-block: clamp(72px, 4vw + 56px, 120px); }
+/* the room after the wash starts closer (the owner's "small white space", Nov 19): as the pin lets go, the stage's
+   own foot (its padding, its frame's fade and, on a phone, the strip a collapsed toolbar adds: 100lvh - 100svh) is
+   already a band of plain page under the cards, so Why Alchemist takes less of its own on top of it. Only while the
+   wash runs: as a plain section (reduced motion, no WebGL, no script) it keeps the usual room */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.no-webgl):not(.no-js) .wash + .why { padding-top: clamp(40px, 2vw + 28px, 72px); }
+  @supports (height: 1lvh) { html:not(.no-webgl):not(.no-js) .wash + .why { padding-top: max(24px, calc(clamp(40px, 2vw + 28px, 72px) - (100lvh - 100svh))); } }
+}
 .section-head { display: grid; gap: var(--s-2); justify-items: center; text-align: center; margin-bottom: clamp(48px, 3vw + 38px, 96px); }
 .section-head h2 { font-size: var(--fs-h2); }
 /* every section title (the wash's, the closing band's, the booking steps' and the account's too) in the section face:
@@ -1135,7 +1162,7 @@ section { position: relative; }
 :is(.section-head, .page-head, .cta-band, .standard .wrap, .page .card) > .eyebrow { text-indent: var(--tr-eyebrow); }
 :is(.section-head, .cta-band) > .display { text-indent: var(--tr-section); }
 /* a hairline that draws itself (scaled, never a width animation) */
-.rule { width: min(320px, 60vw); height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); transform: scaleX(0); transition: transform 1.2s var(--ease); }
+.rule { width: min(320px, 60vw); height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); transform: scaleX(0); transition: transform 1.4s var(--ease-glide); }
 .rule.in { transform: scaleX(1); }
 
 /* the Alchemist Standard */
@@ -1181,12 +1208,12 @@ section { position: relative; }
 .standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement) { opacity: 0; }
 .standard[data-std]:not(.in) .emblem img { transform: translateY(10px); }
 .standard[data-std]:not(.in) :is(.script, .facts span) { opacity: 0; transform: translateY(12px); }
-.standard[data-std].in .emblem img { transition: opacity var(--au-dur) var(--ease-unveil), transform var(--au-dur) var(--ease-unveil); }
-.standard[data-std].in h2.eyebrow { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-kicker); }
-.standard[data-std].in .statement:not(.hd-lines) { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-lines); }   /* one that could not be split fades in */
-.standard[data-std].in .statement .ln-w { animation: lineUp var(--dur-line) var(--ease-unveil) calc(var(--std-lines) + var(--i, 0) * var(--line-gap)) both; }
-.standard[data-std].in .script { transition: opacity var(--dur-line) var(--ease-unveil) var(--std-tail), transform var(--dur-line) var(--ease-unveil) var(--std-tail); }
-.standard[data-std].in .facts span { transition: opacity var(--dur-rise) var(--ease-unveil), transform var(--dur-rise) var(--ease-unveil); transition-delay: calc(var(--std-tail) + 200ms + var(--k, 0) * var(--line-gap)); }
+.standard[data-std].in .emblem img { transition: opacity var(--au-dur) var(--ease-fade), transform var(--au-dur) var(--ease-glide); }
+.standard[data-std].in h2.eyebrow { transition: opacity var(--dur-fade) var(--ease-fade) var(--std-kicker); }
+.standard[data-std].in .statement:not(.hd-lines) { transition: opacity var(--dur-fade) var(--ease-fade) var(--std-lines); }   /* one that could not be split fades in */
+.standard[data-std].in .statement .ln-w { animation: lineUp var(--dur-line) var(--ease-glide) calc(var(--std-lines) + var(--i, 0) * var(--line-gap)) both; }
+.standard[data-std].in .script { transition: opacity var(--dur-rise) var(--ease-fade) var(--std-tail), transform var(--dur-rise) var(--ease-glide) var(--std-tail); }
+.standard[data-std].in .facts span { transition: opacity var(--dur-rise) var(--ease-fade), transform var(--dur-rise) var(--ease-glide); transition-delay: calc(var(--std-tail) + 200ms + var(--k, 0) * var(--line-gap)); }
 .standard .facts span:nth-child(2) { --k: 1; }
 .standard .facts span:nth-child(3) { --k: 2; }
 .standard[data-std] .statement em { color: var(--ink); }
@@ -1224,17 +1251,24 @@ section { position: relative; }
 /* --wash-h is the section's height: the stage's screen plus the pinned length (the owner's "4 scrolls"). The pin lets
    go at its end, which is --wash-release of the wash's timeline: the rinse has cleared the screen there (foam.js reads
    it), and the film and the drops left then dry while the stage scrolls away, so no scrolling goes by with nothing
-   moving. Once the wash has given its pinned length back (foam.js, .wash-folded), the section is one stage tall */
+   moving. Once the wash has given its pinned length back (foam.js, .wash-folded), the section is one stage tall.
+   The stage is the LARGE viewport tall (100lvh): a phone's browser shrinks its toolbars once the visitor scrolls, and
+   a stage of the small viewport (100svh, until Nov 19) then stopped about 86px above the foot of an iPhone's screen,
+   a strip of plain page under the foam (cream in the light theme, the owner's "white box of the next portion", black
+   in the dark) for the whole pin. The section adds the same lvh - svh to --wash-h, so the pinned run (the section
+   less its stage, all that foam.js measures) is exactly as long as before; on a computer lvh = svh: nothing changes */
 .wash {
   --wash-release: .85;
-  height: var(--wash-h, 430vh);
+  --wash-h: 430vh;
+  height: var(--wash-h);
 }
+@supports (height: 1lvh) { .wash { height: calc(var(--wash-h) + 100lvh - 100svh); } }
 .wash.wash-folded, .wash.washed { height: auto; }
 .wash-stage {
   position: sticky;
   top: 0;
   height: 100vh;
-  height: 100svh;
+  height: 100lvh;
   overflow: hidden;
   isolation: isolate;
   contain: paint;
@@ -1279,6 +1313,7 @@ section { position: relative; }
   z-index: 1;
   left: 50%;
   bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(28px + 100lvh - 100svh + env(safe-area-inset-bottom, 0px));   /* above where a phone's toolbar comes back */
   transform: translateX(-50%);
   font: 600 var(--fs-2xs)/1 var(--font-ui-caps);
   letter-spacing: .38em;
@@ -1320,6 +1355,11 @@ section { position: relative; }
 .wash-services {
   position: absolute;
   inset: 0;
+  /* the cards are centred in what a phone always shows (the small viewport: its toolbar may come back at any upward
+     scroll), not in the stage's large one, so the price note never sits under a returning toolbar */
+  bottom: auto;
+  height: 100%;
+  height: 100svh;
   z-index: 2;
   display: grid;
   align-content: center;
@@ -1658,7 +1698,7 @@ section { position: relative; }
    strokes (ui.js lightMark; its turn in the light's queue, .au-run). Held back only while app.js waits for it: drawn
    without JavaScript, under reduced motion and in print */
 .footer[data-sign]:not(.in)::before { transform: scaleX(0); }
-.footer[data-sign].in::before { transition: transform 1.2s var(--ease-unveil); }
+.footer[data-sign].in::before { transition: transform 1.4s var(--ease-glide); }
 .footer[data-sign].in.now::before { transition: none; }
 .foot-brand svg.au-run .mark-pass { animation: markPass var(--au-dur) var(--au-ease) 1 both; }
 /* five columns on a wide screen: the four fact and page columns each as wide as their longest line (so "10 miles"
@@ -1764,13 +1804,13 @@ a.bar-back { text-decoration: none; }   /* (the 404's Back is a link to home unt
 /* ---------------------------------------------------------------- views (one page at a time) */
 /* A page change is a cut through black, the door closing (app.js; a view transition, html.vt-route, between pages other
    than home; to or from home and from the open menu, the shade below): the page you leave dims and draws back (.985)
-   in 200ms, a beat of black (--cut-beat), then the new page rises 14px (from above on Back: vt-back) over 620ms,
-   fading in over 520ms. In the white studio the cut is through cream. The bar holds on its own layer (.vt-hold; its
+   in 200ms, a beat of black (--cut-beat), then the new page rises 14px (from above on Back: vt-back) over 760ms,
+   fading in over 640ms (the arrivals' curves, Nov 19). In the white studio the cut is through cream. The bar holds on its own layer (.vt-hold; its
    name rolls live). Without view transitions: the fade below. */
 :root { --cut-out: 200ms; --cut-beat: 80ms; --cut-up: 520ms; --cut-dy: 14px; }
 html.vt-route::view-transition { background: var(--bg); }
 html.vt-route::view-transition-old(root) { animation: cutOut var(--cut-out) var(--ease-in-out) both; }
-html.vt-route::view-transition-new(root) { animation: cutFade 520ms var(--ease) calc(var(--cut-out) + var(--cut-beat)) both, cutRise 620ms var(--ease-unveil) calc(var(--cut-out) + var(--cut-beat)) both; }
+html.vt-route::view-transition-new(root) { animation: cutFade 640ms var(--ease-fade) calc(var(--cut-out) + var(--cut-beat)) both, cutRise 760ms var(--ease-glide) calc(var(--cut-out) + var(--cut-beat)) both; }
 @keyframes cutOut { to { opacity: 0; transform: scale(.985); } }
 @keyframes cutFade { from { opacity: 0; } }
 html.vt-back::view-transition-new(root) { --cut-dy: -14px; }   /* (on the picture itself: on html it would restyle the whole page) */
@@ -1791,9 +1831,9 @@ html.vt-route::view-transition-group(bar), html.vt-route::view-transition-new(ba
 /* a page opened directly (a shared link to the FAQ): Home and the bar's name stay unseen until app.js shows that page
    (html.deep, from the head script), so Home's hero never flashes first. Visibility, not display: no layout changes */
 html.deep :is([data-view="home"], #pageName) { visibility: hidden; }
-.view.cut-in { animation: cutRise 620ms var(--ease-unveil) both; }
+.view.cut-in { animation: cutRise 760ms var(--ease-glide) both; }
 .view.cut-in.from-above { --cut-dy: -14px; }   /* (Back or Forward) */
-.view.enter { animation: viewIn .45s var(--ease) backwards; }   /* app.js drops .enter when it ends */
+.view.enter { animation: viewIn .6s var(--ease-fade) backwards; }   /* app.js drops .enter when it ends */
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 /* a page met again (Back, Forward) comes in at the place it was left, still: it only fades in, as home met at the wash
    does in the cut (the shade lifts on it in place), so what the visitor left is where they left it from the first frame */
@@ -2093,7 +2133,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 /* the titles of the three moments: down until their moment reaches them. A title set as a head (app.js data-head) is
    handed to its moment instead (its lines rise from behind their slot as the moment reaches it); the index waits the
    same way either way */
-:is(.beading, .cabin, .wet) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 0; transform: translateY(14px); transition: opacity .9s var(--ease-unveil), transform .9s var(--ease-unveil); }
+:is(.beading, .cabin, .wet) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 0; transform: translateY(var(--rise)); transition: opacity var(--dur-rise) var(--ease-fade), transform var(--dur-rise) var(--ease-glide); }
 :is(.beading.risen, .cabin.on, .wet.risen) :is(figcaption:not([data-head]) > *, .plate-no) { opacity: 1; transform: none; }
 .beading.risen figcaption:not([data-head]) > p, .wet.risen figcaption:not([data-head]) > p { transition-delay: .12s; }
 /* Interior: INTERIOR and the index as the view settles (.7s), its sentence just after it (a lead follows its title),
@@ -2753,7 +2793,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
     background:
       radial-gradient(90% 34% at 50% 66%, rgba(var(--grey-3), .55), transparent 70%),
       radial-gradient(60% 46% at 50% 50%, rgba(var(--grey-3), .72), rgba(var(--grey-3), .2) 70%, transparent),
-      linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--hero-foot, var(--bg)) 100%);
+      linear-gradient(180deg, rgba(var(--grey-5), .55) 0%, transparent 22%, transparent 70%, #000 calc(100% - 40px), var(--bg) 100%);
   }
   .door-grid { grid-template-columns: 1fr; }
   .door { padding: 0 0 30px; }
@@ -2794,7 +2834,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .why-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .why .why-grid > .why-item { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 16px; padding: 22px 0; border: 0; border-bottom: 1px solid var(--hair); border-radius: 0; background: none; box-shadow: none; transform: none; }   /* (0,3,0): over the light theme's white card too */
   .why .why-grid > .why-item:first-child { border-top: 1px solid var(--hair); }   /* the list's top line arrives with its first row */
-  .why .why-grid > .why-item[data-rise]:not(.in) { transform: translateY(18px); }   /* the rows rise in after the head, as the cards do */
+  .why .why-grid > .why-item[data-rise]:not(.in) { transform: translateY(var(--rise)); }   /* the rows rise in after the head, as the cards do */
   .why-grid { border-top: 0; }
   .why-item svg { grid-row: 1 / span 2; width: 26px; height: 26px; color: var(--gold); }
   .why-item h3 { margin: 3px 0 6px; }
@@ -2888,7 +2928,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .wash { height: auto; }
   .wash-stage { position: relative; height: auto; }
   .wash-title, .wash-hint, .foam-gl, .cannon { display: none; }
-  .wash-services { position: relative; pointer-events: auto; }
+  .wash-services { position: relative; height: auto; pointer-events: auto; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .steps::before { transform: scaleX(1); }           /* the connector is simply there */
 }
@@ -2898,7 +2938,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .no-webgl .wash, .no-js .wash { height: auto; }
 .no-webgl .wash-stage, .no-js .wash-stage { position: relative; height: auto; }
 :is(.no-webgl, .no-js) :is(.wash-title, .wash-hint, .foam-gl, .cannon) { display: none; }
-.no-webgl .wash-services, .no-js .wash-services { position: relative; pointer-events: auto; }
+.no-webgl .wash-services, .no-js .wash-services { position: relative; height: auto; pointer-events: auto; }
 :is(.no-webgl, .no-js) :is(.svc-card, .svc-head, .svc-note) { --r: 1 !important; }
 .no-js .scroll-cue { display: none; }
 .no-js .hero [data-in] { animation: none; opacity: 1; transform: none; filter: none; }
@@ -4517,10 +4557,10 @@ a.adm-tile { text-decoration: none; color: inherit; }
   display: inline-block;
   text-indent: 0;
   opacity: 0;
-  transform: translateY(.45em) rotateX(-40deg);
-  filter: blur(6px);
-  animation: chIn .9s var(--ease) forwards;
-  animation-delay: calc(380ms + var(--i) * 40ms);
+  transform: translateY(.45em) rotateX(-28deg);
+  filter: blur(5px);
+  animation: chFade 1.25s var(--ease-fade) forwards, chIn 1.25s var(--ease-glide) forwards;   /* calmer since Nov 19 (was .9s, 40ms apart, -40deg, 6px) */
+  animation-delay: calc(400ms + var(--i) * 50ms);
   /* the same three layers as the word, mapped into this letter (9 letters, --i is its index) */
   background:
     linear-gradient(118deg, transparent 36%, rgba(var(--foil-rgb), .75) 50%, transparent 64%) calc(75% - 4.5 * var(--sx) + var(--i) * 50%) 0 / 300% 100% no-repeat,
@@ -4529,7 +4569,9 @@ a.adm-tile { text-decoration: none; color: inherit; }
   -webkit-background-clip: text;
   background-clip: text;
 }
-@keyframes chIn { to { opacity: 1; transform: none; filter: none; } }
+@keyframes chFade { to { opacity: 1; } }
+@keyframes chIn { to { transform: none; filter: none; } }
+@media (hover: none) { .hero h1 .l1.split .ch { filter: none; } }   /* no blur per letter on a phone (doc 39: its letter intro made 54-191ms tasks there) */
 /* without a pointer the reflection drifts slowly across the wordmark: from where it rests (46%) out to one side, then
    from side to side, so it never jumps as it starts */
 @media (hover: none) {
@@ -4594,9 +4636,12 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
    once an element is in; app.js then drops data-rise, so the element's own transitions take over. The hidden state
    comes at once (no transition): a block that landed on the screen a frame before it was armed (a page built after
    its data answered, Reviews' certificate) never fades out before it rises. */
-[data-rise] { transition: opacity var(--dur-rise) var(--ease-unveil), transform var(--dur-rise) var(--ease-unveil); transition-delay: calc(var(--after, 0ms) + var(--k, 0) * var(--stagger)); }
-[data-rise]:not(.in) { opacity: 0; transform: translateY(18px); transition: none; }
-:is([data-view="home"], [data-view="services"], [data-view="gallery"], [data-view="reviews"], [data-view="content"]) { --stagger: 90ms; }
+[data-rise] { transition: opacity var(--dur-rise) var(--ease-fade), transform var(--dur-rise) var(--ease-glide); transition-delay: calc(var(--after, 0ms) + var(--k, 0) * var(--stagger)); }
+[data-rise]:not(.in) { opacity: 0; transform: translateY(var(--rise)); transition: none; }
+:is([data-view="home"], [data-view="services"], [data-view="gallery"], [data-view="reviews"], [data-view="content"]) { --stagger: 110ms; }
+/* booking, the account, Appointments and the consoles keep their quick feedback (600ms, 60ms apart, as before Nov 19):
+   a form's sections and a sent booking's sheet answer what the visitor just did, they are not read as they arrive */
+:is([data-view="book"], [data-view="account"], [data-view="appointments"], [data-view="admin"], [data-view="team"]) { --dur-rise: 600ms; --stagger: 60ms; }
 /* The heads (app.js HEADS, data-head): a section's head arrives in reading order (.in). The kicker fades where it
    sits; from 80ms the heading's lines (.hd-lines > .ln, one per line the browser laid out) rise out of a slot just
    below their own baseline, --line-gap apart, cut off at the slot's edge like type raised into a window (no blur, no
@@ -4607,10 +4652,10 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 [data-head]:not(.in) :is([data-hd="k"], [data-hd="h"]) { opacity: 0; }
 [data-head]:not(.in) [data-hd="f"] { opacity: 0; transform: translateY(12px); }
 [data-head]:not(.in) .rule { transform: scaleX(0); }
-[data-head].in [data-hd="k"] { transition: opacity var(--dur-line) var(--ease-unveil); }
-[data-head].in [data-hd="h"]:not(.hd-lines) { transition: opacity var(--dur-line) var(--ease-unveil) 80ms; }   /* a heading that could not be split fades in */
-[data-head].in [data-hd="f"] { transition: opacity var(--dur-line) var(--ease-unveil), transform var(--dur-line) var(--ease-unveil); transition-delay: calc(var(--hd-lead, 440ms) + var(--f, 0) * var(--line-gap)); }
-[data-head].in .rule { transition: transform 1.2s var(--ease-unveil) var(--hd-rule, .5s); }   /* drawn out from the centre, a reveal's curve */
+[data-head].in [data-hd="k"] { transition: opacity var(--dur-fade) var(--ease-fade); }
+[data-head].in [data-hd="h"]:not(.hd-lines) { transition: opacity var(--dur-fade) var(--ease-fade) 80ms; }   /* a heading that could not be split fades in */
+[data-head].in [data-hd="f"] { transition: opacity var(--dur-rise) var(--ease-fade), transform var(--dur-rise) var(--ease-glide); transition-delay: calc(var(--hd-lead, 440ms) + var(--f, 0) * var(--line-gap)); }
+[data-head].in .rule { transition: transform 1.4s var(--ease-glide) var(--hd-rule, .5s); }   /* drawn out from the centre, a reveal's curve */
 [data-head].in.hd-now :is([data-hd="k"], [data-hd="h"], [data-hd="f"], .rule) { transition: none; }   /* reached by the keyboard first: there at once */
 /* Why Alchemist, the room the wash's fold brings up: its kicker and its rule are set from the first paint, with no
    entrance, so the room is never an empty black while its heading and its blocks wait for the drops to dry (app.js
@@ -4621,10 +4666,37 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 .hd-lines > .ln ~ .ln { text-indent: 0; }   /* the heading's indent is its first line's, as when it is whole */
 @supports not (overflow: clip) { .hd-lines > .ln { overflow: hidden; } }
 .hd-lines .ln-w { display: block; white-space: nowrap; }
-[data-head].in .ln-w { animation: lineUp var(--dur-line) var(--ease-unveil) calc(80ms + var(--i, 0) * var(--line-gap)) both; }   /* the lines go in unseen a frame before their head sets, and rise as it does */
+[data-head].in .hd-lines:not(.hd-chars) .ln-w { animation: lineUp var(--dur-line) var(--ease-glide) calc(80ms + var(--i, 0) * var(--line-gap)) both; }   /* the lines go in unseen a frame before their head sets, and rise as it does */
 @keyframes lineUp { from { transform: translateY(112%); } }
 .gold-text.hd-lines { background: none; }
 .gold-text.hd-lines .ln-w { background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* A display heading's letters float up into place (the owner's Nov 19 "letters floating up into place"; app.js
+   splits them in the lines it has read, .hd-chars): each letter (.lt; a whole word, .lt.wd, in a long heading) fades
+   in on --ease-fade over --dur-letter-fade as it rises .5em on --ease-glide over --dur-letter (seen while it still
+   has a third of its way to go: it visibly floats up), from 80ms, --lt-gap apart (app.js: --letter-gap, or closer so
+   the last starts within --letter-span), over --dur-letter. No window round the line: they float, not slide. On a
+   computer each also comes into focus from a 3px blur over the first part of its rise; never on a phone (a blur per
+   letter is a picture per letter per frame: hard rule 5). Each line is still one slot, its words never broken, and
+   the letters carry the heading's own spacing and indent, so the heading has its size and its place from the frame it
+   is split, and its own text back, whole, once the last letter has landed. A gold heading paints its metal in each
+   letter (the metal runs top to bottom: the same in a letter as in the line). Hidden only while app.js holds the
+   head: never without JavaScript, under reduced motion or in print */
+.hd-chars > .ln { overflow: visible; }
+.hd-chars .lt { display: inline-block; text-indent: 0; }
+.hd-chars .lt.wd { white-space: nowrap; }
+[data-head]:not(.in) .hd-chars .lt { opacity: 0; }
+[data-head].in .hd-chars .lt {
+  animation: ltFade var(--dur-letter-fade) var(--ease-fade) both, ltRise var(--dur-letter) var(--ease-glide) both;
+  animation-delay: calc(80ms + var(--c, 0) * var(--lt-gap, 34ms));
+}
+@keyframes ltFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ltRise { from { transform: translateY(.5em); } to { transform: none; } }
+@media (hover: hover) and (pointer: fine) {
+  [data-head].in .hd-chars .lt { animation-name: ltFade, ltRiseBlur; }
+  @keyframes ltRiseBlur { from { transform: translateY(.5em); filter: blur(3px); } 60% { filter: blur(0); } to { transform: none; filter: blur(0); } }
+}
+.gold-text.hd-chars .ln-w { background: none; color: inherit; }
+.gold-text.hd-chars .lt { background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
 /* a rebuilt app page (a card expanded, a list refreshed) lands in its final state: app.js adds .settled with .in,
    so the one-time reveals (a drawn rule, lit stars, the gold pill, the rim light) never replay */
 .settled, .appt.gold.settled::before, .rv.cert:not(.is-featured).settled .stars i.on, .rv:is(.cert, .is-featured).settled:not(.issuing) .rv-who, .appt.settled .appt-glow, .appt.settled .appt-status, .appt.settled .appt-status::before { transition: none; }
@@ -5145,7 +5217,7 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 .gal-filters .choice-item { min-height: 44px; }
 .gal-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 240px; grid-auto-flow: dense; gap: 14px; perspective: 1200px; }
 .gal-tile { position: relative; margin: 0; border-radius: var(--r-lg); overflow: hidden; background: var(--panel); border: 1px solid rgba(255, 255, 255, .07); isolation: isolate; touch-action: manipulation;
-  opacity: 0; transform: translateY(28px) scale(.98); transition: opacity .55s var(--ease), transform .65s var(--ease), border-color .4s var(--ease); transition-delay: calc(min(var(--i, 0), 3) * 60ms); transform-style: preserve-3d; }
+  opacity: 0; transform: translateY(20px) scale(.985); transition: opacity var(--dur-rise) var(--ease-fade), transform var(--dur-rise) var(--ease-glide), border-color .4s var(--ease); transition-delay: calc(min(var(--i, 0), 3) * 110ms); transform-style: preserve-3d; }
 .gal-tile.tall { grid-row: span 2; }
 .gal-tile.in { opacity: 1; transform: none; }
 /* once a tile has arrived (gallery.js adds .settled on transitionend) the tilt and untilt are quick */
@@ -5359,24 +5431,8 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 /* over the Services header's dark photo (.over-dark from app.js) the same, from the top of the page */
 :where([data-theme="light"]) .topbar.over-dark .bar, :where([data-theme="light"].top-dark) .topbar .bar { background: rgba(var(--studio-panel-rgb), .94); border-color: rgba(var(--studio-ink-rgb), .08); }   /* (html.top-dark: the head script's, as the page first paints) */
 :where([data-theme="light"]) .bar-light { display: none; }   /* solid there: no studio light in the glass */
-/* over Home's black hero (black in both themes) the bar keeps the showroom's smoked glass, its inks and gold, and its
-   dark keys, so no ivory slab crosses the black and outshines the wordmark and Book Now; the ivory bar everywhere
-   else. html.top-home: the head script's guess for Home's first paint, until the observer answers (app.js). Through
-   a page change's cut (.shade, app.js) it is the cover's ivory, whatever is laid out under it; where its glass changes
-   with the cut, the bar fades in with the cover, on the cover's clock: coming on (.glass-in, the cut's 200ms) and
-   lifting (.glass-up, the lift's), so in every frame it matches what is under it. Opacity only; nothing moves */
-[data-theme="light"] :is(.topbar.over-hero:not(.over-wash, .shade), .top-home .topbar:not(.shade)) .bar {
-  --ink: var(--dark-ink); --ink-2: var(--dark-ink-2); --gold: var(--au-500); --gold-hi: var(--au-200);
-  background: linear-gradient(180deg, rgba(var(--grey-22), .66), rgba(var(--grey-6), .6));
-  border-color: rgba(255, 255, 255, .1);
-  box-shadow: 0 18px 50px -20px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(var(--gold-pale-rgb), .07);
-}
-[data-theme="light"] .topbar.over-hero.scrolled:not(.over-wash, .shade) .bar { background: linear-gradient(180deg, rgba(var(--grey-16), .86), rgba(var(--grey-4), .86)); border-color: rgba(var(--gold-rgb), .14); }
-[data-theme="light"] :is(.topbar.over-hero:not(.over-wash, .shade), .top-home .topbar:not(.shade)) .icon-btn { background: linear-gradient(180deg, rgb(var(--grey-28)), rgb(var(--grey-7))); border-color: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(var(--gold-pale-rgb), .18), inset 0 -2px 6px rgba(0, 0, 0, .6), 0 4px 14px -6px rgba(0, 0, 0, .8); }
-@keyframes glassOn { from { opacity: 0; } }
-@keyframes glassUp { from { opacity: 0; } }
-[data-theme="light"] .topbar.glass-in .bar { animation: glassOn var(--cut-out) var(--ease-in-out) both; }   /* (the cover's own: cutDark) */
-[data-theme="light"] .topbar.glass-up .bar { animation: glassUp var(--cut-up) var(--ease) both; }   /* (the cover's lift: .scrim.cut:not(.on)) */
+/* over Home's hero the bar is the ivory glass too, from the first paint (html.top-dark, above): the hero is white and
+   gold in the white studio since the owner's Nov 19 call (below), so no smoked bar crosses it any more */
 :where([data-theme="light"]) .icon-btn { background: linear-gradient(180deg, rgb(var(--studio-panel-rgb)), var(--studio-key-foot)); border-color: rgba(var(--studio-ink-rgb), .1); box-shadow: inset 0 1px 0 var(--studio-card), 0 4px 14px -8px rgba(var(--studio-shade-rgb), .4); }
 /* the gold for icons and large numerals (--gold: 3.3:1 at worst, on the floor; the large-text floor is 3:1); small gold text is --gold-ink */
 [data-theme="light"] :is(.icon-btn, .amount, .adm-tile b, .el-row i, .tip-no) { color: var(--gold); }
@@ -5420,24 +5476,52 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
   :where([data-theme="light"]) .bk-muted a:hover, :where([data-theme="light"]) .sent-know-list a:hover { color: var(--gold); }
   :where([data-theme="light"]) .link.danger:hover { color: var(--danger); }
 }
-/* ---- the hero stays the black showroom (the hero stays black; §31: not an inversion), as the Services header does: the
-   shader keeps its black paint (app.js starts it with studio: false), the hero keeps the dark tokens, so the wordmark
-   is gold and the words, buttons and focus ring are the dark theme's, and only its foot fades into the ivory page.
-   The bar over it goes nearly solid ivory (.over-dark, above) */
+/* ---- the hero in the white studio: white and gold. Until Nov 19 it stayed the black showroom (§31); the owner
+   reversed that on Nov 19 ("home page doesnt turn white and gold in white mode"), so Home follows the theme now (the
+   Services header keeps its dark photo). The shader paints its studio preset (ivory paint under a white softbox, the
+   warm bar faint in it: hero-gl.js, which follows the theme live); the hero takes the studio's tokens: the words in
+   ink, Detailing and the small gold in the deep gold ink, Book Now's polished gold as everywhere, the glass button in
+   frosted ivory on a gold hairline. The wordmark is a deeper gold metal (its lightest stop 3.7 to 3.9:1 on the hero's
+   real paint, luminance about .90 to .95, the rest 4.3:1 and up; it is display type, 3:1 is the floor) with a warm
+   gold sheen in place of the dark theme's near-white one, which would wash a resting band of it out on white (where
+   the sheen peaks on the lightest stop it keeps about 3.4:1; only the passing foil, a moment, lightens it further);
+   the monogram's picture is pressed a shade deeper on a warm contact shadow.
+   Where the dark theme lays a shade under the words while the bar passes, the studio lays a soft ivory clearing (the
+   bar's core is white here); the halos under the small words are ivory too. The foot fades into the cream page */
 [data-theme="light"] .hero {
-  --ink: var(--dark-ink); --ink-2: var(--dark-ink-2); --muted: var(--dark-muted); --hair: rgba(255, 255, 255, .09); --line: rgba(var(--gold-rgb), .3); --line-soft: rgba(var(--gold-rgb), .13);
-  --gold: var(--au-500); --gold-hi: var(--au-200); --gold-ink: var(--au-500); --gold-pale: var(--au-100); --gold-deep: var(--au-900);
-  --gold-text: linear-gradient(180deg, var(--au-50) 0%, var(--au-300) 30%, var(--au-500) 56%, var(--gold-t4) 80%, var(--gold-t5) 100%);
-  color-scheme: dark;
-  --hero-foot: #000;   /* the black plate ends on a crisp floor line over the ivory page: a 40px blend into it would pass through grey */
+  --shade-rgb: 255, 253, 248;
+  --sheen-rgb: 184, 128, 30;
+  --foil-rgb: 255, 236, 190;
+  --gold-text: linear-gradient(180deg, #8a5c07 0%, #a87310 30%, #74500a 58%, #9a6a0e 80%, #684606 100%);
+  background: radial-gradient(80% 60% at 50% 45%, #fffdf8, #ebe6dc 70%, #e2dccf);
 }
-[data-theme="light"] .hero .btn-glass { border-color: var(--line); color: var(--ink); box-shadow: none; }
-[data-theme="light"] .hero .btn-glass::after { background: linear-gradient(118deg, transparent 40%, rgba(255, 255, 255, .08) 50%, transparent 60%); }
-[data-theme="light"] .hero :focus-visible { outline-color: var(--gold-hi); }
+[data-theme="light"] .hero::before {
+  background:
+    radial-gradient(60% 46% at 50% 48%, rgba(var(--studio-panel-rgb), .7), rgba(var(--studio-panel-rgb), .2) 70%, transparent),
+    linear-gradient(180deg, rgba(var(--studio-panel-rgb), .55) 0%, transparent 22%, transparent 72%, rgba(var(--studio-bg-rgb), .7) calc(100% - 40px), var(--bg) 100%);
+}
+@media (max-width: 720px) {
+  [data-theme="light"] .hero::before {
+    background:
+      radial-gradient(90% 34% at 50% 66%, rgba(var(--studio-panel-rgb), .45), transparent 70%),
+      radial-gradient(60% 46% at 50% 48%, rgba(var(--studio-panel-rgb), .7), rgba(var(--studio-panel-rgb), .2) 70%, transparent),
+      linear-gradient(180deg, rgba(var(--studio-panel-rgb), .55) 0%, transparent 22%, transparent 72%, rgba(var(--studio-bg-rgb), .7) calc(100% - 40px), var(--bg) 100%);
+  }
+}
+[data-theme="light"] .hero-mark { filter: saturate(1.12) brightness(.9) contrast(1.06) drop-shadow(0 8px 18px rgba(var(--studio-gold-deep-rgb), .3)); }
+[data-theme="light"] .hero :is(.sub, h1 .l2, .place, .scroll-cue) { text-shadow: 0 0 12px rgba(var(--studio-panel-rgb), .95), 0 0 3px rgba(var(--studio-panel-rgb), .85); }
+[data-theme="light"] .hero .btn-glass { background: linear-gradient(180deg, rgba(var(--studio-glass-hi-rgb), .82), rgba(var(--studio-glass-lo-rgb), .62)); border-color: rgba(var(--studio-gold-rgb), .55); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 10px 24px -14px rgba(var(--studio-shade-rgb), .35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+/* without the shader (no WebGL, no script): the ivory studio and its light as one still stripe, a white core in a warm
+   gold edge */
+[data-theme="light"]:is(.no-webgl, .no-hero-gl, .no-js) .hero { background: radial-gradient(70% 55% at 50% 42%, #fffdf8 0%, #efeae0 60%, #e2dbcd 100%); }
+[data-theme="light"]:is(.no-webgl, .no-hero-gl, .no-js) .hero::after { background: linear-gradient(118deg, transparent 44%, rgba(var(--studio-glow-rgb), 0) 46%, rgba(var(--studio-glow-rgb), .3) 49%, rgba(255, 255, 255, .9) 50%, rgba(var(--studio-glow-rgb), .3) 51%, rgba(var(--studio-glow-rgb), 0) 54%, transparent 56%); }
 /* ---- the wash stage: white falling to the floor, a warm-grey backdrop behind the foam (.floor, fading as the
    rinse clears, --clean from foam.js), the beads picture multiplied in faintly, a thin cream veil */
 :where([data-theme="light"]) .wash-stage { background: linear-gradient(180deg, var(--studio-card) 0%, var(--bg) 58%, var(--floor) 100%); }
 :where([data-theme="light"]) .wash-stage .floor { background: radial-gradient(70% 55% at 50% 42%, var(--studio-floor-hi), var(--studio-floor-lo) 70%); opacity: calc((1 - var(--clean, 0)) * .85); }   /* darker while the foam is on, so thin foam has something to be thin against */
+/* the warm floor rises out of the cream page instead of arriving as a beige panel with an edge (Nov 19): it is clear at
+   the stage's top and foot and full from a third of the way down */
+:where([data-theme="light"]) .wash-stage .floor { -webkit-mask-image: linear-gradient(180deg, transparent, #000 32%, #000 78%, transparent); mask-image: linear-gradient(180deg, transparent, #000 32%, #000 78%, transparent); }
 :where([data-theme="light"]) .wash-bg { opacity: calc(.06 + var(--clean, 0) * .08); mix-blend-mode: multiply; }
 :where([data-theme="light"]) .wash-shade { background: linear-gradient(180deg, var(--bg) 0%, rgba(var(--studio-bg-rgb), .55) 16%, rgba(var(--studio-bg-rgb), .35) 62%, var(--bg) 100%); opacity: 1; }
 :where([data-theme="light"]) .wash-stage::after { opacity: .25; }
@@ -5656,7 +5740,7 @@ html.vt-dim::view-transition-new(root) {
   .ct-rows > div:has(.note-link), .ct-zip, .foot-zip, .gal-filters, .transmute:has(.tm-ph) { display: none !important; }
   .topbar, .dock, .menu, .scrim, .veil, .toast, .lightbox, .skip, .nojs-note, .scroll-cue, .btn, .addon-go, .note-link, .el-back, .bar-back, .work-nav, .work-progress, .svc-jump, .bk-nav, .theme-btn, canvas, .floor, .wash-title, .wash-hint, .cannon, .wash-shade, .top-photo, .svc-card .photo, .svc-card .art, .group-plate > img, .group-plate > canvas,
   .hero::before, .hero::after, .hero-mono::before, .hero-mono::after, .hero h1::before, .standard::before, .why::before, .work::before, .how::before, .svc-group::before, .cta-band::before, .wash-stage::before, .wash-stage::after, .svc-card::before, .svc-card::after, .svc-top::before, .svc-top::after, .group-plate::before { display: none !important; }
-  [data-rise], [data-reveal], [data-hd], .ln-w, .standard[data-std] :is(.emblem img, h2.eyebrow, .script, .facts span), .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
+  [data-rise], [data-reveal], [data-hd], .ln-w, .lt, .standard[data-std] :is(.emblem img, h2.eyebrow, .script, .facts span), .view, .hero [data-in], .hero-inner, .svc-card, .svc-head, .svc-note, .rule, .door .line, .steps::before, .work-strip, .group-plate > *, .wash-services .wrap, .gal-tile, .gal-media, .tm-frame { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .why::after, .how::after, .work-item img { animation: none !important; }   /* the foot hairlines drawn and the photos centred, wherever the screen had scrolled */
   .emblem svg.circle circle { stroke-dashoffset: 0; transition: none !important; }   /* (a ring still drawing is drawn: a running transition would outrank the rule) */
@@ -5666,11 +5750,11 @@ html.vt-dim::view-transition-new(root) {
   .rv:is(.cert, .is-featured) .rv-who { opacity: 1 !important; transform: none !important; transition: none !important; }
   .emblem.trace .em-mark img { clip-path: none !important; animation: none !important; opacity: 1 !important; }
   .why-item svg path { stroke-dashoffset: 0 !important; }   /* the Why icons on paper, drawn or not on the screen */
-  .gold-text, .gold-text.hd-lines .ln-w, .hero h1 .l1 { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }
+  .gold-text, .gold-text.hd-lines .ln-w, .gold-text.hd-chars .lt, .hero h1 .l1 { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }
   .standard .statement em { background: none !important; color: var(--studio-gold-ink) !important; -webkit-text-fill-color: var(--studio-gold-ink); }   /* the promise in gold, lit or not */
   .standard .statement em::after { content: none !important; }
   .amount, .price-card .tag, .svc-card .price, .eyebrow { color: var(--studio-gold-ink) !important; text-shadow: none !important; }
-  .hero :is(.sub, h1 .l2, .place, .scroll-cue), .svc-note { text-shadow: none !important; }   /* the screen's dark halos (for the light bar) never print grey (the studio's black hero and Services header print in ink: above) */
+  .hero :is(.sub, h1 .l2, .place, .scroll-cue), .svc-note { text-shadow: none !important; }   /* the screen's dark halos (for the light bar) never print grey (the hero and the studio's Services header print in ink: above) */
   .svc-card .price { background: none !important; -webkit-text-fill-color: currentColor !important; }   /* the row's glint, mid-pass, never prints */
   .au-band { display: none !important; }
   .hero { min-height: 0 !important; background: none !important; }
@@ -5678,7 +5762,7 @@ html.vt-dim::view-transition-new(root) {
   .section { padding-block: 8mm; }
   .wash { height: auto !important; }
   .wash-stage { position: static !important; height: auto !important; contain: none !important; overflow: visible !important; background: none !important; }
-  .wash-services { position: static !important; padding: 0 !important; pointer-events: auto; }
+  .wash-services { position: static !important; height: auto !important; padding: 0 !important; pointer-events: auto; }
   .svc-card { min-height: 0; }
   .svc-top { min-height: 0; padding: 0 0 8mm; background: none; }
   .svc-group { padding-block: 6mm; }

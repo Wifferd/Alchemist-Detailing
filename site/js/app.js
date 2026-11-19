@@ -8,6 +8,13 @@
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const root = document.documentElement;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // a time token of the stylesheet's motion system in ms (the stylesheet is in by now: the scripts are deferred), or d
+  const tokMs = (name, d) => {
+    let v = '';
+    try { v = getComputedStyle(root).getPropertyValue(name).trim(); } catch (e) { v = ''; }
+    const n = parseFloat(v);
+    return !isFinite(n) ? d : /ms$/.test(v) ? n : /s$/.test(v) ? n * 1000 : d;
+  };
   const glOk = (() => { try { return !!document.createElement('canvas').getContext('webgl'); } catch (e) { return false; } })();
   if (!glOk) root.classList.add('no-webgl');
 
@@ -52,13 +59,14 @@
       const plays = !late && !met && !light.off;
       if (plays && heroWord && heroMono) spots = { w: pageBox(heroWord), m: pageBox(heroMono) };
       if (glassLight && glassBar) glassBox = barBox(glassBar.getBoundingClientRect());
-      // black paint in both themes: the hero is the black showroom in the white studio too (CSS)
+      // the paint follows the theme (hero-gl.js's studio preset, live through its theme observer): black in the
+      // showroom, ivory in the white studio (the owner's Nov 19 call: Home is white and gold in light mode; CSS)
       // the canvas fades in over the CSS glow with its first picture (CSS .hero-gl.lit). Under less motion the hero is
       // one still at a fixed, composed moment of the light's drift (STILL_T): the bar on the left of the paint, clear
       // of the place line at every width from a 360px phone to a desk, never a random moment parked behind the words
       const heroGl = $('#heroGl');
       const onFrame = (h) => { if (!heroGl.classList.contains('lit')) heroGl.classList.add('lit'); glass(h); };
-      try { hero = window.AlchemistHero.start(heroGl, { scene, still: reduce, time: reduce ? STILL_T : null, studio: false, entrance: plays, onFrame, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
+      try { hero = window.AlchemistHero.start(heroGl, { scene, still: reduce, time: reduce ? STILL_T : null, entrance: plays, onFrame, onSkip: unplan }); } catch (e) { root.classList.add('no-hero-gl'); }
     }
     // The studio light's path is worked out now too, with the page laid out (arithmetic only: no frame carries it).
     const p = hero && hero.enter && spots ? plan() : null;
@@ -542,7 +550,7 @@
     // customer's own input, so no shine holds it back. Once a visit for each page (menuLit): later opens show its row
     // and its dash as they are
     const here = $('nav a[aria-current="page"]', menu), page = here && here.getAttribute('href');
-    if (here && !menuLit.has(page)) light.pass(here, { delay: 250 + 28 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 450, when: () => menuOpen, now: true, start: () => { menuLit.add(page); } });
+    if (here && !menuLit.has(page)) light.pass(here, { delay: 290 + 40 * (parseInt(here.style.getPropertyValue('--i'), 10) || 0) + 700, when: () => menuOpen, now: true, start: () => { menuLit.add(page); } });
   }
   function closeMenu(returnFocus) {
     if (!menuOpen) return;
@@ -799,15 +807,16 @@
   }
   new IntersectionObserver((es) => overWash(es[es.length - 1].isIntersecting), { rootMargin: '-10% 0px -10% 0px' }).observe(washSection);
   washSection.addEventListener('washend', () => topbar.classList.remove('over-wash'));   // the canvas has stopped for good
-  // While a dark piece is under the bar (the black hero, the Services header's photo), .over-dark: in the white studio
-  // the bar goes nearly solid ivory there (CSS), so it never reads as a grey band. The observed strip is the bar's: from
+  // While Home's hero or the Services header's photo is under the bar, .over-dark (black pieces in the showroom; in the
+  // white studio the hero is ivory since Nov 19, the header still dark): there the studio's bar goes nearly solid ivory
+  // (CSS), so it never reads as a grey band. The observed strip is the bar's: from
   // its top edge to the foot of the top tenth of the screen; the two are on different pages, so whichever is in it
   // counts.
   const darkTops = [$('.hero'), $('.svc-top')].filter(Boolean), underBar = new Set();
   function overDark() {
     topbar.classList.toggle('over-dark', underBar.size > 0);
     topbar.classList.toggle('over-hero', [...underBar].some((el) => el.matches('.hero')));   // the studio light is under the glass
-    if (root.classList.contains('top-dark')) root.classList.remove('top-dark', 'top-home');   // (the head script's guesses for the first paint: the observer's answer from now on)
+    if (root.classList.contains('top-dark')) root.classList.remove('top-dark');   // (the head script's guess for the first paint: the observer's answer from now on)
   }
   // The strip starts at the bar's top edge (the bar's padding above it, with any notch: CSS), not the screen's: a hero
   // whose foot is still in that gap has nothing under the glass. A piece counts only with some of its height in the
@@ -976,12 +985,43 @@
   // ---------------------------------------------------------------- the motion system
   // Sections rise in as they enter the screen, children staggered (capped at the fourth) within their parent;
   // hairlines draw. Once an element is in, data-rise is dropped so its own hover transitions take over. A block rises
-  // when 15% of it is in, or 24px of it for a tall one (a price card on a short phone, landed on by a jump, shows only
-  // its top and would otherwise wait for a scroll that never comes). A head (below) sets in its own way; a block that
+  // when 20% of it is in, or 24px of it for a tall one (a price card on a short phone, landed on by a jump, shows only
+  // its top and would otherwise wait for a scroll that never comes), counted above the screen's lowest tenth, so it
+  // plays where the eye is rather than at the foot of the screen (15% and 8% until Nov 19). A head (below) sets in its own way; a block that
   // arrives with the head above it waits for the head's lead (--after), so a section reads in order.
   const io = new IntersectionObserver((es) => {
-    es.forEach((e) => { if (e.isIntersecting && (e.intersectionRatio >= 0.15 || e.intersectionRect.height >= 24)) { reveal(e.target); io.unobserve(e.target); } });
-  }, { threshold: [0, 0.02, 0.05, 0.1, 0.15], rootMargin: '0px 0px -8% 0px' });
+    es.forEach((e) => { if (e.isIntersecting && (e.intersectionRatio >= 0.2 || e.intersectionRect.height >= 24)) { reveal(e.target); io.unobserve(e.target); } });
+  }, { threshold: [0, 0.02, 0.05, 0.1, 0.15, 0.2], rootMargin: '0px 0px -10% 0px' });
+  // A head is watched by its heading, not its whole container (a tall head counts as in view while its heading is still
+  // at the screen's foot, behind a phone's Call / Book Now dock, and its letters would float up unseen): it sets once
+  // 60% of the heading is above the screen's lowest 18% (120px on a phone: clear of the dock), so the letters play
+  // where the eye is (Nov 19)
+  const HEAD_SIGHT = 0.82;   // (the observer's -18%)
+  const sights = new Map();   // a heading whose moment has sent its title before it was in sight: what to run then
+  const hio = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting || e.intersectionRatio < 0.6) return;
+    hio.unobserve(e.target);
+    const fn = sights.get(e.target);
+    if (fn) { sights.delete(e.target); fn(); return; }
+    const c = e.target.closest('[data-head]');
+    if (c) reveal(c);
+  }), { threshold: [0, 0.3, 0.6, 1], rootMargin: '0px 0px -' + Math.round((1 - HEAD_SIGHT) * 100) + '% 0px' });
+  const unwatchHead = (c) => { io.unobserve(c); $$('[data-hd="h"]', c).forEach((h) => { hio.unobserve(h); sights.delete(h); }); };
+  // a head's heading is where the eye is: on the screen and clear of its lowest 18%
+  const inSight = (c) => {
+    const h = c && $('[data-hd="h"]', c);
+    if (!h) return true;
+    const r = h.getBoundingClientRect();
+    return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight * HEAD_SIGHT;
+  };
+  // a plate's moment sends its title on its own clock (the Interior's cabin, Protection's beading): it sets then if it
+  // is in sight, else once it comes into sight, so its letters never float up unseen below the screen (Nov 19)
+  function whenSeen(c, fn) {
+    const h = c && $('[data-hd="h"]', c);
+    if (!h || inSight(c)) { fn(); return; }
+    sights.set(h, fn);
+    hio.observe(h);
+  }
   const held = new WeakSet();   // what comes after the wash on home, waiting for washend (or for its page's opening: data-hold)
   // An arrival is only noted where it is found (the observer, a page opening, washend). In the next frame the rooms
   // and the blocks go in (their light comes up first; a block under a head still to set waits for it). The heads are
@@ -1037,6 +1077,7 @@
   // At most RISE_MAX blocks and rooms go in a frame (a phone, slowed, would otherwise lay out and paint a whole page's
   // worth in one); the rest follow in the next frames, in order, ahead of anything newer
   const RISE_MAX = 4;
+  const RISE_END = tokMs('--dur-rise', 1000) + 3 * 110 + 200;   // a block's arrival is over (its rise and the 4th's stagger)
   function arrive() {
     const els = [...due].filter((el) => !el.classList.contains('in'));
     due.clear();
@@ -1062,9 +1103,9 @@
       }
       const h = $('[data-hd="h"]', c);
       let cut = null;
-      try { cut = h && lineCut(h); } catch (e) { cut = null; }   // whatever happens, the head shows
+      try { cut = h && lineCut(h, true); if (cut) cut.units = unitsOf(cut); } catch (e) { cut = null; }   // whatever happens, the head shows
       go.push([c, h, cut, headKey(h)]);
-      last = c; on = true; free = t + LINE.at + ((cut ? cut.length : 1) - 1) * LINE.gap + 520;
+      last = c; on = true; free = t + LINE.at + spanOf(cut) + 520;
     });
     if (!go.length) return;
     // write: the lines go in now, after all the reading, while the heading is still unseen (its head not .in), so
@@ -1090,7 +1131,7 @@
     const pc = !now && pcLive.has(el) && el.hasAttribute('data-rise');   // a price card whose figure is the database's
     if (pc) priceSet(el);
     el.classList.add('in');
-    if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); el.style.removeProperty('--after'); if (pc) el.classList.remove('pc-set'); }, (pc ? PC.end : 1000) + after);
+    if (el.hasAttribute('data-rise')) setTimeout(() => { el.removeAttribute('data-rise'); el.style.removeProperty('--k'); el.style.removeProperty('--after'); if (pc) el.classList.remove('pc-set'); }, (pc ? PC.end : RISE_END) + after);
   }
   // a plate's title whose moment sets it (Exterior's rinse, Interior's cabin, Protection's beading: headGo, as the
   // sheet clears, the cabin comes up or the photo is back), never an arrival, a page opening or a jump to the group
@@ -1119,7 +1160,7 @@
     // itself, which a new page or the skip link puts the focus on, with no ring (it keeps its arrival)
     const hd = e.target.closest('[data-head]');
     if (!hd || e.target.matches('[data-hd="h"]')) return;
-    if (!hd.classList.contains('in')) { io.unobserve(hd); setHead(hd, true); } else hd.classList.add('hd-now');
+    if (!hd.classList.contains('in')) { unwatchHead(hd); setHead(hd, true); } else hd.classList.add('hd-now');
   });
   const RISE = ['.why-item', '.why-more', '.door', '.feat-foot', '.step', '.price-card', '.svc-notes > div', '.rv', '.rv-unissued', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.el-main', '.el-panel', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
   // The rooms: each section after the wash, the closing band and each Services group lights up as it arrives (CSS: its
@@ -1158,16 +1199,30 @@
   // ---------------------------------------------------------------- the heads: each headline sets from behind its line
   // Every display heading outside the hero, the wash and booking (the section heads on home and Services, the brand
   // pages' heads, the Ritual's and the Bead Test's, the Services plates' titles, the closing band) arrives in reading
-  // order once 15% of its head is on the screen: the kicker fades where it sits; from 80ms the heading rises line by
-  // line out of a slot just below its own baseline (CSS lineUp: 800ms, 90ms apart); the lead and what follows it rise
-  // 12px after the last line has started; the rule draws last. The lines are the ones the browser has laid out,
+  // order once 20% of its head is on the screen: the kicker fades where it sits; from 80ms the heading's letters float
+  // up into place one by one (CSS ltFade and ltRise, LETTER below; a long heading word by word); the lead and what
+  // follows it rise 12px after the last letter has started; the rule draws last. The lines are the ones the browser has laid out,
   // measured once the fonts are in, at the moment the head arrives, so a later font or a new size still splits right.
   // The heading keeps one readable copy for screen readers and gets its own text back as soon as its last line has
   // landed, at once on a new width, and at once if a translator rewrites it. One head sets at a time on the screen;
   // after the wash, only once it has ended. A page already seen this session shows its heads set. Not under reduced
   // motion (armReveals stops first): the heads are simply there, as without JavaScript and in print.
   const HEADS = '.section-head, .page-head, .show-head, .group-plate figcaption, .cta-band';
-  const LINE = { at: 80, gap: 90, dur: 800, lead: 360 };   // the first line's start, --line-gap, --dur-line; the lead's wait after the last line starts
+  const LINE = { at: 80, gap: tokMs('--line-gap', 140), dur: tokMs('--dur-line', 1300), lead: 360 };   // the first line's start, --line-gap, --dur-line; the lead's wait after the last line starts
+  // A heading's letters float up one by one (Nov 19, the owner's "letters floating up into place"): --dur-letter each,
+  // --letter-gap apart, or closer, so the last starts within --letter-span; over 24 letters or 3 lines, word by word,
+  // --word-gap apart (the same span). The Standard's statement, a sentence, keeps its lines
+  const LETTER = { dur: tokMs('--dur-letter', 1100), gap: tokMs('--letter-gap', 34), span: tokMs('--letter-span', 520), word: tokMs('--word-gap', 70), max: 24, lines: 2 };
+  // how a heading cut into its lines sets: by letter or by word, how many of them, how far apart, and when the last starts
+  function unitsOf(cut) {
+    const t = cut.text, letters = t.replace(/\s+/g, '').length, words = (t.match(/\S+/g) || []).length;
+    const byWord = letters > LETTER.max || cut.length > LETTER.lines;
+    const n = byWord ? words : letters, step = byWord ? LETTER.word : LETTER.gap;
+    const gap = n > 1 ? Math.min(step, LETTER.span / (n - 1)) : 0;
+    return { byWord, n, gap, span: Math.round((n - 1) * gap) };
+  }
+  // when the last line (or letter) of a cut starts, from the first
+  const spanOf = (cut) => (!cut ? 0 : cut.units ? cut.units.span : (cut.length - 1) * LINE.gap);
   const heads = new WeakMap();   // a head that has started setting: { at, lead } (when, and when its lead follows)
   let headLast = null, headFree = 0;   // the last head set, and when the next one on the screen may start
   function armHeads(scope) {
@@ -1186,7 +1241,7 @@
       // (a line its plate's moment shows itself, data-own: Interior's, word by word with the cabin's lights, is not one)
       $$(':scope > p:not(.eyebrow, [data-own]), :scope > .actions, :scope > .work-nav', c).forEach((f, i) => { f.setAttribute('data-hd', 'f'); f.style.setProperty('--f', i); });
       $$('.rule', c).forEach((r) => io.observe(r));
-      if (!c.closest('.wet, .cabin, .beading')) io.observe(c);   // a plate with a moment of its own sets its title itself
+      if (!c.closest('.wet, .cabin, .beading')) { hio.observe(h); io.unobserve(c); }   // a plate with a moment of its own sets its title itself; a room that is a head (the closing band) waits for its heading
     });
   }
   // a head held back for another's, in reading order (the Bead Test's, while Protection's plate above it waits for its
@@ -1233,7 +1288,7 @@
     if (!h || (document.fonts && document.fonts.status !== 'loaded')) return () => headGo(c);
     const key = headKey(h);
     let n = 0;
-    try { const cut = lineCut(h); n = cut ? splitLines(h, cut, () => headDone(c), ms + LINE.at) : 0; } catch (e) { n = 0; }
+    try { const cut = lineCut(h, true); if (cut) cut.units = unitsOf(cut); n = cut ? splitLines(h, cut, () => headDone(c), ms + LINE.at) : 0; } catch (e) { n = 0; }
     return () => setHead(c, false, n, key);
   }
   const turn = new Set();   // the heads to set in the next frame
@@ -1252,14 +1307,14 @@
     if (now || !whole) n = 0;   // (lines that went whole meanwhile, at a new width: it fades in)
     if (!key) key = headKey(h);
     if (!n) setTimeout(() => headDone(c), now ? 0 : LINE.at + LINE.dur);   // faded in (or there at once): whole as it lands
-    const lines = Math.max(1, n), t = performance.now(), lead = LINE.at + (lines - 1) * LINE.gap + LINE.lead;
+    const span = n ? (spans.get(h) || 0) : 0, t = performance.now(), lead = LINE.at + span + LINE.lead;   // (span: when its last line or letter starts)
     c.style.setProperty('--hd-lead', lead + 'ms');
-    c.style.setProperty('--hd-rule', (500 + (lines - 1) * LINE.gap) + 'ms');
+    c.style.setProperty('--hd-rule', (500 + span) + 'ms');
     if (now) c.classList.add('hd-now');
     c.classList.add('in');
     heads.set(c, { at: t, lead });
     headLast = c;
-    headFree = t + LINE.at + (lines - 1) * LINE.gap + 520;   // its last line has all but landed
+    headFree = t + LINE.at + span + 520;   // its last line (or letter) has all but landed
     setTimeout(() => markSeen(c, key), 0);
     // the blocks under it that waited for it follow it, from the next frame, in order: RISE_MAX a frame, and one price
     // card a frame (a card and its figure are a frame's painting on a slow phone: two together held the page up). Their
@@ -1315,7 +1370,7 @@
   // before anything is written in the frame: the words on each line, as [from, to] in its text. Only a heading of
   // plain text, or of text and plain-text <em>s (the Standard's statement), on a page no translator has rewritten;
   // null otherwise (it then fades in). Its runs (lines.parts) say which words were in an <em>, so each line keeps it.
-  function lineCut(h) {
+  function lineCut(h, adv) {
     if (!h.firstChild || /\btranslated-/.test(root.className)) return null;
     const parts = [];
     let text = '';
@@ -1337,6 +1392,18 @@
       if (!rs.length || Math.abs(rs[rs.length - 1].top - rs[0].top) > 2) return null;   // unseen, or a word broken across two lines
       if (top == null || Math.abs(rs[0].top - top) > rs[0].height / 2) { lines.push([m.index, m.index + m[0].length]); top = rs[0].top; }
       else lines[lines.length - 1][1] = m.index + m[0].length;
+      // adv: each letter's advance as laid out (its kerning with the next included), so its own box, split, keeps it
+      // and no letter moves when the heading is whole again (a box of its own would otherwise lose the pair's kerning)
+      if (adv) {
+        if (!lines.adv) lines.adv = [];
+        for (let i = m.index, e = m.index + m[0].length; i < e;) {
+          const n = text.codePointAt(i) > 0xffff ? 2 : 1;
+          range.setStart(...pos(i, false));
+          range.setEnd(...pos(i + n, true));
+          lines.adv[i] = range.getBoundingClientRect().width;
+          i += n;
+        }
+      }
     }
     if (!lines.length) return null;
     lines.text = text;
@@ -1347,9 +1414,38 @@
   // whole stays for screen readers. splitLines swaps them in and returns how many lines (splits: each split heading's
   // way back to whole, its own nodes again). at: when its first line rises (--std-lines for the Standard's statement)
   function makeLines(lines) {
-    const text = lines.text, sr = document.createElement('span');
+    const text = lines.text, sr = document.createElement('span'), u = lines.units;
     sr.className = 'sr-only';
     sr.textContent = text;
+    let c = 0;
+    const adv = lines.adv || [];
+    // a run of the heading's words (from its place at in the text) as its letters (or words), each a box of its own,
+    // as wide as it was laid out (adv), that floats up (--c: its turn); the spaces between words stay plain text, so
+    // the line is spaced as the whole heading is
+    const units = (into, words, at) => {
+      if (!u) { into.append(words); return; }
+      const box = (x, w) => {
+        const lt = document.createElement('span');
+        lt.className = u.byWord ? 'lt wd' : 'lt';
+        lt.textContent = x;
+        lt.style.setProperty('--c', c++);
+        if (w > 0) lt.style.width = w.toFixed(3) + 'px';
+        into.appendChild(lt);
+      };
+      let i = at;
+      words.split(/(\s+)/).forEach((w) => {
+        if (!w) return;
+        if (/^\s/.test(w)) { into.append(w); i += w.length; return; }
+        if (u.byWord) {
+          let sum = 0;
+          for (let k = i; k < i + w.length; k++) sum += adv[k] || 0;
+          box(w, sum);
+          i += w.length;
+          return;
+        }
+        for (const x of w) { box(x, adv[i] || 0); i += x.length; }
+      });
+    };
     return [sr].concat(lines.map(([a, b], i) => {
       const ln = document.createElement('span'), inner = document.createElement('span');
       ln.className = 'ln';
@@ -1360,22 +1456,25 @@
         const from = Math.max(a, p.at), to = Math.min(b, p.at + p.t.data.length);
         if (from >= to) return;
         const words = text.slice(from, to);
-        if (!p.em) { inner.append(words); return; }
+        if (!p.em) { units(inner, words, from); return; }
         const em = p.em.cloneNode(false);
-        em.textContent = words;
+        units(em, words, from);
         inner.appendChild(em);
       });
       ln.appendChild(inner);
       return ln;
     }));
   }
-  const splits = new Map();
+  const splits = new Map(), spans = new WeakMap();   // spans: a split heading's last line's (or letter's) start, ms
   function splitLines(h, lines, onWhole, at) {
-    const own = [...h.childNodes], made = makeLines(lines), ls = made.slice(1);
+    const own = [...h.childNodes], made = makeLines(lines), ls = made.slice(1), u = lines.units;
     h.classList.add('hd-lines');
+    if (u) { h.classList.add('hd-chars'); h.style.setProperty('--lt-gap', u.gap.toFixed(1) + 'ms'); }
     h.replaceChildren(...made);
+    spans.set(h, spanOf(lines));
     let done = false, mo = null, timer = 0, tries = 0;
-    const last = ls[ls.length - 1].firstChild;
+    const lts = u ? h.querySelectorAll('.lt') : null;
+    const last = lts && lts.length ? lts[lts.length - 1] : ls[ls.length - 1].firstChild;
     const whole = () => {
       if (done) return;
       done = true;
@@ -1383,7 +1482,8 @@
       if (mo) mo.disconnect();
       splits.delete(h);
       h.replaceChildren(...own);
-      h.classList.remove('hd-lines');
+      h.classList.remove('hd-lines', 'hd-chars');
+      h.style.removeProperty('--lt-gap');
       if (onWhole) onWhole();
     };
     // should animationend never come: whole once the last line's rise is over (on a busy page its clock starts with the
@@ -1394,7 +1494,7 @@
       if (a && a.playState === 'running' && ++tries < 10) timer = setTimeout(late, 300);
       else whole();
     };
-    timer = setTimeout(late, (at == null ? LINE.at : at) + (ls.length - 1) * LINE.gap + LINE.dur + 400);
+    timer = setTimeout(late, (at == null ? LINE.at : at) + spanOf(lines) + (u ? LETTER.dur : LINE.dur) + 400);
     last.addEventListener('animationend', whole, { once: true });
     try { mo = new MutationObserver(whole); mo.observe(h, { childList: true, characterData: true, subtree: true }); } catch (e) { /* no translator watch */ }
     splits.set(h, whole);
@@ -1568,7 +1668,7 @@
     $$('[data-rise], [data-reveal], [data-room], [data-head]', scope).forEach((el) => {
       if (el.classList.contains('in')) return;
       const r = el.getBoundingClientRect();
-      if (r.top < vh && r.bottom > 0) { reveal(el); io.unobserve(el); }
+      if (r.top < vh && r.bottom > 0) { reveal(el); if (el.hasAttribute('data-head')) unwatchHead(el); else io.unobserve(el); }
     });
   }
   // The gold shines never sweep in lockstep: each gets its own delay, and they rest while offscreen.
@@ -2259,7 +2359,7 @@
       const pr = plate.getBoundingClientRect(), far = Math.max(0, ...$$(':scope > *', cap).map((el) => { const r = el.getBoundingClientRect(); return (r.right - pr.left) * n[0] + (r.bottom - pr.top) * n[1]; }));
       const way = parseFloat(film.style.getPropertyValue('--run')) || 1, bloom = 40;   // (the crest starts at -bloom along n: place)
       const at = Math.round(RUN * crestAt(Math.min(1, Math.max(0, (far + bloom) / way))));
-      const title = headReady(cap, at);
+      const title = inSight(cap) ? headReady(cap, at) : () => whenSeen(cap, () => headGo(cap));
       plate.classList.add('rinsing');
       setTimeout(() => { plate.classList.add('risen'); held.delete(cap); title(); }, at);
       film.addEventListener('animationend', clear, { once: true });
@@ -2313,7 +2413,7 @@
     const cap = $('figcaption', plate);   // its title sets as the photo is back (headGo)
     // the Bead Test's title below waits for the plate's own (reading order), 1.2s at most until the moment has begun
     const beadHead = holdHeads((c) => !done && !!c.closest('#svc-bead'), 1200);
-    const capGo = () => { headGo(cap); beadHead.open(); };   // the plate's title, then the Bead Test's below it
+    const capGo = () => whenSeen(cap, () => { headGo(cap); beadHead.open(); });   // the plate's title (once in sight), then the Bead Test's below it
     const TIME = 13.7;   // the scene's time as the moment starts
     // where the light comes up (in the left third: at this time of the scene the bar's own drift holds it near -0.3;
     // ext: the paint's half-width along the light's axis in the shader's units) and where it leaves the paint: its line
@@ -2693,7 +2793,7 @@
       played = true;
       aim();
       plate.classList.add('on');
-      setTimeout(() => { held.delete(cap); headGo(cap); }, 700);   // INTERIOR sets from behind its line as the view settles
+      setTimeout(() => { held.delete(cap); whenSeen(cap, () => headGo(cap)); }, 700);   // INTERIOR sets from behind its line as the view settles (once in sight)
       // each layer goes as soon as it has done its part (the seam once the door is shut, the black and the pools at
       // the lit state), so fewer are drawn over the leather; the classes go once the sentence has risen
       const drop = (sel) => $$(sel, plate).forEach((el) => el.remove());
@@ -3283,24 +3383,14 @@
     v.classList.remove('cut-in', 'from-above');
     v.removeEventListener('animationend', fn);
   }
-  // The white studio's bar through the cut (CSS .topbar.shade): while the cover is up the bar is the cover's ivory,
-  // whatever has been laid out under it; as the cover lifts it takes the glass of what is under it then (read at once:
-  // the observer answers a frame later). Where its glass changes with the cut (Home's black hero: the smoked glass)
-  // the bar fades in with the cover, on its clock (.glass-in coming on, .glass-up lifting), so no dark slab sits on the
-  // cream and no ivory one on the black, in any frame. Nothing moves; in the dark theme the class changes nothing.
-  let glassT = 0;
-  const smoked = () => root.getAttribute('data-theme') === 'light' && !topbar.classList.contains('shade') &&
-    (root.classList.contains('top-home') || (topbar.classList.contains('over-hero') && !topbar.classList.contains('over-wash')));
+  // The bar through the cut (.topbar.shade): while the cover is up it is marked as under the cover; as the cover lifts
+  // it takes the glass of what is under it then (read at once: the observer answers a frame later). (Until Nov 19 the
+  // white studio's bar went smoked over Home's black hero and faded with the cover; the hero is ivory there now, so
+  // the bar is the ivory glass on both sides of the cut and nothing has to fade.)
   function glassTo(on, under) {
     if (topbar.classList.contains('shade') === on) return;
-    const was = smoked();
     if (!on) setDarkTops(under || darkTopsNow());
     topbar.classList.toggle('shade', on);
-    if (smoked() === was) return;
-    topbar.classList.remove('glass-in', 'glass-up');
-    topbar.classList.add(on ? 'glass-in' : 'glass-up');
-    clearTimeout(glassT);
-    glassT = setTimeout(() => topbar.classList.remove('glass-in', 'glass-up'), 700);
   }
   function blackOut(back, bare) {   // (the click handler, as the page is chosen; the router, for Back and the like)
     if (dark) return;
@@ -3540,8 +3630,8 @@
   let armT = 0, landed = [];
   // what a rebuild takes out (content.js, the account, the reviews, the gallery) the observers let go, so a page
   // changed many times keeps no old nodes alive
-  const WATCHED = '[data-reveal], [data-rise], [data-room], [data-head], .rule, .svc-top, .shine, .scroll-cue, ' + ARRIVE;
-  const forget = (n) => (n.matches(WATCHED) ? [n] : []).concat($$(WATCHED, n)).forEach((el) => { io.unobserve(el); ioAway.unobserve(el); arriveIo.unobserve(el); });
+  const WATCHED = '[data-reveal], [data-rise], [data-room], [data-head], [data-hd="h"], .rule, .svc-top, .shine, .scroll-cue, ' + ARRIVE;
+  const forget = (n) => (n.matches(WATCHED) ? [n] : []).concat($$(WATCHED, n)).forEach((el) => { io.unobserve(el); hio.unobserve(el); ioAway.unobserve(el); arriveIo.unobserve(el); });
   new MutationObserver((muts) => {
     // (a heading's own lines, swapped in and out as it sets, are not new content)
     muts.forEach((m) => {

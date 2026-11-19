@@ -27,6 +27,8 @@ WebGL runs in SwiftShader (no GPU here).
 | `wash.py <site_dir> <mode> <scenario\|all>` | The iPhone-emulating scroll harness for the foam wash and page changes |
 | `back_walk.py <site_dir\|url> <phone\|desk\|n360> <dark\|light> <scenario\|all> [out_dir]` | The Back button walks |
 | `smoke.py <site_dir\|url>` | Every route at desk and phone widths 360/390/440: errors, pictures, requests, sideways scroll |
+| `mksim.py <site_dir> <out_dir> <LVH> <SVH>` | A copy of `site/` with its viewport units as a phone's browser resolves them (vh and lvh = LVH px, svh = SVH px), for the checks below |
+| `toolbar.py <site_copy> <out_dir> <dark\|light> <slow\|flick\|mixed\|keys>` | The Home wash on an iPhone whose Safari toolbar collapses on every scroll down and comes back on every scroll up (390 x 664 / 750, CDP touch); fails when any frame shows the page under the pinned stage |
 | `heads.py <site_dir> <out_dir> [label]` | The seven centred headings (the owner's Nov 5 answer): each title's offset from its column's centre, and a shot |
 | `budget.py <route> <site_a> <site_b> [walks] [out_dir]` | Hard rule 5's long tasks: a first visit on a phone (390x844, CPU slowed 4x) walked down a page, two sites in turn, each long task placed and (with a trace) split by cause |
 | `check_site.sh <out_dir> [wash]` | All of the checks in one go |
@@ -75,6 +77,24 @@ Filters: `CAP_ROUTES` (comma list: home, services, services-exterior, -interior,
 reviews, tips, faq, about, contact, book, account, appointments, admin, team, 404), `CAP_THEMES=dark,light`,
 `CAP_SIZES=desk,phone` (1440x900; 390x844 touch at 2x). Each screen waits for the fonts, the pictures in view and
 the entrances in view.
+
+## The phone toolbar (mksim.py, toolbar.py)
+
+Playwright, and so `wash.py` and every other script here, has svh = lvh: no toolbar ever collapses. A stage sized by the
+small viewport then looks right here and stops about 86px short of an iPhone's screen in Safari (doc 54, Nov 19: the
+owner's "white box" under the foam). Run the wash on a `mksim.py` copy to see that class of bug:
+
+```bash
+python3 tools/qa/mksim.py site $S/sim750 750 664        # iPhone 13, Safari
+python3 tools/qa/toolbar.py $S/sim750 $S/tb-light light mixed
+python3 tools/qa/toolbar.py $S/sim750 $S/tb-dark dark flick
+python3 tools/qa/wash.py $S/sim750 ios,chromium fling,slow,hold,back_rest   # doc 35's harness on the same copy
+python3 tools/qa/mksim.py site $S/sim844c 844 758       # wash.py's 390 x 844 phone, toolbar collapsed
+python3 tools/qa/mksim.py site $S/sim844s 930 844       # ... and toolbar shown (the stage 86px taller than the screen)
+```
+
+`toolbar.py` keeps each frame (`f000.png`...) and `frames.json` (scroll, the stage's and the section's boxes, the
+wash's progress, the colour of the bottom rows, `gap`).
 
 ## wash.py
 
