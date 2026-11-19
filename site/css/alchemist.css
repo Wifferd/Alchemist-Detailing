@@ -5406,14 +5406,16 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
    Services header keeps its dark photo). The shader paints its studio preset (ivory paint under a white softbox, the
    warm bar faint in it: hero-gl.js, which follows the theme live); the hero takes the studio's tokens: the words in
    ink, Detailing and the small gold in the deep gold ink, Book Now's polished gold as everywhere, the glass button in
-   frosted ivory on a gold hairline. The wordmark is a deeper gold metal (every stop 4:1 or more on white; it is display
-   type, 3:1 would do) with a warm gold sheen in place of the dark theme's near-white one, which would wash a resting
-   band of it out on white (at its peak it keeps 3.2:1; only the passing foil, a moment, lightens it further); the monogram's picture is pressed a shade deeper on a warm contact shadow.
+   frosted ivory on a gold hairline. The wordmark is a deeper gold metal (its lightest stop 3.7 to 3.9:1 on the hero's
+   real paint, luminance about .90 to .95, the rest 4.3:1 and up; it is display type, 3:1 is the floor) with a warm
+   gold sheen in place of the dark theme's near-white one, which would wash a resting band of it out on white (where
+   the sheen peaks on the lightest stop it keeps about 3.4:1; only the passing foil, a moment, lightens it further);
+   the monogram's picture is pressed a shade deeper on a warm contact shadow.
    Where the dark theme lays a shade under the words while the bar passes, the studio lays a soft ivory clearing (the
    bar's core is white here); the halos under the small words are ivory too. The foot fades into the cream page */
 [data-theme="light"] .hero {
   --shade-rgb: 255, 253, 248;
-  --sheen-rgb: 204, 150, 50;
+  --sheen-rgb: 184, 128, 30;
   --foil-rgb: 255, 236, 190;
   --gold-text: linear-gradient(180deg, #8a5c07 0%, #a87310 30%, #74500a 58%, #9a6a0e 80%, #684606 100%);
   background: radial-gradient(80% 60% at 50% 45%, #fffdf8, #ebe6dc 70%, #e2dccf);
