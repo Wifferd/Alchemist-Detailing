@@ -462,7 +462,8 @@
   // ends February 17, 2027." The regular prices are for one size (size, named by label; the car by default).
   // ("Cars with normal road dirt." is the approved Nov 17 small print of the Basic Wash price: kept on the Outside deal,
   // which is that Basic Wash; whether it also applies to Inside and Outside + inside is asked in doc 54.)
-  function dealsFine(o, size, label, nameOf) {
+  // (noRegular: the small print without the regular prices, for a page that gives them elsewhere: the FAQ)
+  function dealsFine(o, size, label, nameOf, noRegular) {
     if (!o || !o.active) return '';
     size = size || 'car';
     const regular = {};
@@ -470,7 +471,7 @@
     const names = Object.keys(regular).map((c) => ((nameOf && nameOf(c)) || NAMES[c] || c) + ' ' + money(regular[c]));
     const outside = (o.deals || []).find((d) => d.code === 'outside');
     return DEAL_FINE + (outside ? ' ' + outside.name + ': cars with normal road dirt.' : '') +
-      (names.length ? ' After your first visit: ' + names.join(', ') + (label === null ? '' : ' (' + String(label || 'car').toLowerCase() + ')') + '.' : '') +
+      (names.length && !noRegular ? ' After your first visit: ' + names.join(', ') + (label === null ? '' : ' (' + String(label || 'car').toLowerCase() + ')') + '.' : '') +
       (o.ends_on ? ' Offer ends ' + longDay(o.ends_on) + '.' : '');
   }
   // (a service's name when the caller has no menu at hand: the two the deals are made of)

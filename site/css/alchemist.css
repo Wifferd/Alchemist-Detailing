@@ -3396,6 +3396,9 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 :is(.bk-lost, .bk-quiet) { margin: 0; display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
 .bk-carried { display: grid; gap: 8px; }
 .bk-carried:empty { display: none; }
+/* the top of step 01: what a link from Services or the pop-up brought, and the size its price is for */
+.bk-picked:empty { display: none; }
+.bk-picked-line { margin: 0; }
 :is(.bk-lost, .bk-quiet)::before { content: ""; flex-shrink: 0; width: 6px; height: 6px; margin-top: .5em; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px rgba(var(--gold-rgb), .55); }
 /* a start time refused or let go (main's red message line): the same line in the error colour, its dot too */
 .bk-lost.has-error { color: var(--danger-text); }

@@ -61,7 +61,7 @@ February 17, 2027 (the database's date). A customer gets at most one.
 - **The Services section `#svc-deals`**, under the size switch. It has three cards: the deal's name, its services
   (linked to their groups), the price for the size shown, every size, "After your first visit: $X" and
   "Book this deal" (`#book-dealout`, `#book-dealin`, `#book-dealboth`). The small print sits under them.
-- **Price-card lines.** The Basic Wash and Interior Clean cards carry "First Timer Deal: your first one is $35" (or
+- **Price-card lines.** On the Services page, the Basic Wash and Interior Clean cards carry "First Timer Deal: your first one is $35" (or
   $49.99), linking to the section.
 - **The booking, in the new order:**
   - **01** has the size (Car / SUV or crossover, 2 rows / 3 rows or pickup / Minivan / Van, other or not sure), where
@@ -122,14 +122,76 @@ February 17, 2027 (the database's date). A customer gets at most one.
 ## Open points for the owner (PROPOSED, not built)
 
 1. **Guest repeat deals.** A guest's phone is not confirmed until Twilio. With "Come to us" (no address to check) and
-   a different phone, the same person can get another deal, now worth up to $55. Require anything more?
-2. **A returning visitor.** Signed out, they are quoted the Both price ($79.99) with no Inside & Out suggestion, then
-   saved at the regular $134.99, which is more than Inside & Out at $114.99. Should we add a quiet line ("Not your
-   first visit? Inside & Out is $114.99 with the fuller Hand Wash")?
+   a different phone, the same person can get another deal, now worth up to **$70** (a minivan's Outside + inside:
+   $164.99 regular against $94.99; the first version of this doc said $55, which was wrong). The database verifier
+   (Nov 19) found two more ways for a guest: a mobile address that doesn't read as a street (no address key), and the
+   same street written another way ("Cedar Bend 405" against "405 Cedar Bend"). Require anything more? A possible
+   rule, if he wants one: no deal on a mobile request whose address can't be read (`save_booking`: `if r.location_type
+   = 'mobile' and v_key is null then v_offer := false;`), with a matching line on the quote. Until he answers, this is
+   accepted as it is, in writing, here; part 6 should not go live without his answer or his OK to this paragraph.
+2. **A returning visitor.** Signed out, they are quoted the Both price ($79.99) with no Inside & Out suggestion
+   (the database drops it when the deal is cheaper), then saved at the regular $134.99, which is $20 more than Inside
+   & Out at $114.99, with the Hand Wash in it. The same for 2 rows ($149.99 against $129.99). The customer sees the
+   regular price on the receipt with the "first visit only" note, but nothing points to Inside & Out. Two ways, his
+   pick (the database must not swap the services by itself):
+   - (a) the quote keeps the suggestion beside the deal, marked as the "not your first visit" choice, and step 01
+     says "Not your first visit? Inside & Out is $114.99, with the Hand Wash" (a change to `quote_booking` and the
+     preview); or
+   - (b) the receipt of a request saved at the regular price says "Inside & Out would have been $114.99. Call (945)
+     361-7551 to switch."
+   Recommended: (a), since it tells the customer before they send.
 3. **"Launch prices while we earn our first reviews."** Kept; with the prices raised, does he want it gone?
 4. **"Cars with normal road dirt."** On Inside and Outside + inside too? (See above.)
 5. **The inside question's place.** It now comes after the date, which is what can force a re-fit (a lot of pet hair
    adds 45-60 minutes). The alternative: ask it on step 01 under the inside service.
+
+## The verifiers' round (Nov 19) and what was fixed
+
+Two verifiers read branch `menu-v2` at b767905 (database and security; site and clarity). Neither found a database
+defect. The site verifier found one blocking bug and six clarity problems; all are fixed in the site, and nothing in
+Migration 012 changed (its six files are byte for byte those of 72d27dd).
+
+- **B-1 (blocking): the FAQ's deals answer was garbled** ("...cars with normal road dirt.99, Interior Clean $75.").
+  content.js cut "After your first visit: ..." out of the small print with a pattern that stopped at the first full
+  stop, which was the one inside "$59.99". `U.dealsFine` now takes a fifth argument that leaves the regular prices out,
+  and the FAQ uses it. The answer now ends "...Outside: cars with normal road dirt. Offer ends February 17, 2027."
+- **S-1: "Book this deal" and the pop-up's Book lost the size.** When a deal or a service link opens the booking with
+  no size chosen, the booking starts from the size the page showed (`ad-size` on this device; the Services switch, the
+  pop-up and step 01 keep it). Step 01 now opens with one line naming what the link picked: "First Timer Deal: Outside +
+  inside picked (Basic Wash + Interior Clean). Prices are for: 3 rows or pickup. Not your size? Choose another below.",
+  or "... Choose your size to see your price." when no size is known.
+- **S-2: with the Outside + inside deal chosen, the two cards didn't add up** ($35 + $49.99 shown, $79.99 total). Each
+  card now shows its share of the deal, as the database splits it: Basic Wash $35, Interior Clean $44.99 "with your
+  Basic Wash, first visit · then $75", and "Together, first visit: both for $79.99" once, on the Interior Clean card.
+  The gold line under the price says only "First Timer Deal" (with the deal's name for the pair), never the price a
+  second time.
+- **S-3: "saves you $X for the same two services" was untrue** when the services differ (a Basic Wash; the bundles
+  have the Hand Wash). The line now says "Inside & Out is $20 less, with the Hand Wash in place of the Basic Wash."
+  ("Full Detail is $5 less, ..." for the Interior Detail). With the bundle's own two services it still says "saves you
+  $50 for the same two services."
+- **S-4: the deal disappeared silently on step 04.** When "Not sure" (or another held price) ends a deal the date step
+  had, the re-fit line says: "First Timer Deals are for the four listed sizes; with “Not sure” we confirm the price
+  before your appointment."
+- **S-5:** the three "Book this deal" links are named for screen readers ("Book the Outside + inside deal").
+- **S-6 (optional, done):** a deal chip that leaves an add-on off says so in the step's status line ("Leather care is
+  left off: it goes with the Inside & Out or Interior Clean.").
+
+Database notes from the verifier, not changed:
+
+- **TEST is paused** (`INACTIVE`; every tool call answers "Database is possibly not accessible"). Restoring it is the
+  owner's call (or his OK to us). Before any live apply: restore it, re-run `m012_tests_deals.sql` (expect 106 of 106),
+  `m011_tests_menu.sql` (136 of 136) and the report's hash checks. Meanwhile both suites were run on a throwaway local
+  Postgres 16 with every migration 001-012: 136 of 136, and 105 of 106 (A15 needs an existing booking without the
+  deal; the local copy has none, TEST has 136; not a defect).
+- **A staff booking takes the staff member's customer lock**, not the customer's (`staff_create_booking`, as in m011).
+  A staff booking and the same account's own booking at the same moment with two different phones could both get a
+  deal, only for an account with no text-confirmed phone, which live can't have (only TEST's Migration 004 email
+  accounts). Not fixed: `staff_create_booking` differs between the projects (004 is test only), so replacing it would
+  need two versions; worth doing with the next change to that function.
+- **The receipt and `office.requests` read the deal's name when they are read**, so renaming a deal later renames it on
+  old receipts too. The deal's code is stored on the booking, so the record itself is exact.
+- The preview's own `submit()` checks a deal per phone only (not per address). Preview only; it never reaches the
+  database.
 
 ## How it was checked (Nov 19)
 
@@ -152,6 +214,9 @@ February 17, 2027 (the database's date). A customer gets at most one.
 - Not checked again: the guest, account and staff save paths on TEST. The database step's 106 checks cover them, and
   the test project stopped answering the tools during this site step.
 - Details and screenshots are in the build's `site-report2.md`.
+- After the verifiers' fixes: the five walks again (300 of 300), a new walk of every fix (22 checks each at 390 phone,
+  1440 desktop and 360 phone: 66 of 66), the 360 px width check on steps 01-05, the verifier's own 24 scripts (no page
+  errors), and `node --check` on every `site/js` file.
 
 ## Lessons
 
@@ -163,5 +228,9 @@ February 17, 2027 (the database's date). A customer gets at most one.
 - **Read a check's state, not its promise.** The re-fit reads the request itself (times loaded, start kept or lost),
   and a second caller of the same day's times waits for the first fetch (`w.loading`). A check still on its way can
   then never read as "no longer fits".
+- **Never cut a sentence at "the next full stop" when it holds money.** "$59.99" has a full stop of its own. Build the
+  shorter text instead of cutting the longer one (B-1).
+- **Two cards chosen together must add up to the total.** A card that shows a service's price alone is right only while
+  it is alone; with a two-service deal each card shows its share (S-2).
 - **The database orders add-ons.** `json_text_array` makes them distinct and sorts them; the preview now does the same,
   or its lines come out in another order.

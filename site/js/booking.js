@@ -488,7 +488,7 @@
       drafting = true; saveDraftSoon();
       if (pairChosen(pr)) { asking = null; s.deal = tok; return; }
       if (mainsChosen()) { asking = tok; return; }
-      takeDeal(tok, pr); s.glow = true; invalidatePrice();
+      takeDeal(tok, pr); s.glow = true; invalidatePrice(); seedSize();
       return;
     }
     const g = signs().find((x) => x.key === tok), x = g && svc(g.code);
@@ -500,7 +500,17 @@
     }
     if ([s.bundle, s.exterior, s.interior].includes(x.code)) { asking = null; return; }
     if (mainsChosen()) { asking = x.code; return; }
-    choose(x); s.carried = x.code; s.deal = null; s.glow = true; invalidatePrice();
+    choose(x); s.carried = x.code; s.deal = null; s.glow = true; invalidatePrice(); seedSize();
+  }
+  // A deal or a service followed from another page (the Services page, the pop-up) while no size is chosen yet: the
+  // size that page showed its price for (ad-size: the Services page's size switch, the pop-up and step 01 keep it on
+  // this device), so the price on step 01 is the one just seen. Never over a size or a saved vehicle already chosen.
+  function seedSize() {
+    const s = st.service;
+    if (s.size || st.vehicle.vehicleId) return;
+    let v = null;
+    try { v = localStorage.getItem('ad-size'); } catch (e) { v = null; }
+    if ((menu.sizes || []).some((z) => z.code === v)) { s.size = v; invalidateQuotes(); }
   }
   // a deal's services, exactly: the bundle and any other service let go
   function takeDeal(tok, pr) {
@@ -721,7 +731,7 @@
   function show(n, quiet) {
     if (n !== editFrom) editFrom = null;
     // leaving the date step forward: the length and total the time was picked for, for the re-fit on 03 and 04
-    if (step === S_WHEN && n > S_WHEN && st.quote) st.when.base = { duration: st.quote.duration_min, total: st.quote.total_cents };
+    if (step === S_WHEN && n > S_WHEN && st.quote) st.when.base = { duration: st.quote.duration_min, total: st.quote.total_cents, deal: !!(st.quote.first_visit && st.quote.first_visit.status === 'if_first_visit') };
     st.direction = n > step ? 1 : -1;
     step = n;
     if (n !== S_WHEN) st.when.switching = false;
@@ -1224,6 +1234,7 @@
   function stepService() {
     const s = st.service;
     const box = el('div.bk-grid');
+    box.appendChild(el('div.bk-picked', { id: 'bk-picked' }, pickedNotes()));
     box.appendChild(sizeBlock());
     box.appendChild(whereBlock());
     box.appendChild(el('div.bk-deals-slot', { id: 'bk-deals' }, dealsStrip()));
@@ -1358,6 +1369,9 @@
     if (pairChosen(pr)) Object.assign(s, { exterior: null, interior: null, deal: null });
     else { takeDeal(tok, pr); s.carried = null; s.deal = null; }   // (the customer's own pick here: no "chosen on Services" note)
     paintMains();
+    // add-ons the deal's services can't have stay chosen but greyed ("Left off"): said once, where it is heard
+    const left = s.addons.filter((a) => !canHaveAddon(a)), msg = root.querySelector('[data-field="services"] .choice-msg');
+    if (left.length && msg && !msg.classList.contains('has-error')) msg.textContent = left.map((a) => svc(a).name).join(' and ') + (left.length > 1 ? ' are' : ' is') + ' left off: ' + (left.length > 1 ? 'they go' : 'it goes') + ' with ' + waitsFor(left[0]) + '.';
   }
   // The inside of the car ("What's the inside like?", Migration 011): mandatory with any service that has an inside part,
   // each answer with its one-line description and its price (one for every size). Only one of the two pet-hair answers
@@ -1489,6 +1503,19 @@
   // Quiet lines over the cards: the service still as chosen on the Services page, and an add-on that waits for the
   // service it goes with (WetGloss for an exterior, steam for an interior)
   const waitsFor = (a) => allowedFor(a) ? 'the ' + nameList(allowedFor(a)) : (menu.addonRules[a] === 'interior' ? 'an interior service' : menu.addonRules[a] === 'exterior' ? 'an exterior service' : 'a service') + (menu.addonRules[a] === 'any_main' ? '' : ' or a bundle');
+  // At the top of step 01 (the cards are far below on a phone): what the link brought, and the size its price is for.
+  // "First Timer Deal: Outside + inside picked (Basic Wash + Interior Clean). Choose your size to see your price."
+  function pickedNotes() {
+    const s = st.service, dp = s.deal ? dealPair(s.deal) : null;
+    let what = null;
+    if (dp && pairChosen(dp)) what = 'First Timer Deal' + (dp.name ? ': ' + dp.name : '') + ' picked (' + pairNames(dp) + ').';
+    else if (s.carried && mainCodes().includes(s.carried)) what = svc(s.carried).name + ' picked.';
+    if (!what) return [];
+    const z = (menu.sizes || []).find((x) => x.code === s.size);
+    const then = !s.size ? ' Choose your size to see your price.'
+      : z ? ' Prices are for: ' + z.name + '. Not your size? Choose another below.' : '';
+    return [el('p.bk-quiet.bk-picked-line', el('span', what + then))];
+  }
   function carriedNotes() {
     const s = st.service, out = [];
     // (the verb for the pointer, as the CSS's .tap-only and .click-only)
@@ -1545,15 +1572,31 @@
     if (!p) return null;
     if (p.base === undefined) return '—';   // that service could not be quoted (the database said why in the breakdown)
     if (p.base == null) return el('small.held', 'We confirm the price');
+    // the two-service deal with its exact pair chosen: this card's share of it, so the two cards add up to the total
+    const pl = p.regular != null ? pairLine(code) : null;
+    if (pl) return [el('span.svc-fig', money(pl.price)),
+      el('small', (pl.second ? 'with your ' + svc(pl.other).name + ', ' : '') + 'first visit · then ' + money(pl.regular)),
+      p.conds ? el('small', '+ ' + money(p.conds) + ' inside') : null];
     return [el('span.svc-fig', money(p.base)),
       p.regular != null ? el('small', 'first visit · then ' + money(p.regular)) : null,
       p.conds ? el('small', '+ ' + money(p.conds) + ' inside') : null];
   }
-  // The gold line on a card a First Timer Deal is for, alone, for this vehicle's size (the quote's first_visit)
+  // The gold line on a card a First Timer Deal is for, for this vehicle's size (the quote's first_visit): the deal's
+  // name only, since the price line above already gives the first-visit price (S-2: never the same price twice)
   function offerNodes(code) {
     const p = st.prices[code];
     if (!p || !p.offer || p.offer.status !== 'if_first_visit') return null;
-    return 'First Timer Deal: your first one is ' + money(p.offer.price_cents);
+    const pl = pairLine(code);
+    return 'First Timer Deal' + (pl && pl.deal.name ? ': ' + pl.deal.name : '');
+  }
+  // The two-service deal (get_first_visit_offer) while exactly its pair is chosen, for one of its two cards: the
+  // card's line of it (the database's split, a car: Basic Wash $35 + Interior Clean $44.99 = $79.99) and the other
+  // service. second: the interior's card, which names the pairing. null otherwise.
+  function pairLine(code) {
+    const d = dealsShown().find((x) => x.exterior && x.interior && (x.exterior === code || x.interior === code) && pairChosen({ exterior: x.exterior, interior: x.interior }));
+    const l = d && d.lines && d.lines[code];
+    if (!l || l.first_visit_cents == null) return null;
+    return { deal: d, price: l.first_visit_cents, regular: l.regular_cents, other: d.exterior === code ? d.interior : d.exterior, second: d.interior === code };
   }
   // The pair: on the Interior Clean card while the Basic Wash is chosen alone (and the reverse), "With your Basic Wash:
   // both for $79.99, first visit" (the two-service deal for this size, from get_first_visit_offer)
@@ -1565,8 +1608,8 @@
     const other = d.exterior === code ? d.interior : d.exterior, kind = d.exterior === code ? 'exterior' : 'interior';
     const otherKind = kind === 'exterior' ? 'interior' : 'exterior';
     if (s[otherKind] !== other) return '';
-    // both chosen: the two together are the deal (each card's own price is for it alone)
-    if (s[kind] === code) return 'Together, first visit: both for ' + money(d.price);
+    // both chosen: the two together are the deal (each card shows its share), said once, on the second card
+    if (s[kind] === code) return kind === 'interior' ? 'Together, first visit: both for ' + money(d.price) : '';
     if (s[kind]) return '';
     return 'With your ' + svc(other).name + ': both for ' + money(d.price) + ', first visit';
   }
@@ -1610,6 +1653,7 @@
     if (s.carried && !mainCodes().includes(s.carried)) s.carried = null;   // changed here: the customer's own pick now
     if (s.deal && !pairChosen(dealPair(s.deal))) s.deal = null;
     const notes = root.querySelector('#bk-carried'); if (notes) notes.replaceChildren(...carriedNotes());
+    const picked = root.querySelector('#bk-picked'); if (picked) picked.replaceChildren(...pickedNotes());
     lastOn = null;
     root.querySelectorAll('.svc-opt').forEach((b) => {
       const on = [s.bundle, s.exterior, s.interior].includes(b.dataset.code);
@@ -1686,7 +1730,7 @@
       sug.replaceChildren();
       if (q.suggestion) {
         const b = svc(q.suggestion.bundle);
-        sug.appendChild(el('div.bk-suggest', el('div', el('b', q.suggestion.name), ' saves you ', el('b.tnum', money(q.suggestion.saves_cents)), ' for the same two services.'),
+        sug.appendChild(el('div.bk-suggest', el('div', suggestWords(q.suggestion)),
           el('button.btn.btn-glass', { type: 'button', onclick: (e) => {
             s.bundle = b.code; s.exterior = null; s.interior = null; paintMains();
             // this button goes with the suggestion: the focus moves to the bundle's own card, now chosen (brought into
@@ -1697,6 +1741,17 @@
         if (fresh && !moved && tap.still()) revealNote(sug.firstChild);
       }
     }
+  }
+  // The bundle suggestion's words: "Inside & Out saves you $50 for the same two services.", or, when the bundle's parts
+  // are not the ones chosen (a Basic Wash: the bundles have the Hand Wash), "Inside & Out is $20 less, with the Hand
+  // Wash in place of the Basic Wash." (bundle_parts; never "the same" when it isn't)
+  function suggestWords(sg) {
+    const parts = menu.bundleParts[sg.bundle] || [], chosen = [st.service.exterior, st.service.interior].filter(Boolean);
+    const extra = parts.filter((c) => !chosen.includes(c)), gone = chosen.filter((c) => !parts.includes(c));
+    const nm = (c) => (svc(c) || {}).name || c;
+    if (!extra.length && !gone.length) return [el('b', sg.name), ' saves you ', el('b.tnum', money(sg.saves_cents)), ' for the same two services.'];
+    return [el('b', sg.name), ' is ', el('b.tnum', money(sg.saves_cents)), ' less' +
+      (extra.length && gone.length ? ', with the ' + extra.map(nm).join(' and the ') + ' in place of the ' + gone.map(nm).join(' and the ') : '') + '.'];
   }
   // The bundle note comes into view just over the sticky bar. The inside-of-the-car question sits between the cards and
   // the note (a bundle note always comes with an interior service, so it shows): the page never moves so far that the
@@ -2141,6 +2196,11 @@
     const b = w.base, out = [];
     if (!b) return [];
     if (q.duration_min !== b.duration && w.start != null) out.push('Your time still fits: about ' + minutesText(q.duration_min) + '.');
+    // a First Timer Deal the date step's quote had, gone with a held price (S-4: never silently)
+    const dealGone = b.deal && !(q.first_visit && q.first_visit.status === 'if_first_visit');
+    if (dealGone && q.total_cents == null) out.push('First Timer Deals are for the four listed sizes; ' + (st.vehicle.notSure ? 'with “Not sure”' : 'for this vehicle') + ' we confirm the price before your appointment.');
+    else if (dealGone) out.push('The First Timer Deal no longer applies to this request.');
+    if (dealGone && q.total_cents == null) return [el('p.bk-quiet.refit-ok', out.join(' '))];
     if (q.total_cents == null || otherCond()) { if (b.total != null) out.push('We confirm the price before your appointment.'); }
     else if (q.total_cents !== b.total) out.push('The price is now ' + money(q.total_cents) + '.');
     return out.length ? [el('p.bk-quiet.refit-ok', out.join(' '))] : [];

@@ -144,8 +144,9 @@
         return x.name + (what ? ' (' + what + ') ' : ' ') + bySize(prices);
       });
       const p = d.querySelector('.faq-body p');
-      // the small print without the regular prices (the costs answer gives them)
-      const fine = U.dealsFine(o, 'car', null).replace(/ After your first visit:[^.]*\./, '');
+      // the small print without the regular prices (the costs answer gives them). (Not cut out of the full text with a
+      // pattern: "$59.99" has a full stop of its own, and the cut once left ".99, Interior Clean $75." behind.)
+      const fine = U.dealsFine(o, 'car', null, null, true);
       if (p) p.textContent = 'Yes, for a first visit: ' + parts.join('; ') + '. ' + fine;
       d.hidden = false;
     }).catch(() => {});

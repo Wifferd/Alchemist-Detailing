@@ -775,7 +775,7 @@
       el('p.amount.tnum', { dataset: { dealPrice: '' } }, money(d.price)),
       el('p.every', { 'aria-label': 'Every size', dataset: { dealEvery: '' } }),
       el('p.deal-after.tnum', { dataset: { dealAfter: '' } }),
-      el('a.btn.btn-glass', { href: '#book-' + d.token }, 'Book this deal ', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
+      el('a.btn.btn-glass', { href: '#book-' + d.token, 'aria-label': 'Book the ' + d.name + ' deal' }, 'Book this deal ', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
   }
   // every figure on the page for the size shown (the menu already loaded)
   function paint(m) {
