@@ -38,12 +38,13 @@
         // Home's Why Alchemist repeats the next answer's faucet and outlet, and Home's Why and the Services Payment note
         // repeat 'How do I pay?' (index.html): change them there too
         ['What does mobile service need from me?', 'An outdoor water faucet and a power outlet. It costs the same as coming to us.'],
-        ['How do I book?', 'Online in a few minutes: your contact, the car, where, the service, a day and time. Your request holds that time for 24 hours while we review it, and we contact you to confirm.'],
+        ['How do I book?', 'Online in a few minutes: your vehicle’s size, where and the service, a day and time, then your contact and the car. Your request holds that time for 24 hours while we review it, and we contact you to confirm.'],
         ['How far ahead can I book?', 'From tomorrow up to 60 days ahead. Start times run every 30 minutes from 10 AM to 7 PM, and every job finishes by 8 PM. Monday to Thursday, jobs finish by 4 PM; on Fridays we’re closed from noon to 5 PM.'],
         ['How do I pay?', 'In person after your detail: card, Apple Pay or tap to pay, cash, or Zelle. Nothing is charged online.'],
-        // the prices below are the menu of Migration 011 (Nov 17), typed by hand: change them here too when the menu changes
-        ['What do the services cost?', 'Prices go by the size of your vehicle: car, SUV or crossover with 2 rows, 3 rows or pickup, minivan. Basic Wash $50, $55, $55, $55. Hand Wash $75, $80, $80, $80. Inside & Out $100, $115, $125, $135. Full Detail $165, $190, $215, $235. Interior Clean $75, $85, $90, $100. Interior Detail $125, $145, $165, $185. Add-ons cost the same for every size. These are launch prices while we earn our first reviews.'],
-        ['Is there a new-customer price?', 'Yes: your first Basic Wash is $35 for a car, and $40 for an SUV, 3-row, pickup or minivan. First visit only: one per phone number and one per address. After that, $50 car; $55 SUV, 3-row, pickup or minivan. Cars with normal road dirt. Offer ends February 17, 2027.'],
+        // the costs answer is built from the database's rates as the page opens (costsAnswer); these typed words (the
+        // menu of Migration 012, Nov 18) show until it answers, and with no answer
+        ['What do the services cost?', 'Prices go by the size of your vehicle: car, SUV or crossover with 2 rows, 3 rows or pickup, minivan. Basic Wash $59.99, $64.99, $64.99, $64.99. Hand Wash $89.99, $94.99, $94.99, $94.99. Inside & Out $114.99, $129.99, $139.99, $149.99. Full Detail $179.99, $204.99, $229.99, $249.99. Interior Clean $75, $85, $90, $100. Interior Detail $125, $145, $165, $185. Add-ons cost the same for every size. These are launch prices while we earn our first reviews.'],
+        ['Are there First Timer Deals?', 'Yes, for a first visit: Outside (a Basic Wash) $35 for a car, $40 for an SUV, 3-row, pickup or minivan; Inside (an Interior Clean) $49.99 for a car, $59.99 for the others; Outside + inside (both together) $79.99 for a car, $94.99 for the others. First visit only: one per phone number and one per address. Outside: cars with normal road dirt. Offer ends February 17, 2027.'],
         ['Why does the price say “confirmed by us”?', 'Vans, unusual vehicles and “Not sure” are priced by us before your appointment, and so is “Other” for the inside. Everything else is the price you see.'],
         ['What’s the inside like?', 'With a service that has an inside part, we ask: none; some pet hair, $30; a lot of pet hair, $60; heavy dirt, mud or sand, $40; or other, which we price. The washes have none. Stains or spills? Add stain and spill removal ($40, up to 5 spots). If what we find is different from what you chose, we’ll tell you the price before we start, and you choose: we add it, or we do what you booked without it.'],
         ['Can I cancel or change my booking online?', 'Not online. Call ' + PHONE + ' and we’ll sort it out.'],
@@ -115,25 +116,53 @@
   // when they left the page is open again when Back or Forward brings them to it (mount's open, from app.js): set
   // open as it is built, so it shows unfolded with no fold to watch, and the page lays out as it was left.
   const folding = new WeakSet();   // (a question folding shut: still open until its fold has ended)
-  // The new-customer price's answer follows the database (get_first_visit_offer): its prices and end date, and the
-  // question is hidden once the offer has ended or been turned off. Until the answer comes, the typed words show only
-  // up to their own end date (verifier, Nov 17).
-  const OFFER_Q = 'Is there a new-customer price?', OFFER_TYPED_END = '2027-02-17';
-  // the small print without its first prices, which the answer has just said ("... address. Car $35; ... After that, ...")
-  const fineAfter = (fine) => { const i = fine.indexOf(' Car '), j = fine.indexOf(' After that'); return i >= 0 && j > i ? fine.slice(0, i) + fine.slice(j) : fine; };
+  // The First Timer Deals' answer follows the database (get_first_visit_offer, Migration 012): each deal's prices and
+  // the end date, and the question is hidden once the deals have ended or been turned off. Until the answer comes, the
+  // typed words show only up to their own end date (verifier, Nov 17). (Renamed from "Is there a new-customer price?"
+  // on Nov 18: a visitor who had that question open finds this one closed, once.)
+  const OFFER_Q = 'Are there First Timer Deals?', OFFER_TYPED_END = '2027-02-17';
+  const COSTS_Q = 'What do the services cost?';
+  const BIG = ['two_rows', 'three_rows', 'minivan'];
+  // "$35 for a car, $40 for an SUV, 3-row, pickup or minivan", or each size when the bigger three differ
+  function bySize(prices) {
+    const car = prices.car, big = BIG.map((g) => prices[g]).filter(Boolean);
+    if (!car) return '';
+    if (big.length === 3 && big.every((x) => x === big[0])) return U.money(car) + ' for a car, ' + U.money(big[0]) + ' for an SUV, 3-row, pickup or minivan';
+    return [['car', 'a car'], ['two_rows', '2 rows'], ['three_rows', '3 rows or pickup'], ['minivan', 'a minivan']].filter(([g]) => prices[g] != null).map(([g, n]) => U.money(prices[g]) + ' for ' + n).join(', ');
+  }
+  const NAMES = { basic_wash: 'a Basic Wash', interior_clean: 'an Interior Clean' };
   function offerAnswer(d) {
     const now = new Date(), today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     d.hidden = today > OFFER_TYPED_END;
     if (!D || !D.firstVisitOffer) return;
     D.firstVisitOffer().then((o) => {
-      const P = (o && o.active && o.prices) || {};
-      if (!P.car) { d.hidden = true; return; }
-      const big = [P.two_rows, P.three_rows, P.minivan].filter(Boolean);
-      const bigFirst = big.length && big.every((x) => x.first_visit_cents === big[0].first_visit_cents) ? U.money(big[0].first_visit_cents) : null;
+      const list = (o && o.active && o.deals) || [];
+      if (!list.length) { d.hidden = true; return; }
+      const parts = list.map((x) => {
+        const prices = {}; Object.keys(x.prices || {}).forEach((g) => { prices[g] = x.prices[g].first_visit_cents; });
+        const what = x.exterior && x.interior ? 'both together' : NAMES[x.exterior || x.interior] || '';
+        return x.name + (what ? ' (' + what + ') ' : ' ') + bySize(prices);
+      });
       const p = d.querySelector('.faq-body p');
-      if (p) p.textContent = 'Yes: your first Basic Wash is ' + U.money(P.car.first_visit_cents) + ' for a car' +
-        (bigFirst ? ', and ' + bigFirst + ' for an SUV, 3-row, pickup or minivan' : '') + '. ' + fineAfter(U.offerFine(o));
+      // the small print without the regular prices (the costs answer gives them)
+      const fine = U.dealsFine(o, 'car', null).replace(/ After your first visit:[^.]*\./, '');
+      if (p) p.textContent = 'Yes, for a first visit: ' + parts.join('; ') + '. ' + fine;
       d.hidden = false;
+    }).catch(() => {});
+  }
+  // The costs answer from the database's rates (so it can't drift from the menu): each service on sale, every size
+  function costsAnswer(d) {
+    if (!D || !D.menu) return;
+    D.init().then(() => D.menu()).then((m) => {
+      const order = ['basic_wash', 'hand_wash', 'inside_out', 'full_detail_v2', 'interior_clean', 'interior_detail'];
+      const sizes = (m.sizes || []).map((z) => z.code);
+      const rows = order.filter((c) => m.rates && m.rates[c] && m.services.some((x) => x.code === c)).map((c) => {
+        const r = m.rates[c];
+        return m.services.find((x) => x.code === c).name + ' ' + sizes.filter((g) => r[g] && r[g].price != null).map((g) => U.money(r[g].price)).join(', ') + '.';
+      });
+      if (rows.length !== order.length) return;   // (a menu this answer doesn't know: the typed words stay)
+      const p = d.querySelector('.faq-body p');
+      if (p) p.textContent = 'Prices go by the size of your vehicle: car, SUV or crossover with 2 rows, 3 rows or pickup, minivan. ' + rows.join(' ') + ' Add-ons cost the same for every size. These are launch prices while we earn our first reviews.';
     }).catch(() => {});
   }
   function faqItem([q, a], open) {
@@ -141,6 +170,7 @@
     const body = el('div.faq-body', el('div', el('p', withPhone(a)), go ? el('a.note-link', { href: go[0] }, go[1], arrow()) : null));
     const d = el('details.faq-item', { open: open || null, class: open ? 'is-open' : null }, el('summary', q), body);
     if (q === OFFER_Q) offerAnswer(d);
+    if (q === COSTS_Q) costsAnswer(d);
     if (reduce) { d.addEventListener('toggle', () => d.classList.toggle('is-open', d.open)); return d; }
     let closing = 0;
     const done = () => { clearTimeout(closing); closing = 0; body.removeEventListener('transitionend', onEnd); folding.delete(d); d.open = false; };

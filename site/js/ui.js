@@ -41,8 +41,7 @@
   const money = (cents) => {
     if (cents == null) return '—';
     const n = Math.round(Math.abs(cents)), d = String(Math.floor(n / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    // the menu is in whole dollars since Migration 011 ($50, not $50.00); an amount with cents (an older booking's
-    // $49.99, an extra the owner typed) keeps them
+    // cents only when there are any: $59.99 and $79.99 (Migration 012's prices, Nov 18), but $75, never $75.00
     return '$' + (cents < 0 ? '-' : '') + d + (n % 100 ? '.' + String(n % 100).padStart(2, '0') : '');
   };
   const minutesText = (m) => {
@@ -328,9 +327,13 @@
   // (the booking's build sheet and receipt). opts.otherCondition (the caller knows the booking's conditions; a quote
   // doesn't say) marks a booking with the "Other" condition: the lines stay, the total row says we confirm the price,
   // and a note gives the menu price so far (doc 46). opts.offerMissed: a request that was quoted "if this is your first
-  // visit" and that the database saved at the regular price (Migration 011: the saved request decides).
-  // The new-customer price (Migration 011): a line that carries it (regular_cents) reads "Basic Wash, new-customer
-  // price" with its own price, and a note under it gives the regular price after the first visit; never a "was" price.
+  // visit" and that the database saved at the regular price (the saved request decides); opts.missedCodes: the
+  // services that deal was for (kept with the receipt), so the note sits under them.
+  // The First Timer Deals (Migration 012): the lines that carry a regular price (regular_cents) are the deal. One line
+  // reads "Basic Wash, First Timer Deal"; two read as one row, "First Timer Deal: Basic Wash + Interior Clean", with
+  // their two prices added up (so the column still adds up to the total). Under it, the regular price: on a quote
+  // "After your first visit ..." (what it costs next time); on a saved booking (opts.saved, or any booking row) "Regular
+  // price when booked", since the menu may have changed since (an older booking kept $50). Never a "was" price.
   const longDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const PENDING_WORDS = {
     size_price: 'Vans, unusual vehicles and “Not sure” are priced by us before the appointment.',
@@ -340,34 +343,58 @@
   };
   // a service line with no menu price (a van, other or "Not sure" since Migration 011): the owner's amount prices it
   const heldLine = (q) => (q.lines || []).some((l) => !l.included && l.price_cents == null && !/^cond_/.test(l.code || ''));
+  const DEAL_FINE = 'First visit only: one per phone number and one per address.';
   function priceLines(q, opts) {
     opts = opts || {};
-    const rows = (q.lines || []).map((l) => {
-      const offer = l.regular_cents != null && !l.included;
-      return el('div.pr-line', { class: (l.included ? 'inc' : '') + (offer ? ' offer' : '') },
-        el('span', opts.mark && !l.included ? opts.mark(l.code) : null, l.name, offer ? ', new-customer price' : null, l.included ? el('small', ' · Included') : null),
+    const lines = q.lines || [];
+    const saved = opts.saved != null ? !!opts.saved : (q.ref != null || q.first_visit_offer !== undefined);
+    const deal = lines.filter((l) => l.regular_cents != null && !l.included);
+    const fv = q.first_visit || null;
+    const rows = [];
+    let dealRow = null;
+    lines.forEach((l) => {
+      if (deal.length > 1 && deal.includes(l)) {
+        if (dealRow) { rows.push(null); return; }   // (the deal's second line is in the first one's row; one mark, the first's: the gutter holds one)
+        const sum = deal.reduce((t, x) => t + (x.price_cents || 0), 0);
+        dealRow = el('div.pr-line.offer.deal',
+          el('span', opts.mark ? opts.mark(deal[0].code) : null, 'First Timer Deal: ', deal.map((x) => x.name).join(' + ')),
+          el('span.tnum', money(sum)));
+        rows.push(dealRow);
+        return;
+      }
+      const offer = deal.includes(l);
+      const row = el('div.pr-line', { class: (l.included ? 'inc' : '') + (offer ? ' offer' : '') },
+        el('span', opts.mark && !l.included ? opts.mark(l.code) : null, l.name, offer ? ', First Timer Deal' : null, l.included ? el('small', ' · Included') : null),
         el('span.tnum', l.included ? '$0' : l.price_cents == null ? 'Confirmed by us' : money(l.price_cents)));
+      if (offer) dealRow = row;
+      rows.push(row);
     });
-    const out = el('div.pr', rows);
-    const after = (i, node) => { if (i >= 0) rows[i].after(node); else out.appendChild(node); };
+    const out = el('div.pr', rows.filter(Boolean));
+    const after = (i, node) => { const r = i >= 0 ? rows[i] : null; if (r) r.after(node); else out.appendChild(node); };
     // the bundle line already carries the bundle price, so the saving is said once, as a note with no amount in
     // the price column (shown as a minus line, the column would add up to less than the total). The note sits
     // straight under the bundle's own line, so it never reads as part of the line above it.
     if (q.bundle_savings_cents) {
-      const at = (q.lines || []).findIndex((l) => l.kind === 'bundle' && !l.included);
+      const at = lines.findIndex((l) => l.kind === 'bundle' && !l.included);
       after(at, el('p.pr-note', 'Saves ' + money(q.bundle_savings_cents) + ' against booking its services apart' + (q.mobile_cents ? ', before the mobile charge.' : '.')));
     }
-    const fv = q.first_visit || null, offerAt = (q.lines || []).findIndex((l) => l.regular_cents != null && !l.included);
-    if (offerAt >= 0) {
-      const l = q.lines[offerAt];
-      const notes = [el('p.pr-note.gold-note', 'After your first visit, the ' + l.name + ' is ' + money(l.regular_cents) + '.')];
-      if (fv && fv.status === 'if_first_visit') notes.push(el('p.pr-note', 'First visit only: one per phone number and one per address. We check when you send.' + (fv.ends_on ? ' Offer ends ' + longDay(fv.ends_on) + '.' : '')));
-      notes.reverse().forEach((n) => rows[offerAt].after(n));
+    if (dealRow) {
+      const regular = deal.length === 1
+        ? (saved ? 'Regular price when booked: ' + money(deal[0].regular_cents) + '.' : 'After your first visit, the ' + deal[0].name + ' is ' + money(deal[0].regular_cents) + '.')
+        : (saved ? 'Regular prices when booked: ' : 'After your first visit: ') + deal.map((x) => x.name + ' ' + money(x.regular_cents)).join(' + ') + '.';
+      const notes = [el('p.pr-note.gold-note', regular)];
+      if (!saved && fv && fv.status === 'if_first_visit') notes.push(el('p.pr-note', DEAL_FINE + ' We check when you send.' + (fv.ends_on ? ' Offer ends ' + longDay(fv.ends_on) + '.' : '')));
+      notes.reverse().forEach((n) => dealRow.after(n));
     }
+    // quoted "if first visit", saved at the regular price (or a signed-in customer with history): said under the
+    // deal's services (the quote's codes, or the ones kept with the receipt; failing both, the first Basic Wash or
+    // Interior Clean line)
     const missed = !!opts.offerMissed || !!(fv && fv.status === 'not_eligible');
-    if (missed && offerAt < 0) {
-      const at = (q.lines || []).findIndex((l) => l.code === 'basic_wash' && !l.included);
-      if (at >= 0) after(at, el('p.pr-note', 'The new-customer price is for a first visit only (one per phone number and one per address), so this request is at the regular price.'));
+    if (missed && !deal.length) {
+      const codes = (fv && fv.codes) || opts.missedCodes || null;
+      let at = -1;
+      lines.forEach((l, i) => { if (!l.included && (codes ? codes.includes(l.code) : at < 0 && (l.code === 'basic_wash' || l.code === 'interior_clean'))) at = i; });
+      if (at >= 0) after(at, el('p.pr-note', 'First Timer Deals are for a first visit only (one per phone number and one per address), so this request is at the regular price.'));
     }
     // no mobile fee since Migration 011: the line shows only on an older booking that had one
     if (q.location_type === 'mobile' && q.mobile_cents) out.appendChild(el('div.pr-line', el('span', 'Mobile service'), el('span.tnum', money(q.mobile_cents))));
@@ -413,19 +440,41 @@
     return { text: 'Fits ' + runs.map(([a, b]) => DAY3[a - 1] + (b > a ? '–' + DAY3[b - 1] : '')).join(', ') };
   }
 
-  // The new-customer price's small print (the owner's words, Nov 17), from get_first_visit_offer's prices and end date:
-  // "First visit only: one per phone number and one per address. Car $35; SUV, 3-row, pickup or minivan $40. After that,
-  // $50 car; $55 SUV, 3-row, pickup or minivan. Cars with normal road dirt. Offer ends February 17, 2027."
-  function offerFine(o) {
-    const P = (o && o.prices) || {};
-    if (!P.car) return '';
-    const big = [P.two_rows, P.three_rows, P.minivan].filter(Boolean);
-    const same = (k) => big.length && big.every((x) => x[k] === big[0][k]);
-    const bigFirst = same('first_visit_cents') ? money(big[0].first_visit_cents) : null, bigReg = same('regular_cents') ? money(big[0].regular_cents) : null;
-    return 'First visit only: one per phone number and one per address. Car ' + money(P.car.first_visit_cents) +
-      (bigFirst ? '; SUV, 3-row, pickup or minivan ' + bigFirst : '') + '. After that, ' + money(P.car.regular_cents) + ' car' +
-      (bigReg ? '; ' + bigReg + ' SUV, 3-row, pickup or minivan' : '') + '. Cars with normal road dirt.' + (o.ends_on ? ' Offer ends ' + longDay(o.ends_on) + '.' : '');
+  // The First Timer Deals (Migration 012, from get_first_visit_offer): each deal's route token (#book-dealout opens
+  // the booking with its services chosen), and the deals for one size as the pages list them:
+  // { code, name, token, exterior, interior, codes, what, price, regular } (what: its services' names; nameOf(code)
+  // gives a service's name). A deal with no price for that size (the database left it out) is not listed.
+  const DEAL_TOKENS = { outside: 'dealout', inside: 'dealin', both: 'dealboth' };
+  const dealToken = (code) => DEAL_TOKENS[code] || 'deal' + code;
+  const dealOfToken = (o, tok) => ((o && o.deals) || []).find((d) => dealToken(d.code) === tok) || null;
+  function dealLines(o, size, nameOf) {
+    if (!o || !o.active) return [];
+    return (o.deals || []).map((d) => {
+      const p = d.prices && d.prices[size];
+      if (!p) return null;
+      const codes = [d.exterior, d.interior].filter(Boolean);
+      return { code: d.code, name: d.name, token: dealToken(d.code), exterior: d.exterior || null, interior: d.interior || null, codes,
+        what: codes.map((c) => (nameOf && nameOf(c)) || c).join(' + '), price: p.first_visit_cents, regular: p.regular_cents, lines: p.lines || {} };
+    }).filter(Boolean);
   }
+  // The deals' small print (the owner's words, Nov 17-18): "First visit only: one per phone number and one per address.
+  // Outside: cars with normal road dirt. After your first visit: Basic Wash $59.99, Interior Clean $75 (car). Offer
+  // ends February 17, 2027." The regular prices are for one size (size, named by label; the car by default).
+  // ("Cars with normal road dirt." is the approved Nov 17 small print of the Basic Wash price: kept on the Outside deal,
+  // which is that Basic Wash; whether it also applies to Inside and Outside + inside is asked in doc 54.)
+  function dealsFine(o, size, label, nameOf) {
+    if (!o || !o.active) return '';
+    size = size || 'car';
+    const regular = {};
+    (o.deals || []).forEach((d) => { const p = d.prices && d.prices[size]; if (p && p.lines) Object.keys(p.lines).forEach((c) => { if (!(c in regular)) regular[c] = p.lines[c].regular_cents; }); });
+    const names = Object.keys(regular).map((c) => ((nameOf && nameOf(c)) || NAMES[c] || c) + ' ' + money(regular[c]));
+    const outside = (o.deals || []).find((d) => d.code === 'outside');
+    return DEAL_FINE + (outside ? ' ' + outside.name + ': cars with normal road dirt.' : '') +
+      (names.length ? ' After your first visit: ' + names.join(', ') + (label === null ? '' : ' (' + String(label || 'car').toLowerCase() + ')') + '.' : '') +
+      (o.ends_on ? ' Offer ends ' + longDay(o.ends_on) + '.' : '');
+  }
+  // (a service's name when the caller has no menu at hand: the two the deals are made of)
+  const NAMES = { basic_wash: 'Basic Wash', interior_clean: 'Interior Clean' };
 
   // A small inline button inside a field box (Send code, Confirm, Change).
   const miniBtn = (label, onclick, attrs) => el('button.mini-btn', Object.assign({ type: 'button', onclick }, attrs || {}), label);
@@ -529,5 +578,5 @@
   const modeBanner = (previewText, isLive) => !isLive ? el('div.bk-preview', el('b', 'Preview'), ' — ' + previewText)
     : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — practice data on the test database, not real bookings.') : null);
 
-  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, outage, loading, star, field, choices, roving, flash, priceLines, heldLine, dayFit, offerFine, otherConditionNote, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady, modeBanner };
+  window.AlchemistUI = { el, append, svgEl, tick, rollFigure, money, minutesText, clock, longDate, shortDate, phonePretty, tel, telMark, lightMark, outage, loading, star, field, choices, roving, flash, priceLines, heldLine, dayFit, dealsFine, dealLines, dealToken, dealOfToken, otherConditionNote, miniBtn, showError, clearError, toast, debounce, refGroups, copyRef, holdPage, warmed, steady, modeBanner };
 })();

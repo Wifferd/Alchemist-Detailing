@@ -528,8 +528,8 @@
   }
 
   // A booking sent, or a sign-out elsewhere: the next visit starts from the data layer's session again.
-  // ---------------------------------------------------------------- the new-customer pop-up (owner, Nov 17: "4 weeks after
-  // account is made, pop up notification showing the promo")
+  // ---------------------------------------------------------------- the First Timer Deals pop-up (owner, Nov 17: "4 weeks
+  // after account is made, pop up notification showing the promo"; the three deals since Nov 18, Migration 012)
   // The database decides (my_first_visit_offer): a customer account at least first_visit_popup_days (28) old with no
   // booking yet, while the offer runs. Shown at most once a day on this device (Parker's date in localStorage
   // ad-offer-seen; with storage blocked, once a page load), never on the staff screens or the booking, and only where
@@ -555,34 +555,43 @@
       try { localStorage.setItem('ad-offer-seen', today); } catch (e) { /* storage blocked */ }
     } catch (e) { /* no pop-up: the offer is on the Services page all the same */ }
   }
+  // The three First Timer Deals (Migration 012) for the size remembered on this device (ad-size), else a car, each
+  // with its own Book link (#book-dealout...); "Not now"; the small print. The focus stays inside (Tab and Shift+Tab).
   function showPopup(o) {
     const back = document.activeElement;
-    const prices = o.prices || {}, car = prices.car;
-    if (!car) return;
+    let size = 'car';
+    try { const v = localStorage.getItem('ad-size'); if (['car', 'two_rows', 'three_rows', 'minivan'].includes(v)) size = v; } catch (e) { /* storage blocked: a car */ }
+    const NAMES = { basic_wash: 'Basic Wash', interior_clean: 'Interior Clean' };
+    let list = U.dealLines(Object.assign({ active: true }, o), size, (c) => NAMES[c]);
+    if (!list.length && size !== 'car') { size = 'car'; list = U.dealLines(Object.assign({ active: true }, o), size, (c) => NAMES[c]); }
+    if (!list.length) return;
+    const label = { car: 'Car', two_rows: '2 rows', three_rows: '3 rows or pickup', minivan: 'Minivan' }[size];
     const close = () => {
       if (!popOpen) return;
       document.removeEventListener('keydown', onKey, true);
       popOpen.remove(); popOpen = null;
       if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
     };
-    const book = el('a.btn.btn-gold.shine', { href: '#book-bw', onclick: () => close() }, 'Book my Basic Wash ', arrow());
+    const books = list.map((d) => el('a.btn.btn-gold.shine.offer-book', { href: '#book-' + d.token, 'aria-label': 'Book the ' + d.name + ' deal', onclick: () => close() }, 'Book ', arrow()));
     const later = el('button.btn.btn-glass', { type: 'button', onclick: close }, 'Not now');
     const card = el('div.offer-card', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'offerPopTitle', 'aria-describedby': 'offerPopText' },
-      el('p.eyebrow', 'New customers'),
-      el('h2.display', { id: 'offerPopTitle' }, 'Your first Basic Wash: ' + U.money(car.first_visit_cents)),
-      el('p', { id: 'offerPopText' }, U.offerFine(o)),
-      el('div.offer-actions', book, later));
+      el('p.eyebrow', 'First time?'),
+      el('h2.display', { id: 'offerPopTitle' }, 'Your First Timer Deals'),
+      el('ul.offer-deals', list.map((d, i) => el('li', el('span.offer-deal-name', el('b', d.name), el('small', d.what)), el('span.offer-deal-price.tnum', U.money(d.price)), books[i]))),
+      el('p.offer-size', 'Prices for: ' + label + '.'),
+      el('p', { id: 'offerPopText' }, U.dealsFine(Object.assign({ active: true }, o), size, label, (c) => NAMES[c])),
+      el('div.offer-actions', later));
     popOpen = el('div.offer-pop', { onclick: (e) => { if (e.target === popOpen) close(); } }, card);
     function onKey(e) {
       if (e.key === 'Escape') { e.preventDefault(); close(); return; }
       if (e.key !== 'Tab') return;
-      const f = [book, later];
+      const f = books.concat(later);
       const i = f.indexOf(document.activeElement);
-      if (e.shiftKey && i <= 0) { e.preventDefault(); later.focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); book.focus(); }
+      if (e.shiftKey && i <= 0) { e.preventDefault(); later.focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
     }
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(popOpen);
-    book.focus({ preventScroll: true });
+    books[0].focus({ preventScroll: true });
   }
 
   window.AlchemistAccount = { mountAccount, mountAppointments, offerPopup, refresh: () => { appts.list = null; acct.loading = true; acct.confirm = null; session = null; ready = null; } };

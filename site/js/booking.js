@@ -1,5 +1,7 @@
-/* Alchemist Detailing — the booking app (doc 18): 01 Contact, 02 Vehicle,
-   03 Location, 04 Service, 05 Date and time, 06 Summary, then Request sent.
+/* Alchemist Detailing — the booking app (doc 18; the order since Nov 18, doc 54: the owner's "service selecting to
+   first slide when booking and second slide is date, then do the rest"): 01 Service (the vehicle's size, where, the
+   First Timer Deals, the services and add-ons), 02 Date and time, 03 Contact (and the street address for a mobile
+   detail), 04 Vehicle (the car, the inside of it, notes), 05 Summary, then Request sent.
    Everything the browser works out is shown only; the database re-checks it
    all when the request is sent. Data comes from AlchemistData (live or preview). */
 (function () {
@@ -13,24 +15,26 @@
   // already signed in with a confirmed phone books as before.
   const guest = () => D.guestBooking && !(session && session.phoneConfirmed);
 
+  // The steps by name: never a bare number (the order changed on Nov 18 and may change again)
+  const S_SERVICE = 1, S_WHEN = 2, S_CONTACT = 3, S_VEHICLE = 4, S_SUMMARY = 5;
   const STEPS = [
-    { n: '01', name: 'Contact', title: 'How do we reach you?' },
-    { n: '02', name: 'Vehicle', title: 'Tell us about the car' },
-    { n: '03', name: 'Location', title: 'Where should we detail it?' },
-    { n: '04', name: 'Service', title: 'Choose your finish' },
-    { n: '05', name: 'Date and time', title: 'When works for you?' },
-    { n: '06', name: 'Summary', title: 'Check everything' },
+    { n: '01', name: 'Service', title: 'Choose your finish' },
+    { n: '02', name: 'Date and time', title: 'When works for you?' },
+    { n: '03', name: 'Contact', title: 'How do we reach you?' },
+    { n: '04', name: 'Vehicle', title: 'Tell us about the car' },
+    { n: '05', name: 'Summary', title: 'Check everything' },
   ];
+  const LAST_N = STEPS[STEPS.length - 1].n;
   // Which step owns a database error, by its hint (doc 18).
   const HINT_STEP = {
-    first_name: 1, last_name: 1, phone: 1, phone_code: 1, email: 1, email_code: 1,
-    vehicle_id: 2, vehicle_make: 2, vehicle_model: 2, vehicle_year: 2, vehicle_color: 2, vehicle_type: 2, vehicle_size: 2, vehicle_description: 2,
-    modifications: 2, damage: 2, damage_note: 2, photos: 2,
-    location_type: 3, address: 3, address_zip: 3,
-    // the inside of the car is asked on step 04, with an interior service or a bundle
-    services: 4, bundle: 4, exterior: 4, interior: 4, addons: 4, conditions: 4, stains: 4,
-    special_request: 2,   // the notes field is on step 02 (step 04 has it too, for "Other")
-    service_date: 5, start_min: 5,
+    // 01: the size (a saved vehicle sets it), where (the ZIP), the services
+    size: S_SERVICE, vehicle_id: S_SERVICE, location_type: S_SERVICE, address_zip: S_SERVICE,
+    services: S_SERVICE, bundle: S_SERVICE, exterior: S_SERVICE, interior: S_SERVICE, addons: S_SERVICE,
+    service_date: S_WHEN, start_min: S_WHEN,
+    first_name: S_CONTACT, last_name: S_CONTACT, phone: S_CONTACT, phone_code: S_CONTACT, email: S_CONTACT, email_code: S_CONTACT, address: S_CONTACT,
+    // the inside of the car is asked on step 04, with an interior service or a bundle, beside the notes
+    vehicle_make: S_VEHICLE, vehicle_model: S_VEHICLE, vehicle_year: S_VEHICLE, vehicle_color: S_VEHICLE, vehicle_type: S_VEHICLE, vehicle_size: S_VEHICLE, vehicle_description: S_VEHICLE,
+    modifications: S_VEHICLE, damage: S_VEHICLE, damage_note: S_VEHICLE, photos: S_VEHICLE, conditions: S_VEHICLE, stains: S_VEHICLE, special_request: S_VEHICLE,
   };
   const ICONS = {
     exterior: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3c3.2 3.6 5.4 6.6 5.4 9.6a5.4 5.4 0 1 1-10.8 0C6.6 9.6 8.8 6.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
@@ -52,7 +56,7 @@
 
   // ---------------------------------------------------------------- state
   let root = null, settings = null, menu = null, session = null, phone = null;
-  let step = 1, farthest = 1, renderedStep = 0, busy = false, mounted = false;
+  let step = S_SERVICE, farthest = S_SERVICE, renderedStep = 0, busy = false, mounted = false;
   // editFrom: the step an Edit on the Summary opened; its gold button goes straight back to the Summary (backToSummary).
   // Any other way off that step (Previous, the step bar, a refusal's jump, the Summary itself) lets it go (show).
   let editFrom = null;
@@ -67,8 +71,8 @@
   // a phone confirmed with a code on this page: only that session is signed out once the request is in (a
   // session that was here before, such as the owner's console sign-in, is left alone)
   let signedInHere = false;
-  // When the Summary was put on the screen for the visitor (show(6), or the booking met again on it), not when the
-  // Summary being read is drawn again in place. Send sits where Continue was on 05, so a tap on it in the first
+  // When the Summary was put on the screen for the visitor (show(S_SUMMARY), or the booking met again on it), not when the
+  // Summary being read is drawn again in place. Send sits where Continue was on 04, so a tap on it in the first
   // half-second is the second tap of a quick double tap on Continue: send() ignores it, and nothing shows.
   const SEND_HOLD = 500;
   let summaryShownAt = -Infinity;
@@ -77,13 +81,17 @@
     contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '' }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
-    // carried: the service chosen on the Services page, while it is still the choice; glow: step 04 lights it once
-    service: () => ({ bundle: null, exterior: null, interior: null, addons: [], notes: '', carried: null, glow: false }),
+    // carried: the service chosen on the Services page, while it is still the choice; deal: the First Timer Deal's token
+    // when that choice was a deal (#book-dealboth), while its services are still the ones chosen; glow: step 01 lights it
+    // once. size: the vehicle's size chosen on step 01 (car, two_rows, three_rows, minivan, or other: "Van, other or not
+    // sure", priced by us); a saved vehicle chosen there sets it too
+    service: () => ({ size: null, bundle: null, exterior: null, interior: null, addons: [], notes: '', carried: null, deal: null, glow: false }),
     // sig: the job's length and place the days and times were checked for (timeSig); note: the line under the times
     // once a refusal or a changed service let the start go; keep: a start held aside until its day's times are back;
-    // fetching: the day and length whose times are on their way; switching: the strip that changes the service on
-    // the date step is open
-    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, sig: null, note: null, keep: null, fetching: null, switching: false }),
+    // fetching: the day and length whose times are on their way (loading: that fetch, for a second caller to wait on);
+    // switching: the strip that changes the service on the date step is open; lost: a start that no longer fits the
+    // new length (the re-fit on steps 03 and 04 names it); base: the length and total as the date step was left
+    when: () => ({ date: null, start: null, month: null, calendar: {}, times: [], loaded: null, sig: null, note: null, keep: null, fetching: null, loading: null, switching: false, lost: null, base: null }),
   };
   const st = { contact: blank.contact(), vehicle: blank.vehicle(), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, sentAsGuest: false, receiptOther: false, requestId: null, direction: 1, prices: {} };
   const quoteCache = new Map();
@@ -107,13 +115,13 @@
           vehicle: v ? { year: v.year, make: v.make, model: v.model, color: v.color, not_sure: v.not_sure, description: v.description } : null,
           hold_expires_at: r.hold_expires_at || null, created_at: r.created_at || null, total_cents: src.total_cents,
           lines: (src.lines || []).map((l) => ({ code: l.code, name: l.name, kind: l.kind, price_cents: l.price_cents, included: l.included, regular_cents: l.regular_cents != null ? l.regular_cents : null })),
-          first_visit_offer: !!r.first_visit_offer,
+          first_visit_offer: !!r.first_visit_offer, first_visit_deal: r.first_visit_deal || null, first_visit_deal_name: r.first_visit_deal_name || null,
           bundle_savings_cents: src.bundle_savings_cents, mobile_cents: src.mobile_cents, extra_cost_cents: src.extra_cost_cents,
           extra_cost_note: src.extra_cost_note, pending_reasons: src.pending_reasons,
         },
         // who booked, as Book another detail carries them into the next request (reset): the names and the phone, as
         // the answers kept for a reload hold them (never the email, a code's state or the spam field)
-        sentAsGuest: st.sentAsGuest, receiptOther: st.receiptOther, receiptMissed: !!st.receiptMissed, phone: st.contact.phone, first: st.contact.first, last: st.contact.last,
+        sentAsGuest: st.sentAsGuest, receiptOther: st.receiptOther, receiptMissed: !!st.receiptMissed, missedCodes: st.receiptMissedCodes || null, phone: st.contact.phone, first: st.contact.first, last: st.contact.last,
       }));
     } catch (e) { /* storage blocked or full: the receipt lasts as long as the page, as before */ }
   }
@@ -154,11 +162,11 @@
     if (!draftReady || !menu || st.receipt || !drafting) return;
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when;
     const d = {
-      v: 1, step, farthest,
+      v: 2, step, farthest,   // (v: 2 since the steps' order changed on Nov 18: a v1 copy's step numbers meant other steps)
       contact: { first: c.first, last: c.last, phone: c.phone },
       vehicle: { year: v.year, make: v.make, model: v.model, color: v.color, type: v.type, size: v.size, notSure: v.notSure, description: v.description, conditions: v.conditions, damage: v.damage, damageNote: v.damageNote, modifications: v.modifications, moreOpen: v.moreOpen },
       location: { type: l.type, address: l.address, zip: l.zip },
-      service: { bundle: s.bundle, exterior: s.exterior, interior: s.interior, addons: s.addons, notes: s.notes, carried: s.carried },
+      service: { size: s.size, bundle: s.bundle, exterior: s.exterior, interior: s.interior, addons: s.addons, notes: s.notes, carried: s.carried, deal: s.deal },
       ask: asking,   // (a service chosen on Services, its question not yet answered: askLine)
       // (a start held aside while its day's times load again is still the one picked)
       when: { date: w.date, start: w.start != null ? w.start : w.keep },
@@ -173,7 +181,7 @@
     try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) { /* storage unavailable: nothing was kept */ }
   }
   function loadDraft() {
-    try { const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null'); return d && typeof d === 'object' && d.v === 1 ? d : null; } catch (e) { return null; }
+    try { const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null'); return d && typeof d === 'object' && d.v === 2 ? d : null; } catch (e) { return null; }
   }
   // The kept answers, taken back as the booking is first drawn in this tab (mount). Names and phone fill only empty
   // fields, so a signed-in account's own win; a code the menu no longer has is dropped, and so is a day that isn't a
@@ -199,15 +207,19 @@
       damageNote: txt(dv.damageNote), modifications: codes(dv.modifications, menu.options.modification, []), moreOpen: dv.moreOpen === true,
     });
     Object.assign(l, { type: dl.type === 'mobile' || dl.type === 'shop' ? dl.type : null, address: txt(dl.address), zip: txt(dl.zip) });
+    s.size = ds.size === 'other' || (menu.sizes || []).some((z) => z.code === ds.size) ? ds.size : null;
     s.bundle = ofKind(ds.bundle, 'bundle');
     s.exterior = s.bundle ? null : ofKind(ds.exterior, 'exterior');
     s.interior = s.bundle ? null : ofKind(ds.interior, 'interior');
     s.addons = codes(ds.addons, menu.services.filter((o) => o.kind === 'addon' && !o.code.startsWith('cond_')), []);
     s.notes = txt(ds.notes);
     s.carried = mainCodes().includes(ds.carried) ? ds.carried : null;
-    // a question not yet answered is asked again: a service the menu has, beside another, never one the request has
+    s.deal = typeof ds.deal === 'string' && dealPair(ds.deal) && pairChosen(dealPair(ds.deal)) ? ds.deal : null;
+    // a question not yet answered is asked again: a service the menu has (or a deal), beside another, never one the
+    // request has
     const main = (x) => ['bundle', 'exterior', 'interior'].some((k) => ofKind(x, k));
-    asking = main(d.ask) && mainsChosen() && !mainCodes().includes(d.ask) ? d.ask : null;
+    const dp = typeof d.ask === 'string' ? dealPair(d.ask) : null;
+    asking = mainsChosen() && ((main(d.ask) && !mainCodes().includes(d.ask)) || (dp && !pairChosen(dp))) ? d.ask : null;
     const today = H.todayIn(settings.timezone);   // (the booking window counts from Parker's today, as the calendar's)
     const first = H.isoDate(H.addDays(today, settings.min_days_ahead)), last = H.isoDate(H.addDays(today, settings.max_days_ahead));
     // a real calendar day: built from its parts, the same year, month and day come back ('2026-13-45' does not)
@@ -219,9 +231,9 @@
     const date = real(dw.date) && dw.date >= first && dw.date <= last ? dw.date : null;
     Object.assign(w, blank.when(), { date, start: date && Number.isInteger(dw.start) ? dw.start : null });
     if (date) w.month = new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, 1);   // (the calendar opens on the kept day's month)
-    const n = (x) => (Number.isInteger(x) && x >= 1 && x <= 6 ? x : 1);
+    const n = (x) => (Number.isInteger(x) && x >= S_SERVICE && x <= S_SUMMARY ? x : S_SERVICE);
     step = n(d.step); farthest = Math.max(step, n(d.farthest));
-    if (step >= 5 && !mainsChosen()) step = 4;
+    if (step > S_SERVICE && (!mainsChosen() || !s.size)) step = S_SERVICE;
     return true;
   }
 
@@ -232,14 +244,14 @@
     dropSent();
     clearDraft();
     const c = st.contact;
-    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, receiptMissed: false, requestId: D.helpers.uuid(), direction: 1, prices: {} });
+    Object.assign(st, { vehicle: blank.vehicle(st.vehicle.saved), location: blank.location(), service: blank.service(), when: blank.when(), quote: null, receipt: null, receiptOther: false, receiptMissed: false, receiptMissedCodes: null, requestId: D.helpers.uuid(), direction: 1, prices: {} });
     if (keepContact) {
       c.phoneSent = false; c.phoneConfirmed = !!(session && session.phoneConfirmed);
       if (c.emailState !== 'skipped' && !(session && session.email)) c.emailState = 'none';
     } else st.contact = blank.contact();
     quoteCache.clear();
     // (an Edit's way back to the Summary goes too: a fresh request has no Summary yet, so its steps read Continue)
-    step = farthest = 1; renderedStep = 0; busy = false; asking = null; editFrom = null;
+    step = farthest = S_SERVICE; renderedStep = 0; busy = false; asking = null; editFrom = null;
   }
 
   // ---------------------------------------------------------------- helpers
@@ -270,14 +282,41 @@
     });
     return set;
   };
-  // the size the visitor's vehicle is priced as, remembered on this device for the Services page's size switch
-  const rememberSize = (code) => { const g = menu.typeSize && menu.typeSize[code]; if (!g) return; try { localStorage.setItem('ad-size', g); } catch (e) { /* storage blocked: the switch starts on Car */ } };
+  // the size chosen on step 01, remembered on this device for the Services page's size switch (never "other")
+  const rememberSize = (g) => { if (!(menu.sizes || []).some((z) => z.code === g)) return; try { localStorage.setItem('ad-size', g); } catch (e) { /* storage blocked: the switch starts on Car */ } };
   const savedVehicle = () => (st.vehicle.vehicleId ? st.vehicle.saved.find((x) => x.id === st.vehicle.vehicleId) || null : null);
-  // The vehicle every price is for: the saved one chosen, or the one typed in.
+  // the vehicle types of a size, in the menu's order (the first stands for the size until step 04 names the real one:
+  // every type of a size has the same rates, by construction), and the ones with no size (van, other: priced by us)
+  const byOrder = (a, b) => (a.sort || 0) - (b.sort || 0);
+  const sizeTypes = (g) => menu.vehicleTypes.filter((t) => (menu.typeSize || {})[t.code] === g).sort(byOrder);
+  const otherTypes = () => menu.vehicleTypes.filter((t) => !(menu.typeSize || {})[t.code]).sort(byOrder);
+  // The vehicle every price is for: the saved one chosen, or the size chosen on step 01 with the type picked on step 04
+  // (before then, the size's first type). "Van, other or not sure": the van or other picked on 04, else "Not sure"
+  // (the price is held). none: no size chosen yet, so nothing can be priced.
   function vehicleFacts() {
-    const sv = savedVehicle(), v = st.vehicle;
-    return sv ? { type: sv.vehicle_type || null, size: sv.size || 'standard', notSure: false } : { type: v.notSure ? null : v.type, size: v.size, notSure: v.notSure };
+    const sv = savedVehicle(), v = st.vehicle, g = st.service.size;
+    if (sv) return { type: sv.vehicle_type || null, size: sv.size || 'standard', notSure: false };
+    if (!g) return { type: null, size: 'standard', notSure: false, none: true };
+    if (v.notSure) return { type: null, size: 'standard', notSure: true };
+    if (g === 'other') return otherTypes().some((t) => t.code === v.type) ? { type: v.type, size: 'standard', notSure: false } : { type: null, size: 'standard', notSure: true };
+    const own = !!v.type && (menu.typeSize || {})[v.type] === g, first = sizeTypes(g)[0];
+    return own ? { type: v.type, size: 'standard', notSure: false } : first ? { type: first.code, size: 'standard', notSure: false } : { type: null, size: 'standard', notSure: true };
   }
+  const sizeKnown = () => !vehicleFacts().none;
+  // The First Timer Deals (get_first_visit_offer, Migration 012): loaded with the menu; null when it can't be read
+  let deals = null;
+  // a deal's services by its route token (#book-dealboth): the database's deal, or, when the offer is over or can't be
+  // read, the services the link names (they book at the regular price; the database decides)
+  const FALLBACK_PAIRS = { dealout: ['basic_wash', null], dealin: [null, 'interior_clean'], dealboth: ['basic_wash', 'interior_clean'] };
+  function dealPair(tok) {
+    const d = U.dealOfToken(deals, tok);
+    if (d) return { exterior: d.exterior || null, interior: d.interior || null, code: d.code, name: d.name };
+    const f = FALLBACK_PAIRS[tok];
+    return f && (!f[0] || svc(f[0])) && (!f[1] || svc(f[1])) ? { exterior: f[0], interior: f[1], code: null, name: null } : null;
+  }
+  // exactly the deal's services, with no bundle (S1: a chip is lit, and the deal's price applies, only then)
+  const pairChosen = (pr) => !!pr && !st.service.bundle && st.service.exterior === pr.exterior && st.service.interior === pr.interior;
+  const pairNames = (pr) => [pr.exterior, pr.interior].filter(Boolean).map((c) => svc(c).name).join(' + ');
   function quoteInput(over) {
     const vf = vehicleFacts();
     return Object.assign({
@@ -297,7 +336,7 @@
   // the request as it stands now becomes st.quote. STALE tells the caller a newer answer is coming.
   const STALE = { stale: true };
   async function refreshQuote() {
-    if (!mainsChosen()) { st.quote = null; return null; }
+    if (!mainsChosen() || !sizeKnown()) { st.quote = null; return null; }
     const key = JSON.stringify(quoteInput());
     const q = await getQuote(quoteInput());
     if (JSON.stringify(quoteInput()) !== key) return STALE;
@@ -369,7 +408,7 @@
       if (st.receipt || (opts && opts.returning)) offered = null;
       takeOffer();
       redraw();
-      if (step === 6 && !st.receipt) markSummary();   // the Summary met again on arrival is as new as after Continue
+      if (step === S_SUMMARY && !st.receipt) markSummary();   // the Summary met again on arrival is as new as after Continue
       // signed in (the account page) or out since the last visit: the contact and the saved vehicles follow
       D.session().then((s) => { if ((s && s.userId) !== (session && session.userId)) adopt(s).then(render); }).catch(() => {});
       return;
@@ -379,7 +418,8 @@
     (async () => {
       try {
         await D.init();
-        const s = (await Promise.all([D.settings(), D.menu(), D.session()]).then((r) => { [settings, menu] = r; return r[2]; }));
+        // (the First Timer Deals come with the menu; with no answer, the booking works without them: the database decides)
+        const s = (await Promise.all([D.settings(), D.menu(), D.session(), D.firstVisitOffer ? D.firstVisitOffer().catch(() => null) : null]).then((r) => { [settings, menu] = r; deals = r[3] || null; return r[2]; }));
         phone = settings.public_phone;
         await adopt(s);
         st.requestId = st.requestId || D.helpers.uuid();
@@ -390,6 +430,7 @@
         const kept = opts && opts.returning ? loadSent() : null;
         if (kept) {
           st.receipt = kept.receipt; st.sentAsGuest = !!kept.sentAsGuest; st.receiptOther = !!kept.receiptOther; st.receiptMissed = !!kept.receiptMissed;
+          st.receiptMissedCodes = Array.isArray(kept.missedCodes) ? kept.missedCodes.filter((c) => typeof c === 'string') : null;
           // who booked fills only empty fields, as the kept answers do (a signed-in account's own win)
           const c = st.contact, txt = (x) => (typeof x === 'string' ? x : '');
           if (!c.phone) c.phone = String(kept.phone || '');
@@ -412,7 +453,7 @@
         // a request brought back on the date step or the summary: its price first (none: the service step), then the kept
         // day and start checked again for it, as after a service change (syncWhen). Drawn in place (render, not show),
         // so the page lands where it was left (app.js)
-        if (!st.receipt && step >= 5) { await refreshQuote(); if (st.quote) syncWhen(); else step = 4; }
+        if (!st.receipt && step >= S_WHEN) { await refreshQuote(); if (st.quote) syncWhen(); else step = S_SERVICE; }
         render();
       } catch (e) {
         mounted = false;   // the next visit tries again
@@ -433,17 +474,25 @@
   }
   // Drawn again after a change from outside the steps: the date step and the summary need this booking's quote
   // first (go fetches it, and sends a summary whose length changed back to the date step)
-  function redraw() { if (step >= 5 && !st.quote && mainsChosen()) return go(step); render(); }
+  function redraw() { if (step >= S_WHEN && !st.quote && mainsChosen()) return go(step); render(); }
   // The service chosen on the Services page, taken into the request. A request with no service yet takes it as
   // chosen (step 04 opens with it lit once); one that already has another keeps its own, and the top of the card
   // asks. An add-on joins the add-ons and counts once a service it goes with is chosen. An unknown token is ignored.
   // What it takes in or asks is kept for a reload as a choice is (drafting), since a reload doesn't take it again.
+  // A First Timer Deal's token (#book-dealboth) takes its services exactly (no bundle: S1), or asks, as a service does.
   function takeOffer() {
     const tok = offered; offered = null;
     if (!tok || !menu) return;
+    const s = st.service, pr = dealPair(tok);
+    if (pr) {
+      drafting = true; saveDraftSoon();
+      if (pairChosen(pr)) { asking = null; s.deal = tok; return; }
+      if (mainsChosen()) { asking = tok; return; }
+      takeDeal(tok, pr); s.glow = true; invalidatePrice();
+      return;
+    }
     const g = signs().find((x) => x.key === tok), x = g && svc(g.code);
     if (!x) return;
-    const s = st.service;
     drafting = true; saveDraftSoon();
     if (x.kind === 'addon') {   // one the request's service already includes needs nothing
       if (!s.addons.includes(x.code) && !includedCodes().has(x.code)) { s.addons = s.addons.concat(x.code); invalidatePrice(); }
@@ -451,20 +500,32 @@
     }
     if ([s.bundle, s.exterior, s.interior].includes(x.code)) { asking = null; return; }
     if (mainsChosen()) { asking = x.code; return; }
-    choose(x); s.carried = x.code; s.glow = true; invalidatePrice();
+    choose(x); s.carried = x.code; s.deal = null; s.glow = true; invalidatePrice();
+  }
+  // a deal's services, exactly: the bundle and any other service let go
+  function takeDeal(tok, pr) {
+    const s = st.service;
+    Object.assign(s, { bundle: null, exterior: pr.exterior, interior: pr.interior, carried: pr.exterior || pr.interior, deal: tok });
   }
   // The request's service changed outside step 04: the quote it had no longer applies
   function invalidatePrice() { st.quote = null; }
   // The customer's answer to the service offered from Services: 'switch' (a bundle replaces everything, a service
   // replaces its own kind), 'add' (beside the other kind), 'only' (it alone), or 'keep' the request's own
+  // A deal's answer is only 'switch' (its services replace the request's, both of them: there is no "add" for a deal)
+  // or 'keep'.
   async function answerOffer(mode) {
     const code = asking; asking = null;
+    const pr = code ? dealPair(code) : null;
     if (mode !== 'keep' && code) {
-      if (mode === 'only') { st.service.exterior = null; st.service.interior = null; }
-      choose(svc(code), false); st.service.carried = code; st.service.glow = step <= 4;
+      if (pr) takeDeal(code, pr);
+      else {
+        if (mode === 'only') { st.service.exterior = null; st.service.interior = null; }
+        choose(svc(code), false); st.service.carried = code; st.service.deal = null;
+      }
+      st.service.glow = step === S_SERVICE;
       invalidatePrice();
-      if (step >= 4) await refreshQuote();
-      if (step >= 5) { go(step); return; }   // the date step checks the day and time again for the new length
+      await refreshQuote();
+      if (step >= S_WHEN) { go(step); return; }   // the date step checks the day and time again for the new length
     }
     render();
     focusTitle();
@@ -517,7 +578,7 @@
         : (window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.project === 'test' ? el('div.bk-preview', el('b', 'Test project'), ' — this is a practice booking on the test database.') : null),
       renderProgress(moved),
       askLine() || carryLine(),
-      el('div.bk-body', { id: 'bk-body' }, el('div.bk-step', { class: moved ? (st.direction > 0 ? 'in-right' : 'in-left') : null }, renderStep())),
+      el('div.bk-body', { id: 'bk-body' }, el('div.bk-step', { class: moved ? (Math.sign(st.direction) === -1 ? 'in-left' : 'in-right') : null }, renderStep())),
       renderNav());
     root.appendChild(shell);
     renderedStep = step;
@@ -537,28 +598,39 @@
     }));
   }
 
-  // The request's service at the top of steps 01 to 03, once one is chosen (on the Services page, or at step 04 before
-  // coming back): kept, with where to change it
+  // "Your booking" at the top of steps 03 and 04: the services, the day and time, and the total (or "price confirmed
+  // by us"), with Change for the service (01) and the time (02). The re-fit (refit) keeps its figures current.
   const mainCodes = () => [st.service.bundle, st.service.exterior, st.service.interior].filter(Boolean);
-  // An add-on that can't go with the chosen service yet (WetGloss with an interior only) is not part of it: it waits
-  // on a line of its own, in step 04's words.
+  function chipMeta() {
+    const q = st.quote, w = st.when;
+    const when = w.date && w.start != null ? U.shortDate(w.date) + ', ' + clock(w.start) : w.date ? U.shortDate(w.date) + ': pick a time' : 'Pick a day and time';
+    const price = !q ? '' : q.total_cents == null || otherCond() ? 'price confirmed by us' : money(q.total_cents);
+    return [when, price].filter(Boolean).join(' · ');
+  }
   function carryLine() {
-    const s = st.service, mains = mainCodes(), extra = s.addons.filter((a) => !includedCodes().has(a));
-    const codes = mains.concat(mains.length ? extra.filter(canHaveAddon) : extra);
-    if (step > 3 || !codes.length) return null;
-    const waiting = mains.length ? extra.filter((a) => !canHaveAddon(a)) : [];
-    return el('div.bk-carry', { style: { '--marks': codes.filter(signOf).length } },
-      el('span.bk-carry-marks', codes.map(sigMark)),
-      el('p.bk-carry-main', el('span.eyebrow', mains.length ? 'Your service' : 'Your add-on'), el('b', codes.map((c) => svc(c).name).join(' + ')),
-        waiting.map((a) => el('span.bk-carry-wait', svc(a).name + ' is added once you choose ' + waitsFor(a) + '.'))),
-      farthest >= 4 ? el('button.link', { type: 'button', onclick: () => go(4) }, 'Change')
-        : el('span.bk-carry-aside', mains.length ? 'You can change it at step 04' : 'Choose a service for it at step 04'));
+    const mains = mainCodes();
+    if ((step !== S_CONTACT && step !== S_VEHICLE) || !mains.length) return null;
+    const names = chosenNames() || mains.map((c) => svc(c).name).join(' + ');
+    return el('div.bk-carry.bk-chip', { style: { '--marks': mains.filter(signOf).length } },
+      el('span.bk-carry-marks', mains.map(sigMark)),
+      el('p.bk-carry-main', el('span.eyebrow', 'Your booking'), el('b', { id: 'bk-chip-name' }, names), el('span.bk-chip-meta.tnum', { id: 'bk-chip-meta' }, chipMeta())),
+      el('div.bk-carry-act',
+        el('button.link', { type: 'button', 'aria-label': 'Change the service, step 01', onclick: () => go(S_SERVICE) }, 'Change service'),
+        el('button.link', { type: 'button', 'aria-label': 'Change the day and time, step 02', onclick: () => go(S_WHEN) }, 'Change time')));
   }
   // A service chosen on Services while this request already has another. Each answer says what it does: a bundle, or
   // a service of a kind the request has, switches (a kept other kind is named in the result); an exterior offered to a
   // request with only an interior (or the reverse) can be added, or taken alone; or the request keeps its own. The
   // question is where a page change lands (data-land, app.js), so a screen reader hears it first.
   function askLine() {
+    const pr = asking ? dealPair(asking) : null;
+    if (pr) {
+      const own = mainCodes().map((c) => svc(c).name).join(' + '), codes = [pr.exterior, pr.interior].filter(Boolean);
+      return el('div.bk-carry.ask', { role: 'group', tabindex: -1, 'aria-label': 'A First Timer Deal chosen on the Services page', 'aria-describedby': 'bk-ask-q', dataset: { land: '' }, style: { '--marks': codes.filter(signOf).length } },
+        el('span.bk-carry-marks', codes.map(sigMark)),
+        el('p.bk-carry-main', { id: 'bk-ask-q' }, el('span.eyebrow', 'Chosen on Services'), el('span', el('b', 'First Timer Deal' + (pr.name ? ': ' + pr.name : '')), ' (' + pairNames(pr) + '). This request has ', el('b', own), '.')),
+        el('div.bk-carry-act', miniBtn('Switch to ' + pairNames(pr), () => answerOffer('switch')), el('button.link', { type: 'button', onclick: () => answerOffer('keep') }, 'Keep ' + own)));
+    }
     const x = asking && svc(asking);
     if (!x) return null;
     const s = st.service, own = mainCodes().map((c) => svc(c).name).join(' + ');
@@ -584,24 +656,24 @@
   }
 
   function renderNav() {
-    const last = step === 6, back = step === editFrom && step < 6;
+    const last = step === S_SUMMARY, back = step === editFrom && step < S_SUMMARY;
     return el('div.bk-nav',
       // one step back, named for what it does (the bar's Back leaves the booking): "Previous", the step it returns to
       // in its label (the steps' names don't all fit beside Send Request on a 360px phone)
       // Cancel: a fresh request (who is booking stays, as with Book another detail), and the copy kept for a reload is
       // forgotten; the link still goes home. Step 01 opened by Edit on the Summary has no Cancel (it would throw the
       // whole request away): "Summary" is its one button, and the step bar and the top bar's Back the other ways out
-      step > 1 ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : back ? null : el('a.btn.btn-glass', { href: '#home', onclick: () => reset(true) }, 'Cancel'),
+      step > S_SERVICE ? el('button.btn.btn-glass.bk-prev', { type: 'button', 'aria-label': 'Previous step: ' + STEPS[step - 2].n + ', ' + STEPS[step - 2].name, onclick: () => go(step - 1) }, el('span.arrow.back', { 'aria-hidden': 'true' }, '←'), 'Previous') : back ? null : el('a.btn.btn-glass', { href: '#home', onclick: () => reset(true) }, 'Cancel'),
       el('div.bk-nav-mid', { 'aria-live': 'polite', 'aria-atomic': 'true' }, navTotal(null)),
       // after an Edit on the Summary: "Summary", straight back in one tap (one word: the buttons keep one row at 360px)
       el('button.btn.btn-gold.shine', { type: 'button', id: 'bk-next', disabled: busy || holding(), 'aria-busy': holding() ? 'true' : null, 'aria-label': back ? 'Back to the summary' : null, onclick: () => (last ? send() : back ? backToSummary() : next()) },
         last ? 'Send Request' : back ? 'Summary' : 'Continue', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
   }
-  // The running total (steps 04 and 05): the database's quote. A changed total turns from the figure it was to the new
+  // The running total (steps 01 to 04): the database's quote. A changed total turns from the figure it was to the new
   // one in one step (ui.js rollFigure); "Price confirmed before your appointment" simply appears.
   function navTotal(mid) {
     const q = st.quote;
-    if (!q || step < 4 || step >= 6) return [];
+    if (!q || step >= S_SUMMARY) return [];
     if (q.total_cents == null || otherCond()) return [el('span.bk-nav-total.tnum', 'Price confirmed before your appointment')];
     const was = mid && mid.querySelector('.bk-nav-total[data-cents]'), from = was ? Number(was.dataset.cents) : null;
     return [el('span.bk-nav-total.tnum', { dataset: { cents: q.total_cents } }, 'Total ', U.rollFigure(money(q.total_cents), from == null ? null : money(from), q.total_cents > from))];
@@ -623,24 +695,23 @@
 
   function heading(i) {
     const s = STEPS[i - 1];
-    return el('header.bk-head', el('p.eyebrow', 'Step ' + s.n + ' of 06 · ' + s.name), el('h1.display.bk-title', s.title));
+    return el('header.bk-head', el('p.eyebrow', 'Step ' + s.n + ' of ' + LAST_N + ' · ' + s.name), el('h1.display.bk-title', s.title));
   }
 
   function renderStep() {
     switch (step) {
-      case 1: return [heading(1), stepContact()];
-      case 2: return [heading(2), stepVehicle()];
-      case 3: return [heading(3), stepLocation()];
-      case 4: return [heading(4), stepService()];
-      case 5: return [heading(5), stepWhen()];
-      default: return [heading(6), stepSummary()];
+      case S_SERVICE: return [heading(S_SERVICE), stepService()];
+      case S_WHEN: return [heading(S_WHEN), stepWhen()];
+      case S_CONTACT: return [heading(S_CONTACT), stepContact()];
+      case S_VEHICLE: return [heading(S_VEHICLE), stepVehicle()];
+      default: return [heading(S_SUMMARY), stepSummary()];
     }
   }
 
-  // Step 05 waits for its open days to show the first one (revealDays), and watches the page meanwhile (watchTap): a
+  // The date step waits for its open days to show the first one (revealDays), and watches the page meanwhile (watchTap): a
   // finger, a wheel or a scroll since Continue, or days that come late, and the page stays where it is
   let daysWait = false, daysTap = null;
-  // after a refused start time: the page since step 05 came back, so its reason comes into view with the new times
+  // after a refused start time: the page since the date step came back, so its reason comes into view with the new times
   // only if no finger, wheel or scroll came in between (refusedTap, loadTimes)
   let refusedTap = null;
   function stopDaysWait() { daysWait = false; if (daysTap) { daysTap.end(); daysTap = null; } if (refusedTap) { refusedTap.end(); refusedTap = null; } }
@@ -649,38 +720,51 @@
   // quiet: no reveal of the days (a refused start time brings its reason and the times into view instead)
   function show(n, quiet) {
     if (n !== editFrom) editFrom = null;
+    // leaving the date step forward: the length and total the time was picked for, for the re-fit on 03 and 04
+    if (step === S_WHEN && n > S_WHEN && st.quote) st.when.base = { duration: st.quote.duration_min, total: st.quote.total_cents };
     st.direction = n > step ? 1 : -1;
     step = n;
-    if (n !== 5) st.when.switching = false;
+    if (n !== S_WHEN) st.when.switching = false;
     window.scrollTo({ top: cardTop(), behavior: 'auto' });
     render();
-    if (n === 6) markSummary();
+    if (n === S_SUMMARY) markSummary();
     focusTitle();
     stopDaysWait();
-    if (n === 5 && !quiet) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
+    if (n === S_WHEN && !quiet) { daysTap = watchTap(); revealDays(true); if (!daysWait) stopDaysWait(); }
     drafting = true; saveDraft();   // (a reload now comes back on this step)
   }
   // The step bar can jump past an edit that dropped the quote (a new vehicle type, place or condition): the quote
   // is worked out again first, so the times and the Summary are for what is chosen now.
   async function go(n) {
     if (busy) return;
-    if (n >= 5 && mainsChosen() && !st.quote) {
+    if (n >= S_WHEN && !st.quote) {
       const q = await refreshQuote();
-      if (!st.quote) { show(4); if (q && q.error) showDbError(q.error); return; }
+      if (!st.quote) { show(S_SERVICE); if (q && q.error) showDbError(q.error); return; }
     }
-    if (n >= 5) syncWhen();
+    if (n >= S_WHEN) syncWhen();
     show(n);
   }
 
+  // Continue. From 03 and 04 the held time is checked again first (the inside answers or the type can change the
+  // length: the re-fit), waiting for the price and the day's times, so a time that still fits is never sent back to 02
+  // while a check is on its way; one that no longer fits goes back to 02, with the new length (validate(S_WHEN)).
   async function next() {
-    const ok = await validate(step);
+    const from = step, later = from === S_CONTACT || from === S_VEHICLE;
+    if (later) await settleWhen();
+    if (step !== from) return;
+    const ok = await validate(from);
     if (!ok) return;
-    farthest = Math.max(farthest, step + 1);
-    if (step === 3 || step === 4) await refreshQuote();
-    await go(step + 1);
+    if (later && !(await validate(S_WHEN))) return;
+    farthest = Math.max(farthest, from + 1);
+    await go(from + 1);
+  }
+  // The price for the request as it stands, then the held day's times for its length (syncWhen waits for them)
+  async function settleWhen() {
+    await refreshQuote();
+    if (st.quote) await syncWhen();
   }
   // The step an Edit opened, checked as Continue checks it, then the Summary at once. The quote is worked out again
-  // whatever the step (go(6) asks only when there is none, and a change can keep an old one): no service chosen
+  // whatever the step (go(S_SUMMARY) asks only when there is none, and a change can keep an old one): no service chosen
   // returns at once, an unchanged request comes from the cache. A new length or place asks the kept day for its times
   // before the Summary is drawn (syncWhen), so it shows the start that still fits (or asks for one) from the first
   // frame (a new length chosen while it waits is checked on the Summary, whose title keeps the focus: loadTimes). A tap
@@ -694,12 +778,11 @@
     summing = true; updateNav();
     try {
       if (!(await validate(from))) return;
-      await refreshQuote();
-      if (st.quote) await syncWhen();
+      await settleWhen();
       if (step !== from || editFrom !== from) return;
       if (problems(from).length) return validate(from);
       editFrom = null;
-      await go(6);
+      await go(S_SUMMARY);
     } finally {
       summing = false; updateNav();
     }
@@ -714,7 +797,25 @@
     const out = [];
     const bad = (hint, text) => out.push({ hint, text });
     const plain = (hint, text) => { const why = H.textProblem(text); if (why) bad(hint, why); };
-    if (n === 1) {
+    if (n === S_SERVICE) {
+      if (!sizeKnown()) bad('size', 'Choose your vehicle’s size, so we can show your price.');
+      if (!l.type) bad('location_type', 'Choose “We come to you” or “Come to us”.');
+      if (l.type === 'mobile') {
+        if (!/^\d{5}$/.test(l.zip.trim())) bad('address_zip', 'Enter a 5-digit ZIP code.');
+        else if (!menu.zips.has(l.zip.trim())) bad('address_zip', zipHint());
+      }
+      if (!mainsChosen()) bad('services', 'Choose a bundle, or an exterior and/or an interior service.');
+    }
+    if (n === S_WHEN) {
+      // no service chosen (the step bar can come here after one was cleared): the date step has no days to offer
+      if (!st.quote) bad('start_min', 'Choose a service first.');
+      else if (!w.date) bad('service_date', 'Choose a day.');
+      // (a start lost to a new length: the note over the times already says why, once)
+      else if (w.start == null) bad('start_min', w.lost != null && !w.note ? refitWords() : 'Choose one of the start times shown.');
+      else if (w.sig !== timeSig()) bad('start_min', 'Your service changed, so check the start time again.');
+      else if (!(w.times || []).includes(w.start)) bad('start_min', 'Choose one of the start times shown.');
+    }
+    if (n === S_CONTACT) {
       // the database's whole rule for a name (public.is_valid_name), with words for why: letters only, or a real name
       const firstSays = H.nameMessage('first', c.first), lastSays = c.last.trim() && H.nameMessage('last', c.last);
       if (firstSays) bad('first_name', firstSays);
@@ -725,8 +826,13 @@
       else if (!guest() && !c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press “Send code” and confirm your phone to continue.');
       if (emailCodes() && c.email.trim() && !H.isValidEmail(c.email)) bad('email', 'Enter a valid email, or leave it empty.');
       else if (emailCodes() && c.email.trim() && c.emailState === 'sent') bad('email', 'Enter the email code, or press Skip.');
+      // the street address of a mobile detail (its ZIP was checked on step 01)
+      if (l.type === 'mobile') {
+        if (!l.address.trim()) bad('address', 'Enter the street address where the vehicle will be.');
+        else plain('address', l.address);
+      }
     }
-    if (n === 2) {
+    if (n === S_VEHICLE) {
       if (!v.vehicleId) {
         if (v.notSure) { if (!v.description.trim()) bad('vehicle_description', 'Describe the vehicle in a few words (no links).'); else plain('vehicle_description', v.description); }
         else {
@@ -736,10 +842,11 @@
           else plain('vehicle_model', v.model);
           plain('vehicle_color', v.color);
           if (v.year.trim() && !/^\d{4}$/.test(v.year.trim())) bad('vehicle_year', 'Enter a 4-digit year.');
-          if (!v.type) bad('vehicle_type', 'Choose a vehicle type.');
+          if (!typeFits()) bad('vehicle_type', s.size === 'other' ? 'Choose Van or Other, or tick “Not sure? Type here”.' : 'Choose a vehicle type.');
         }
       }
-      // the notes: required only with "Other" inside the car (asked on step 04, with an interior service)
+      // the inside of the car: required with an interior service or a bundle (doc 24); "Other" needs its note
+      if (hasInterior() && !v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
       if (otherCond() && !s.notes.trim()) bad('special_request', 'Describe it in a few words.');
       else plain('special_request', s.notes);
       if (!v.damage.length) bad('damage', 'Choose “No known damage” or the damage you know of.');
@@ -747,42 +854,14 @@
       if (needsNote && !v.damageNote.trim()) bad('damage_note', 'Describe the damage in a few words.');
       else plain('damage_note', v.damageNote);
     }
-    if (n === 3) {
-      if (!l.type) bad('location_type', 'Choose “We come to you” or “Come to us”.');
-      if (l.type === 'mobile') {
-        if (!l.address.trim()) bad('address', 'Enter the street address where the vehicle will be.');
-        else plain('address', l.address);
-        if (!/^\d{5}$/.test(l.zip.trim())) bad('address_zip', 'Enter a 5-digit ZIP code.');
-        else if (!menu.zips.has(l.zip.trim())) bad('address_zip', zipHint());
-      }
-    }
-    if (n === 4) {
-      if (!mainsChosen()) bad('services', 'Choose a bundle, or an exterior and/or an interior service.');
-      // the inside of the car: required with an interior service or a bundle (doc 24); "Other" needs its note
-      if (hasInterior()) {
-        if (!v.conditions.length) bad('conditions', 'Tell us what the inside of the car is like, or choose None.');
-        else if (v.conditions.includes('other')) {
-          if (!s.notes.trim()) bad('special_request', 'Describe it in a few words.');
-          else plain('special_request', s.notes);
-        }
-      }
-    }
-    if (n === 5) {
-      // no service chosen (the step bar can come here after one was cleared): the date step has no days to offer
-      if (!st.quote) bad('start_min', 'Choose a service first.');
-      else if (!w.date) bad('service_date', 'Choose a day.');
-      else if (w.start == null) bad('start_min', 'Choose one of the start times shown.');
-      else if (w.sig !== timeSig()) bad('start_min', 'Your service changed, so check the start time again.');
-      else if (!(w.times || []).includes(w.start)) bad('start_min', 'Choose one of the start times shown.');
-    }
     return out;
   }
+  // the type picked on 04 belongs to the size chosen on 01 (a van or other for "Van, other or not sure")
+  const typeFits = () => !!st.vehicle.type && (st.service.size === 'other' ? otherTypes() : sizeTypes(st.service.size)).some((t) => t.code === st.vehicle.type);
   async function validate(n) {
-    // an interior service or a bundle chosen on step 05 (the switch strip) after step 04: its question is on step 04
-    if (n === 5 && hasInterior() && !st.vehicle.conditions.length) return flag(4, [{ hint: 'conditions', text: 'Tell us what the inside of the car is like, or choose None.' }]);
     const found = problems(n);
     if (found.length) return flag(n, found);
-    if (n === 4) { const q = await refreshQuote(); if (q && q.error) return showDbError(q.error); }
+    if (n === S_SERVICE) { const q = await refreshQuote(); if (q && q.error) return showDbError(q.error); }
     return true;
   }
 
@@ -847,7 +926,7 @@
     return true;
   }
 
-  // ---------------------------------------------------------------- 01 Contact
+  // ---------------------------------------------------------------- 03 Contact
   const emailHint = () => (st.contact.emailState === 'confirmed' ? 'Confirmed ✓' : st.contact.emailState === 'skipped' ? 'We’ll contact you by phone.' : 'For your confirmation. Phone is enough if you prefer.');
   function stepContact() {
     const c = st.contact;
@@ -879,6 +958,7 @@
         },
       });
       box.appendChild(phoneField);
+      const addr = addressBlock(); if (addr) box.appendChild(addr);
       box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off', value: c.website, oninput: (e) => { c.website = e.target.value; } })));
       return box;
     }
@@ -921,9 +1001,20 @@
           el('div.bk-skip', miniBtn('Skip, contact me by phone', () => { c.emailState = 'skipped'; render(); }))));
       }
     }
+    const addr = addressBlock(); if (addr) box.appendChild(addr);
     // Spam field: off-screen, bots fill it
     box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off', value: c.website, oninput: (e) => { c.website = e.target.value; } })));
     return box;
+  }
+  // A mobile detail's street address (its ZIP was checked on step 01, where it can be changed)
+  function addressBlock() {
+    const l = st.location;
+    if (l.type !== 'mobile') return null;
+    return el('div.bk-grid.bk-address',
+      field({ id: 'address', label: 'Street address', required: true, autocomplete: 'street-address', value: l.address, maxlength: 300,
+        hint: 'Where the vehicle will be.',
+        oninput: (e) => { l.address = e.target.value; clearError(root, 'address'); } }),
+      el('p.bk-quiet', 'We come to you in ZIP ', el('b.tnum', l.zip), '. ', el('button.link', { type: 'button', onclick: () => go(S_SERVICE) }, 'Change it on step 01')));
   }
   // Typing in the email: an earlier confirmation or code no longer applies, and the trailing control follows
   // the address (a Send code button while there is one to send to, nothing once it is empty).
@@ -950,7 +1041,7 @@
     Object.assign(st.vehicle, { saved: [], vehicleId: null, photos: [] });
     invalidateQuotes();
     editFrom = null; // someone else now: Continue walks through the vehicle again rather than straight back to the Summary
-    render();
+    render(); refit();
   }
 
   async function sendPhone() {
@@ -990,41 +1081,40 @@
     catch (e) { showError(root, e.hint || 'email_code', e.message); }
   }
 
-  // ---------------------------------------------------------------- 02 Vehicle
-  // the notes' hint, on step 02 and under "Other" on step 04
+  // ---------------------------------------------------------------- 04 Vehicle
+  // the notes' hint (and, with "Other" for the inside, the note it asks for)
   const NOTES_HINT = 'Bugs, tar, odors, anything unusual. We price special requests ourselves. No links, please.';
-  // What we must know first (the vehicle, its type and size, known damage, the notes); the modifications and photos
-  // fold away under "Modifications and photos", optional. In two titled parts: A the car, B before we start. The inside
-  // of the car is asked on step 04, only with an interior service or a bundle (condsBlock).
+  // What we must know first (the vehicle: its type within the size chosen on step 01, make and model; the inside of the
+  // car with an inside service; known damage; the notes); the modifications and photos fold away under "Modifications
+  // and photos", optional. In two titled parts: A the car, B before we start.
   const part = (no, title, kids) => el('section.bk-part', { 'aria-labelledby': 'bk-part-' + no },
     el('h2.bk-part-h', { id: 'bk-part-' + no }, el('span.bk-part-no', { 'aria-hidden': 'true' }, no), title), el('div.bk-grid', kids));
+  const sizeWords = (g) => (g === 'other' ? 'Van, other or not sure' : ((menu.sizes || []).find((z) => z.code === g) || {}).name || '');
   function stepVehicle() {
-    const v = st.vehicle;
+    const v = st.vehicle, g = st.service.size, sv = savedVehicle();
     const box = el('div.bk-grid.bk-parts');
     const carBox = [], before = [];
-    if (v.saved.length) {
-      if (!v.vehicleId && !v.addingNew) v.vehicleId = v.saved[0].id;   // a saved vehicle is the usual answer: the first is chosen, the form stays folded
-      carBox.push(choices({
-        id: 'vehicle_id', label: 'Your vehicles', value: v.vehicleId || 'new',
-        items: v.saved.map((x) => ({ code: x.id, label: [x.year, x.make, x.model].filter(Boolean).join(' '), sub: [x.color, (menu.vehicleTypes.find((t) => t.code === x.vehicle_type) || {}).name, x.size === 'xl' ? 'XL' : null].filter(Boolean).join(' · ') }))
-          .concat([{ code: 'new', label: '+ Add vehicle', cls: 'add' }]),
-        onchange: (code) => { v.vehicleId = code === 'new' ? null : code; v.addingNew = code === 'new'; invalidateQuotes(); render(); },
-      }));
-    }
-    if (!v.vehicleId) {
+    if (sv) {
+      // a saved vehicle was chosen on step 01 (it set the size)
+      carBox.push(el('p.bk-note', 'Your vehicle: ', el('b', [sv.year, sv.make, sv.model].filter(Boolean).join(' ')), '. ', el('button.link', { type: 'button', onclick: () => go(S_SERVICE) }, 'Change it on step 01')));
+    } else {
       carBox.push(el('div.bk-row.four',
         field({ id: 'vehicle_year', label: 'Year', optional: true, inputmode: 'numeric', maxlength: 4, value: v.year, oninput: (e) => { v.year = e.target.value; clearError(root, 'vehicle_year'); } }),
         field({ id: 'vehicle_make', label: 'Make', required: !v.notSure, value: v.make, maxlength: 40, oninput: (e) => { v.make = e.target.value; clearError(root, 'vehicle_make'); } }),
         field({ id: 'vehicle_model', label: 'Model', required: !v.notSure, value: v.model, maxlength: 40, oninput: (e) => { v.model = e.target.value; clearError(root, 'vehicle_model'); } }),
         field({ id: 'vehicle_color', label: 'Color', optional: true, value: v.color, maxlength: 30, oninput: (e) => { v.color = e.target.value; clearError(root, 'vehicle_color'); } })));
-      // the types by size (Migration 011: prices go by size, by rows), each tile naming the size it is priced as; a van
-      // or other has no size: we confirm the price
-      const sizeOrder = (t) => { const g = (menu.typeSize || {})[t.code]; const i = (menu.sizes || []).findIndex((x) => x.code === g); return i < 0 ? 99 : i; };
-      const sizeName = (t) => { const g = (menu.typeSize || {})[t.code]; const z = (menu.sizes || []).find((x) => x.code === g); return z ? z.name : 'We confirm the price'; };
-      const typeItems = menu.vehicleTypes.slice().sort((a, b) => sizeOrder(a) - sizeOrder(b) || a.sort - b.sort).map((t) => ({ code: t.code, label: t.name, sub: sizeName(t) }));
+      // the types of the size chosen on step 01 (every type of a size has the same price); for "Van, other or not
+      // sure": Van and Other (we confirm the price)
+      const types = g === 'other' ? otherTypes() : sizeTypes(g);
+      if (v.type && !types.some((t) => t.code === v.type)) v.type = null;
+      const sizeLink = el('span.bk-size-link', 'Size: ' + sizeWords(g) + '. ', el('button.link', { type: 'button', onclick: () => go(S_SERVICE) }, 'Different size? Change it on step 01'));
       // "Not sure? Type here" greys the Type tiles out (owner, Nov 16): a type picked before is let go, so the request
       // never carries a type the customer wasn't sure of, and unticking brings none back (they pick again)
-      carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, disabled: v.notSure, hint: v.notSure ? 'Not needed: describe the vehicle below. We confirm the price before your appointment.' : 'Prices go by size: car, 2 rows, 3 rows or pickup, minivan.', size: 'tile', value: v.notSure ? null : v.type, items: typeItems, onchange: (code) => { v.type = code; invalidateQuotes(); rememberSize(code); } }));
+      carBox.push(choices({ id: 'vehicle_type', label: 'Type', required: !v.notSure, disabled: v.notSure, size: 'tile', value: v.notSure ? null : v.type,
+        hint: v.notSure ? 'Not needed: describe the vehicle below. We confirm the price before your appointment.' : g === 'other' ? 'We confirm the price before your appointment.' : null,
+        items: types.map((t) => ({ code: t.code, label: t.name })),
+        onchange: (code) => { v.type = code; invalidateQuotes(); refit(); } }));
+      carBox.push(el('p.bk-quiet', sizeLink));
       carBox.push(el('div.bk-inline',
         el('label.bk-toggle', el('input', {
           type: 'checkbox', id: 'vehicle_not_sure', checked: v.notSure,
@@ -1032,31 +1122,27 @@
             const had = document.activeElement === e.target;
             v.notSure = e.target.checked;
             if (v.notSure) v.type = null;
-            invalidateQuotes(); render();
+            invalidateQuotes(); render(); refit();
             // the step is drawn again: the focus stays on the box (a keyboard's Tab goes on from it, past the grey tiles)
             const box = had && root.querySelector('#vehicle_not_sure'); if (box) box.focus({ preventScroll: true });
           },
         }), el('span', 'Not sure? Type here')),
         v.notSure ? field({ id: 'vehicle_description', label: 'Describe the vehicle', required: true, value: v.description, maxlength: 1000, oninput: (e) => { v.description = e.target.value; clearError(root, 'vehicle_description'); } }) : null));
-      // (the Standard / XL choice is gone since Migration 011: sizes go by rows, a minivan has its own price, and a
-      // lifted or unusual vehicle is "Other", whose price we confirm. A saved vehicle marked XL still quotes with it.)
+      // (no Standard / XL choice since Migration 011: sizes go by rows; a saved vehicle marked XL still quotes with it)
       v.size = 'standard';
     }
-
+    // the inside of the car, with a service that has an inside part (it can change the price and the length: refit)
+    if (hasInterior()) before.push(condsBlock());
     // Damage
     before.push(choices({
       id: 'damage', label: 'Known damage', required: true, size: 'tile', multi: true, value: v.damage,
       hint: 'So we know what was there before we start.',
       items: menu.options.damage.map((o) => ({ code: o.code, label: o.label, exclusive: !!o.is_none })),
-      onchange: (vals) => { v.damage = vals; render(); },
+      onchange: (vals) => { v.damage = vals; paintDamageNote(); },
     }));
-    if (menu.options.damage.some((o) => o.requires_note && v.damage.includes(o.code))) {
-      before.push(field({ id: 'damage_note', label: 'Describe the damage', required: true, value: v.damageNote, maxlength: 1000, hint: 'Requests with unknown or other damage are reviewed by us before we confirm.', oninput: (e) => { v.damageNote = e.target.value; clearError(root, 'damage_note'); } }));
-    }
-    // The notes: optional, unless "Other" was chosen for the inside of the car (step 04, with an interior service)
-    before.push(field({ id: 'special_request', label: 'Anything we should know?', optional: !otherCond(), required: otherCond(), multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
-      hint: NOTES_HINT,
-      oninput: (e) => { st.service.notes = e.target.value; clearError(root, 'special_request'); } }));
+    before.push(el('div', { id: 'bk-damage-note' }, damageNote()));
+    // The notes: optional, unless "Other" was chosen for the inside of the car (then they say what it is)
+    before.push(notesField());
 
     // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
     const more = el('div.bk-more-body',
@@ -1070,11 +1156,17 @@
     before.push(el('details.bk-more', { open: v.moreOpen || v.photos.length > 0 || v.modifications.length > 0, ontoggle: (e) => { v.moreOpen = e.target.open; } },
       el('summary', el('span', v.vehicleId ? 'Photos' : guest() ? 'Modifications' : 'Modifications and photos', el('small', ' optional'))), more));
     box.append(part('A', 'The car', carBox), part('B', 'Before we start', before));
+    // what a change here did to the price and the held time (the re-fit), above Continue
+    box.appendChild(el('div.bk-refit', { id: 'bk-refit', role: 'status' }, refitNodes()));
     return box;
   }
+  // "Describe the damage", in place, while an answer that needs it is chosen
+  const damageNote = () => (menu.options.damage.some((o) => o.requires_note && st.vehicle.damage.includes(o.code))
+    ? field({ id: 'damage_note', label: 'Describe the damage', required: true, value: st.vehicle.damageNote, maxlength: 1000, hint: 'Requests with unknown or other damage are reviewed by us before we confirm.', oninput: (e) => { st.vehicle.damageNote = e.target.value; clearError(root, 'damage_note'); } }) : null);
+  function paintDamageNote() { const b = root.querySelector('#bk-damage-note'); if (b) b.replaceChildren(...[damageNote()].filter(Boolean)); }
   async function addPhotos(e) {
     const files = Array.from(e.target.files || []).slice(0, 6 - st.vehicle.photos.length);
-    if (!st.contact.phoneConfirmed && D.isLive) return showError(root, 'photos', 'Confirm your phone in step 01 first, then add photos.');
+    if (!st.contact.phoneConfirmed && D.isLive) return showError(root, 'photos', 'Confirm your phone on step 03 first, then add photos.');
     for (const f of files) {
       try { st.vehicle.photos.push(await D.uploadPhoto(f)); }
       catch (err) { showError(root, 'photos', err.message); break; }
@@ -1082,33 +1174,32 @@
     render();
   }
 
-  // ---------------------------------------------------------------- 03 Location
-  function stepLocation() {
+  // ---------------------------------------------------------------- 01 Service: where
+  // We come to you (the ZIP, checked against the service area as it is typed) or Come to us. It is on step 01: the
+  // calendar's buffers and the service area depend on it. The street address is asked with the contact (step 03).
+  function whereBlock() {
     const l = st.location;
-    const box = el('div.bk-grid');
-    box.appendChild(choices({
-      id: 'location_type', label: 'Where', required: true, value: l.type,
-      items: [
-        { code: 'mobile', label: 'We come to you', sub: 'Within about ' + settings.mobile_radius_miles + ' miles of ' + settings.public_area + '. The same price as coming to us.' },
-        { code: 'shop', label: 'Come to us', sub: settings.public_area + '. We send the address with your confirmation.' },
-      ],
-      onchange: (code) => { l.type = code; invalidateQuotes(); render(); },
-    }));
-    if (l.type === 'mobile') {
-      box.appendChild(el('p.bk-note', settings.mobile_note));
-      // the ZIP's message runs the width of the row (its own column is too narrow for a sentence)
-      // a ZIP in the service area (the database's own list) takes the tick at the end of its field
-      const zip = field({ id: 'address_zip', label: 'ZIP', required: true, inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5, value: l.zip,
-        trailing: el('span.fld-ok.zip-ok', tick()),
-        oninput: (e) => { l.zip = e.target.value.replace(/\D/g, '').slice(0, 5); e.target.value = l.zip; clearError(root, 'address_zip'); paintZip(root.querySelector('#address_zip-msg'), true); } });
-      const zipMsg = zip.querySelector('.fld-msg');
-      zipMsg.classList.add('addr-msg');
-      box.appendChild(el('div.bk-row.addr',
-        field({ id: 'address', label: 'Street address', required: true, autocomplete: 'street-address', value: l.address, maxlength: 300, oninput: (e) => { l.address = e.target.value; clearError(root, 'address'); } }),
-        zip, zipMsg));
-      paintZip(zipMsg, false, zip);
-    }
-    return box;
+    const zip = field({ id: 'address_zip', label: 'ZIP of the address', required: true, inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5, value: l.zip,
+      trailing: el('span.fld-ok.zip-ok', tick()),
+      oninput: (e) => { l.zip = e.target.value.replace(/\D/g, '').slice(0, 5); e.target.value = l.zip; clearError(root, 'address_zip'); paintZip(root.querySelector('#address_zip-msg'), true); } });
+    const zipMsg = zip.querySelector('.fld-msg');
+    paintZip(zipMsg, false, zip);
+    return el('div.bk-grid.bk-where', { id: 'bk-where' },
+      choices({
+        id: 'location_type', label: 'Where', required: true, value: l.type,
+        items: [
+          { code: 'mobile', label: 'We come to you', sub: 'Within about ' + settings.mobile_radius_miles + ' miles of ' + settings.public_area + '. The same price as coming to us.' },
+          { code: 'shop', label: 'Come to us', sub: settings.public_area + '. We send the address with your confirmation.' },
+        ],
+        onchange: (code) => {
+          l.type = code;
+          const z = root.querySelector('#bk-zip');
+          if (z) z.hidden = code !== 'mobile';
+          if (code !== 'mobile') clearError(root, 'address_zip');
+          invalidateQuotes(); paintMains();
+        },
+      }),
+      el('div.bk-grid.bk-zip', { id: 'bk-zip', hidden: l.type !== 'mobile' }, el('p.bk-note', settings.mobile_note), el('div.bk-row.zip-row', zip)));
   }
   function paintZip(m, typed, f) {
     if (!m) return;
@@ -1127,15 +1218,20 @@
     return menu.zips.has(z) ? 'In our mobile area ✓' : ['We come to you within about ' + settings.mobile_radius_miles + ' miles of ' + settings.public_area + '. For other areas, call ', tel(phone), '.'];
   }
 
-  // ---------------------------------------------------------------- 04 Service
+  // ---------------------------------------------------------------- 01 Service
+  // The vehicle's size first (prices go by size), then where, the First Timer Deals for that size, the three groups of
+  // services with this size's prices and times (the database's quote for each alone), the add-ons and the breakdown.
   function stepService() {
     const s = st.service;
     const box = el('div.bk-grid');
+    box.appendChild(sizeBlock());
+    box.appendChild(whereBlock());
+    box.appendChild(el('div.bk-deals-slot', { id: 'bk-deals' }, dealsStrip()));
     const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind));
     // Migration 011's menu: the washes, then the wash and the inside together (Inside & Out carries the one "Best value"
     // badge), then the inside alone
     const groups = [['exterior', 'Washes', 'Choose one.'], ['bundle', 'Inside and out', 'The wash and the inside together, for less.'], ['interior', 'Inside only?', 'No wash.']];
-    const wrap = el('div.bk-services', { dataset: { field: 'services' }, 'aria-busy': Object.keys(st.prices).length ? null : 'true' },
+    const wrap = el('div.bk-services', { dataset: { field: 'services' }, 'aria-busy': Object.keys(st.prices).length || !sizeKnown() ? null : 'true' },
       el('p.choice-msg', { role: 'status' }),   // the step's own message sits under the heading, where it is seen
       el('div.bk-carried', { id: 'bk-carried' }, carriedNotes()));
     groups.forEach(([kind, title, sub]) => {
@@ -1147,6 +1243,7 @@
           el('span.svc-opt-name', x.name, x.code === 'inside_out' ? el('span.svc-opt-tag', 'Best value') : null),
           el('span.svc-opt-price.tnum', { id: 'price-' + x.code }, priceNodes(x.code)),
           el('span.svc-opt-offer', { id: 'offer-' + x.code }, offerNodes(x.code)),
+          el('span.svc-opt-deal', { id: 'pair-' + x.code }, pairText(x.code)),
           kind === 'bundle' ? el('span.svc-opt-save', { id: 'save-' + x.code }, savingText(x.code)) : null,
           el('span.svc-opt-desc', x.description),
           x.code === 'full_detail_v2' ? el('span.svc-opt-not', notIncluded()) : null,
@@ -1157,11 +1254,8 @@
       wrap.appendChild(el('section.svc-group-pick', el('h2.bk-h2', title, el('small', sub)), list));
     });
     box.appendChild(wrap);
-    // the inside of the car, under the Interior group: shown while an interior service or a bundle is chosen (drawn
-    // already shown, as the step lands, it is not brought into view: condsAsk)
-    condsAsk = false;
-    box.appendChild(condsBlock());
-
+    // the inside of the car is asked on step 04 (with the car); its answers' prices, from the menu, are said here
+    box.appendChild(el('p.bk-quiet.conds-later', { id: 'bk-conds-later', hidden: !hasInterior() }, condsLater()));
     // Suggestion slot, add-ons and the breakdown
     box.appendChild(el('div', { id: 'bk-suggest' }));
     box.appendChild(addonsBlock());
@@ -1173,16 +1267,109 @@
     if (s.glow) { s.glow = false; setTimeout(litOnce, 380); }
     return box;
   }
+  // "Pet hair or heavy dirt are added on step 04 (from $30)": the smallest fee of the inside answers, from the menu
+  function condsLater() {
+    const fees = menu.options.condition.map((o) => (o.fee_code ? anyPrice(o.fee_code) : null)).filter((x) => x != null);
+    return 'We ask what the inside is like on step 04: pet hair or heavy dirt add to the price' + (fees.length ? ' (from ' + money(Math.min(...fees)) + ')' : '') + '.';
+  }
+  // The size: a signed-in customer's saved vehicles first (each sets its size), then the four sizes and "Van, other or
+  // not sure" (we confirm the price). Nothing is chosen for a visitor: until a size is, the cards show every size's price.
+  function sizeBlock() {
+    const v = st.vehicle, s = st.service;
+    const kids = [];
+    if (v.saved.length) {
+      if (!v.vehicleId && !v.addingNew && !s.size) pickSaved(v.saved[0].id);   // a saved vehicle is the usual answer
+      kids.push(choices({
+        id: 'vehicle_id', label: 'Your vehicles', value: v.vehicleId || 'new',
+        items: v.saved.map((x) => ({ code: x.id, label: [x.year, x.make, x.model].filter(Boolean).join(' '), sub: [x.color, (menu.vehicleTypes.find((t) => t.code === x.vehicle_type) || {}).name, x.size === 'xl' ? 'XL' : null].filter(Boolean).join(' · ') }))
+          .concat([{ code: 'new', label: '+ Another vehicle', cls: 'add' }]),
+        onchange: (code) => {
+          if (code === 'new') { v.vehicleId = null; v.addingNew = true; s.size = null; } else pickSaved(code);
+          invalidateQuotes(); render();
+        },
+      }));
+    }
+    if (!v.vehicleId) {
+      const carTypes = sizeTypes('car').map((t) => t.name.toLowerCase()).join(', ');
+      kids.push(choices({
+        id: 'size', label: 'Your vehicle’s size', required: true, size: 'tile', value: s.size,
+        hint: s.size ? null : 'Choose your vehicle’s size to see your price.',
+        items: (menu.sizes || []).map((z) => ({ code: z.code, label: z.name, sub: z.code === 'car' && carTypes ? carTypes : null }))
+          .concat([{ code: 'other', label: 'Van, other or not sure', sub: 'We confirm the price' }]),
+        onchange: (code) => pickSize(code),
+      }));
+    }
+    return el('div.bk-grid', { id: 'bk-size' }, kids);
+  }
+  function pickSaved(id) {
+    const v = st.vehicle, sv = v.saved.find((x) => x.id === id);
+    if (!sv) return;
+    v.vehicleId = id; v.addingNew = false;
+    st.service.size = (menu.typeSize || {})[sv.vehicle_type] || 'other';
+    rememberSize(st.service.size);
+  }
+  // A size chosen: a type picked for another size is let go, the size is remembered for the Services page, and every
+  // price on the step follows (in place)
+  function pickSize(code) {
+    const v = st.vehicle, s = st.service;
+    if (s.size === code) return;
+    s.size = code;
+    if (v.type && !(code === 'other' ? otherTypes() : sizeTypes(code)).some((t) => t.code === v.type)) v.type = null;
+    rememberSize(code);
+    const msg = root.querySelector('[data-field="size"] .choice-msg');
+    if (msg) { msg.dataset.hint = ''; if (!msg.classList.contains('has-error')) msg.textContent = ''; }
+    invalidateQuotes(); paintMains();
+  }
+  // The First Timer Deals for this size (from get_first_visit_offer): a chip each, "Outside $35"; a chip chooses
+  // exactly its services (a bundle let go), and is lit while they are exactly the request's. Not shown for "Van, other
+  // or not sure", before a size is chosen, for a held price, or to a signed-in customer who has booked before.
+  function dealsShown() {
+    const g = sizeGroupNow();
+    if (!deals || !deals.active || !g) return [];
+    if (Object.values(st.prices).some((p) => p && p.offer && p.offer.status === 'not_eligible')) return [];
+    return U.dealLines(deals, g, (c) => (svc(c) || {}).name);
+  }
+  // the size the price is for (null: none chosen, or a held price: van, other, "Not sure", XL)
+  function sizeGroupNow() { const vf = vehicleFacts(); return vf.none || vf.notSure || vf.size === 'xl' || !vf.type ? null : (menu.typeSize || {})[vf.type] || null; }
+  function dealsStrip() {
+    const list = dealsShown(), g = sizeGroupNow();
+    if (!list.length) return [];
+    const label = ((menu.sizes || []).find((z) => z.code === g) || {}).short_name || g;
+    return [el('section.bk-deals', { 'aria-labelledby': 'bk-deals-h' },
+      el('p.eyebrow.bk-deals-h', { id: 'bk-deals-h' }, el('span.offer-mark', { 'aria-hidden': 'true' }, '✦'), 'First Timer Deals'),
+      el('div.bk-deal-chips', list.map((d) => {
+        const on = pairChosen(dealPair(d.token));
+        return el('button.bk-deal-chip', { type: 'button', class: on ? 'on' : null, 'aria-pressed': on ? 'true' : 'false', dataset: { deal: d.token }, onclick: () => pickDeal(d.token) },
+          el('span.bk-deal-name', d.name), el('span.bk-deal-what', d.what), el('b.bk-deal-price.tnum', money(d.price)));
+      })),
+      el('p.bk-quiet.bk-deals-fine', U.dealsFine(deals, g, label, (c) => (svc(c) || {}).name)))];
+  }
+  function paintDeals() {
+    const slot = root.querySelector('#bk-deals');
+    if (!slot) return;
+    const had = document.activeElement && slot.contains(document.activeElement) ? document.activeElement.dataset.deal : null;
+    slot.replaceChildren(...dealsStrip());
+    if (had) { const b = slot.querySelector('[data-deal="' + had + '"]'); if (b) b.focus({ preventScroll: true }); }
+  }
+  // a chip: its services exactly (S1); tapped while lit, they are let go
+  function pickDeal(tok) {
+    const s = st.service, pr = dealPair(tok);
+    if (!pr) return;
+    if (pairChosen(pr)) Object.assign(s, { exterior: null, interior: null, deal: null });
+    else { takeDeal(tok, pr); s.carried = null; s.deal = null; }   // (the customer's own pick here: no "chosen on Services" note)
+    paintMains();
+  }
   // The inside of the car ("What's the inside like?", Migration 011): mandatory with any service that has an inside part,
   // each answer with its one-line description and its price (one for every size). Only one of the two pet-hair answers
   // (their choice_group): choosing one lets the other go. Under it, the stain line and the promise (the owner's words,
-  // plan v3). Hidden while the request has no inside part (paintMains shows and hides it in place); the answer is kept
-  // meanwhile, so choosing an inside service again brings it back. "Other" adds its note under the cards (otherField).
+  // plan v3). On step 04, only while the request has an inside part (the answer is kept meanwhile, so choosing an inside
+  // service again brings it back). "Other" makes the notes below required (notesField). An answer can change the price
+  // and the length, after the time was picked on step 02: the re-fit (refit) checks it.
   function condsBlock() {
     const v = st.vehicle;
     const feeOf = (o) => o.fee_code ? svc(o.fee_code) : null;
     const stain = svc('stain_removal'), stainPrice = stain ? anyPrice('stain_removal') : null;
-    return el('div.bk-grid', { id: 'bk-conds', hidden: !hasInterior() },
+    return el('div.bk-grid', { id: 'bk-conds' },
       choices({
         id: 'conditions', label: 'What’s the inside like?', required: true, multi: true, value: v.conditions,
         hint: 'Choose what applies, or None. These apply only with a service that has an inside part.',
@@ -1206,12 +1393,12 @@
             const box = root.querySelector('#bk-conds');
             if (box) { const fresh = condsBlock(); box.replaceWith(fresh); const btn = fresh.querySelector('[data-code="' + added[0] + '"]'); if (btn) btn.focus({ preventScroll: true }); }
           }
-          invalidateQuotes(); updatePrices(); paintOther();
+          invalidateQuotes(); refit(); paintNotes();
         },
       }),
-      stain ? el('p.bk-note.conds-stain', 'Stains or spills? Add ' + stain.name.replace(/\s*\(.*\)$/, '') + (stainPrice != null ? ' (' + money(stainPrice) + ')' : '') + ' below.') : null,
-      el('p.bk-quiet.conds-promise', 'If what we find is different from what you chose, we’ll tell you the price before we start, and you choose: we add it, or we do what you booked without it.'),
-      v.conditions.includes('other') ? otherField() : null);
+      stain ? el('p.bk-note.conds-stain', 'Stains or spills? ' + stain.name.replace(/\s*\(.*\)$/, '') + (stainPrice != null ? ' (' + money(stainPrice) + ')' : '') + ' is an add-on on step 01. ',
+        st.service.addons.includes(stain.code) ? el('span', 'It’s in your booking.') : el('button.link', { type: 'button', onclick: () => go(S_SERVICE) }, 'Add it')) : null,
+      el('p.bk-quiet.conds-promise', 'If what we find is different from what you chose, we’ll tell you the price before we start, and you choose: we add it, or we do what you booked without it.'));
   }
   // A price that is the same for every size (the add-ons and the inside answers): the car's figure, else any size's
   function anyPrice(code) {
@@ -1229,18 +1416,19 @@
     if (g && r[g]) return r[g];
     return { price: null, minutes: Math.max(...Object.values(r).map((x) => x.minutes)) };
   }
-  // "Other": its note, required, under the cards (the same notes as step 02's field; only one of the two is ever on
-  // the page)
-  const otherField = () => field({ id: 'special_request', label: 'Tell us about it', required: true, multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
+  // The notes: optional; with "Other" for the inside of the car, required (they say what it is). Drawn again in place
+  // when "Other" is chosen or let go of (paintNotes); just chosen, it takes the focus.
+  const notesField = () => field({ id: 'special_request', label: otherCond() ? 'Tell us about the inside' : 'Anything we should know?', optional: !otherCond(), required: otherCond(), multiline: true, rows: 3, maxlength: 1000, value: st.service.notes,
     hint: NOTES_HINT,
     oninput: (e) => { st.service.notes = e.target.value; clearError(root, 'special_request'); } });
-  // "Other" chosen or let go of: its note comes or goes, in place; just chosen, the note takes the focus
-  function paintOther() {
-    const box = root.querySelector('#bk-conds');
-    if (!box) return;
-    const want = st.vehicle.conditions.includes('other'), had = box.querySelector('[data-field="special_request"]');
-    if (want && !had) { const f = otherField(); box.appendChild(f); f.input.focus(); }
-    else if (!want && had) { clearError(root, 'special_request'); had.remove(); }
+  function paintNotes() {
+    const had = root.querySelector('[data-field="special_request"]');
+    if (!had) return;
+    const want = otherCond(), was = had.classList.contains('is-required') || !!had.querySelector('[required]');
+    if (want === was) return;
+    const f = notesField();
+    had.replaceWith(f);
+    if (want) f.input.focus(); else clearError(root, 'special_request');
   }
   const carriedCard = () => st.service.carried && root.querySelector('.svc-opt.on[data-code="' + st.service.carried + '"]');
   // A chosen card's moment, one line of light: the head of light runs its rim once (.glow), and as it comes round the
@@ -1304,7 +1492,9 @@
   function carriedNotes() {
     const s = st.service, out = [];
     // (the verb for the pointer, as the CSS's .tap-only and .click-only)
-    if (s.carried && mainCodes().includes(s.carried)) out.push(el('p.bk-quiet', { dataset: { carried: s.carried } }, el('span', svc(s.carried).name + ' was chosen on the Services page.', el('span.tap-only', ' Tap another card to change it.'), el('span.click-only', ' Click another card to change it.'))));
+    const dp = s.deal ? dealPair(s.deal) : null;
+    if (dp && pairChosen(dp)) out.push(el('p.bk-quiet', { dataset: { carried: s.carried || '' } }, el('span', 'First Timer Deal' + (dp.name ? ' (' + dp.name + ')' : '') + ' chosen on the Services page: ' + pairNames(dp) + '.', el('span.tap-only', ' Tap another card to change it.'), el('span.click-only', ' Click another card to change it.'))));
+    else if (s.carried && mainCodes().includes(s.carried)) out.push(el('p.bk-quiet', { dataset: { carried: s.carried } }, el('span', svc(s.carried).name + ' was chosen on the Services page.', el('span.tap-only', ' Tap another card to change it.'), el('span.click-only', ' Click another card to change it.'))));
     s.addons.filter((a) => !canHaveAddon(a)).forEach((a) => out.push(el('p.bk-quiet', svc(a).name + ' is added once you choose ' + waitsFor(a) + '.')));
     return out;
   }
@@ -1343,9 +1533,14 @@
     });
   }
   // The price on a card: the service alone, for this vehicle and these inside answers, as the breakdown shows it
-  // (the service's price, then the inside answers as a small line). Empty until it is known. The Basic Wash at the
-  // new-customer price shows it, with the regular price after the first visit beside it (never a "was" price).
+  // (the service's price, then the inside answers as a small line). Empty until it is known. A service at a First
+  // Timer Deal's price shows it, with the regular price after the first visit beside it (never a "was" price). Before
+  // a size is chosen: every size's price, from the menu (the deals need a size).
   function priceNodes(code) {
+    if (!sizeKnown()) {
+      const r = (menu.rates || {})[code];
+      return r ? el('small.every-size', (menu.sizes || []).filter((z) => r[z.code]).map((z) => el('span', z.short_name + ' ', el('b.tnum', money(r[z.code].price))))) : null;
+    }
     const p = st.prices[code];
     if (!p) return null;
     if (p.base === undefined) return '—';   // that service could not be quoted (the database said why in the breakdown)
@@ -1354,11 +1549,26 @@
       p.regular != null ? el('small', 'first visit · then ' + money(p.regular)) : null,
       p.conds ? el('small', '+ ' + money(p.conds) + ' inside') : null];
   }
-  // The gold line on the Basic Wash card while the offer runs, for this vehicle's size (the quote's first_visit)
+  // The gold line on a card a First Timer Deal is for, alone, for this vehicle's size (the quote's first_visit)
   function offerNodes(code) {
     const p = st.prices[code];
     if (!p || !p.offer || p.offer.status !== 'if_first_visit') return null;
-    return 'New customers: your first ' + svc(code).name + ' is ' + money(p.offer.price_cents);
+    return 'First Timer Deal: your first one is ' + money(p.offer.price_cents);
+  }
+  // The pair: on the Interior Clean card while the Basic Wash is chosen alone (and the reverse), "With your Basic Wash:
+  // both for $79.99, first visit" (the two-service deal for this size, from get_first_visit_offer)
+  function pairText(code) {
+    const s = st.service;
+    if (s.bundle || !dealsShown().length) return '';
+    const d = dealsShown().find((x) => x.exterior && x.interior && (x.exterior === code || x.interior === code));
+    if (!d) return '';
+    const other = d.exterior === code ? d.interior : d.exterior, kind = d.exterior === code ? 'exterior' : 'interior';
+    const otherKind = kind === 'exterior' ? 'interior' : 'exterior';
+    if (s[otherKind] !== other) return '';
+    // both chosen: the two together are the deal (each card's own price is for it alone)
+    if (s[kind] === code) return 'Together, first visit: both for ' + money(d.price);
+    if (s[kind]) return '';
+    return 'With your ' + svc(other).name + ': both for ' + money(d.price) + ', first visit';
   }
   // The card's time for this vehicle (the quote's), and the days a job that long fits on (the hours)
   function metaText(code) {
@@ -1391,9 +1601,6 @@
   }
   function pickMain(x) { choose(x); paintMains(); }
   let lastOn = null;   // the card a pick just lit (paintMains): the bundle note never moves it out of sight (revealNote)
-  // the inside-of-the-car question just shown by a pick (paintMains) and not yet brought into view: the pick's quote,
-  // landing, may bring it in (revealConds)
-  let condsAsk = false;
   // The cards follow the chosen services in place (the one just chosen lifts once and a rim of light runs
   // around it once, then stays lit; focus and scroll stay where they are); add-on availability changes with
   // the mains, so that block is rebuilt, then the prices and the breakdown follow.
@@ -1401,6 +1608,7 @@
     const s = st.service;
     clearError(root, 'services');
     if (s.carried && !mainCodes().includes(s.carried)) s.carried = null;   // changed here: the customer's own pick now
+    if (s.deal && !pairChosen(dealPair(s.deal))) s.deal = null;
     const notes = root.querySelector('#bk-carried'); if (notes) notes.replaceChildren(...carriedNotes());
     lastOn = null;
     root.querySelectorAll('.svc-opt').forEach((b) => {
@@ -1410,22 +1618,17 @@
       if (on && !was) { lastOn = b; flash(b, 'just', 700); glowOnce(b, true); }
       else if (was && !on) cancelGlow(b);   // its light goes with it
     });
-    // the inside of the car follows the interior, in place (its answer is kept while it is hidden); hidden, what it
-    // asked for no longer applies; just shown, it may be brought into view (condsAsk)
-    const conds = root.querySelector('#bk-conds');
-    if (conds) {
-      const was = conds.hidden;
-      conds.hidden = !hasInterior();
-      if (conds.hidden) { condsAsk = false; clearError(root, 'conditions'); clearError(root, 'special_request'); }
-      else if (was) condsAsk = true;
-    }
+    // the line that says the inside is asked on step 04 follows the interior, in place
+    const later = root.querySelector('#bk-conds-later'); if (later) later.hidden = !hasInterior();
     const old = root.querySelector('[data-field="addons"]'); if (old) old.replaceWith(addonsBlock());
+    paintDeals();
     updatePrices();
   }
   // Each main service alone, for this vehicle, these conditions and this place (the cards' prices, and the date
   // step's tiles), each one painted by each(code) as it arrives
   async function mainPrices(each) {
     const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind));
+    if (!sizeKnown()) { if (each) mains.forEach((x) => each(x.code)); return; }   // (no size: every size's price, from the menu)
     await Promise.all(mains.map(async (x) => {
       const over = { bundle: null, exterior: null, interior: null, addons: [] };
       over[x.kind] = x.code;
@@ -1455,6 +1658,8 @@
         if (elp && !(elp.firstChild && elp.textContent === next.textContent)) elp.replaceChildren(...next.childNodes);
         const off = root.querySelector('#offer-' + code), ot = offerNodes(code) || '';
         if (off && off.textContent !== ot) off.textContent = ot;
+        const pr = root.querySelector('#pair-' + code), pt = pairText(code);
+        if (pr && pr.textContent !== pt) pr.textContent = pt;
         const meta = root.querySelector('#meta-' + code), mt = metaText(code);
         if (meta && meta.textContent !== mt) meta.textContent = mt;
         const sv = root.querySelector('#save-' + code), stx = savingText(code);
@@ -1464,19 +1669,17 @@
       q = await refreshQuote();
     } finally { tap.end(); }
     if (q === STALE) return;   // a newer pick paints when its quote lands
-    const ask = condsAsk; condsAsk = false;
     const box = root.querySelector('#bk-price'); const sug = root.querySelector('#bk-suggest');
     updateNav();
+    paintDeals();   // (a signed-in customer's history, or a held price, now known: the deals follow)
     if (!box) return;
     // the bundle note appearing after a pick (not as the step lands with it) is brought into view, once: on a phone
     // it would open under the sticky bar, below the cards (revealNote). Only if the page stayed still and the quote
     // came soon (watchTap): never under a finger put down meanwhile (doc 35); then the note simply waits under the cards
     const fresh = !!(sug && sug.dataset.painted && !sug.firstChild);
     if (sug) sug.dataset.painted = '1';
-    // the inside-of-the-car question just shown by the pick comes first, under the same guard (revealConds); one move
-    // per pick: when it moved the page, the bundle note waits under it
-    const moved = ask && tap.still() && revealConds();
-    if (!q) { box.replaceChildren(el('p.bk-muted', 'Choose a service to see the price.')); if (sug) sug.replaceChildren(); return; }
+    const moved = false;   // (the inside question is on step 04 now: nothing comes in before the bundle note)
+    if (!q) { box.replaceChildren(el('p.bk-muted', sizeKnown() ? 'Choose a service to see the price.' : 'Choose your vehicle’s size to see your price.')); if (sug) sug.replaceChildren(); return; }
     if (q.error) { box.replaceChildren(el('p.bk-muted', q.error.message)); if (sug) sug.replaceChildren(); return; }
     box.replaceChildren(priceLines(q, { withTime: true, otherCondition: otherCond() }));
     if (sug) {
@@ -1495,23 +1698,6 @@
       }
     }
   }
-  // The inside-of-the-car question, just shown by a pick, opens under the cards: on a phone under the sticky bar, where
-  // nothing shows that it came. Its title is brought into view, about 12px over the sticky bar, by the smallest move,
-  // never so far that the card just tapped goes under the floating top bar; where that leaves the title still hidden,
-  // the page stays where it is (Continue then brings the question). Nothing moves when the title is in sight already.
-  // Says whether the page moved.
-  function revealConds() {
-    const label = root.querySelector('#bk-conds:not([hidden]) .choice-label');
-    if (!label) return false;
-    const s = sight(), r = label.getBoundingClientRect();
-    if (r.bottom <= s.bottom) return false;
-    const cap = lastOn && lastOn.isConnected ? lastOn.getBoundingClientRect().top - s.top : Infinity;
-    let by = r.bottom - (s.bottom - 12);
-    if (by > cap) { if (r.bottom - cap > s.bottom) return false; by = cap; }
-    if (by < 1) return false;
-    window.scrollBy({ top: Math.round(by), behavior: reduce ? 'auto' : 'smooth' });
-    return true;
-  }
   // The bundle note comes into view just over the sticky bar. The inside-of-the-car question sits between the cards and
   // the note (a bundle note always comes with an interior service, so it shows): the page never moves so far that the
   // question's title, or the card just tapped, goes under the floating top bar. Where the note can't come in with both
@@ -1525,7 +1711,7 @@
     if (by > 0 && by <= room) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
 
-  // ---------------------------------------------------------------- 05 Date and time
+  // ---------------------------------------------------------------- 02 Date and time
   // The service, the strip that changes it (open: beside the calendar on a wide screen, a row of tiles over it on a
   // phone), the owner's note and the calendar, then the times
   function stepWhen() {
@@ -1535,7 +1721,7 @@
     const box = el('div.bk-grid.bk-when', { class: w.switching ? 'switching' : null });
     // no quote (no service chosen, or it couldn't be priced): nothing to look up times for
     if (!q) {
-      box.appendChild(el('div.bk-chosen', { dataset: { field: 'start_min' } }, el('div', el('span.eyebrow', 'Your service'), el('b', 'Choose a service first'), el('p.choice-msg', { role: 'status' })), el('button.link', { type: 'button', onclick: () => go(4) }, 'Choose')));
+      box.appendChild(el('div.bk-chosen', { dataset: { field: 'start_min' } }, el('div', el('span.eyebrow', 'Your service'), el('b', 'Choose a service first'), el('p.choice-msg', { role: 'status' })), el('button.link', { type: 'button', onclick: () => go(S_SERVICE) }, 'Choose')));
       return box;
     }
     box.append(chosenBlock(), switchStrip());
@@ -1615,7 +1801,7 @@
       toggle);
   }
   // The tiles by the Table's numbers (Eb Ed Ib Id Sc Au), each with this car's price for that service alone (the
-  // database's quote); the chosen ones carry the gold rim. Add-ons and notes stay on step 04, one tap away.
+  // database's quote); the chosen ones carry the gold rim. Add-ons stay on step 01, one tap away.
   function switchStrip() {
     const num = (code) => { const g = signOf(code); return g ? Number(g.num) : 999; };
     const mains = menu.services.filter((x) => ['bundle', 'exterior', 'interior'].includes(x.kind)).sort((a, b) => num(a.code) - num(b.code));
@@ -1626,7 +1812,7 @@
         el('span.sw-name', x.name),
         el('span.sw-meta', el('span.sw-price.tnum', { id: 'sw-price-' + x.code }), el('span', { id: 'sw-time-' + x.code }))))),
       el('p.sw-hint', { id: 'bk-sw-hint' }, swHint()),
-      el('div.sw-foot', el('div', { id: 'bk-sw-notes', role: 'status' }), el('button.link', { type: 'button', onclick: () => go(4) }, 'Add-ons and notes')));
+      el('div.sw-foot', el('div', { id: 'bk-sw-notes', role: 'status' }), el('button.link', { type: 'button', onclick: () => go(S_SERVICE) }, 'Add-ons')));
     if (st.when.switching) setTimeout(() => { paintSwitch(); showChosenTile(); }, 0);
     return strip;
   }
@@ -1670,11 +1856,11 @@
     const by = Math.min(aim, cap);
     if (by > 0) window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
   }
-  // The tiles work as the cards on step 04 do, so the line under them says how: a tile adds to the other kind and
+  // The tiles work as the cards on step 01 do, so the line under them says how: a tile adds to the other kind and
   // takes the place of its own (an exterior and an interior together; a bundle alone), and with two lit either can go
   // (the verb for the pointer: Click with a mouse, Tap otherwise, as the CSS's .tap-only and .click-only)
   const swHint = () => 'An exterior and an interior can go together; a bundle stands alone.' + (mainCodes().length > 1 ? ' ' + (matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap') + ' a lit tile to take it off.' : '');
-  // The tiles follow the request: which are chosen, their prices (looked up once, if step 04 has not already), the
+  // The tiles follow the request: which are chosen, their prices (looked up once, if step 01 has not already), the
   // line under them, and a quiet line for an add-on the new service leaves off
   function paintSwitch() {
     const mains = mainCodes();
@@ -1692,20 +1878,19 @@
     else { mainPrices(price); wave(); }
     const notes = root.querySelector('#bk-sw-notes');
     if (notes) notes.replaceChildren(...st.service.addons.filter((a) => !canHaveAddon(a))
-      .map((a) => el('p.bk-quiet', svc(a).name + ' goes with ' + waitsFor(a) + ', so it is left off for now.')),
-      // an interior service or a bundle chosen here, with the inside of the car not answered yet: its question is on 04
-      ...(hasInterior() && !st.vehicle.conditions.length ? [condsLink()] : []));
+      .map((a) => el('p.bk-quiet', svc(a).name + ' goes with ' + waitsFor(a) + ', so it is left off for now.')));
   }
-  // To step 04's question on the inside of the car: the step, then the question brought into view and focused
+  // To step 04's question on the inside of the car (from the Summary, when it isn't answered yet): the step, then the
+  // question brought into view and focused
   const condsLink = () => el('button.link', { type: 'button', onclick: async () => {
-    await go(4);
-    const c = step === 4 && root.querySelector('#bk-conds:not([hidden])');
+    await go(S_VEHICLE);
+    const c = step === S_VEHICLE && root.querySelector('#bk-conds');
     if (!c) return;
     c.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
     const first = c.querySelector('.choice-item');
     if (first) first.focus({ preventScroll: true });
   } }, 'Tell us what the inside of the car is like ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
-  // A tile tapped: the service changes in place (as a card would on step 04; the last one chosen stays, the date step
+  // A tile tapped: the service changes in place (as a card would on step 01; the last one chosen stays, the date step
   // always has one), then the bar, the length and the total follow, and the open days cross-fade to this length
   // The service and its quote to go back to when a tapped tile's price can't load (after two quick taps, the one
   // before the first). stepWhen starts it afresh.
@@ -1722,7 +1907,7 @@
     const tile = root.querySelector('.sw-tile.on[data-code="' + x.code + '"]'); if (tile) showTile(tile, true);
     const q = await refreshQuote();
     if (q === STALE) return;   // another tile was tapped meanwhile: its answer paints
-    if (step !== 5) return;
+    if (step !== S_WHEN) return;
     // no price for the new service (the network, most often): the request goes back to the service it had, with
     // its price, and the days and the chosen day and time stay as they were
     if (!q || q.error) {
@@ -1771,13 +1956,15 @@
   // start picked on it stays only if it still fits (held aside meanwhile, so it is never shown, or sent on, before
   // it is known to fit). Returns that re-check, for a caller that waits for it (backToSummary). A start still held
   // aside by a re-check that a newer change overtook (w.keep) is the one kept.
+  // It always returns a promise: the re-check's, or, when nothing changed, the day's times still on their way (or none).
   function syncWhen() {
     const w = st.when;
     const sig = timeSig();
-    if (!sig || w.sig === sig) return;
+    if (!sig || w.sig === sig) return w.loading || Promise.resolve();
     const had = w.date, keep = w.start != null ? w.start : w.keep;
     Object.assign(w, { sig, calendar: {}, loaded: null, times: null, start: null });
     if (had) return pickDay(had, keep, true);
+    return Promise.resolve();
   }
   // The open and full days for the month on screen, for this booking's length and place (w.sig is part of the key,
   // and syncWhen empties the days when it changes). Days that arrive for an older booking are dropped.
@@ -1804,7 +1991,7 @@
         b.setAttribute('aria-label', longDate(iso) + (w.calendar[iso] === false ? ', full' : ''));
       });
       if (daysWait) {
-        if (step === 5 && daysTap && daysTap.still()) revealDays(false);
+        if (step === S_WHEN && daysTap && daysTap.still()) revealDays(false);
         stopDaysWait();
       }
     } catch (e) { toast(e.message); }
@@ -1859,56 +2046,113 @@
     const w = st.when;
     const tap = recheck ? null : watchTap();
     w.date = iso; w.start = null; w.times = null; w.note = null; w.keep = keep == null ? null : keep;
+    if (!recheck) w.lost = null;   // (the customer's own pick: a start lost to a new length is no longer the question)
     markDay(iso, !recheck);
     clearError(root, 'service_date'); clearError(root, 'start_min');
     paintTimes(false);
+    paintRefit();
     const landed = await loadTimes(tap);
-    if (tap) { tap.end(); if (landed && step === 5 && tap.still()) revealTimes(); }
+    if (tap) { tap.end(); if (landed && step === S_WHEN && tap.still()) revealTimes(); }
   }
   // The start times of the chosen day, for the quote's length and the place, painted when they land (unless
   // another day, length or place was chosen meanwhile). One fetch per day and length at a time. True once this
   // call's times are on the date step.
   // tap: the day's tap (pickDay), so a move back to the service never comes under a finger (doc 35)
+  // A second call for the same day and length while the first is on its way waits for it (w.loading), so a caller that
+  // awaits it (Continue and Send on 03 and 04: settleWhen) never reads the times before they are here.
   async function loadTimes(tap) {
     const w = st.when, iso = w.date;
     if (!iso) return false;
     if (!st.quote) {
       const q = await refreshQuote();
-      if (q === STALE || step !== 5) return false;   // a newer service is on its way: its quote asks for the times again (syncWhen)
+      if (q === STALE || step !== S_WHEN) return false;   // a newer service is on its way: its quote asks for the times again (syncWhen)
     }
     if (!st.quote) {   // nothing to measure the times by: back to the service, never under a finger (then the date step says to choose one)
       w.times = [];
-      if (!tap || tap.still()) go(4); else render();
+      if (!tap || tap.still()) go(S_SERVICE); else render();
       return false;
     }
     const sig = timeSig(), want = iso + ':' + sig;
-    if (w.fetching === want) return false;   // already on its way
+    if (w.fetching === want && w.loading) return w.loading.then(() => false);   // already on its way
     w.fetching = want;
-    let times;
-    try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
-    catch (e) { times = []; toast(e.message); }
-    if (w.fetching === want) w.fetching = null;
-    if (w.date !== iso || timeSig() !== sig) return false;   // another day, length or place was picked meanwhile
-    w.times = times;
-    if (w.keep != null && w.start == null) {
-      if (times.includes(w.keep)) w.start = w.keep;
-      else w.note = 'The service length or place changed: please pick a start time again.';
+    const run = (async () => {
+      let times;
+      try { times = await D.times(iso, st.quote.duration_min, st.location.type); }
+      catch (e) { times = []; toast(e.message); }
+      if (w.fetching === want) w.fetching = null;
+      if (w.date !== iso || timeSig() !== sig) return false;   // another day, length or place was picked meanwhile
+      w.times = times;
+      if (w.keep != null && w.start == null) {
+        if (times.includes(w.keep)) { w.start = w.keep; w.lost = null; }
+        else { w.lost = w.keep; w.note = refitWords(); }
+      }
+      w.keep = null;
+      if (root.querySelector('#bk-times')) {
+        paintTimes(true);
+        if (refusedTap) { const t = refusedTap, ok = t.still(); refusedTap = null; t.end(); if (ok && step === S_WHEN) revealLost(); }
+        return true;
+      }
+      // on 03 and 04: what the re-check found (the re-fit's status, and the chip's day and time)
+      if (step === S_CONTACT || step === S_VEHICLE) paintRefit();
+      // a step-bar jump to the Summary doesn't wait for this re-check: the Summary is drawn again, so it shows the
+      // start that was kept (or asks for one) and never says one thing while Send sends another. Its title keeps the
+      // focus it had (or takes it when nothing had it); focus the visitor moved to a control is never sent to the title
+      if (step === S_SUMMARY && !busy && !st.receipt) {
+        const a = document.activeElement, had = !a || a === document.body || (root.contains(a) && a.classList.contains('bk-title'));
+        render();
+        if (had) focusTitle();
+      }
+      return false;
+    })();
+    w.loading = run;
+    run.then(() => { if (w.loading === run) w.loading = null; });
+    return run;
+  }
+  // ---------------------------------------------------------------- the re-fit (steps 03 and 04)
+  // The inside answers, "Not sure" or the type can change the price and the length after the time was picked on 02. A
+  // change quotes again (debounced) and checks the held day's times for the new length (syncWhen, as the date step's
+  // switch strip does). What it found shows above Continue, in three states read from the request itself, never from
+  // a promise: checking (the price or the day's times on their way), the start no longer fits (with "Pick a new time",
+  // or the phone when no day is long enough), or it fits (with the new price or length, if they changed).
+  const refit = U.debounce(async () => {
+    if (step !== S_CONTACT && step !== S_VEHICLE) return;
+    paintRefit();
+    const q = await refreshQuote();
+    if (q === STALE) return;
+    updateNav();
+    paintRefit();
+    if (st.quote) { await syncWhen(); paintRefit(); }
+  }, 200);
+  // "With what you chose, the job takes about 2 h 28 min, so 2:00 PM on Monday, November 23 no longer fits. Pick another time."
+  function refitWords() {
+    const w = st.when, q = st.quote;
+    const len = q ? 'the job takes about ' + minutesText(q.duration_min) : 'the job is longer';
+    return 'With what you chose, ' + len + ', so ' + (w.lost != null ? clock(w.lost) : 'the time you picked') + (w.date ? ' on ' + longDate(w.date) : '') + ' no longer fits. Pick another time.';
+  }
+  function refitNodes() {
+    const w = st.when, q = st.quote;
+    if (!w.date || !mainsChosen()) return [];
+    if (!q || (w.times == null && w.start == null)) return [el('p.bk-quiet.refit-wait', 'Checking that your time still fits…')];
+    if (w.start == null && w.lost != null) {
+      const fit = U.dayFit(settings, q.duration_min);
+      if (fit && fit.none) return [el('p.bk-refit-msg.has-error', 'With what you chose, the job takes about ' + minutesText(q.duration_min) + ': too long for one day online. Call ', tel(phone), ' and we’ll plan it with you.')];
+      return [el('p.bk-refit-msg.has-error', refitWords()), el('button.btn.btn-glass.bk-refit-go', { type: 'button', onclick: () => show(S_WHEN) }, 'Pick a new time', el('span.arrow', { 'aria-hidden': 'true' }, '→'))];
     }
-    w.keep = null;
-    if (root.querySelector('#bk-times')) {
-      paintTimes(true);
-      if (refusedTap) { const t = refusedTap, ok = t.still(); refusedTap = null; t.end(); if (ok && step === 5) revealLost(); }
-      return true;
+    const b = w.base, out = [];
+    if (!b) return [];
+    if (q.duration_min !== b.duration && w.start != null) out.push('Your time still fits: about ' + minutesText(q.duration_min) + '.');
+    if (q.total_cents == null || otherCond()) { if (b.total != null) out.push('We confirm the price before your appointment.'); }
+    else if (q.total_cents !== b.total) out.push('The price is now ' + money(q.total_cents) + '.');
+    return out.length ? [el('p.bk-quiet.refit-ok', out.join(' '))] : [];
+  }
+  function paintRefit() {
+    const box = root && root.querySelector('#bk-refit');
+    if (box) {
+      const next = el('div', refitNodes());
+      if (box.textContent !== next.textContent) box.replaceChildren(...next.childNodes);
     }
-    // a step-bar jump to the Summary doesn't wait for this re-check: the Summary is drawn again, so it shows the
-    // start that was kept (or asks for one) and never says one thing while Send sends another. Its title keeps the
-    // focus it had (or takes it when nothing had it); focus the visitor moved to a control is never sent to the title
-    if (step === 6 && !busy && !st.receipt) {
-      const a = document.activeElement, had = !a || a === document.body || (root.contains(a) && a.classList.contains('bk-title'));
-      render();
-      if (had) focusTitle();
-    }
-    return false;
+    const m = root && root.querySelector('#bk-chip-meta');
+    if (m) { const t = chipMeta(); if (m.textContent !== t) m.textContent = t; }
   }
   // From a tap until its answer lands: whether the page stayed as it was (no finger back on the glass, no wheel, no
   // scroll) and the answer came soon. Only then may the page move for it (a scroll under a finger fights iOS, doc 35).
@@ -1986,7 +2230,7 @@
     return [head, row, note, msg('Can’t find a time? Call ', tel(phone), '.')];
   }
 
-  // ---------------------------------------------------------------- 06 Summary
+  // ---------------------------------------------------------------- 05 Summary
   // The vehicle in words: the saved one, the description of one the customer isn't sure of, or year, make, model, colour
   // the size a type is priced as, in the menu's words ("SUV or crossover, 2 rows"); a van or other: we confirm the price
   function sizeLabel(type) { const g = (menu.typeSize || {})[type]; const z = (menu.sizes || []).find((x) => x.code === g); return z ? z.name : 'Price confirmed by us'; }
@@ -2007,7 +2251,7 @@
     const vf = vehicleFacts();
     const vt = (menu.vehicleTypes.find((t) => t.code === vf.type) || {}).name;
     const savedV = savedVehicle();
-    // the inside of the car, with an interior service or a bundle (asked on step 04, so it sits under the service lines)
+    // the inside of the car, with an interior service or a bundle (asked on step 04; it sits under the service lines)
     const condLabels = v.conditions.map((cc) => (menu.options.condition.find((o) => o.code === cc) || {}).label).join(', ');
     const priced = !!q && q.total_cents != null && !otherCond();   // ("Other" inside the car: the owner prices it, doc 46)
     box.appendChild(el('section.sheet', { 'aria-label': 'Your booking' },
@@ -2015,20 +2259,21 @@
         el('div.sheet-when',
           el('div.sheet-k', el('span', 'When')),
           el('p.sheet-date', w.date ? longDate(w.date) : 'Choose a day and a start time'),
-          el('p.sheet-time.tnum', el('span', [w.start != null ? clock(w.start) : w.date ? 'Pick a start time' : null, q ? 'about ' + minutesText(q.duration_min) : null].filter(Boolean).join(' · ')), edit(5, 'date and time'))),
+          el('p.sheet-time.tnum', el('span', [w.start != null ? clock(w.start) : w.date ? 'Pick a start time' : null, q ? 'about ' + minutesText(q.duration_min) : null].filter(Boolean).join(' · ')), edit(S_WHEN, 'date and time'))),
         el('div.sheet-total',
           el('div.sheet-k', el('span', priced ? 'Total' : 'Price')),
           el('p.sheet-sum.tnum', { class: priced ? null : 'pending' }, priced ? money(q.total_cents) : 'We confirm the price before your appointment'))),
       el('div.sheet-lines',
-        el('div.sheet-k', el('span', 'Service'), edit(4, 'service')),
+        el('div.sheet-k', el('span', 'Service'), edit(S_SERVICE, 'service')),
         q ? priceLines(q, { mark: sigMark, otherCondition: otherCond() }) : el('p.bk-muted', 'Choose a service first'),
         // (not answered yet, after a jump on the step bar: the way to its question)
         hasInterior() ? el('p.sheet-notes', el('span', 'Inside the car'), condLabels || condsLink()) : null,
         s.notes.trim() ? el('p.sheet-notes', el('span', 'Notes'), s.notes.trim()) : null)));
     box.appendChild(el('div.sum-grid',
-      sec('Contact', 1, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() && !guest() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we’ll use your phone)')] : null]),
-      sec('Location', 3, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]),
-      sec('Vehicle', 2, [
+      sec('Contact', S_CONTACT, [['Name', [c.first, c.last].filter(Boolean).join(' ')], ['Phone', phonePretty(c.phone) + (c.phoneConfirmed ? ' ✓' : '')], c.email.trim() && !guest() ? ['Email', c.email + (c.emailState === 'confirmed' ? ' ✓' : ' (not confirmed; we’ll use your phone)')] : null]),
+      // where: chosen on 01; a mobile detail's street address is typed on 03
+      sec('Location', l.type === 'mobile' ? S_CONTACT : S_SERVICE, [['Where', l.type === 'mobile' ? 'We come to you · ' + l.address + ', ' + l.zip : 'Come to us · ' + settings.public_area + ' (address comes with your confirmation)']]),
+      sec('Vehicle', S_VEHICLE, [
         ['Vehicle', vehicleText()],
         !vf.notSure ? ['Type and size', [vt, vf.size === 'xl' ? 'XL' : sizeLabel(vf.type)].filter(Boolean).join(' · ')] : null,
         ['Known damage', v.damage.map((d) => (menu.options.damage.find((o) => o.code === d) || {}).label).join(', ') + (v.damageNote.trim() ? ' — ' + v.damageNote.trim() : '')],
@@ -2049,7 +2294,12 @@
   async function send() {
     if (busy) return;
     if (performance.now() - summaryShownAt < SEND_HOLD) return;   // a double tap's second half (summaryShownAt)
-    for (const n of [1, 2, 3, 4, 5]) { if (!(await validate(n))) return; }
+    // every step as Continue checks it, then the held time again for what is chosen now (the re-fit: a start that no
+    // longer fits goes back to the date step with the new length; the database checks again anyway)
+    for (const n of [S_SERVICE, S_CONTACT, S_VEHICLE]) { if (!(await validate(n))) return; }
+    await settleWhen();
+    if (step !== S_SUMMARY || busy) return;
+    if (!(await validate(S_WHEN))) return;
     busy = true;
     // while the request is on its way: "Sending…" and, after 300ms, a fine light along the button's lower edge (the CSS;
     // twelve runs at most, no percentage: the progress isn't known)
@@ -2067,8 +2317,10 @@
       tap.end();
       clearDraft();   // (the request is in: a reload no longer brings it back)
       st.receipt = r; st.sentAsGuest = asGuest; st.receiptOther = otherCond();
-      // quoted "if this is your first visit", saved at the regular price: the database decided (Migration 011)
+      // quoted "if this is your first visit", saved at the regular price: the database decided (Migrations 011, 012);
+      // the deal's services are kept, so its note sits under them after a reload too
       st.receiptMissed = !!(st.quote && st.quote.first_visit && st.quote.first_visit.status === 'if_first_visit' && r && r.first_visit_offer === false);
+      st.receiptMissedCodes = st.receiptMissed && Array.isArray(st.quote.first_visit.codes) ? st.quote.first_visit.codes.slice() : null;
       saveSent();
       busy = false;
       if (window.AlchemistAccount) window.AlchemistAccount.refresh();
@@ -2082,12 +2334,12 @@
       const calm = tap.still();
       tap.end();
       // the time is no longer free: the day stays chosen, its times load again (stepWhen), and the reason stays with them,
-      // once, in the note marked as an error (show: step 05 with the design's finger guard; no second copy in the message
+      // once, in the note marked as an error (show: the date step with the design's finger guard; no second copy in the message
       // line). Once the times are back, the reason comes into view and a start time takes the focus, unless a finger,
       // a wheel or a scroll came in since Send (then it is only marked, and nothing moves)
       if (e.code === 'slot_unavailable') {
         const w = st.when; w.start = null; w.times = null; w.loaded = null; w.calendar = {}; w.note = e.message;
-        show(5, true);
+        show(S_WHEN, true);
         if (calm && st.when.times == null) refusedTap = watchTap(true);
         return;
       }
@@ -2131,11 +2383,11 @@
     // a line folded at 75 octets (a continuation line starts with a space), never inside a character or an escape
     const fold = (line) => {
       const out = [];
-      let cur = '', n = 0;
+      let cur = '', used = 0;
       for (const ch of line.match(/\\[\\;,n]|[\s\S]/gu) || []) {
         const c = ch.codePointAt(0), b = ch.length === 2 && ch[0] === '\\' ? 2 : c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
-        if (n + b > (out.length ? 74 : 75)) { out.push(cur); cur = ''; n = 0; }
-        cur += ch; n += b;
+        if (used + b > (out.length ? 74 : 75)) { out.push(cur); cur = ''; used = 0; }
+        cur += ch; used += b;
       }
       out.push(cur);
       return out.join('\r\n ');
@@ -2217,7 +2469,7 @@
         el('div', el('dt', 'When'), el('dd', longDate(r.service_date) + ' at\u00a0' + clock(r.start_min).replace(' ', '\u00a0'), minutes ? ['\u00a0· ', el('span.sent-len', 'about ' + minutesText(minutes))] : null)),
         el('div', el('dt', 'Where'), el('dd', r.location_type === 'mobile' ? 'We come to you · ' + r.address + ', ' + r.address_zip : 'Come to us · ' + settings.public_area + ' — we send the address with your confirmation')),   // in the summary's words
         vehicle ? el('div', el('dt', 'Vehicle'), el('dd', vehicle)) : null),
-      rec ? priceLines(rec === r ? Object.assign({}, r, { first_visit: null }) : rec, { mark: sigMark, otherCondition: st.receiptOther, offerMissed: st.receiptMissed }) : el('p.bk-muted', r.total_cents == null || st.receiptOther ? 'We confirm the price before your appointment' : money(r.total_cents)));
+      rec ? priceLines(rec === r ? Object.assign({}, r, { first_visit: null }) : rec, { mark: sigMark, otherCondition: st.receiptOther, offerMissed: st.receiptMissed, missedCodes: st.receiptMissedCodes, saved: true }) : el('p.bk-muted', r.total_cents == null || st.receiptOther ? 'We confirm the price before your appointment' : money(r.total_cents)));
     const sent = el('div.bk.bk-sent', { class: play ? SENT_PARTS.map((x) => 'wait-' + x).join(' ') : null },
       el('div.sent-mark', sentMark()),
       el('p.eyebrow', 'Request received'),

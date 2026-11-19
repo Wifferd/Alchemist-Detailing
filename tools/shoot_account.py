@@ -30,17 +30,20 @@ async def main():
         pg = await ctx.new_page()
         msgs = []
         pg.on('pageerror', lambda e: msgs.append('pageerror: ' + str(e)))
-        await pg.goto(url); await pg.wait_for_selector('#first_name')
+        # the booking's order since Nov 18 (doc 54): 01 service, 02 date, 03 contact (the text code), 04 vehicle
+        await pg.goto(url); await pg.wait_for_selector('[data-field="size"]')
+        await pg.click('[data-field="size"] [data-code="two_rows"]'); await pg.click('[data-field="location_type"] [data-code="shop"]')
+        await pg.click('.svc-opt[data-code="inside_out"]'); await pg.wait_for_timeout(300)
+        await pg.click('#bk-next'); await pg.wait_for_selector('.cal-day.open')
+        days = await pg.query_selector_all('.cal-day.open'); await days[min(2, len(days) - 1)].click()   # (late in a month fewer days are open)
+        await pg.wait_for_selector('.choice-item.time'); await (await pg.query_selector_all('.choice-item.time'))[0].click()
+        await pg.click('#bk-next'); await pg.wait_for_selector('#first_name')
         await pg.fill('#first_name', 'Carla'); await pg.fill('#phone', '9725552011'); await pg.click('#bk-send-code')
         await pg.wait_for_selector('#phone_code'); await pg.fill('#phone_code', '123456'); await pg.wait_for_selector('.fld-ok')
         await pg.click('#bk-next'); await pg.wait_for_selector('#vehicle_make')
         await pg.fill('#vehicle_make', 'Toyota'); await pg.fill('#vehicle_model', '4Runner'); await pg.click('[data-field="vehicle_type"] [data-code="suv"]')
-        await pg.click('#bk-next'); await pg.wait_for_selector('[data-field="location_type"]'); await pg.click('[data-field="location_type"] [data-code="shop"]')
-        await pg.click('#bk-next'); await pg.wait_for_selector('.svc-opt'); await pg.click('.svc-opt[data-code="inside_out"]'); await pg.wait_for_timeout(300)
-        await pg.click('#bk-conds [data-field="conditions"] [data-code="pet_hair_some"]'); await pg.wait_for_timeout(300)   # (asked on step 04, with an interior service or a bundle)
-        await pg.click('#bk-next'); await pg.wait_for_selector('.cal-day.open')
-        days = await pg.query_selector_all('.cal-day.open'); await days[min(2, len(days) - 1)].click()   # (late in a month fewer days are open)
-        await pg.wait_for_selector('.choice-item.time'); await (await pg.query_selector_all('.choice-item.time'))[0].click()
+        # (asked on step 04, with an inside service; "None" keeps the length, so the time picked on 02 still fits)
+        await pg.click('#bk-conds [data-field="conditions"] [data-code="none"]'); await pg.wait_for_timeout(600)
         await pg.click('#bk-next'); await pg.wait_for_selector('.sum')
         # Send ignores a tap in the first half-second after the Summary shows (booking.js SEND_HOLD: the second tap of a quick
         # double tap on Continue); a client reads it first, so the walk waits too

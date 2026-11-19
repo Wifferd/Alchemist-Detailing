@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  // ---------------------------------------------------------------- the menu, as Migration 011 sets it (Nov 17, 2026)
+  // ---------------------------------------------------------------- the menu, as Migrations 011 and 012 set it (Nov 17-18, 2026)
   const SEED = {
     settings: {
       timezone: 'America/Chicago', first_start_min: 600, last_start_min: 1140, latest_end_min: 1200, slot_step_min: 30,
@@ -19,7 +19,7 @@
       // Migration 005: bookings without an account until text codes work (?guest=0 previews the text-code flow)
       guest_booking: true,
     },
-    // Migration 011 (Nov 17): the first-time Basic Wash price ends at the end of this day, Parker's time
+    // Migration 011 (Nov 17): the First Timer Deals (Migration 012) end at the end of this day, Parker's time
     // (business_settings.first_visit_offer_ends_on; get_first_visit_offer gives it to the site); one shared visit
     // (setup, pack-up, handover) when an exterior and an interior are booked apart (visit_overhead_min)
     offer_ends_on: '2027-02-17',
@@ -31,16 +31,17 @@
       { code: 'three_rows', name: '3 rows or pickup', short_name: '3 rows or pickup', sort: 3 },
       { code: 'minivan', name: 'Minivan', short_name: 'Minivan', sort: 4 },
     ],
-    // rates: [price, real on-site minutes, first-visit price] for car, two_rows, three_rows, minivan (service_size_rates)
+    // rates: [price, real on-site minutes] for car, two_rows, three_rows, minivan (service_size_rates; Migration 012's
+    // prices, Nov 18: the Basic Wash and Hand Wash raised, the two bundles keeping their savings)
     services: [
       { code: 'basic_wash', kind: 'exterior', name: 'Basic Wash', sort: 10, description: 'Thick foam to loosen the dirt, then a careful two-bucket hand wash. Rinsed and hand-dried. Wheels and tires are rinsed with the car. For cars with normal road dirt. Not included: wheel and tire scrubbing, tire shine, bug and tar removal, window cleaning. Add Wheels & Tire Shine for $20.',
-        rates: [[5000, 92, 3500], [5500, 103.25, 4000], [5500, 114.5, 4000], [5500, 114.5, 4000]] },
+        rates: [[5999, 92], [6499, 103.25], [6499, 114.5], [6499, 114.5]] },
       { code: 'hand_wash', kind: 'exterior', name: 'Hand Wash', sort: 20, description: 'Thick foam to loosen the dirt, then a careful two-bucket hand wash. Wheels and tires cleaned; tire shine. Rinsed, hand-dried and blown out. Outside glass.',
-        rates: [[7500, 91], [8000, 101], [8000, 111], [8000, 111]] },
+        rates: [[8999, 91], [9499, 101], [9499, 111], [9499, 111]] },
       { code: 'inside_out', kind: 'bundle', name: 'Inside & Out', sort: 30, description: 'Everything in the Hand Wash, plus: seats, carpets and trunk vacuumed. Dash, doors, console and cup holders wiped. Mats scrubbed and left dry; inside windows. A protectant on the dash and trim.',
-        rates: [[10000, 163], [11500, 190.75], [12500, 218.5], [13500, 236.25]] },
+        rates: [[11499, 163], [12999, 190.75], [13999, 218.5], [14999, 236.25]] },
       { code: 'full_detail_v2', kind: 'bundle', name: 'Full Detail', sort: 40, description: 'Everything in Inside & Out, plus: outside, a bug and road-grime pre-soak, wheel wells scrubbed and a water-repellent sealant foam. Cloth seats and carpets shampooed and the dirty water pulled back out with an extractor (seats stay damp a few hours); leather cleaned and conditioned instead where the car has it. Console, vents, seams and cup holders steamed and brushed. Door seals dressed.',
-        rates: [[16500, 315], [19000, 375.75], [21500, 436.5], [23500, 483.25]] },
+        rates: [[17999, 315], [20499, 375.75], [22999, 436.5], [24999, 483.25]] },
       { code: 'interior_clean', kind: 'interior', name: 'Interior Clean', sort: 50, description: 'The inside of Inside & Out, no wash: seats, carpets and trunk vacuumed. Dash, doors, console and cup holders wiped. Mats scrubbed and left dry; inside windows. A protectant on the dash and trim.',
         rates: [[7500, 103], [8500, 120.75], [9000, 138.5], [10000, 156.25]] },
       { code: 'interior_detail', kind: 'interior', name: 'Interior Detail', sort: 60, description: 'The inside of the Full Detail, no wash: everything in the Interior Clean, plus cloth seats and carpets shampooed and the dirty water pulled back out with an extractor (seats stay damp a few hours); leather cleaned and conditioned instead where the car has it. Console, vents, seams and cup holders steamed and brushed. Door seals dressed.',
@@ -64,6 +65,14 @@
       { code: 'cond_heavy_dirt', kind: 'addon', name: 'Heavy dirt, mud or sand', sort: 230, description: 'Heavy dirt, mud or sand inside the vehicle.',
         rates: [[4000, 25], [4000, 30], [4000, 35], [4000, 35]] },
     ].map((s) => Object.assign({ priced_by_size: true, priced_by_vehicle_type: false, mobile_pct: 0, base_price_cents: s.rates[0][0], duration_min: Math.ceil(s.rates[0][1]) }, s)),
+    // The First Timer Deals (Migration 012, first_visit_deals and first_visit_deal_rates): exactly these services, no
+    // bundle, a first visit only; rates [exterior line, interior line] per size (car, two_rows, three_rows, minivan).
+    // "Outside + inside" keeps the wash at its Outside price and the inside line takes the rest ($79.99 / $94.99).
+    deals: [
+      { code: 'outside', name: 'Outside', sort: 1, exterior: 'basic_wash', interior: null, rates: [[3500, null], [4000, null], [4000, null], [4000, null]] },
+      { code: 'inside', name: 'Inside', sort: 2, exterior: null, interior: 'interior_clean', rates: [[null, 4999], [null, 5999], [null, 5999], [null, 5999]] },
+      { code: 'both', name: 'Outside + inside', sort: 3, exterior: 'basic_wash', interior: 'interior_clean', rates: [[3500, 4499], [4000, 5499], [4000, 5499], [4000, 5499]] },
+    ],
     bundle_parts: { inside_out: ['hand_wash', 'interior_clean'], full_detail_v2: ['hand_wash', 'interior_detail'] },
     includes: { full_detail_v2: ['leather_care'], interior_detail: ['leather_care'] },
     addon_rules: { wheels_tire_shine: 'exterior', gloss_wax: 'exterior', engine_bay: 'any_main', film_care: 'exterior', leather_care: 'interior', stain_removal: 'interior', cond_pet_some: 'interior', cond_pet_lots: 'interior', cond_heavy_dirt: 'interior' },
@@ -104,9 +113,9 @@
     zips: ['75002', '75094', '75074', '75082', '75013', '75098', '75023', '75025', '75048', '75075', '75044', '75040', '75070', '75080', '75069', '75081', '75089', '75252', '75072', '75407', '75042'],
   };
   const SIZE_CODES = SEED.sizes.map((g) => g.code);
-  // { code: { size: { price, minutes, first } } }, as the live menu() builds it from service_size_rates
+  // { code: { size: { price, minutes } } }, as the live menu() builds it from service_size_rates
   const SEED_RATES = {};
-  SEED.services.forEach((s) => { SEED_RATES[s.code] = {}; s.rates.forEach((r, i) => { SEED_RATES[s.code][SIZE_CODES[i]] = { price: r[0], minutes: r[1], first: r[2] == null ? null : r[2] }; }); });
+  SEED.services.forEach((s) => { SEED_RATES[s.code] = {}; s.rates.forEach((r, i) => { SEED_RATES[s.code][SIZE_CODES[i]] = { price: r[0], minutes: r[1] }; }); });
   const THROWAWAY = ['mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com', 'yopmail.com', 'trashmail.com', 'sharklasers.com', 'dispostable.com'];
 
   // ---------------------------------------------------------------- shared helpers
@@ -242,7 +251,8 @@
     const bundle = (p.bundle || '').trim() || null;
     const ext = (p.exterior || '').trim() || null;
     const intr = (p.interior || '').trim() || null;
-    const addons = Array.isArray(p.addons) ? p.addons : [];
+    // json_text_array: each add-on once, trimmed, in the database's order (array_agg distinct: sorted)
+    const addons = Array.isArray(p.addons) ? Array.from(new Set(p.addons.map((x) => String(x).trim()).filter(Boolean))).sort() : [];
     const vtype = (p.vehicle_type || '').trim() || null;
     const size = (p.vehicle_size || '').trim() || 'standard';
     const notSure = p.not_sure === true || p.not_sure === 'true';
@@ -359,18 +369,66 @@
       total_cents: pend.length ? null : value - savings, duration_min: Math.ceil(minutes), suggestion,
     };
   }
-  // apply_first_visit: the Basic Wash line at the new-customer price while the offer runs (null: no offer here)
+  // The offer runs until its end date (Parker's day). ?nooffer shows a preview with the offer over (screenshots only).
+  const previewOfferOn = () => PREVIEW_TODAY() <= SEED.offer_ends_on && !/[?&]nooffer\b/.test(location.search);
+  // first_visit_deal_for (Migration 012): the deal whose services are exactly the quote's (no bundle), each line at its
+  // regular rate and each deal price below it, for the quote's size, while the offer runs and nothing is held; null if none
+  function previewDealFor(q) {
+    const gi = SIZE_CODES.indexOf(q.size_group);
+    if (!previewOfferOn() || q.price_pending || gi < 0) return null;
+    const ql = q.lines.filter((l) => ['exterior', 'interior', 'bundle'].includes(l.kind) && !l.included);
+    const have = ql.map((l) => l.code).sort().join();
+    const reg = (code) => (SEED_RATES[code] && SEED_RATES[code][q.size_group] ? SEED_RATES[code][q.size_group].price : null);
+    const deals = SEED.deals.slice().sort((a, b) => a.sort - b.sort || (a.code < b.code ? -1 : 1));
+    for (const d of deals) {
+      const r = d.rates[gi];
+      if (!r || [d.exterior, d.interior].filter(Boolean).sort().join() !== have) continue;
+      const below = (code, cents) => cents != null && reg(code) != null && cents < reg(code);
+      if ((d.exterior && !below(d.exterior, r[0])) || (d.interior && !below(d.interior, r[1]))) continue;
+      if (ql.some((l) => l.price_cents !== reg(l.code))) continue;
+      const lines = {};
+      if (d.exterior) lines[d.exterior] = { price_cents: r[0], regular_cents: reg(d.exterior) };
+      if (d.interior) lines[d.interior] = { price_cents: r[1], regular_cents: reg(d.interior) };
+      return {
+        deal: d.code, name: d.name, codes: [d.exterior, d.interior].filter(Boolean), ends_on: SEED.offer_ends_on,
+        price_cents: (r[0] || 0) + (r[1] || 0), regular_cents: (d.exterior ? reg(d.exterior) : 0) + (d.interior ? reg(d.interior) : 0), lines,
+      };
+    }
+    return null;
+  }
+  // apply_first_visit: the deal's lines at their first-visit prices (each keeps its regular price beside it), and the
+  // first_visit block naming the deal (null: no deal here)
   function previewFirstVisit(q, status) {
-    const r = q.size_group && SEED_RATES.basic_wash[q.size_group];
-    const at = q.lines.findIndex((l) => l.code === 'basic_wash' && !l.included);
-    if (status == null || !r || r.first == null || q.price_pending || at < 0 || PREVIEW_TODAY() > SEED.offer_ends_on) return Object.assign(q, { first_visit: null });
+    const o = status == null ? null : previewDealFor(q);
+    if (!o) return Object.assign(q, { first_visit: null });
     if (status === 'if_first_visit' || status === 'applied') {
-      const diff = r.price - r.first;
-      q.lines[at] = Object.assign({}, q.lines[at], { price_cents: r.first, regular_cents: r.price, first_visit: true });
+      const diff = o.regular_cents - o.price_cents;
+      q.lines = q.lines.map((l) => (!l.included && (l.kind === 'exterior' || l.kind === 'interior') && o.lines[l.code]
+        ? Object.assign({}, l, { price_cents: o.lines[l.code].price_cents, regular_cents: o.lines[l.code].regular_cents, first_visit: true }) : l));
       q.value_cents -= diff; q.subtotal_cents -= diff; if (q.total_cents != null) q.total_cents -= diff;
     }
-    q.first_visit = { status, ends_on: SEED.offer_ends_on, price_cents: r.first, regular_cents: r.price };
+    q.first_visit = { status, deal: o.deal, name: o.name, codes: o.codes, ends_on: o.ends_on, price_cents: o.price_cents, regular_cents: o.regular_cents };
     return q;
+  }
+  // get_first_visit_offer's deals: each active deal with its prices per size ({ first_visit_cents, regular_cents,
+  // lines }), only the sizes where every deal price is below the regular one
+  function previewDeals() {
+    return SEED.deals.slice().sort((a, b) => a.sort - b.sort).map((d) => {
+      const prices = {};
+      SIZE_CODES.forEach((g, i) => {
+        const r = d.rates[i], lines = {};
+        let first = 0, regular = 0, ok = !!r;
+        [[d.exterior, 0], [d.interior, 1]].forEach(([code, k]) => {
+          if (!code || !ok) return;
+          const reg = SEED_RATES[code][g].price;
+          if (r[k] == null || !(r[k] < reg)) { ok = false; return; }
+          lines[code] = { first_visit_cents: r[k], regular_cents: reg };
+          first += r[k]; regular += reg;
+        });
+        if (ok) prices[g] = { first_visit_cents: first, regular_cents: regular, lines };
+      });
+      return { code: d.code, name: d.name, sort: d.sort, exterior: d.exterior, interior: d.interior, prices };
+    });
   }
   const previewPhonesBooked = new Set();   // the phones a preview request used: their next one is at the regular price
   function previewQuote(p, status) {
@@ -438,17 +496,25 @@
         hold_expires_at: null, value_cents: q.value_cents, bundle_savings_cents: q.bundle_savings_cents, mobile_cents: q.mobile_cents,
         extra_cost_cents: null, extra_cost_note: null, price_pending: q.price_pending, pending_reasons: q.pending_reasons, total_cents: q.total_cents, lines: q.lines,
         first_visit_offer: !!(q.first_visit && q.first_visit.status === 'applied'),
+        first_visit_deal: q.first_visit && q.first_visit.status === 'applied' ? q.first_visit.deal : null,
+        first_visit_deal_name: q.first_visit && q.first_visit.status === 'applied' ? q.first_visit.name : null,
         created_at: steps[0][1], preview: true, example: true, shop_address: null, team: [], history: steps.map(([s, t]) => ({ status: s, at: t, note: null })),
       }, extra || {});
     };
     return [
-      // a 3-row Full Detail ($215): over $200, so the account shows the gold (doc 22)
+      // a 3-row Full Detail ($229.99): over $200, so the account shows the gold (doc 22)
       make(weekend(1), 600, { location_type: 'mobile', bundle: 'full_detail_v2', vehicle_type: 'large_suv', conditions: ['none'] }, 'completed'),
       make(weekend(3, true), 600, { location_type: 'shop', bundle: 'inside_out', vehicle_type: 'large_suv', conditions: ['none'] }, 'cancelled'),
       make(weekend(5, true), 660, { location_type: 'shop', interior: 'interior_detail', vehicle_type: 'large_suv', conditions: ['pet_hair_some'] }, 'completed'),
-      // the first visit: a Basic Wash at the new-customer price (Migration 011)
+      // the first visit: a Basic Wash at the Outside First Timer Deal's price (Migrations 011 and 012)
       make(weekend(8), 840, { location_type: 'shop', exterior: 'basic_wash', vehicle_type: 'large_suv', fv: 'applied' }, 'completed'),
     ];
+  }
+  // the deals as the site reads them: an array (jsonb keeps no key order, so the order is the deals' sort)
+  function dealsSorted(o) {
+    if (!o || typeof o !== 'object') return o;
+    o.deals = Array.isArray(o.deals) ? o.deals.slice().sort((a, b) => (a.sort || 0) - (b.sort || 0)) : [];
+    return o;
   }
   const authListeners = [];
   const authEvent = (event, signedIn) => authListeners.forEach((fn) => { try { fn(event, signedIn); } catch (e) { /* one listener never stops the others */ } });
@@ -513,8 +579,8 @@
 
     async settings() { await init(); return settingsCache; },
 
-    // The menu (Migration 011): services and their price and minutes per size (rates[code][size] = { price, minutes,
-    // first }: first is the new-customer price, Basic Wash only), the sizes, which size each vehicle type is
+    // The menu (Migration 011): services and their price and minutes per size (rates[code][size] = { price, minutes };
+    // the first-visit prices are the First Timer Deals', Migration 012: firstVisitOffer), the sizes, which size each vehicle type is
     // (typeSize; none for van and other: the price is held), what an add-on goes with (allowedWith), the inside answers
     // with their pet-hair pair (choice_group) and one-line descriptions. allOptions keeps every answer the database lets
     // this reader see, retired ones too, so an older booking's answers keep their words (the console, the Team page).
@@ -543,7 +609,7 @@
         sb.from('service_type_prices').select('service_id,vehicle_type,price_cents'),
         sb.from('service_zip_codes').select('zip'),
         q('size_groups', 'code,name,short_name,sort'),
-        sb.from('service_size_rates').select('service_id,size_group,price_cents,minutes,first_visit_price_cents'),
+        sb.from('service_size_rates').select('service_id,size_group,price_cents,minutes'),
         sb.from('addon_allowed_with').select('addon_id,service_id'),
       ]);
       for (const r of [svc, vt, fo, bp, si, ar, tp, zz, sg, sr, aw]) if (r.error) throw fromDb(r.error);
@@ -554,7 +620,7 @@
       const addonRules = {}; ar.data.forEach((r) => { addonRules[byId[r.addon_id]] = r.needs; });
       const typePrices = {}; tp.data.forEach((r) => { (typePrices[byId[r.service_id]] = typePrices[byId[r.service_id]] || {})[r.vehicle_type] = r.price_cents; });
       const rates = {}; sr.data.filter((r) => activeId.has(r.service_id)).forEach((r) => {
-        (rates[byId[r.service_id]] = rates[byId[r.service_id]] || {})[r.size_group] = { price: r.price_cents, minutes: Number(r.minutes), first: r.first_visit_price_cents };
+        (rates[byId[r.service_id]] = rates[byId[r.service_id]] || {})[r.size_group] = { price: r.price_cents, minutes: Number(r.minutes) };
       });
       // (an add-on limited to services the menu retired: only the active ones count)
       const allowedWith = {}; aw.data.filter((r) => activeId.has(r.service_id)).forEach((r) => { (allowedWith[byId[r.addon_id]] = allowedWith[byId[r.addon_id]] || []).push(byId[r.service_id]); });
@@ -571,19 +637,21 @@
       return menuCache;
     },
 
-    // The first-time Basic Wash price, for the Services page and the cards: { active, ends_on, prices: { size:
-    // { first_visit_cents, regular_cents } } } (get_first_visit_offer; the end date is the owner's, in business_settings)
+    // The First Timer Deals (Migration 012), for the banner, the Services page, the cards and the booking: { active,
+    // ends_on, prices (the Outside deal per size, as Migration 011 gave it), deals: [{ code, name, sort, exterior,
+    // interior, prices: { size: { first_visit_cents, regular_cents, lines } } }] } (get_first_visit_offer; the end date
+    // is the owner's, in business_settings). deals is always an array, in the database's order (sort).
     async firstVisitOffer() {
       await init();
       if (mode === 'preview') {
-        const on = PREVIEW_TODAY() <= SEED.offer_ends_on;
-        const prices = {};
-        if (on) SIZE_CODES.forEach((g) => { const r = SEED_RATES.basic_wash[g]; prices[g] = { first_visit_cents: r.first, regular_cents: r.price }; });
-        return { active: on, ends_on: on ? SEED.offer_ends_on : null, prices };
+        if (!previewOfferOn()) return { active: false, ends_on: null, prices: {}, deals: [] };
+        const deals = previewDeals(), out = deals.find((d) => d.code === 'outside'), prices = {};
+        if (out) Object.keys(out.prices).forEach((g) => { prices[g] = { first_visit_cents: out.prices[g].first_visit_cents, regular_cents: out.prices[g].regular_cents }; });
+        return { active: true, ends_on: SEED.offer_ends_on, prices, deals };
       }
-      return rpc('get_first_visit_offer');
+      return dealsSorted(await rpc('get_first_visit_offer'));
     },
-    // The 4-week pop-up (my_first_visit_offer): { show, ends_on, prices } for the signed-in customer; the database
+    // The 4-week pop-up (my_first_visit_offer): { show, ends_on, prices, deals } for the signed-in customer; the database
     // decides (an account at least 28 days old with no booking yet, while the offer runs). Preview: ?offerpopup shows it.
     async myFirstVisitOffer() {
       await init();
@@ -592,8 +660,8 @@
         return Object.assign({ show: /[?&]offerpopup\b/.test(location.search) && o.active }, o);
       }
       const { data } = await sb.auth.getSession();
-      if (!(data && data.session)) return { show: false };
-      return rpc('my_first_visit_offer');
+      if (!(data && data.session)) return { show: false, deals: [] };
+      return dealsSorted(await rpc('my_first_visit_offer'));
     },
 
     async session() {
@@ -840,6 +908,9 @@
           history: [{ status: 'requested', at: created.toISOString(), note: null }],   // as my_bookings logs a new request
           conditions: (p.conditions || []).slice(),   // as my_bookings returns them (Migration 008 part 3)
           first_visit_offer: !!(q.first_visit && q.first_visit.status === 'applied'),
+          // which deal it got, and its name (booking_receipt, Migration 012)
+          first_visit_deal: q.first_visit && q.first_visit.status === 'applied' ? q.first_visit.deal : null,
+          first_visit_deal_name: q.first_visit && q.first_visit.status === 'applied' ? q.first_visit.name : null,
         };
         previewPhonesBooked.add(ph);
         previewBookings.unshift(r);

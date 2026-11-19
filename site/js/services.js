@@ -12,19 +12,20 @@
   const stacked = window.matchMedia('(max-width: 980px)');   // the Table's panel sits under the grid
   const SVG = 'http://www.w3.org/2000/svg';
 
-  // ---------------------------------------------------------------- the elements (the menu of Migration 011, Nov 17, 2026)
+  // ---------------------------------------------------------------- the elements (the menu of Migration 011, Nov 17, 2026;
+  // the prices of Migration 012, Nov 18)
   // code: the service in the database; the key is also the booking's route token (#book-bw opens it chosen). Price and
   // time are the database's for the size picked on the page (the size switch); what is written here is the menu as
   // seeded, for a car, shown until the database answers. A bundle's lead is the start of its description; the saving
   // after it comes from the prices (fromMenu).
   const ELEMENTS = [
-    { key: 'bw', code: 'basic_wash', sym: 'Bw', num: '1', name: 'Basic Wash', tile: 'Basic Wash', short: 'Basic Wash', price: '$50', time: '1 h 32 min', eq: '',
+    { key: 'bw', code: 'basic_wash', sym: 'Bw', num: '1', name: 'Basic Wash', tile: 'Basic Wash', short: 'Basic Wash', price: '$59.99', time: '1 h 32 min', eq: '',
       desc: 'Thick foam to loosen the dirt, then a careful two-bucket hand wash. Rinsed and hand-dried; wheels and tires rinsed with the car. For cars with normal road dirt.' },
-    { key: 'hw', code: 'hand_wash', sym: 'Hw', num: '2', name: 'Hand Wash', tile: 'Hand Wash', short: 'Hand Wash', price: '$75', time: '1 h 31 min', eq: '',
+    { key: 'hw', code: 'hand_wash', sym: 'Hw', num: '2', name: 'Hand Wash', tile: 'Hand Wash', short: 'Hand Wash', price: '$89.99', time: '1 h 31 min', eq: '',
       desc: 'Thick foam, a careful two-bucket hand wash, wheels and tires cleaned, tire shine. Rinsed, hand-dried and blown out. Outside glass.' },
-    { key: 'io', code: 'inside_out', sym: 'Io', num: '3', name: 'Inside & Out', tile: 'Inside & Out', short: 'Inside & Out', price: '$100', time: '2 h 43 min', eq: 'Hw + Ic → Io',
+    { key: 'io', code: 'inside_out', sym: 'Io', num: '3', name: 'Inside & Out', tile: 'Inside & Out', short: 'Inside & Out', price: '$114.99', time: '2 h 43 min', eq: 'Hw + Ic → Io',
       lead: 'Everything in the Hand Wash, plus the inside of the Interior Clean' },
-    { key: 'au', code: 'full_detail_v2', sym: 'Au', num: '79', name: 'Full Detail', tile: 'Full Detail', short: 'Full Detail', price: '$165', time: '5 h 15 min', eq: 'Hw + Id → Au',
+    { key: 'au', code: 'full_detail_v2', sym: 'Au', num: '79', name: 'Full Detail', tile: 'Full Detail', short: 'Full Detail', price: '$179.99', time: '5 h 15 min', eq: 'Hw + Id → Au',
       lead: 'Everything in Inside & Out, plus a pre-soak, wheel wells, a water-repellent sealant foam, seats and carpets shampooed and extracted, and steam' },
     { key: 'ic', code: 'interior_clean', sym: 'Ic', num: '4', name: 'Interior Clean', tile: 'Interior Clean', short: 'Interior Clean', price: '$75', time: '1 h 43 min', eq: '',
       desc: 'The inside of Inside & Out, no wash: vacuumed, wiped, mats scrubbed and left dry, inside windows, a protectant on the dash and trim.' },
@@ -612,9 +613,11 @@
   // Migration 011: every price and time goes by size. The page has one size switch (Car / 2 rows / 3 rows or pickup /
   // Minivan, remembered on this device as ad-size; the booking sets it too when a vehicle type is chosen), and every
   // [data-price], [data-time], [data-saving], [data-every] and the Table show that size's figures from the database's
-  // service_size_rates. [data-size-name] says which size is shown. The new-customer price ([data-offer], [data-offer-fine])
-  // and its end date come from get_first_visit_offer, so the date the owner sets shows everywhere. Until the database
-  // answers, and should it never, the page shows the menu as seeded (a car). Never a "from" price.
+  // service_size_rates. [data-size-name] says which size is shown. The First Timer Deals (Migration 012: the banner
+  // [data-deals-banner], the section #svc-deals, the cards' lines [data-deal-line], the small print [data-deals-fine])
+  // and their end date come from get_first_visit_offer, so what the owner sets shows everywhere, and all of it hides
+  // when the offer is over. Until the database answers, and should it never, the page shows the menu as seeded (a car)
+  // and no deal. Never a "from" price.
   // Still typed by hand (change them too when the menu changes in the database): the LD+JSON priceRange in index.html,
   // the FAQ's prices and times (content.js), the Full Detail's "not included" line and the home cards' lines.
   const money = window.AlchemistUI.money;
@@ -713,22 +716,66 @@
     if (!offerP) offerP = D.init().then(() => D.firstVisitOffer()).catch(() => { offerP = null; return null; });
     return offerP;
   }
-  const longDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  // The new-customer lines: the gold line, and the small print with the real prices and end date (the owner's words,
-  // spec Nov 17). Hidden when the offer has ended or the database has none.
-  function paintOffer(o) {
-    const on = !!(o && o.active && o.prices && o.prices.car);
-    document.querySelectorAll('[data-offer]').forEach((n) => {
-      const wrap = n.closest('[data-offer-wrap]') || n;
-      wrap.hidden = !on;
-      if (!on) return;
-      const p = o.prices[n.dataset.offer === 'size' ? size : 'car'] || o.prices.car;
-      put(n, 'New customers: your first Basic Wash is ' + money(p.first_visit_cents));
-    });
-    document.querySelectorAll('[data-offer-fine]').forEach((n) => {
+  // The First Timer Deals (Migration 012), from get_first_visit_offer for the size shown: the gold banner at the top of
+  // Home and Services (owner: "on the top"), the section's three cards (name, what, the first-visit price, every size,
+  // the price after the first visit, "Book this deal"), the line on the Basic Wash and Interior Clean cards, and the
+  // small print. Hidden, every one, when the offer is over or can't be read: the database says.
+  const U = window.AlchemistUI;
+  const GROUP_OF = { exterior: 'services-exterior', interior: 'services-interior' };
+  function paintBanner(o) {
+    const on = !!(o && o.active && o.deals && o.deals.length);
+    document.querySelectorAll('[data-deals-banner]').forEach((n) => {
+      if (n.hidden === !on) return;
       n.hidden = !on;
-      if (on) put(n, window.AlchemistUI.offerFine(o));
+      if (on && !reduce) n.classList.add('arrive');
     });
+    return on;
+  }
+  function paintOffer(o) {
+    const on = paintBanner(o);
+    const nameOf = (code) => (ELEMENTS.find((e) => e.code === code) || {}).name || code;
+    const list = on ? U.dealLines(o, size, nameOf) : [];
+    document.querySelectorAll('[data-deals]').forEach((n) => { n.hidden = !list.length; });
+    document.querySelectorAll('[data-deals-fine]').forEach((n) => { n.hidden = !list.length; if (list.length) put(n, U.dealsFine(o, size, sizeShort(size), nameOf)); });
+    // the cards: built once for the deals the database has, then their figures follow the size switch
+    document.querySelectorAll('[data-deal-grid]').forEach((grid) => {
+      const key = list.map((d) => d.code).join();
+      if (grid.dataset.key !== key) { grid.dataset.key = key; grid.replaceChildren(...list.map(dealCard)); }
+      list.forEach((d) => {
+        const card = grid.querySelector('[data-deal="' + d.code + '"]');
+        if (!card) return;
+        put(card.querySelector('[data-deal-price]'), money(d.price));
+        put(card.querySelector('[data-deal-after]'), 'After your first visit: ' + money(d.regular) + (d.codes.length > 1 ? ' for the two' : '') + '.');
+        const deal = o.deals.find((x) => x.code === d.code), every = card.querySelector('[data-deal-every]');
+        const ekey = JSON.stringify([size, deal.prices]);
+        if (every && every.dataset.key !== ekey) {
+          every.dataset.key = ekey;
+          every.replaceChildren(...sizes.filter((z) => deal.prices[z.code]).map((z) => el('span', { class: z.code === size ? 'on' : null, 'aria-current': z.code === size ? 'true' : null }, z.short_name + ' ', el('b.tnum', money(deal.prices[z.code].first_visit_cents)))));
+        }
+      });
+    });
+    // the line on a card a deal is for alone: "First Timer Deal: your first one is $35"
+    document.querySelectorAll('[data-deal-line]').forEach((n) => {
+      const d = list.find((x) => x.codes.length === 1 && x.codes[0] === n.dataset.dealLine);
+      const wrap = n.closest('[data-deal-wrap]') || n;
+      wrap.hidden = !d;
+      if (d) put(n, 'First Timer Deal: your first one is ' + money(d.price));
+    });
+  }
+  function dealCard(d) {
+    const link = (code) => {
+      const e = ELEMENTS.find((x) => x.code === code), kind = d.exterior === code ? 'exterior' : 'interior';
+      return el('a', { href: '#' + GROUP_OF[kind] }, e ? e.name : code);
+    };
+    const what = [];
+    d.codes.forEach((c, i) => { if (i) what.push(' + '); what.push(link(c)); });
+    return el('article.deal-card', { dataset: { deal: d.code } },
+      el('h3', d.name),
+      el('p.deal-what', what),
+      el('p.amount.tnum', { dataset: { dealPrice: '' } }, money(d.price)),
+      el('p.every', { 'aria-label': 'Every size', dataset: { dealEvery: '' } }),
+      el('p.deal-after.tnum', { dataset: { dealAfter: '' } }),
+      el('a.btn.btn-glass', { href: '#book-' + d.token }, 'Book this deal ', el('span.arrow', { 'aria-hidden': 'true' }, '→')));
   }
   // every figure on the page for the size shown (the menu already loaded)
   function paint(m) {
@@ -897,5 +944,8 @@
     buildStep(m);
   }
 
-  window.AlchemistServices = { mountTable, mountRitual, mountBead, mountLineup, mountSize, syncMenu, priced, signs: SIGNS, oldTokens: OLD_TOKENS, size: () => size };
+  // The banner alone, as Home arrives (app.js, after the hero's first frame): the offer read, the gold line shown only
+  // while the database says the deals run, hidden on any failure
+  function showBanner() { return loadOffer().then((o) => paintBanner(o)).catch(() => false); }
+  window.AlchemistServices = { mountTable, mountRitual, mountBead, mountLineup, mountSize, syncMenu, priced, loadOffer, paintBanner, showBanner, signs: SIGNS, oldTokens: OLD_TOKENS, size: () => size };
 })();

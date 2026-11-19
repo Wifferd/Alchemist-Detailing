@@ -67,6 +67,11 @@
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const held = p ? lightOn(p) : 0;
       root.classList.add('ready');
+      // the First Timer Deals' gold line at the top of the hero (owner, Nov 18: "on the top"): asked once, after the
+      // hero's first frame, apart from the menu's figures (those wait for the wash); shown only while the database says
+      // the deals run, and hidden on any failure (services.js showBanner)
+      const S = window.AlchemistServices, ask = () => { if (S && S.showBanner) S.showBanner(); };
+      if (window.requestIdleCallback) requestIdleCallback(ask, { timeout: 1200 }); else setTimeout(ask, 0);
       if (met) return;   // (no wordmark light to wait for)
       light.hold(held || 1450 + 1600 + 240);   // Book Now's shine crosses after the wordmark's light has (letterSweep: 1.45s, then 1.6s)
       if (unsplit) setTimeout(unsplit, 2000);   // fallback, in case the last letter's animationend never comes
@@ -3187,7 +3192,16 @@
       if (r === 'services' && sub && !again) {
         const el = document.getElementById('svc-' + sub);
         const go = () => { chapterHold(); el.scrollIntoView({ behavior: changed || reduce ? 'auto' : 'smooth', block: 'start' }); };
-        if (el) requestAnimationFrame(() => (cut ? whenLifted(go) : go()));
+        // a part shown only once the database answers (the First Timer Deals, #services-deals) is gone to when it shows,
+        // if it shows within 4 s and the page hasn't been moved meanwhile
+        const shown = () => new Promise((res) => {
+          if (!el.hidden) return res(true);
+          const y = window.scrollY;
+          const mo = new MutationObserver(() => { if (!el.hidden) { mo.disconnect(); clearTimeout(t); res(Math.abs(window.scrollY - y) < 2); } });
+          const t = setTimeout(() => { mo.disconnect(); res(false); }, 4000);
+          mo.observe(el, { attributes: true, attributeFilter: ['hidden'] });
+        });
+        if (el) requestAnimationFrame(() => (cut ? whenLifted(() => shown().then((ok) => { if (ok) go(); })) : shown().then((ok) => { if (ok) go(); })));
       }
       // Contact's ZIP box (#contact-zip): placed now, before the page's reveals are armed, so they rise where it lands
       // (armed at the top, the blocks under the page's head would wait for it while it is off the screen); it places

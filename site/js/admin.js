@@ -49,10 +49,10 @@
       vehicle_type: ['suv', 'truck', 'sedan', 'sedan', 'suv', 'suv'][n % 6], vehicle_size: 'standard', conditions: ['none'], damage: ['none'], special_request: null, photo_paths: [],
       location_type: n % 2 ? 'mobile' : 'shop', address: n % 2 ? '100 Example Ln' : null, address_zip: n % 2 ? '75002' : null,
       service_date: iso(n % 3), start_min: 600 + (n % 4) * 90, duration_min: 191, status: 'confirmed', queue: 'requests', review_reasons: [], hold_expires_at: null,
-      value_cents: 16500, bundle_savings_cents: 5000, mobile_cents: 0, price_pending: false, pending_reasons: [], extra_cost_cents: null, extra_cost_note: null,
-      total_cents: 11500, created_at: new Date(Date.now() - n * 3600e3).toISOString(), first_visit_offer: false,
-      // the menu of Migration 011: an Inside & Out on a 2-row SUV ($115, $50 under its parts booked apart)
-      items: [{ code: 'inside_out', name: 'Inside & Out', kind: 'bundle', price_cents: 11500, mobile_cents: 0, duration_min: 191, included: false }],
+      value_cents: 17999, bundle_savings_cents: 5000, mobile_cents: 0, price_pending: false, pending_reasons: [], extra_cost_cents: null, extra_cost_note: null,
+      total_cents: 12999, created_at: new Date(Date.now() - n * 3600e3).toISOString(), first_visit_offer: false, first_visit_deal: null,
+      // the menu of Migration 012: an Inside & Out on a 2-row SUV ($129.99, $50 under its parts booked apart)
+      items: [{ code: 'inside_out', name: 'Inside & Out', kind: 'bundle', price_cents: 12999, mobile_cents: 0, duration_min: 191, included: false }],
       assignments: [], events: [] }, o);
     PREVIEW.bookings.push(
       // a pickup's Interior Clean with some pet hair ($90 + $30)
@@ -60,17 +60,18 @@
       // "Not sure": no menu price, so the request waits in Review for the owner's price (size_price)
       mk(2, { status: 'requested', queue: 'review', review_reasons: ['size_price'], hold_expires_at: new Date(Date.now() + 20 * 3600e3).toISOString(), vehicle_not_sure: true, vehicle_type: null, vehicle_description: 'Example: a lifted pickup', price_pending: true, pending_reasons: ['size_price'], total_cents: null, value_cents: 0, bundle_savings_cents: 0, duration_min: 237,
         items: [{ code: 'inside_out', name: 'Inside & Out', kind: 'bundle', price_cents: null, mobile_cents: 0, duration_min: 237, included: false }] }),
-      // a first visit: the Basic Wash at the new-customer price (Migration 011)
-      mk(8, { status: 'requested', hold_expires_at: new Date(Date.now() + 9 * 3600e3).toISOString(), vehicle_type: 'sedan', first_visit_offer: true, value_cents: 3500, bundle_savings_cents: 0, total_cents: 3500, duration_min: 92,
-        items: [{ code: 'basic_wash', name: 'Basic Wash', kind: 'exterior', price_cents: 3500, regular_cents: 5000, mobile_cents: 0, duration_min: 92, included: false }] }),
+      // a first visit: the Outside + inside First Timer Deal on a car (Migration 012: $35 + $44.99 = $79.99)
+      mk(8, { status: 'requested', hold_expires_at: new Date(Date.now() + 9 * 3600e3).toISOString(), vehicle_type: 'sedan', first_visit_offer: true, first_visit_deal: 'both', value_cents: 7999, bundle_savings_cents: 0, total_cents: 7999, duration_min: 163,
+        items: [{ code: 'basic_wash', name: 'Basic Wash', kind: 'exterior', price_cents: 3500, regular_cents: 5999, mobile_cents: 0, duration_min: 92, included: false },
+          { code: 'interior_clean', name: 'Interior Clean', kind: 'interior', price_cents: 4499, regular_cents: 7500, mobile_cents: 0, duration_min: 103, included: false }] }),
       mk(3, { status: 'confirmed', assignments: [{ employee_id: 'staff-1', name: 'Owner' }] }),
       mk(4, { status: 'confirmed' }),
       mk(5, { status: 'requested', queue: 'review', review_reasons: ['damage'], damage: ['unknown'], damage_note: 'Scratch on the door, not sure how deep.', hold_expires_at: new Date(Date.now() + 10 * 3600e3).toISOString() }),
       mk(6, { status: 'completed', service_date: iso(-3) }),
-      // a 3-row Full Detail ($215): $200 or more, so the console shows it gold (doc 22)
+      // a 3-row Full Detail ($229.99): $200 or more, so the console shows it gold (doc 22)
       mk(7, { status: 'confirmed', service_date: iso(1), start_min: 600, duration_min: 437, vehicle_type: 'large_suv', assignments: [{ employee_id: 'staff-2', name: 'Example' }],
-        items: [{ code: 'full_detail_v2', name: 'Full Detail', kind: 'bundle', price_cents: 21500, mobile_cents: 0, duration_min: 437, included: false }, { code: 'leather_care', name: 'Leather care', kind: 'addon', price_cents: 0, mobile_cents: 0, duration_min: 0, included: true }],
-        value_cents: 24500, bundle_savings_cents: 3000, mobile_cents: 0, total_cents: 21500 }));
+        items: [{ code: 'full_detail_v2', name: 'Full Detail', kind: 'bundle', price_cents: 22999, mobile_cents: 0, duration_min: 437, included: false }, { code: 'leather_care', name: 'Leather care', kind: 'addon', price_cents: 0, mobile_cents: 0, duration_min: 0, included: true }],
+        value_cents: 25999, bundle_savings_cents: 3000, mobile_cents: 0, total_cents: 22999 }));
     PREVIEW.staff.push({ id: 'staff-1', first_name: 'Owner', last_name: null, role: 'admin', phone: '19453617551', is_active: true }, { id: 'staff-2', first_name: 'Example', last_name: 'Detailer', role: 'detailer', phone: '19725550199', is_active: true });
     PREVIEW.blocked.push({ day: iso(12), reason: 'Example: closed' });
     PREVIEW.log.push({ id: 3, action: 'insert', target_type: 'appointment_assignments', target_id: 'ex-7', old_value: null, new_value: { appointment_id: 'ex-7' }, created_at: new Date().toISOString(), actor_id: 'staff-1' },
@@ -301,7 +302,7 @@
         el('span.appt-meta', minutesText(b.duration_min) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway'))),
       showWho ? el('span.appt-who', { class: who ? 'on' : '' }, who ? '✓ ' + who : 'Unassigned') : null,
       el('span.appt-what', el('b', name(b)), el('span.appt-sub', el('span', services(b)), el('span.appt-car', ' · ' + car(b)))),
-      el('span.appt-tags', statusPill(b, hold), isGold(b) ? el('span.rv-gold', 'Gold detail') : null, b.first_visit_offer ? el('span.adm-new', 'New-customer price') : null),
+      el('span.appt-tags', statusPill(b, hold), isGold(b) ? el('span.rv-gold', 'Gold detail') : null, b.first_visit_offer ? el('span.adm-new', 'First Timer Deal') : null),
       el('span.appt-ref.tnum', { class: b.total_cents == null ? 'pending' : '' }, b.total_cents == null ? 'Price pending' : money(b.total_cents)),
       hold && b.total_cents != null ? el('span.appt-left.tnum', { class: new Date(hold) <= Date.now() ? 'late' : '' }, hoursLeft(hold)) : null];
     return el('article.appt.adm.adm-row', { class: 'st-' + b.status + (open ? ' open' : '') + (isGold(b) ? ' gold' : '') + (compact ? ' compact' : '') },
@@ -341,7 +342,7 @@
           el('dt', 'Phone'), el('dd', el('a', { href: 'tel:+' + (b.contact_phone || '') }, phonePretty(b.contact_phone || '')), b.contact_email ? ' · ' + b.contact_email : ''),
           el('dt', 'Where'), el('dd', where(b)),
           el('dt', 'Vehicle'), el('dd', vehicle(b) + (b.vehicle_size === 'xl' ? ' · XL' : '') + (typeWords(b) ? ' · ' + typeWords(b) : '')),
-          b.first_visit_offer ? [el('dt', 'Price'), el('dd', 'New-customer price (first visit: checked by phone' + (b.location_type === 'mobile' ? ', and by address when it has a house number' : '') + ')')] : null,
+          b.first_visit_offer ? [el('dt', 'Price'), el('dd', 'First Timer Deal (' + dealName(b) + '): first visit, checked by phone' + (b.location_type === 'mobile' ? ', and by address when it has a house number' : '') + '.')] : null,
           el('dt', 'Inside'), el('dd', (b.conditions || []).map((c) => labelOf('condition', c)).join(', ') || '—'),
           el('dt', 'Damage'), el('dd', (b.damage || []).map((c) => labelOf('damage', c)).join(', ') || '—'),
           notes.map(([k, v]) => [el('dt', k), el('dd.adm-quote', v)]),
@@ -373,12 +374,19 @@
     if (e.to_status && e.from_status !== e.to_status) return (STATUS[e.from_status] || e.from_status) + ' → ' + (STATUS[e.to_status] || e.to_status);
     return e.to_queue && e.to_queue !== e.from_queue ? 'Moved to ' + laneOf(e.to_queue) : 'Updated';
   }
+  // the deal a booking got (Migration 012's first_visit_deal; a booking from before it had the Outside one)
+  const DEAL_NAMES = { outside: 'Outside', inside: 'Inside', both: 'Outside + inside' };
+  const dealName = (b) => b.first_visit_deal_name || DEAL_NAMES[b.first_visit_deal || 'outside'] || b.first_visit_deal;
+  // The owner sees each line at its own price; a First Timer Deal line keeps its regular price (when booked) under it,
+  // and a two-line deal says once what the two cost together
   function priceLines(b) {
+    const deal = (b.items || []).filter((l) => l.regular_cents != null && !l.included);
     const out = el('div.pr', (b.items || []).map((l) => {
-      const offer = l.regular_cents != null && !l.included;
-      return [el('div.pr-line', { class: l.included ? 'inc' : '' }, el('span', l.name, offer ? ', new-customer price' : null, l.included ? el('small', ' · Included') : null), el('span.tnum', l.included ? '$0' : l.price_cents == null ? 'Pending' : money(l.price_cents))),
-        offer ? el('p.pr-note', 'Regular price ' + money(l.regular_cents) + ' (first visit: one per phone number and one per address).') : null];
+      const offer = deal.includes(l);
+      return [el('div.pr-line', { class: l.included ? 'inc' : '' }, el('span', l.name, offer ? ', First Timer Deal' : null, l.included ? el('small', ' · Included') : null), el('span.tnum', l.included ? '$0' : l.price_cents == null ? 'Pending' : money(l.price_cents))),
+        offer ? el('p.pr-note', 'Regular price when booked ' + money(l.regular_cents) + ' (first visit: one per phone number and one per address).') : null];
     }));
+    if (deal.length > 1) out.appendChild(el('p.pr-note', 'First Timer Deal for the two: ' + money(deal.reduce((t, l) => t + (l.price_cents || 0), 0)) + ' (regular ' + money(deal.reduce((t, l) => t + l.regular_cents, 0)) + ').'));
     if (b.bundle_savings_cents) out.appendChild(el('p.pr-note', 'Bundle price: saves ' + money(b.bundle_savings_cents) + ' against the services booked separately (already in the line above).'));
     if (b.location_type === 'mobile' && b.mobile_cents) out.appendChild(el('div.pr-line', el('span', 'Mobile'), el('span.tnum', money(b.mobile_cents))));
     if (b.extra_cost_cents != null) out.appendChild(el('div.pr-line', el('span', (U.heldLine({ lines: b.items }) ? 'Price for this vehicle' : 'Extra') + (b.extra_cost_note ? ' · ' + b.extra_cost_note : '')), el('span.tnum', money(b.extra_cost_cents))));
@@ -700,7 +708,7 @@
     // a request whose hold ran out no longer keeps the time from customers: it is dimmed and says so
     const lapsed = (b) => ['requested', 'needs_information'].includes(b.status) && b.hold_expires_at && new Date(b.hold_expires_at) <= Date.now();
     const item = (b) => el('button.cal-item', { type: 'button', class: 'st-' + b.status + (isGold(b) ? ' gold' : '') + (lapsed(b) ? ' lapsed' : '') + (st.open === b.id ? ' on' : ''), 'aria-expanded': st.open === b.id ? 'true' : 'false', title: name(b) + ' · ' + services(b) + ' · ' + vehicle(b) + (lapsed(b) ? ' · hold expired' : ''), onclick: () => (st.open === b.id ? (st.open = null, st.panel = null, render()) : openBooking(b)) },
-      el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway') + (lapsed(b) ? ' · hold expired' : '')), isGold(b) ? el('span.rv-gold', 'Gold') : null, b.first_visit_offer ? el('span.adm-new', 'New') : null);   // the short label: the week's columns are narrow, the card's gold border says the rest
+      el('b', clock(b.start_min)), ' ', name(b), el('small', services(b) + ' · ' + (b.location_type === 'mobile' ? 'Mobile' : 'Driveway') + (lapsed(b) ? ' · hold expired' : '')), isGold(b) ? el('span.rv-gold', 'Gold') : null, b.first_visit_offer ? el('span.adm-new', { title: 'First Timer Deal' }, 'Deal') : null);   // the short label: the week's columns are narrow, the card's gold border says the rest
     const cols = [];
     for (let i = 0; i < days; i++) {
       const iso = H().isoDate(H().addDays(start, i)), past = iso < todayIso, today = iso === todayIso;
@@ -887,10 +895,18 @@
       // whether an address is on file, asked without reading it; the admin only (a manager never asks)
       if (staff.role === 'admin') s.addressOnFile = await addressOnFile();
     } else s.addressOnFile = false;
+    // one row per First Timer Deal with its four prices (get_first_visit_offer: the deals on sale)
+    let dealRows = [];
+    try {
+      const o = await D.firstVisitOffer();
+      const SZ = [['car', 'Car'], ['two_rows', '2 rows'], ['three_rows', '3 rows or pickup'], ['minivan', 'Minivan']];
+      dealRows = ((o && o.active && o.deals) || []).map((d) => ['First Timer Deal: ' + d.name, SZ.filter(([g]) => d.prices[g]).map(([g, n]) => n + ' ' + money(d.prices[g].first_visit_cents)).join(' · ')]);
+    } catch (e) { /* no rows: the end date still shows */ }
     const rows = [['Start times', clock(s.first_start_min) + ' – ' + clock(s.last_start_min) + ', every ' + s.slot_step_min + ' min'], ['Jobs end by', clock(s.latest_end_min)], ['Closed every week', closuresText((settings && settings.weekly_closures) || s.weekly_closures)], ['Book ahead', s.min_days_ahead + ' to ' + s.max_days_ahead + ' days'], ['Hold', s.hold_hours + ' hours'],
       ['At once', (s.max_shop_jobs != null ? s.max_shop_jobs + ' driveway or ' + s.max_mobile_jobs + ' mobile' : '—')], ['Gaps', (s.shop_buffer_min != null ? s.shop_buffer_min + ' min driveway, ' + s.mobile_buffer_min + ' min mobile travel' : '—')],
-      ['New-customer price ends', s.first_visit_offer_ends_on ? new Date(s.first_visit_offer_ends_on + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : (D.isLive ? 'No offer' : 'February 17, 2027')],
-      ['Offer pop-up', (s.first_visit_popup_days || 28) + ' days after an account is made, while it has no booking'],
+      ['First Timer Deals end', s.first_visit_offer_ends_on ? new Date(s.first_visit_offer_ends_on + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : (D.isLive ? 'No offer' : 'February 17, 2027')],
+      ...dealRows,
+      ['Deals pop-up', (s.first_visit_popup_days || 28) + ' days after an account is made, while it has no booking'],
       ['One visit, shared', (s.visit_overhead_min != null ? s.visit_overhead_min : 32) + ' min (setup, pack-up, handover) when a wash and an inside service are booked apart'],
       ['Phone', s.public_phone], ['Area', s.public_area + ', ' + s.mobile_radius_miles + ' miles'], ['Authenticator required', s.require_mfa_for_managers === false ? 'No' : 'Yes'], staff.role === 'admin' ? ['Your address', s.addressOnFile ? 'On file (sent only with confirmed “Come to us” bookings)' : s.addressOnFile === false ? 'Not set' : 'Couldn’t check right now'] : ['Shop address', 'Private: not shown here']];
     return el('div.bk-grid', el('p.bk-muted', 'Read-only for now. Ask Claude Code to change a value; the calendar note and closed days are under Calendar.'), el('dl.sum-body', rows.map(([k, v]) => [el('dt', k), el('dd', v)])));

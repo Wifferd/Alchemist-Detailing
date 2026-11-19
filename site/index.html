@@ -45,7 +45,7 @@
   "telephone": "+1-945-361-7551",
   "image": "https://thealchemistdetailing.com/img/og.jpg",
   "logo": "https://thealchemistdetailing.com/icon-512.png",
-  "priceRange": "$50 - $235",
+  "priceRange": "$59.99 - $249.99",
   "address": { "@type": "PostalAddress", "addressLocality": "Parker", "addressRegion": "TX", "addressCountry": "US" },
   "areaServed": "Parker, Texas, and mobile within about 10 miles",
   "openingHoursSpecification": [
@@ -151,6 +151,9 @@
 
   <section class="hero" id="top" aria-label="Alchemist Detailing">
     <canvas class="hero-gl" id="heroGl" aria-hidden="true"></canvas>
+    <!-- the First Timer Deals' gold line, at the top (owner, Nov 18: "on the top"): placed over the hero, taking no room,
+         shown by services.js only while get_first_visit_offer says the deals run -->
+    <a class="deals-banner hero-deals" href="#services-deals" data-deals-banner hidden><span class="offer-mark" aria-hidden="true">✦</span><span>First time? Check out First Timer Deals!</span><span class="arrow" aria-hidden="true">→</span></a>
     <div class="hero-inner">
       <span class="hero-mono" data-in style="--d:0"><img class="hero-mark" src="img/mono-metallic.webp" alt="" width="547" height="601" fetchpriority="high"></span>
       <h1 data-in style="--d:140"><span class="l1 gold-text">Alchemist</span><span class="l2" data-in style="--d:1000">Detailing</span></h1>
@@ -199,7 +202,7 @@
               <span class="au-band" aria-hidden="true"></span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.1 5.5 7.3 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.8 8.8 7.6 12 3.5z"/><path d="M9.4 14.2a2.7 2.7 0 0 0 2.6 2.6"/></g></svg>
               <span class="kind">Washes</span>
-              <span class="from"><span data-size-name="short">Car</span> <span class="price tnum" data-price="basic_wash">$50</span></span>
+              <span class="from"><span data-size-name="short">Car</span> <span class="price tnum" data-price="basic_wash">$59.99</span></span>
               <p class="desc">Basic Wash or Hand Wash: foam, a two-bucket hand wash and a hand dry.</p>
               <span class="go"><span>Explore<span class="go-k"> Washes</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
@@ -217,7 +220,7 @@
               <span class="au-band" aria-hidden="true"></span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8l8.2 4.4L12 12.6 3.8 8.2z"/><path d="M3.8 12.1L12 16.5l8.2-4.4"/><path d="M3.8 16L12 20.4l8.2-4.4"/></g></svg>
               <span class="kind">Inside &amp; out</span>
-              <span class="from"><span data-size-name="short">Car</span> <span class="price tnum" data-price="inside_out">$100</span></span>
+              <span class="from"><span data-size-name="short">Car</span> <span class="price tnum" data-price="inside_out">$114.99</span></span>
               <p class="desc">The wash and the inside together, for less than booking them apart.</p>
               <span class="go"><span>Explore<span class="go-k"> Inside &amp; out</span></span><span class="arrow" aria-hidden="true">→</span></span>
             </a>
@@ -320,11 +323,11 @@
         <h2 class="display">Four steps to a&nbsp;booked detail</h2>
         <div class="rule" data-reveal></div>
       </div>
-      <!-- the booking form's own order (owner, Nov 10): contact and car, then where, the service and the time, then the confirmation -->
+      <!-- the booking form's own order (owner, Nov 18: the service first, the date second, then the rest; doc 54) -->
       <ol class="steps" data-reveal>
-        <li class="step"><span class="n">01</span><h3>Tell us about you</h3><p>Your name, a phone number we can reach, and the car.</p></li>
-        <li class="step"><span class="n">02</span><h3>Choose where</h3><p>We come to you within about 10 miles of Parker, or you come to us.</p><a class="note-link step-link" href="#contact-zip">Check your ZIP <span class="arrow" aria-hidden="true">→</span></a></li>
-        <li class="step"><span class="n">03</span><h3>Pick your service and time</h3><p>See the price as you go, then choose an open start time, from tomorrow up to 60 days ahead.</p></li>
+        <li class="step"><span class="n">01</span><h3>Choose your service</h3><p>Your vehicle’s size, where (we come to you within about 10 miles of Parker, or you come to us) and the service. See the price as you go.</p><a class="note-link step-link" href="#contact-zip">Check your ZIP <span class="arrow" aria-hidden="true">→</span></a></li>
+        <li class="step"><span class="n">02</span><h3>Pick a day and time</h3><p>Choose an open start time, from tomorrow up to 60 days ahead.</p></li>
+        <li class="step"><span class="n">03</span><h3>Tell us about you and the car</h3><p>Your name, a phone number we can reach, and the car.</p></li>
         <li class="step"><span class="n">04</span><h3>We confirm</h3><p>Your time is held for 24 hours while we review your request and confirm it.</p></li>
       </ol>
     </div>
@@ -350,6 +353,7 @@
   <section class="svc-top">
     <img class="top-photo" src="img/work/vent-1200.webp" srcset="img/work/vent-600.webp 600w, img/work/vent-1200.webp 1200w, img/work/vent-1800.webp 1800w, img/work/vent-2400.webp 2400w" sizes="100vw" alt="" width="1200" height="1600" loading="lazy" decoding="async">
     <div class="wrap page-head">
+      <a class="deals-banner" href="#services-deals" data-deals-banner hidden><span class="offer-mark" aria-hidden="true">✦</span><span>First time? Check out First Timer Deals!</span><span class="arrow" aria-hidden="true">→</span></a>
       <p class="eyebrow">Services</p>
       <h1 class="display gold-text">The Menu</h1>
       <p><span class="lead-s">Professional-grade products, finished by hand.</span> <span class="lead-s">Priced by the size of your vehicle, and you pay in person.</span></p>
@@ -365,16 +369,21 @@
     </div>
   </nav>
   <div class="wrap">
-    <!-- Migration 011 (Nov 17): one gold line above the cards (plan v3, section e), the first-time offer with its real
-         small print (services.js fills the prices and the end date from get_first_visit_offer), and the size switch:
-         every price and time on this page is for the size picked there (services.js, from service_size_rates) -->
+    <!-- Migration 011 (Nov 17): one gold line above the cards (plan v3, section e) and the size switch: every price and
+         time on this page is for the size picked there (services.js, from service_size_rates) -->
     <section class="menu-lead" aria-label="Prices">
       <p class="launch-line gold-text">Launch prices while we earn our first reviews</p>
-      <div class="offer-line" data-offer-wrap>
-        <p class="offer-head"><span class="offer-mark" aria-hidden="true">✦</span><span data-offer="car">New customers: your first Basic Wash is $35</span></p>
-        <p class="offer-fine" data-offer-fine>First visit only: one per phone number and one per address. Car $35; SUV, 3-row, pickup or minivan $40. After that, $50 car; $55 SUV, 3-row, pickup or minivan. Cars with normal road dirt. Offer ends February 17, 2027.</p>
-      </div>
       <div class="size-switch" id="svc-size"></div>
+    </section>
+
+    <!-- The First Timer Deals (Migration 012, owner Nov 18): three cards for the size picked above, built by services.js
+         from get_first_visit_offer, with "Book this deal" (#book-dealout, #book-dealin, #book-dealboth) and the small
+         print. Hidden until the database says the deals run, and again once they end. -->
+    <section class="deals-sec" id="svc-deals" aria-labelledby="dealsTitle" data-deals hidden>
+      <p class="eyebrow"><span class="offer-mark" aria-hidden="true">✦</span> First Timer Deals</p>
+      <h2 class="display" id="dealsTitle">First time? Start here.</h2>
+      <div class="deal-grid" data-deal-grid></div>
+      <p class="offer-fine" data-deals-fine hidden></p>
     </section>
 
     <!-- the Alchemist's Table (the owner's design): filled by services.js when the page first opens -->
@@ -398,8 +407,8 @@
       <div class="price-grid">
         <article class="price-card" data-code="basic_wash">
           <h3>Basic Wash</h3>
-          <p class="amount tnum" data-price="basic_wash">$50</p>
-          <div class="card-offer" data-offer-wrap><p class="offer-head"><span class="offer-mark" aria-hidden="true">✦</span><span data-offer="size">New customers: your first Basic Wash is $35</span></p></div>
+          <p class="amount tnum" data-price="basic_wash">$59.99</p>
+          <a class="card-offer" href="#services-deals" data-deal-wrap hidden><span class="offer-mark" aria-hidden="true">✦</span><span data-deal-line="basic_wash">First Timer Deal: your first one is $35</span></a>
           <p class="every" data-every="basic_wash" aria-label="Every size"></p>
           <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="basic_wash">1 h 32 min</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
@@ -409,7 +418,7 @@
         </article>
         <article class="price-card featured" data-code="hand_wash">
           <h3>Hand Wash</h3>
-          <p class="amount tnum" data-price="hand_wash">$75</p>
+          <p class="amount tnum" data-price="hand_wash">$89.99</p>
           <p class="every" data-every="hand_wash" aria-label="Every size"></p>
           <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="hand_wash">1 h 31 min</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
@@ -439,9 +448,9 @@
           <span class="tag">Best value</span>
           <span class="sig lg" aria-hidden="true"><small class="tnum">3</small>Io</span>
           <h3>Inside &amp; Out</h3>
-          <p class="amount tnum" data-price="inside_out">$100</p>
+          <p class="amount tnum" data-price="inside_out">$114.99</p>
           <p class="every" data-every="inside_out" aria-label="Every size"></p>
-          <p class="saving" data-saving="inside_out">$150 booked separately. You save <b class="tnum">$50</b>.</p>
+          <p class="saving" data-saving="inside_out">$164.99 booked separately. You save <b class="tnum">$50</b>.</p>
           <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="inside_out">2 h 43 min</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
           <ul class="checks parts"><li><a href="#services-exterior" data-part="hand_wash">Hand Wash</a></li><li><a href="#services-interior" data-part="interior_clean">Interior Clean</a></li></ul>
@@ -452,9 +461,9 @@
           <span class="tag">Complete</span>
           <span class="sig lg au" aria-hidden="true"><small class="tnum">79</small>Au</span>
           <h3>Full Detail</h3>
-          <p class="amount tnum" data-price="full_detail_v2">$165</p>
+          <p class="amount tnum" data-price="full_detail_v2">$179.99</p>
           <p class="every" data-every="full_detail_v2" aria-label="Every size"></p>
-          <p class="saving" data-saving="full_detail_v2">$200 booked separately. You save <b class="tnum">$35</b>.</p>
+          <p class="saving" data-saving="full_detail_v2">$214.99 booked separately. You save <b class="tnum">$35</b>.</p>
           <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="full_detail_v2">5 h 15 min</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
           <ul class="checks parts"><li><a href="#services-exterior" data-part="hand_wash">Hand Wash</a></li><li><a href="#services-interior" data-part="interior_detail">Interior Detail</a></li><li data-extra>Bug and road-grime pre-soak</li><li data-extra>Wheel wells scrubbed</li><li data-extra>Water-repellent sealant foam</li><li data-service="full_detail_v2" data-includes="leather_care">Leather care included</li></ul>
@@ -480,6 +489,7 @@
         <article class="price-card" data-code="interior_clean">
           <h3>Interior Clean</h3>
           <p class="amount tnum" data-price="interior_clean">$75</p>
+          <a class="card-offer" href="#services-deals" data-deal-wrap hidden><span class="offer-mark" aria-hidden="true">✦</span><span data-deal-line="interior_clean">First Timer Deal: your first one is $49.99</span></a>
           <p class="every" data-every="interior_clean" aria-label="Every size"></p>
           <dl class="figs"><div><dt>Time</dt><dd class="tnum" data-time="interior_clean">1 h 43 min</dd></div><div class="where"><dt>Where</dt><dd><span>We come to you<span class="sr-only">,</span></span><span>Come to us</span></dd></div></dl>
           <div class="line"></div>
