@@ -132,6 +132,7 @@
      next --letter-gap later, all of them started within --letter-span (a long heading's letters closer together);
      one of over 24 letters or 3 lines goes word by word, --word-gap apart */
   --dur-letter: 1100ms;
+  --dur-letter-fade: 660ms;   /* a letter is seen sooner than it lands, so the float itself shows (Nov 19, round 3) */
   --letter-gap: 34ms;
   --letter-span: 520ms;
   --word-gap: 70ms;
@@ -1142,6 +1143,14 @@ section { position: relative; }
 /* home after the wash: every section carries the same half beat above and below, so the gaps between them (and the
    centred hairlines at their feet) fall at equal intervals; a phone takes a shorter beat. The Standard keeps its own */
 .why, .work, .doors, .how, .cta { padding-block: clamp(72px, 4vw + 56px, 120px); }
+/* the room after the wash starts closer (the owner's "small white space", Nov 19): as the pin lets go, the stage's
+   own foot (its padding, its frame's fade and, on a phone, the strip a collapsed toolbar adds: 100lvh - 100svh) is
+   already a band of plain page under the cards, so Why Alchemist takes less of its own on top of it. Only while the
+   wash runs: as a plain section (reduced motion, no WebGL, no script) it keeps the usual room */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.no-webgl):not(.no-js) .wash + .why { padding-top: clamp(40px, 2vw + 28px, 72px); }
+  @supports (height: 1lvh) { html:not(.no-webgl):not(.no-js) .wash + .why { padding-top: max(24px, calc(clamp(40px, 2vw + 28px, 72px) - (100lvh - 100svh))); } }
+}
 .section-head { display: grid; gap: var(--s-2); justify-items: center; text-align: center; margin-bottom: clamp(48px, 3vw + 38px, 96px); }
 .section-head h2 { font-size: var(--fs-h2); }
 /* every section title (the wash's, the closing band's, the booking steps' and the account's too) in the section face:
@@ -1346,6 +1355,11 @@ section { position: relative; }
 .wash-services {
   position: absolute;
   inset: 0;
+  /* the cards are centred in what a phone always shows (the small viewport: its toolbar may come back at any upward
+     scroll), not in the stage's large one, so the price note never sits under a returning toolbar */
+  bottom: auto;
+  height: 100%;
+  height: 100svh;
   z-index: 2;
   display: grid;
   align-content: center;
@@ -2914,7 +2928,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
   .wash { height: auto; }
   .wash-stage { position: relative; height: auto; }
   .wash-title, .wash-hint, .foam-gl, .cannon { display: none; }
-  .wash-services { position: relative; pointer-events: auto; }
+  .wash-services { position: relative; height: auto; pointer-events: auto; }
   .svc-card, .svc-head, .svc-note { --r: 1 !important; }
   .steps::before { transform: scaleX(1); }           /* the connector is simply there */
 }
@@ -2924,7 +2938,7 @@ html:has(.view[data-view="services"]:not([hidden])) { scroll-padding-top: calc(1
 .no-webgl .wash, .no-js .wash { height: auto; }
 .no-webgl .wash-stage, .no-js .wash-stage { position: relative; height: auto; }
 :is(.no-webgl, .no-js) :is(.wash-title, .wash-hint, .foam-gl, .cannon) { display: none; }
-.no-webgl .wash-services, .no-js .wash-services { position: relative; pointer-events: auto; }
+.no-webgl .wash-services, .no-js .wash-services { position: relative; height: auto; pointer-events: auto; }
 :is(.no-webgl, .no-js) :is(.svc-card, .svc-head, .svc-note) { --r: 1 !important; }
 .no-js .scroll-cue { display: none; }
 .no-js .hero [data-in] { animation: none; opacity: 1; transform: none; filter: none; }
@@ -4622,6 +4636,9 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 [data-rise] { transition: opacity var(--dur-rise) var(--ease-fade), transform var(--dur-rise) var(--ease-glide); transition-delay: calc(var(--after, 0ms) + var(--k, 0) * var(--stagger)); }
 [data-rise]:not(.in) { opacity: 0; transform: translateY(var(--rise)); transition: none; }
 :is([data-view="home"], [data-view="services"], [data-view="gallery"], [data-view="reviews"], [data-view="content"]) { --stagger: 110ms; }
+/* booking, the account, Appointments and the consoles keep their quick feedback (600ms, 60ms apart, as before Nov 19):
+   a form's sections and a sent booking's sheet answer what the visitor just did, they are not read as they arrive */
+:is([data-view="book"], [data-view="account"], [data-view="appointments"], [data-view="admin"], [data-view="team"]) { --dur-rise: 600ms; --stagger: 60ms; }
 /* The heads (app.js HEADS, data-head): a section's head arrives in reading order (.in). The kicker fades where it
    sits; from 80ms the heading's lines (.hd-lines > .ln, one per line the browser laid out) rise out of a slot just
    below their own baseline, --line-gap apart, cut off at the slot's edge like type raised into a window (no blur, no
@@ -4652,7 +4669,8 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 .gold-text.hd-lines .ln-w { background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
 /* A display heading's letters float up into place (the owner's Nov 19 "letters floating up into place"; app.js
    splits them in the lines it has read, .hd-chars): each letter (.lt; a whole word, .lt.wd, in a long heading) fades
-   in on --ease-fade as it rises .38em on --ease-glide, from 80ms, --lt-gap apart (app.js: --letter-gap, or closer so
+   in on --ease-fade over --dur-letter-fade as it rises .5em on --ease-glide over --dur-letter (seen while it still
+   has a third of its way to go: it visibly floats up), from 80ms, --lt-gap apart (app.js: --letter-gap, or closer so
    the last starts within --letter-span), over --dur-letter. No window round the line: they float, not slide. On a
    computer each also comes into focus from a 3px blur over the first part of its rise; never on a phone (a blur per
    letter is a picture per letter per frame: hard rule 5). Each line is still one slot, its words never broken, and
@@ -4665,14 +4683,14 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
 .hd-chars .lt.wd { white-space: nowrap; }
 [data-head]:not(.in) .hd-chars .lt { opacity: 0; }
 [data-head].in .hd-chars .lt {
-  animation: ltFade var(--dur-letter) var(--ease-fade) both, ltRise var(--dur-letter) var(--ease-glide) both;
+  animation: ltFade var(--dur-letter-fade) var(--ease-fade) both, ltRise var(--dur-letter) var(--ease-glide) both;
   animation-delay: calc(80ms + var(--c, 0) * var(--lt-gap, 34ms));
 }
 @keyframes ltFade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes ltRise { from { transform: translateY(.38em); } to { transform: none; } }
+@keyframes ltRise { from { transform: translateY(.5em); } to { transform: none; } }
 @media (hover: hover) and (pointer: fine) {
   [data-head].in .hd-chars .lt { animation-name: ltFade, ltRiseBlur; }
-  @keyframes ltRiseBlur { from { transform: translateY(.38em); filter: blur(3px); } 60% { filter: blur(0); } to { transform: none; filter: blur(0); } }
+  @keyframes ltRiseBlur { from { transform: translateY(.5em); filter: blur(3px); } 60% { filter: blur(0); } to { transform: none; filter: blur(0); } }
 }
 .gold-text.hd-chars .ln-w { background: none; color: inherit; }
 .gold-text.hd-chars .lt { background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -5498,6 +5516,9 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
    rinse clears, --clean from foam.js), the beads picture multiplied in faintly, a thin cream veil */
 :where([data-theme="light"]) .wash-stage { background: linear-gradient(180deg, var(--studio-card) 0%, var(--bg) 58%, var(--floor) 100%); }
 :where([data-theme="light"]) .wash-stage .floor { background: radial-gradient(70% 55% at 50% 42%, var(--studio-floor-hi), var(--studio-floor-lo) 70%); opacity: calc((1 - var(--clean, 0)) * .85); }   /* darker while the foam is on, so thin foam has something to be thin against */
+/* the warm floor rises out of the cream page instead of arriving as a beige panel with an edge (Nov 19): it is clear at
+   the stage's top and foot and full from a third of the way down */
+:where([data-theme="light"]) .wash-stage .floor { -webkit-mask-image: linear-gradient(180deg, transparent, #000 32%, #000 78%, transparent); mask-image: linear-gradient(180deg, transparent, #000 32%, #000 78%, transparent); }
 :where([data-theme="light"]) .wash-bg { opacity: calc(.06 + var(--clean, 0) * .08); mix-blend-mode: multiply; }
 :where([data-theme="light"]) .wash-shade { background: linear-gradient(180deg, var(--bg) 0%, rgba(var(--studio-bg-rgb), .55) 16%, rgba(var(--studio-bg-rgb), .35) 62%, var(--bg) 100%); opacity: 1; }
 :where([data-theme="light"]) .wash-stage::after { opacity: .25; }
@@ -5738,7 +5759,7 @@ html.vt-dim::view-transition-new(root) {
   .section { padding-block: 8mm; }
   .wash { height: auto !important; }
   .wash-stage { position: static !important; height: auto !important; contain: none !important; overflow: visible !important; background: none !important; }
-  .wash-services { position: static !important; padding: 0 !important; pointer-events: auto; }
+  .wash-services { position: static !important; height: auto !important; padding: 0 !important; pointer-events: auto; }
   .svc-card { min-height: 0; }
   .svc-top { min-height: 0; padding: 0 0 8mm; background: none; }
   .svc-group { padding-block: 6mm; }

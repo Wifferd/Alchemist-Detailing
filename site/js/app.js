@@ -987,6 +987,36 @@
   const io = new IntersectionObserver((es) => {
     es.forEach((e) => { if (e.isIntersecting && (e.intersectionRatio >= 0.2 || e.intersectionRect.height >= 24)) { reveal(e.target); io.unobserve(e.target); } });
   }, { threshold: [0, 0.02, 0.05, 0.1, 0.15, 0.2], rootMargin: '0px 0px -10% 0px' });
+  // A head is watched by its heading, not its whole container (a tall head counts as in view while its heading is still
+  // at the screen's foot, behind a phone's Call / Book Now dock, and its letters would float up unseen): it sets once
+  // 60% of the heading is above the screen's lowest 18% (120px on a phone: clear of the dock), so the letters play
+  // where the eye is (Nov 19)
+  const HEAD_SIGHT = 0.82;   // (the observer's -18%)
+  const sights = new Map();   // a heading whose moment has sent its title before it was in sight: what to run then
+  const hio = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting || e.intersectionRatio < 0.6) return;
+    hio.unobserve(e.target);
+    const fn = sights.get(e.target);
+    if (fn) { sights.delete(e.target); fn(); return; }
+    const c = e.target.closest('[data-head]');
+    if (c) reveal(c);
+  }), { threshold: [0, 0.3, 0.6, 1], rootMargin: '0px 0px -' + Math.round((1 - HEAD_SIGHT) * 100) + '% 0px' });
+  const unwatchHead = (c) => { io.unobserve(c); $$('[data-hd="h"]', c).forEach((h) => { hio.unobserve(h); sights.delete(h); }); };
+  // a head's heading is where the eye is: on the screen and clear of its lowest 18%
+  const inSight = (c) => {
+    const h = c && $('[data-hd="h"]', c);
+    if (!h) return true;
+    const r = h.getBoundingClientRect();
+    return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight * HEAD_SIGHT;
+  };
+  // a plate's moment sends its title on its own clock (the Interior's cabin, Protection's beading): it sets then if it
+  // is in sight, else once it comes into sight, so its letters never float up unseen below the screen (Nov 19)
+  function whenSeen(c, fn) {
+    const h = c && $('[data-hd="h"]', c);
+    if (!h || inSight(c)) { fn(); return; }
+    sights.set(h, fn);
+    hio.observe(h);
+  }
   const held = new WeakSet();   // what comes after the wash on home, waiting for washend (or for its page's opening: data-hold)
   // An arrival is only noted where it is found (the observer, a page opening, washend). In the next frame the rooms
   // and the blocks go in (their light comes up first; a block under a head still to set waits for it). The heads are
@@ -1125,7 +1155,7 @@
     // itself, which a new page or the skip link puts the focus on, with no ring (it keeps its arrival)
     const hd = e.target.closest('[data-head]');
     if (!hd || e.target.matches('[data-hd="h"]')) return;
-    if (!hd.classList.contains('in')) { io.unobserve(hd); setHead(hd, true); } else hd.classList.add('hd-now');
+    if (!hd.classList.contains('in')) { unwatchHead(hd); setHead(hd, true); } else hd.classList.add('hd-now');
   });
   const RISE = ['.why-item', '.why-more', '.door', '.feat-foot', '.step', '.price-card', '.svc-notes > div', '.rv', '.rv-unissued', '.appt', '.faq-item', '.about p', '.about-use', '.ct-block', '.tip', '.acct-sec', '.el-main', '.el-panel', '.rit-scroll', '.bead-cmp', '.bead-foot', '.addons', '.step-up'];
   // The rooms: each section after the wash, the closing band and each Services group lights up as it arrives (CSS: its
@@ -1206,7 +1236,7 @@
       // (a line its plate's moment shows itself, data-own: Interior's, word by word with the cabin's lights, is not one)
       $$(':scope > p:not(.eyebrow, [data-own]), :scope > .actions, :scope > .work-nav', c).forEach((f, i) => { f.setAttribute('data-hd', 'f'); f.style.setProperty('--f', i); });
       $$('.rule', c).forEach((r) => io.observe(r));
-      if (!c.closest('.wet, .cabin, .beading')) io.observe(c);   // a plate with a moment of its own sets its title itself
+      if (!c.closest('.wet, .cabin, .beading')) { hio.observe(h); io.unobserve(c); }   // a plate with a moment of its own sets its title itself; a room that is a head (the closing band) waits for its heading
     });
   }
   // a head held back for another's, in reading order (the Bead Test's, while Protection's plate above it waits for its
@@ -1633,7 +1663,7 @@
     $$('[data-rise], [data-reveal], [data-room], [data-head]', scope).forEach((el) => {
       if (el.classList.contains('in')) return;
       const r = el.getBoundingClientRect();
-      if (r.top < vh && r.bottom > 0) { reveal(el); io.unobserve(el); }
+      if (r.top < vh && r.bottom > 0) { reveal(el); if (el.hasAttribute('data-head')) unwatchHead(el); else io.unobserve(el); }
     });
   }
   // The gold shines never sweep in lockstep: each gets its own delay, and they rest while offscreen.
@@ -2324,7 +2354,7 @@
       const pr = plate.getBoundingClientRect(), far = Math.max(0, ...$$(':scope > *', cap).map((el) => { const r = el.getBoundingClientRect(); return (r.right - pr.left) * n[0] + (r.bottom - pr.top) * n[1]; }));
       const way = parseFloat(film.style.getPropertyValue('--run')) || 1, bloom = 40;   // (the crest starts at -bloom along n: place)
       const at = Math.round(RUN * crestAt(Math.min(1, Math.max(0, (far + bloom) / way))));
-      const title = headReady(cap, at);
+      const title = inSight(cap) ? headReady(cap, at) : () => whenSeen(cap, () => headGo(cap));
       plate.classList.add('rinsing');
       setTimeout(() => { plate.classList.add('risen'); held.delete(cap); title(); }, at);
       film.addEventListener('animationend', clear, { once: true });
@@ -2378,7 +2408,7 @@
     const cap = $('figcaption', plate);   // its title sets as the photo is back (headGo)
     // the Bead Test's title below waits for the plate's own (reading order), 1.2s at most until the moment has begun
     const beadHead = holdHeads((c) => !done && !!c.closest('#svc-bead'), 1200);
-    const capGo = () => { headGo(cap); beadHead.open(); };   // the plate's title, then the Bead Test's below it
+    const capGo = () => whenSeen(cap, () => { headGo(cap); beadHead.open(); });   // the plate's title (once in sight), then the Bead Test's below it
     const TIME = 13.7;   // the scene's time as the moment starts
     // where the light comes up (in the left third: at this time of the scene the bar's own drift holds it near -0.3;
     // ext: the paint's half-width along the light's axis in the shader's units) and where it leaves the paint: its line
@@ -2758,7 +2788,7 @@
       played = true;
       aim();
       plate.classList.add('on');
-      setTimeout(() => { held.delete(cap); headGo(cap); }, 700);   // INTERIOR sets from behind its line as the view settles
+      setTimeout(() => { held.delete(cap); whenSeen(cap, () => headGo(cap)); }, 700);   // INTERIOR sets from behind its line as the view settles (once in sight)
       // each layer goes as soon as it has done its part (the seam once the door is shut, the black and the pools at
       // the lit state), so fewer are drawn over the leather; the classes go once the sentence has risen
       const drop = (sel) => $$(sel, plate).forEach((el) => el.remove());
@@ -3586,8 +3616,8 @@
   let armT = 0, landed = [];
   // what a rebuild takes out (content.js, the account, the reviews, the gallery) the observers let go, so a page
   // changed many times keeps no old nodes alive
-  const WATCHED = '[data-reveal], [data-rise], [data-room], [data-head], .rule, .svc-top, .shine, .scroll-cue, ' + ARRIVE;
-  const forget = (n) => (n.matches(WATCHED) ? [n] : []).concat($$(WATCHED, n)).forEach((el) => { io.unobserve(el); ioAway.unobserve(el); arriveIo.unobserve(el); });
+  const WATCHED = '[data-reveal], [data-rise], [data-room], [data-head], [data-hd="h"], .rule, .svc-top, .shine, .scroll-cue, ' + ARRIVE;
+  const forget = (n) => (n.matches(WATCHED) ? [n] : []).concat($$(WATCHED, n)).forEach((el) => { io.unobserve(el); hio.unobserve(el); ioAway.unobserve(el); arriveIo.unobserve(el); });
   new MutationObserver((muts) => {
     // (a heading's own lines, swapped in and out as it sets, are not new content)
     muts.forEach((m) => {

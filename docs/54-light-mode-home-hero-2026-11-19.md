@@ -133,3 +133,87 @@ follows the theme.
 4. Does the wash now run to the bottom of his iPhone's screen in Safari with no strip, and does it hand over to "Why
    Alchemist" cleanly? (The emulation here can't be his phone.) If he still sees a thin line at the wash's foot as it
    lets go (doc 39, question 32), the next step is a soft fade on the foam's bottom edge.
+
+## Round 3: the verifiers' fixes (Nov 19)
+
+Two verifiers walked round 2 (`34872f5`): one through the wash's hand-over on an emulated iPhone whose Safari toolbar
+collapses and comes back, one through the motion. Neither found a blocking fault: the strip is gone in every condition
+they built, doc 35's jump fix holds (0 undos, 0 jumps), `foam.js` is untouched. Their should-fix points, all taken:
+
+### 1. The cards sit in what a phone always shows
+
+- Round 2 centred the wash's cards in the 100lvh stage, so with Safari's toolbar showing (the start of the pin, or any
+  scroll up) the price note sat 7 px above the toolbar, and on an iPhone SE it ran under it. The cards' box
+  (`.wash-services`) is now the top `100svh` of the stage (`bottom: auto; height: 100svh`): the note is 50 px clear of
+  a shown toolbar on an iPhone 13 again, as before round 2. The plain-section fallbacks (reduced motion, no WebGL, no
+  script, print) take `height: auto`, so they don't grow a screen tall. On a computer svh = lvh: nothing moves.
+- iPhone SE with its toolbar shown: the note's foot is at 549 of 548 px, exactly as before round 2 (the cards are
+  taller than that screen's room); with the toolbar collapsed, as it is while scrolling down, everything fits.
+
+### 2. Less empty room after the wash (the owner's "small white space")
+
+- As the pin lets go, the stage's own foot is already a band of plain page under the cards, and "Why Alchemist" added
+  its full top padding to it. While the wash runs, that section now starts closer: `clamp(40px, 2vw + 28px, 72px)`,
+  less the strip a collapsed toolbar adds (`100lvh - 100svh`), never under 24 px. As a plain section (reduced motion,
+  no WebGL, no script) it keeps its usual room.
+- From the cards' note to the "Why Alchemist" kicker at the release: computer 185 px → 128, iPad portrait 282 → 237,
+  Chrome on a 390 x 844 phone 141 → 109, iPhone SE 102, iPhone 13 in Safari 150 → 145 (it was 107 with the old
+  svh stage, which left the strip; the cards now stay where a shown toolbar can't cover them, which costs those
+  43 px back). Plain sections: unchanged (114 px on a phone).
+
+### 3. The light theme's stage no longer arrives as a beige panel
+
+- The warm floor behind the foam (`.floor`, light theme only) is masked: clear at the stage's top and foot, full from
+  a third of the way down to 78%. The stage rises out of the cream page instead of entering as a panel with an edge;
+  thin foam still reads against the floor mid-pin (`final-wash-handoff-phone-light.png`).
+
+### 4. The letters float where the eye is, and the float shows
+
+- A head is watched by its heading now, not its whole container (`hio` in app.js): it sets once 60% of the heading is
+  above the screen's lowest 18% (120 px on a phone, clear of the Call / Book Now dock). Before, a tall head counted as
+  in view while its heading was still behind the dock or below the screen ("Shine like gold" at 633-660 of a 664 px
+  screen). The closing band (a room and a head) waits for its heading too. A plate whose moment sends its title on its
+  own clock (the Interior's cabin, Protection's beading, the Bead Test's head after it, Exterior's rinse) sets it then
+  if it is in sight, otherwise as soon as it comes into sight (`whenSeen`); the rinse keeps its crest-timed title
+  when the title is in sight as the run starts.
+- Measured on an iPhone 13 (664 px), both themes, at the moment each head sets: every heading on Home and Services
+  between 440 and 552 px (was down to 633-769). Computer: 210-698 of 900.
+- Each letter fades in over 660 ms (`--dur-letter-fade`) while it rises .5em over 1.1 s (was .38em, both 1.1 s): at
+  half opacity a letter still has about a quarter of its rise to go, so it is seen floating up, not just fading.
+  The head still lands in about 1.7 s.
+
+### 5. Booking and the account keep their quick feedback
+
+- Round 2's longer `--dur-rise` (1 s) had reached the booking steps, the sent booking's sheet, the account and
+  Appointments. Those views and the consoles keep 600 ms and 60 ms apart, as doc 54 round 2 said they would.
+
+### 6. The QA kit can see this kind of bug now
+
+- `tools/qa/mksim.py` (a copy of `site/` with a phone's viewport units) and `tools/qa/toolbar.py` (the Home wash with
+  Safari's toolbar collapsing and coming back, CDP touch; it fails when any frame shows page under the pinned stage),
+  from the hand-over verifier's scripts. `tools/qa/README.md` has the commands.
+
+### Checks (round 3)
+
+- `node --check` on `app.js`; no regex lookbehind in `site/`; `foam.js` untouched (no diff since `4b2df4b`).
+- `toolbar.py` on an iPhone 13 copy (750 / 664): light slow, light mixed (down, back up mid-pin with the toolbar
+  returning, flicks), dark flick, dark slow, dark keys: 0 frames with a strip, no errors.
+- Doc 35's harness: `WASH_THEME=light wash.py site ios fling,slow,hold,back_rest,decay,leave_mid`, 6 of 6 ok against
+  the baseline; on the iPhone copy, `ios,chromium fling,slow,hold,back_rest`, 8 of 8 ok; 0 undos, 0 jumps.
+- Heads: phone light and dark, Home and Services, as above; FAQ, About and the Gallery set at the top; reduced motion
+  nothing split, nothing left hidden. `heads.py` 70 of 70 PASS; `back_walk.py` phone light `owner` and desk dark `all`
+  PASS; `smoke.py` every route at every width.
+- `budget.py home` (4x CPU, 3 walks each, round 2 against round 3, interleaved): walk long tasks [9, 7, 9] against
+  [9, 10, 11], over 100 ms 14 against 11, longest 535 against 476 ms, with the machine busier during round 3's walks
+  (load 3.84 against 3.27). No new long task attributable to the change; the noise of this sandbox is wider than the
+  difference.
+
+### For the owner
+
+- `final-wash-handoff-phone-light.png` and `-dark.png`: Home on an iPhone in Safari (emulated, toolbar collapsing),
+  into the wash, the foam to the foot of the screen, the cards, the hand-over to "Why Alchemist".
+- `final-letters-phone.png`: three headings at 0 to 1.7 s, the letters floating up.
+- `final-home-phone-light.webm`: Home on a phone in light mode from the top to the headings after the wash, in real
+  time on this sandbox's software graphics (about 18 frames a second, so it looks choppier than his iPhone will).
+- Questions 3 and 4 above still stand; question 4 now also asks whether the room between the cards and "Why
+  Alchemist" feels right.
