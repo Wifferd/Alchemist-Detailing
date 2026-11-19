@@ -1,3 +1,11 @@
+-- Updated for Migration 012 (Nov 19, 2026): the owner's new prices (Basic Wash $59.99 / $64.99, Hand Wash $89.99 / $94.99,
+-- Inside & Out and Full Detail up by the same amounts) and the First Timer Deals. Changed expectations, everything else as
+-- run for Migration 011: A21 (regular prices beside the Outside deal), the B price loop and B11, B14, B17, B19, B22, B23,
+-- B33, B35 (new prices); C2, C3, C5, C9, C18, C33, C37, C38, C39, C43, C44, D6, D7, D11 (new prices); C4, C11, D8 (the
+-- owner's list now says "First Timer Deal, Outside"); C34 (Basic Wash + Interior Clean is now the Both deal, $79.99, with
+-- no Inside & Out suggestion; under Migration 011 it was $110 with the $35 wash and a $10 suggestion). The deals
+-- themselves are tested in m012_tests_deals.sql.
+--
 -- Migration 011 tests: the new menu (sizes, prices, minutes, add-on rules, inside answers), the first-time Basic Wash
 -- price, the pop-up check, and the owner's list. Needs the m001 framework and fixtures, and Migration 011 applied.
 --
@@ -156,9 +164,9 @@ begin
   perform tst.err($q$select public.my_first_visit_offer()$q$, '42501', 'm011 A20: the pop-up check is for signed-in users only');
   q := public.get_first_visit_offer();
   perform tst.ok((q ->> 'active')::boolean and q ->> 'ends_on' = '2027-02-17'
-                 and (q #>> '{prices,car,first_visit_cents}')::int = 3500 and (q #>> '{prices,car,regular_cents}')::int = 5000
-                 and (q #>> '{prices,two_rows,first_visit_cents}')::int = 4000 and (q #>> '{prices,minivan,regular_cents}')::int = 5500,
-                 'm011 A21: get_first_visit_offer gives the end date and $35/$50 car, $40/$55 bigger', q::text);
+                 and (q #>> '{prices,car,first_visit_cents}')::int = 3500 and (q #>> '{prices,car,regular_cents}')::int = 5999
+                 and (q #>> '{prices,two_rows,first_visit_cents}')::int = 4000 and (q #>> '{prices,minivan,regular_cents}')::int = 6499,
+                 'm011 A21: get_first_visit_offer gives the end date and $35/$59.99 car, $40/$64.99 bigger (prices of Migration 012)', q::text);
   execute 'reset role';
 
   -- Staff and customers.
@@ -214,10 +222,10 @@ begin
       from (values ('sedan', 'car'), ('coupe', 'car'), ('convertible', 'car'), ('crossover', 'two_rows'), ('suv', 'two_rows'),
                    ('truck', 'three_rows'), ('large_suv', 'three_rows'), ('minivan', 'minivan')) as t(typ, g)
       join (values
-        ('basic_wash', 'car', 5000, 92), ('basic_wash', 'two_rows', 5500, 104), ('basic_wash', 'three_rows', 5500, 115), ('basic_wash', 'minivan', 5500, 115),
-        ('hand_wash', 'car', 7500, 91), ('hand_wash', 'two_rows', 8000, 101), ('hand_wash', 'three_rows', 8000, 111), ('hand_wash', 'minivan', 8000, 111),
-        ('inside_out', 'car', 10000, 163), ('inside_out', 'two_rows', 11500, 191), ('inside_out', 'three_rows', 12500, 219), ('inside_out', 'minivan', 13500, 237),
-        ('full_detail_v2', 'car', 16500, 315), ('full_detail_v2', 'two_rows', 19000, 376), ('full_detail_v2', 'three_rows', 21500, 437), ('full_detail_v2', 'minivan', 23500, 484),
+        ('basic_wash', 'car', 5999, 92), ('basic_wash', 'two_rows', 6499, 104), ('basic_wash', 'three_rows', 6499, 115), ('basic_wash', 'minivan', 6499, 115),
+        ('hand_wash', 'car', 8999, 91), ('hand_wash', 'two_rows', 9499, 101), ('hand_wash', 'three_rows', 9499, 111), ('hand_wash', 'minivan', 9499, 111),
+        ('inside_out', 'car', 11499, 163), ('inside_out', 'two_rows', 12999, 191), ('inside_out', 'three_rows', 13999, 219), ('inside_out', 'minivan', 14999, 237),
+        ('full_detail_v2', 'car', 17999, 315), ('full_detail_v2', 'two_rows', 20499, 376), ('full_detail_v2', 'three_rows', 22999, 437), ('full_detail_v2', 'minivan', 24999, 484),
         ('interior_clean', 'car', 7500, 103), ('interior_clean', 'two_rows', 8500, 121), ('interior_clean', 'three_rows', 9000, 139), ('interior_clean', 'minivan', 10000, 157),
         ('interior_detail', 'car', 12500, 229), ('interior_detail', 'two_rows', 14500, 276), ('interior_detail', 'three_rows', 16500, 323), ('interior_detail', 'minivan', 18500, 370)
       ) as e(c, g, price, mins) on e.g = t.g and e.c = v_code;
@@ -238,16 +246,16 @@ begin
   perform tst.ok(q -> 'first_visit' = 'null'::jsonb and q ->> 'total_cents' is null, 'm011 B10: no new-customer price on a held price', q::text);
 
   q := public.quote_core('{"location_type":"mobile","exterior":"hand_wash","interior":"interior_clean","vehicle_type":"sedan","conditions":["none"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 15000 and (q ->> 'duration_min')::int = 162,
-                 'm011 B11: Hand Wash + Interior Clean booked apart: $150, one visit (91 + 103 - 32 = 162 min)', q::text);
+  perform tst.ok((q ->> 'total_cents')::int = 16499 and (q ->> 'duration_min')::int = 162,
+                 'm011 B11: Hand Wash + Interior Clean booked apart: $164.99, one visit (91 + 103 - 32 = 162 min)', q::text);
   perform tst.ok(q #>> '{suggestion,bundle}' = 'inside_out' and (q #>> '{suggestion,saves_cents}')::int = 5000,
                  'm011 B12: the suggestion offers Inside & Out, $50 less', q::text);
   q := public.quote_core('{"location_type":"mobile","exterior":"hand_wash","interior":"interior_detail","vehicle_type":"suv","conditions":["none"]}');
   perform tst.ok(q #>> '{suggestion,bundle}' = 'full_detail_v2' and (q #>> '{suggestion,saves_cents}')::int = 3500,
                  'm011 B13: Hand Wash + Interior Detail suggests the Full Detail, $35 less on 2 rows', q::text);
   q := public.quote_core('{"location_type":"mobile","exterior":"basic_wash","interior":"interior_clean","vehicle_type":"sedan","conditions":["none"]}');
-  perform tst.ok(q #>> '{suggestion,bundle}' = 'inside_out' and (q #>> '{suggestion,saves_cents}')::int = 2500,
-                 'm011 B14: Basic Wash + Interior Clean ($125) suggests Inside & Out ($100), a fuller wash for less', q::text);
+  perform tst.ok(q #>> '{suggestion,bundle}' = 'inside_out' and (q #>> '{suggestion,saves_cents}')::int = 2000,
+                 'm011 B14: Basic Wash + Interior Clean ($134.99) suggests Inside & Out ($114.99), a fuller wash for less', q::text);
   perform tst.eq((select string_agg(public.quote_core(jsonb_build_object('location_type', 'shop', 'bundle', 'inside_out', 'vehicle_type', t, 'conditions', '["none"]'::jsonb)) ->> 'bundle_savings_cents', '/' order by o)
                   from unnest(array['sedan', 'suv', 'large_suv', 'minivan']) with ordinality as x(t, o)), '5000/5000/4500/4500',
                  'm011 B15: Inside & Out saves $50 / $50 / $45 / $45 against its parts');
@@ -255,19 +263,19 @@ begin
                   from unnest(array['sedan', 'suv', 'large_suv', 'minivan']) with ordinality as x(t, o)), '3500/3500/3000/3000',
                  'm011 B16: Full Detail saves $35 / $35 / $30 / $30 against its parts');
   q := public.quote_core('{"location_type":"mobile","bundle":"inside_out","vehicle_type":"sedan","conditions":["none"]}');
-  perform tst.ok((q ->> 'mobile_cents')::int = 0 and (q ->> 'total_cents')::int = 10000, 'm011 B17: no mobile charge', q::text);
+  perform tst.ok((q ->> 'mobile_cents')::int = 0 and (q ->> 'total_cents')::int = 11499, 'm011 B17: no mobile charge', q::text);
 
   -- Add-on rules.
   perform tst.err($q$select public.quote_core('{"location_type":"shop","exterior":"hand_wash","vehicle_type":"sedan","addons":["wheels_tire_shine"]}')$q$, 'invalid_input', 'm011 B18: Wheels & Tire Shine is refused with the Hand Wash');
   q := public.quote_core('{"location_type":"shop","exterior":"basic_wash","vehicle_type":"suv","addons":["wheels_tire_shine"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 7500 and (q ->> 'duration_min')::int = 125, 'm011 B19: Basic Wash + Wheels & Tire Shine on 2 rows: $75, 103.25 + 21.5 min', q::text);
+  perform tst.ok((q ->> 'total_cents')::int = 8499 and (q ->> 'duration_min')::int = 125, 'm011 B19: Basic Wash + Wheels & Tire Shine on 2 rows: $84.99, 103.25 + 21.5 min', q::text);
   perform tst.err($q$select public.quote_core('{"location_type":"shop","bundle":"full_detail_v2","vehicle_type":"sedan","addons":["gloss_wax"],"conditions":["none"]}')$q$, 'invalid_input', 'm011 B20: Gloss wax foam is refused with the Full Detail');
   perform tst.err($q$select public.quote_core('{"location_type":"shop","interior":"interior_clean","vehicle_type":"sedan","addons":["gloss_wax"],"conditions":["none"]}')$q$, 'invalid_input', 'm011 B21: Gloss wax foam is refused with an inside-only service');
   q := public.quote_core('{"location_type":"shop","bundle":"inside_out","vehicle_type":"sedan","addons":["gloss_wax","engine_bay","film_care","leather_care","stain_removal"],"conditions":["none"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 10000 + 2000 + 5000 + 1500 + 3500 + 4000 and (q ->> 'duration_min')::int = 163 + 10 + 25 + 12 + 25 + 33,
+  perform tst.ok((q ->> 'total_cents')::int = 11499 + 2000 + 5000 + 1500 + 3500 + 4000 and (q ->> 'duration_min')::int = 163 + 10 + 25 + 12 + 25 + 33,
                  'm011 B22: Inside & Out takes every add-on it allows, at one price for every size', q::text);
   q := public.quote_core('{"location_type":"shop","bundle":"full_detail_v2","vehicle_type":"sedan","addons":["leather_care"],"conditions":["none"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 16500 and exists (select 1 from jsonb_array_elements(q -> 'lines') l
+  perform tst.ok((q ->> 'total_cents')::int = 17999 and exists (select 1 from jsonb_array_elements(q -> 'lines') l
                  where l ->> 'code' = 'leather_care' and (l ->> 'included')::boolean and (l ->> 'price_cents')::int = 0),
                  'm011 B23: Leather care is Included in the Full Detail (never charged twice)', q::text);
   q := public.quote_core('{"location_type":"shop","interior":"interior_detail","vehicle_type":"sedan","conditions":["none"]}');
@@ -291,13 +299,13 @@ begin
   perform tst.err($q$select public.quote_core('{"location_type":"shop","bundle":"inside_out","vehicle_type":"sedan","conditions":["none","heavy_dirt"]}')$q$, 'invalid_input', 'm011 B31: None can''t be combined');
   perform tst.err($q$select public.quote_core('{"location_type":"shop","exterior":"basic_wash","vehicle_type":"sedan","conditions":["pet_hair_some"]}')$q$, 'invalid_input', 'm011 B32: no inside answer fees on an outside-only wash');
   q := public.quote_core('{"location_type":"shop","bundle":"inside_out","vehicle_type":"large_suv","conditions":["pet_hair_lots","heavy_dirt"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 12500 + 6000 + 4000 and (q ->> 'duration_min')::int = 314
+  perform tst.ok((q ->> 'total_cents')::int = 13999 + 6000 + 4000 and (q ->> 'duration_min')::int = 314
                  and (select count(*) from jsonb_array_elements(q -> 'lines') l where (l ->> 'condition')::boolean) = 2,
                  'm011 B33: 3 rows, a lot of pet hair + heavy dirt: $60 + $40, 60 + 35 min (218.5 + 95 = 314)', q::text);
   q := public.quote_core('{"location_type":"shop","interior":"interior_clean","vehicle_type":"sedan","conditions":["pet_hair_some"]}');
   perform tst.ok((q ->> 'total_cents')::int = 10500 and (q ->> 'duration_min')::int = 123, 'm011 B34: car, some pet hair: +$30, +20 min', q::text);
   q := public.quote_core('{"location_type":"shop","bundle":"inside_out","vehicle_type":"minivan","conditions":["pet_hair_some"],"addons":["stain_removal"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 13500 + 3000 + 4000 and (q ->> 'duration_min')::int = 319,
+  perform tst.ok((q ->> 'total_cents')::int = 14999 + 3000 + 4000 and (q ->> 'duration_min')::int = 319,
                  'm011 B35: minivan: 236.25 + 25 + 57.75 = 319 min', q::text);
 
   -- The calendar: an empty Monday holds a car Full Detail at 10:00 and 10:30 only; a 2-row one not at all.
@@ -319,15 +327,15 @@ begin
   perform tst.ok(ap.first_visit_offer and ap.value_cents = 3500 and ap.total_cents = 3500 and ap.duration_min = 92,
                  'm011 C1: a first guest Basic Wash (car) gets $35 and still holds 92 minutes', row_to_json(ap)::text);
   perform tst.ok(exists (select 1 from public.appointment_items i where i.appointment_id = ap.id and i.code = 'basic_wash'
-                         and i.price_cents = 3500 and i.regular_cents = 5000), 'm011 C2: the line keeps the regular price beside it');
+                         and i.price_cents = 3500 and i.regular_cents = 5999), 'm011 C2: the line keeps the regular price beside it');
   r := public.booking_receipt(ap);
-  perform tst.ok((r ->> 'first_visit_offer')::boolean and (r #>> '{lines,0,regular_cents}')::int = 5000, 'm011 C3: the receipt carries the offer and the regular price', r::text);
-  perform tst.ok((select "Total" from office.requests where "Reference" = ap.ref) = '$35.00 (new-customer price: phone and address checked)',
+  perform tst.ok((r ->> 'first_visit_offer')::boolean and (r #>> '{lines,0,regular_cents}')::int = 5999, 'm011 C3: the receipt carries the offer and the regular price', r::text);
+  perform tst.ok((select "Total" from office.requests where "Reference" = ap.ref) = '$35.00 (First Timer Deal, Outside: phone and address checked)',
                  'm011 C4: the owner''s list tags the new-customer price');
   ap2 := tst.m011_guest('{"phone":"469.820.1101","address":"9 Marigold Court","address_zip":"75002"}');
-  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5000
+  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5999
                  and exists (select 1 from public.appointment_items i where i.appointment_id = ap2.id and i.code = 'basic_wash'
-                             and i.price_cents = 5000 and i.regular_cents is null),
+                             and i.price_cents = 5999 and i.regular_cents is null),
                  'm011 C5: the same phone typed another way pays the regular price', row_to_json(ap2)::text);
   ap2 := tst.m011_guest('{"phone":"+1 469 820 1101","address":"10 Marigold Court","address_zip":"75002"}');
   perform tst.ok(not ap2.first_visit_offer, 'm011 C6: and a third way (+1 ...)');
@@ -337,11 +345,11 @@ begin
   perform tst.ok(ap2.first_visit_offer, 'm011 C8: the same street in another ZIP is another address');
   ap2 := tst.m011_guest('{"phone":"(469) 820-1104","address":"22 Juniper Way","address_zip":"75002","vehicle_type":"suv"}');
   perform tst.ok(ap2.first_visit_offer and ap2.total_cents = 4000
-                 and exists (select 1 from public.appointment_items i where i.appointment_id = ap2.id and i.regular_cents = 5500),
-                 'm011 C9: 2 rows: $40 instead of $55');
+                 and exists (select 1 from public.appointment_items i where i.appointment_id = ap2.id and i.regular_cents = 6499),
+                 'm011 C9: 2 rows: $40 instead of $64.99');
   ap2 := tst.m011_guest('{"phone":"(469) 820-1105","location_type":"shop","vehicle_type":"minivan"}');
   perform tst.ok(ap2.first_visit_offer and ap2.total_cents = 4000, 'm011 C10: minivan at the shop: $40');
-  perform tst.ok((select "Total" from office.requests where "Reference" = ap2.ref) = '$40.00 (new-customer price: phone checked; no address for Come to us)',
+  perform tst.ok((select "Total" from office.requests where "Reference" = ap2.ref) = '$40.00 (First Timer Deal, Outside: phone checked; no address for Come to us)',
                  'm011 C11: a Come to us booking says only the phone was checked');
   ap2 := tst.m011_guest('{"phone":"(469) 820-1106","address":"23 Juniper Way","address_zip":"75002","vehicle_type":"van"}');
   perform tst.ok(not ap2.first_visit_offer and ap2.price_pending and ap2.pending_reasons = '{size_price}'
@@ -363,7 +371,7 @@ begin
   perform tst.ok(ap2.first_visit_offer, 'm011 C17: a cancelled earlier request doesn''t use up the offer');
   ap2 := tst.m011_guest('{"phone":"(469) 820-1110","location_type":"shop","exterior":null,"bundle":"full_detail_v2","vehicle_type":"sedan","conditions":["none"]}');
   ap := tst.m011_guest('{"phone":"(469) 820-1111","location_type":"shop","exterior":null,"bundle":"full_detail_v2","vehicle_type":"large_suv","conditions":["none"]}');
-  perform tst.ok(ap2.duration_min = 315 and ap.duration_min = 437 and ap.total_cents = 21500,
+  perform tst.ok(ap2.duration_min = 315 and ap.duration_min = 437 and ap.total_cents = 22999,
                  'm011 C18: the time held follows the declared type (Sedan 315 min, SUV 3 rows 437 min; review S8)');
   perform tst.err($q$select tst.m011_guest('{"phone":"(469) 820-1112","location_type":"shop","exterior":null,"interior":"interior_clean","conditions":[]}')$q$,
                   'invalid_input', 'm011 C19: "What''s the inside like?" is required with an inside service');
@@ -408,11 +416,11 @@ begin
   execute 'set local role anon';
   q := public.quote_booking('{"location_type":"mobile","exterior":"basic_wash","vehicle_type":"sedan","phone":"(469) 820-1130","address":"41 Juniper Way","address_zip":"75002"}');
   perform tst.ok(q #>> '{first_visit,status}' = 'if_first_visit' and (q ->> 'total_cents')::int = 3500
-                 and (q #>> '{lines,0,regular_cents}')::int = 5000 and q #>> '{first_visit,ends_on}' = '2027-02-17',
+                 and (q #>> '{lines,0,regular_cents}')::int = 5999 and q #>> '{first_visit,ends_on}' = '2027-02-17',
                  'm011 C33: a visitor''s quote shows $35 "if first visit", even for a phone and address that booked (no oracle)', q::text);
   q := public.quote_booking('{"location_type":"shop","exterior":"basic_wash","interior":"interior_clean","vehicle_type":"sedan","conditions":["none"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 11000 and (q #>> '{suggestion,saves_cents}')::int = 1000,
-                 'm011 C34: the suggestion is measured against the price shown ($110 with the offer vs $100)', q::text);
+  perform tst.ok((q ->> 'total_cents')::int = 7999 and q -> 'suggestion' = 'null'::jsonb and q #>> '{first_visit,deal}' = 'both',
+                 'm011 C34 (Migration 012): Basic Wash + Interior Clean is the Both deal ($79.99), so no Inside & Out suggestion ($114.99)', q::text);
   execute 'reset role';
 
   -- Accounts.
@@ -436,13 +444,13 @@ begin
   execute 'set local role authenticated';
   perform tst.ok(not (public.my_first_visit_offer() ->> 'show')::boolean, 'm011 P3: no pop-up once the customer has a booking');
   q := public.quote_booking('{"location_type":"mobile","exterior":"basic_wash","vehicle_type":"sedan"}');
-  perform tst.ok(q #>> '{first_visit,status}' = 'not_eligible' and (q ->> 'total_cents')::int = 5000,
+  perform tst.ok(q #>> '{first_visit,status}' = 'not_eligible' and (q ->> 'total_cents')::int = 5999,
                  'm011 C37: the customer''s next quote is at the regular price, and says why', q::text);
   perform tst.ok(exists (select 1 from public.my_bookings() b where b ->> 'ref' = ap.ref and (b ->> 'first_visit_offer')::boolean
-                         and (b #>> '{lines,0,regular_cents}')::int = 5000), 'm011 C38: Appointments (my_bookings) carry the offer');
+                         and (b #>> '{lines,0,regular_cents}')::int = 5999), 'm011 C38: Appointments (my_bookings) carry the offer');
   execute 'reset role';
   ap2 := tst.m011_account(u28, '{"address":"52 Juniper Way","address_zip":"75002"}');
-  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5000, 'm011 C39: the account''s second Basic Wash is $50');
+  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5999, 'm011 C39: the account''s second Basic Wash is $59.99');
   ap2 := tst.m011_guest('{"phone":"(469) 820-1201","address":"53 Juniper Way","address_zip":"75002"}');
   perform tst.ok(not ap2.first_visit_offer, 'm011 C40: account first, then a guest with that phone: regular price');
   ap := tst.m011_guest('{"phone":"(469) 820-1203","address":"54 Juniper Way","address_zip":"75002"}');
@@ -472,9 +480,9 @@ begin
   u4 := tst.m011_user('14698201204', 40);
   update public.business_settings set first_visit_offer_ends_on = public.local_today() - 1 where id = 1;
   q := public.quote_booking('{"location_type":"mobile","exterior":"basic_wash","vehicle_type":"sedan"}');
-  perform tst.ok(q -> 'first_visit' = 'null'::jsonb and (q ->> 'total_cents')::int = 5000, 'm011 C43: after the end date the quote is $50', q::text);
+  perform tst.ok(q -> 'first_visit' = 'null'::jsonb and (q ->> 'total_cents')::int = 5999, 'm011 C43: after the end date the quote is $59.99', q::text);
   ap2 := tst.m011_guest('{"phone":"(469) 820-1140","address":"61 Juniper Way","address_zip":"75002"}');
-  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5000, 'm011 C44: after the end date a first request pays $50');
+  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5999, 'm011 C44: after the end date a first request pays $59.99');
   perform tst.ok(not (public.get_first_visit_offer() ->> 'active')::boolean, 'm011 C45: get_first_visit_offer says the offer has ended');
   perform tst.login(u4, 'aal1');
   execute 'set local role authenticated';
@@ -517,19 +525,19 @@ begin
                  'm011 D5: the address-key index is valid after the rebuild and finds the same rows as a full read');
   reset enable_seqscan;
   ap2 := tst.m011_guest('{"phone":"(469) 820-1151","address":"Home 8820 Wrenmoor Ln","address_zip":"75002"}');
-  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5000, 'm011 D6: "Home 8820 Wrenmoor Ln", another phone: regular price');
+  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5999, 'm011 D6: "Home 8820 Wrenmoor Ln", another phone: regular price');
   ap2 := tst.m011_guest('{"phone":"(469) 820-1152","address":"8820 Wrenmoor Lane Parker TX","address_zip":"75002"}');
-  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5000, 'm011 D7: "8820 Wrenmoor Lane Parker TX", another phone: regular price');
+  perform tst.ok(not ap2.first_visit_offer and ap2.total_cents = 5999, 'm011 D7: "8820 Wrenmoor Lane Parker TX", another phone: regular price');
   ap2 := tst.m011_guest('{"phone":"(469) 820-1153","address":"Wrenmoor Ranch","address_zip":"75002"}');
   perform tst.ok(ap2.first_visit_offer
-                 and (select "Total" from office.requests where "Reference" = ap2.ref) = '$35.00 (new-customer price: phone checked; address not recognised)',
+                 and (select "Total" from office.requests where "Reference" = ap2.ref) = '$35.00 (First Timer Deal, Outside: phone checked; address not recognised)',
                  'm011 D8: an address with no house number: the owner''s list says only the phone was checked (verifier S-2)');
   perform tst.err($q$select public.quote_core('{"location_type":"mobile","exterior":"basic_wash","vehicle_type":"sedan","conditions":["other"]}')$q$,
                   'invalid_input', 'm011 D9: "Other" is refused on an outside-only booking (verifier S-5)');
   perform tst.err($q$select tst.m011_guest('{"phone":"(469) 820-1154","address":"9 Wrenmoor Lane","address_zip":"75002","conditions":["other"],"special_request":"m011 test"}')$q$,
                   'invalid_input', 'm011 D10: and on a saved outside-only request');
   q := public.quote_core('{"location_type":"mobile","exterior":"hand_wash","vehicle_type":"sedan","conditions":["none"]}');
-  perform tst.ok((q ->> 'total_cents')::int = 7500, 'm011 D11: "None" is still accepted on an outside-only booking', q::text);
+  perform tst.ok((q ->> 'total_cents')::int = 8999, 'm011 D11: "None" is still accepted on an outside-only booking', q::text);
   update public.appointments set status = 'cancelled' where special_request = 'm011 test' and status in ('requested', 'needs_information', 'confirmed');
 
   -- ===================== Results (then everything is rolled back) =====================
@@ -538,6 +546,7 @@ begin
                     || case when passed then '' else ' :: ' || coalesce(left(detail, 400), '') end, E'\n' order by id)
     into v_pass, v_total, v_text
     from tst.results where id > v_start;
-  raise exception 'M011 TESTS (rolled back): % of % passed%', v_pass, v_total, E'\n' || v_text;
+  raise exception 'M011 TESTS (rolled back): % of % passed (query md5 %)%', v_pass, v_total,
+    md5(split_part(current_query(), E'\n\n-- source: ', 1)), E'\n' || v_text;
 end
 $$;
