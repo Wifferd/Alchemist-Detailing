@@ -274,3 +274,22 @@ Checked after the fixes, in preview mode:
 - Print: Home's line hidden; the Services line printed in the print ink.
 - The chosen chip in light: gold fill.
 - The banner still lands on `#services-deals` (6 of 6).
+
+## Live (Nov 20, 2026)
+
+The owner wrote "Push". Merged with the light-mode Home and calm-motion work (doc 55) as branch `release-nov19`, pushed to
+`main` as 4a6b531; both Vercel projects built it (READY).
+
+- Read-only pre-checks on live: no m012; every function Migration 012 replaces had the pre-012 md5. `submit_booking`
+  and `staff_create_booking` differ from TEST because live never got Migration 004; both still end in
+  `read_booking_details` -> `lock_day` -> `save_booking`, as does `submit_guest_booking`. Appointments: 3, none with
+  the first-time price (unchanged after).
+- Parts 1-5 applied one by one, then the push, then part 6. Parts 1 and 2 were sent with their long header comments
+  trimmed (the SQL is identical; the function md5s prove it).
+- Post-checks: all eleven function md5s and the `office.requests` view md5 equal TEST's; three deals on; as anon:
+  car Basic Wash $35, car Both $79.99 with no Inside & Out suggestion, 2-row Both $94.99, car Inside $49.99, Hand Wash
+  $89.99, Inside & Out $114.99, Full Detail $179.99; `get_first_visit_offer` active to 2027-02-17 with three deals.
+- The live page serves "First time? Check out First Timer Deals!".
+- Not done: the m011/m012 suites were not re-run on TEST first, because TEST is paused and the account is at its two
+  free active projects (the suites passed on TEST on Nov 19 before it paused, and 105 of 106 on a local copy, the one
+  miss needing data the copy lacks). No test booking on live.
