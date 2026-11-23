@@ -1,6 +1,6 @@
 # Alchemist Detailing — website and booking platform
 
-Read this first, then `docs/18-handoff-and-booking-plan-2026-10-03.md` for where the work stands, then `docs/19-portal-architecture-and-ai-plan-2026-10-04.md` for the whole-portal architecture, build phases and the AI plan (AI features are PROPOSED until the owner approves). Docs 23 and 24 hold the owner's phase 1 answers (Oct 5): read them before touching prices, conditions or the service area.
+**Newest first: `docs/56-handoff-2026-11-23.md` (Nov 23 handoff: what is live, the owner's open questions, the paused test database and the planned rebrand).** Read this first, then `docs/18-handoff-and-booking-plan-2026-10-03.md` for where the work stands, then `docs/19-portal-architecture-and-ai-plan-2026-10-04.md` for the whole-portal architecture, build phases and the AI plan (AI features are PROPOSED until the owner approves). Docs 23 and 24 hold the owner's phase 1 answers (Oct 5): read them before touching prices, conditions or the service area.
 
 ## What this is
 
