@@ -1354,6 +1354,10 @@ section { position: relative; }
 }
 .reveal-btn:active .reveal-word { transform: scale(.985); transition-duration: var(--dur-press); }
 :where([data-theme="light"]) .reveal-word { text-shadow: 0 0 20px rgba(var(--gold-rgb), .22); }
+/* The gate (app.js washGate): once the visitor reaches the stage and Reveal has not been pressed, the page ends at the
+   stage: what comes after it on Home is not there yet, so nothing scrolls past it. It is not there only while the
+   visitor is at the stage; pressing Reveal (or scrolling back above the stage) brings it back. */
+html.wash-gate [data-view="home"] #wash ~ *, html.wash-gate:has([data-view="home"]:not([hidden])) .footer { display: none !important; }
 .reveal-dust { position: absolute; left: -150px; right: -150px; top: -110px; bottom: -110px; width: calc(100% + 300px); height: calc(100% + 220px); pointer-events: none; }
 .foam-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
 .cannon {

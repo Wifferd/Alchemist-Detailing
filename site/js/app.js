@@ -784,7 +784,7 @@
         tip: $('#nozTip'), back: $('#nozBack'), adaptive: !/[?&]noadapt/.test(location.search), reveal: [$('.svc-head'), ...$$('.svc-card'), $('.svc-note')],
       });
     } catch (e) { wash = null; }
-    if (!wash) noWash(); else { fitServices(); overWashNow(); }
+    if (!wash) noWash(); else { fitServices(); overWashNow(); gateSoon(); }
   }
   // The wash could not start (a shader that won't build): the services show in the stage at once; the title and the
   // Reveal go. (No WebGL at all: html.no-webgl does the same in the stylesheet.)
@@ -800,6 +800,7 @@
   function pressReveal() {
     if (pressed || (wash && wash.done())) return;
     pressed = true;
+    washGate();   // (the page below comes back before the stage moves)
     barGate.hold();
     if (!heavy) startHeavy();
     if (!wash) { noWash(); return; }
@@ -813,6 +814,30 @@
     window.scrollTo({ top: window.scrollY + r.top, behavior: reduce ? 'auto' : 'smooth' });
   }
   if (revealBtn) revealBtn.addEventListener('click', pressReveal);
+  // The gate: from the moment the visitor reaches the stage (coming down the page, the stage more than 40% on the
+  // screen and the screen not yet past its foot) until Reveal is pressed, everything after the stage on Home is left
+  // out of the page (CSS html.wash-gate), so the page ends at the stage: it stops there and cannot be scrolled past,
+  // with no script moving the scroll. Up is free: scrolling back above the stage lets it go. Never gated without a
+  // wash to press (no WebGL, less motion), after the press, or off Home; a visitor who is already past the stage
+  // (a link, a restored place) is never held by it.
+  let gated = false, gateTick = false, wasBefore = false;
+  function washGate() {
+    const st = $('#washStage'), home = $('[data-view="home"]');
+    const ok = !!wash && !wash.done() && !pressed && cur === 'home' && home && !home.hidden;
+    let want = false;
+    if (ok) {
+      const r = st.getBoundingClientRect(), before = r.bottom >= window.innerHeight - 1;
+      // one jump over the whole stage (End, the scrollbar dragged to the foot) from above it: back to the stage
+      if (!gated && !before && wasBefore) { window.scrollTo({ top: window.scrollY + r.top, behavior: 'instant' }); wasBefore = false; gateSoon(); return; }
+      wasBefore = before;
+      want = gated ? r.top < window.innerHeight * 0.95 : r.top <= window.innerHeight * 0.6 && before;
+    }
+    if (want !== gated) { gated = want; root.classList.toggle('wash-gate', gated); }
+  }
+  const gateSoon = () => { if (gateTick) return; gateTick = true; requestAnimationFrame(() => { gateTick = false; washGate(); }); };
+  addEventListener('scroll', gateSoon, { passive: true });
+  addEventListener('resize', gateSoon, { passive: true });
+  addEventListener('hashchange', gateSoon);
   // when the wash has ended the focus (which was on the button) goes to the services' heading
   $('#wash').addEventListener('washend', () => {
     pressed = true;
@@ -3322,6 +3347,7 @@
         if (!first) { if (again) placeBack(scope, again); else if (zipAsked) { wantHeading = false; wantBack = null; } else placeFocus(scope); }
         requestAnimationFrame(() => {
           if (view === 'home') { fitServices(); if (wash) wash.refresh(); }
+          washGate();   // (a page change: the gate follows Home)
           paintArt();
         });
         footRoute();   // (after the page's own scroll, in the next frame)
