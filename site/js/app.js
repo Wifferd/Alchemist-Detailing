@@ -772,7 +772,10 @@
   }
 
   // ---------------------------------------------------------------- the wash
-  let wash = null, washPin = null;   // washPin: the pinned section's fold when the wash itself could not start
+  // A press on Reveal plays it (foam.js: about three seconds on a clock, never on the scroll). Where it cannot play (no
+  // WebGL, a shader that won't build, less motion) the services are simply shown.
+  let wash = null;
+  const revealBtn = $('#revealBtn');
   function startWash() {
     if (!glOk || reduce || !window.AlchemistWash) return;
     try {
@@ -783,19 +786,39 @@
     } catch (e) { wash = null; }
     if (!wash) noWash(); else { fitServices(); overWashNow(); }
   }
-  // The wash could not start (a shader that won't build): before the visitor reaches it, the plain no-WebGL section;
-  // once they are in it or past it (the wash starts after the first touch), html.no-webgl would collapse the section
-  // under them, so the services show in the stage instead and the pinned length goes like a finished wash's.
+  // The wash could not start (a shader that won't build): the services show in the stage at once; the title and the
+  // Reveal go. (No WebGL at all: html.no-webgl does the same in the stylesheet.)
   function noWash() {
-    const s = $('#wash'), st = $('#washStage'), A = window.AlchemistWash;
-    if (s.getBoundingClientRect().top >= 0 || !A || !A.pinFold) { root.classList.add('no-webgl'); return; }
-    s.classList.add('static');
-    st.classList.add('revealed');
-    washPin = A.pinFold(s, st);
-    washPin.arm();
-    washPin.ready();
+    $('#wash').classList.add('static');
+    $('#washStage').classList.add('revealed');
     fitServices();
   }
+  // The press. The foam sprays the stage, so the stage should be what the visitor sees: if it is not at the top of the
+  // screen it is brought there first (a click, so no finger is dragging the page), then the wash plays. A second press
+  // while it plays does nothing.
+  let pressed = false;
+  function pressReveal() {
+    if (pressed || (wash && wash.done())) return;
+    pressed = true;
+    barGate.hold();
+    if (!heavy) startHeavy();
+    if (!wash) { noWash(); return; }
+    const st = $('#washStage'), r = st.getBoundingClientRect();
+    const play = () => { if (!wash.done()) { fitServices(); wash.refresh(); wash.play(); overWashNow(); } };
+    if (Math.abs(r.top) < 2 || r.bottom <= 0 || r.top >= window.innerHeight) { play(); return; }
+    let arrived = false;
+    const go = () => { if (arrived) return; arrived = true; clearTimeout(t); play(); };
+    const t = setTimeout(go, reduce ? 0 : 900);
+    addEventListener('scrollend', go, { once: true });
+    window.scrollTo({ top: window.scrollY + r.top, behavior: reduce ? 'auto' : 'smooth' });
+  }
+  if (revealBtn) revealBtn.addEventListener('click', pressReveal);
+  // when the wash has ended the focus (which was on the button) goes to the services' heading
+  $('#wash').addEventListener('washend', () => {
+    pressed = true;
+    const h = $('#svcTitle');
+    if (revealBtn && h && document.activeElement === revealBtn) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+  });
   // While the live wash is under the bar, the bar drops its backdrop blur (CSS .over-wash: nearly solid instead).
   // The observer follows the section; the wash's start is checked by hand (it does not move the section), and its end
   // comes as the washend event.
@@ -888,7 +911,7 @@
     if (rowArmed) return;
     rowArmed = true;
     if (!grid || light.off) { armLit(); return; }
-    if (wash && wash.live()) washSection.addEventListener('washend', rowWatch, { once: true });
+    if (wash && !wash.done()) washSection.addEventListener('washend', rowWatch, { once: true });   // after the press and its wash
     else rowWatch();
   }
   // half of the row on the screen
@@ -971,7 +994,7 @@
     const wrap = $('#svcWrap'), box = $('#washServices'), stage = $('#washStage');
     if (!wrap || !box || !stage) return;
     wrap.style.transform = '';
-    if (!wash && !washPin) return;
+    if (!wash && !$('#wash').classList.contains('static')) return;
     const cs = getComputedStyle(box);
     const avail = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     const need = wrap.offsetHeight;
@@ -979,7 +1002,8 @@
   }
   // keyboard users who tab into the services before they're revealed jump to the reveal
   $('#washServices').addEventListener('focusin', () => {
-    if (wash && !$('#washStage').classList.contains('revealed')) wash.finish();
+    if (!heavy) startHeavy();
+    if (wash && !wash.done() && !wash.live()) wash.finish();   // a key into the cards before the press: they are shown at once
   });
 
   // ---------------------------------------------------------------- the motion system
@@ -3089,42 +3113,14 @@
     ids.slice(0, Math.max(0, ids.length - 60)).forEach((k) => delete places[k]);   // (the oldest go first)
     try { sessionStorage.setItem(LEFT, JSON.stringify(places)); } catch (e) { /* storage unavailable: this visit still remembers */ }
   }
-  // home's wash: the pinned length it still has (none once it has given it back, or where it never pins: no WebGL,
-  // less motion; read only while it has it)
-  const washStage = $('#washStage');
-  function washSpare() {
-    if (wash ? wash.folded() : washPin ? washPin.folded() : reduce || !glOk || root.classList.contains('no-webgl')) return 0;
-    return Math.max(0, washSection.offsetHeight - washStage.offsetHeight);
-  }
-  // the place a page is left at (on home with the wash's length then: after render's fold, as memo.home; on the FAQ the
-  // questions then open, which it shows open again before it is placed, so what was on the screen is there again)
+  // the place a page is left at (on the FAQ the questions then open, which it shows open again before it is placed, so
+  // what was on the screen is there again). Home's wash pins nothing now: its place is just where the page was.
   function placeOf(r, y) {
-    const k = r === 'home' ? { y, s: washSpare() } : { y }, f = focusOf();
+    const k = { y }, f = focusOf();
     const C = window.AlchemistContent, o = r === 'faq' && C && C.opened ? C.opened() : null;
     if (o && o.length) k.o = o;
     if (f) k.f = f;   // (where the keyboard was: placeBack)
     return k;
-  }
-  // where a page met again lands now: home's wash may have given its pinned length back since, or have it again after
-  // a reload, so what lies below the wash moves by the difference, and a place inside the pin, which never plays
-  // twice, lands on the stage (the services)
-  function landY(k) {
-    if (cur !== 'home' || k.s == null) return k.y;
-    const n = washSpare();
-    if (Math.abs(n - k.s) < 1) return k.y;
-    const top = window.scrollY + washSection.getBoundingClientRect().top;
-    if (k.y <= top) return k.y;
-    if (k.y >= top + k.s) return k.y - k.s + n;
-    return n > 0 ? top + (k.y - top) * n / k.s : top;
-  }
-  // A home left with its wash over (the length given back), met again on a wash that has it again (a reload since: a
-  // new wash, still to play) with the services then on the screen or above it: they are shown as the wash left them,
-  // at once, by the wash's own finish (as for a key into the services), so the place lands as it was left
-  function washOver(k) {
-    if (k.s == null || k.s > 0.5 || washSpare() < 1) return;
-    if (k.y <= window.scrollY + washSection.getBoundingClientRect().top - window.innerHeight) return;   // (above the wash: the same page either way)
-    if (!wash && !washPin) startHeavy();
-    if (wash) { if (!wash.done()) wash.finish(); } else if (washPin) washPin.now();
   }
   // A page met again whose content is still coming (the data layer's answer, a section the Gallery adds above its grid)
   // is held to its place as it grows, either way: for 3s at most, never under a finger, and not once the visitor has
@@ -3199,17 +3195,14 @@
   function render(first, cut, after) {
     if (landing) landing();
     const { r, sub, t } = parse();
-    // Leaving home with the wash finished: its pinned length goes now, while home is still laid out (every rect is
-    // zero once it is hidden), with no scroll; home's position is stored in the shorter layout.
-    const shift = cur === 'home' && r !== 'home' ? (wash ? wash.foldNow({ scroll: false }) : washPin ? washPin.now({ scroll: false }) : 0) : 0;
     const view = ['tips', 'faq', 'about', 'contact'].includes(r) ? 'content' : r;   // every other route has its own view
-    if (cur) memo[cur] = window.scrollY + shift;
+    if (cur) memo[cur] = window.scrollY;
     // the history entry: the one left keeps its place; the one shown is met again (Back, Forward, a reload: it lands
     // where it was left, again) or is new (a link: marked one deeper than the page it came from)
     const st = stateOf(), was = entry, moved = !was || !st || st.id !== was.id;
     let again = null;
     if (moved) {
-      if (was && cur) places[was.id] = placeOf(cur, window.scrollY + shift);
+      if (was && cur) places[was.id] = placeOf(cur, window.scrollY);
       if (st) { entry = st; again = places[st.id] || null; }
       else { entry = { id: newId(), d: was ? was.d + 1 : 0, p: was ? cur : null }; markEntry(entry); }
       if (was) keepPlaces();
@@ -3258,11 +3251,11 @@
     const place = () => {
       if (again && r === 'home') {
         // (on the first page of a load the wash can start only once this script has run: just after it, before a frame)
-        const go = () => { washOver(again); window.scrollTo(0, landY(again)); };
+        const go = () => { window.scrollTo(0, again.y); };
         if (first) queueMicrotask(go); else go();
         return;
       }
-      if (again) { const y = landY(again); window.scrollTo(0, y); catchUpTo(y); return; }
+      if (again) { const y = again.y; window.scrollTo(0, y); catchUpTo(y); return; }
       // (a group's place and Contact's ZIP box scroll the page themselves: under a finger both wait for its lift, in
       // either order, so the top must not come after them)
       if (changed && !first && !(r === 'services' && sub) && !zipAsked) window.scrollTo(0, r === 'home' && memo.home != null ? memo.home : 0);
@@ -3558,9 +3551,11 @@
       const go = () => {
         let y = 0;
         if (a.dataset.scroll === 'services') {
-          if (!heavy) startHeavy();                  // tapped in the first seconds: the wash plays on the way down
-          if (washPin) washPin.now();
-          y = wash ? wash.progressTo(1) : $('#wash').getBoundingClientRect().top + window.scrollY;
+          // Services & prices: the stage comes to the top of the screen, and the wash plays there (the link is a press)
+          y = $('#wash').getBoundingClientRect().top + window.scrollY;
+          const done = () => { if (revealBtn && !(wash && wash.done()) && !reduce) pressReveal(); };
+          addEventListener('scrollend', done, { once: true });
+          setTimeout(() => { removeEventListener('scrollend', done); done(); }, 1100);
         }
         else y = $('#' + a.dataset.scroll).getBoundingClientRect().top + window.scrollY - 40;
         window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
@@ -3585,7 +3580,6 @@
     const navigate = () => {
       if (location.hash.slice(1) === token) {   // same page: back to its top
         if (!token.includes('-')) {
-          if (cur === 'home') { if (wash) wash.foldNow(); else if (washPin) washPin.now(); }   // a click: the pinned length goes first
           window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
         } else render(false);
       } else {
@@ -3725,5 +3719,5 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(settle); else setTimeout(settle, 300);
 
   // used by the screenshot checks
-  window.__alchemist = { get wash() { return wash; }, goTo: (p) => { startHeavy(); if (!wash) return; if (p >= wash.state().rel) wash.finish(); else window.scrollTo(0, wash.progressTo(p)); } };
+  window.__alchemist = { get wash() { return wash; }, start: startHeavy, press: () => pressReveal() };
 })();

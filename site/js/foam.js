@@ -1,11 +1,10 @@
 /* Alchemist Detailing — the wash.
-   Scrolling drives the wash: the foam cannon walks in from the left and sprays
-   a steady stream across the screen, left to right, until the screen is
-   covered; then a sheet of rinse water sweeps across and the services appear.
-   Once the rinse has cleared the screen the wash is finished and stays finished: the pin lets go of the page
-   there (the stylesheet's --wash-release), the last film and drops dry while the stage scrolls away, and
-   scrolling back up never rewinds it. The section gives its pinned length back only in ways nothing on screen
-   can show, whatever a finger is doing (pinFold).
+   A press plays it. On Home the Services section waits with its title and a quiet "Reveal"; pressing Reveal plays
+   the wash on a clock, in about three seconds: the foam cannon walks in from the left and sprays a steady stream
+   across the stage, left to right, until it is covered; then a sheet of rinse water sweeps across, the services come
+   up behind it, and the last film and drops dry. It plays once, on the press, never on the scroll, and stays
+   finished: the services are simply there from then on. (Until Nov 24 the scroll drove it and pinned the page for it;
+   see docs/57.)
 
    Rendering, in two WebGL passes:
      1. Every foam blob is drawn as a soft disc into a small field texture
@@ -26,20 +25,20 @@
    the hero reflects), and the foam is lit from the bar's side.
    Phones (< 600px) compile a lighter shader (#define LITE: no fine froth,
    contact shadow or sparkle); the resolution still adapts to slow frames.
-   Usage: AlchemistWash.start({ section, stage, canvas, cannon, tip, back, reveal: [elements] }) */
+   Usage: w = AlchemistWash.start({ section, stage, canvas, cannon, tip, back, reveal: [elements] }); w.play() */
 (function () {
   'use strict';
 
-  // Timeline of the wash (0..1). The pin covers 0..REL (the stylesheet's --wash-release, .85); the rest of it plays while
-  // the stage scrolls away (progress()).
+  // Timeline of the wash (0..1), played on a clock over DURATION_MS: quick and smooth (the owner, Nov 24).
+  const DURATION_MS = 2800;
   const T = {
-    cannonIn: [0.0, 0.12],     // the cannon walks in from the left, its body seen arriving, before it fires
-    spray: [0.12, 0.56],       // the nozzle sweeps left to right; foam lands along the stream
-    cannonOut: [0.56, 0.66],
-    titleOut: [0.14, 0.4],
-    sag: [0.45, 0.82],         // the foam slides down a little
-    rinse: [0.62, 0.9],        // the water sheet sweeps across
-    drops: [0.86, 0.985],      // droplets left on the glass fade away
+    cannonIn: [0.0, 0.10],     // the cannon walks in from the left, its body seen arriving, before it fires
+    spray: [0.10, 0.52],       // the nozzle sweeps left to right; foam lands along the stream
+    cannonOut: [0.52, 0.61],
+    titleOut: [0.05, 0.30],    // the title and the Reveal fade as the first foam lands
+    sag: [0.40, 0.80],         // the foam slides down a little
+    rinse: [0.56, 0.87],       // the water sheet sweeps across
+    drops: [0.84, 0.985],      // droplets left on the glass fade away
   };
   const CANNON_ROT = -58;      // degrees: nozzle points up and to the right
   const BAND = 0.34;           // the stream leans right as it rises: landing x = nozzle x + BAND * height above the nozzle
@@ -53,23 +52,11 @@
   const easeIn2 = (t) => t * t;
   const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const backOut = (t) => { const c1 = 1.35, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
-
-  // ------------------------------------------------------------------ the end of the wash
-  // The pin lets go of the page at RELEASE of the timeline (the stylesheet's --wash-release wins): the rinse has
-  // cleared the screen and every card is up. What is left of the timeline (the water film and the drops drying) plays
-  // while the stage scrolls away, carried by the scroll or by a TAIL_MS clock, whichever is ahead.
-  const RELEASE = 0.85;
-  const TAIL_MS = 800;
   const QS = new URLSearchParams(location.search);
-  // iOS (every browser there is WebKit; iPadOS reports MacIntel with touch points)
-  const IOS = /iP(hone|ad|od)/.test(navigator.platform || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  // WebKit on iOS 26 and earlier (and in any frame) paints a programmatic scroll's newly shown area from the old
-  // visible rect (bug 310087): there the fold moves STEP px a frame, inside the tiles' ~85 px margin. Safari 27 as the
-  // top document has the fix; CSS.supports('overflow-anchor') is the only way to tell 27 from 26 (the UA is frozen).
-  const STEP = QS.has('washstep') ? +QS.get('washstep') || 40
-    : IOS && !(window.top === window && window.CSS && CSS.supports && CSS.supports('overflow-anchor', 'auto')) ? 40 : Infinity;
+  const SPEED = clamp(+QS.get('washspeed') || 1, 0.05, 4);   // ?washspeed=0.25 plays it at a quarter of its speed (checks)
 
   // ------------------------------------------------------------------ is the glass free and the page still?
+  // (kept from the pinned wash: the page's route cuts ask it, app.js, so no swap runs a scroll under a finger)
   // Watched from page load (a finger can already be down when the wash ends). iOS undoes a script's scroll made while
   // a finger drags, and it never sends the page the touch that catches a fling (nor a scrollend for it), so touch
   // events alone prove nothing. proven() is true only at a moment one of these shows that no finger is on the glass:
@@ -137,160 +124,6 @@
       own(y0, y1) { s.tOwn = now(); s.own = s.own.concat(y0, y1).slice(-8); s.y = y1; },   // we just scrolled y0 -> y1
     };
   })();
-
-  // ------------------------------------------------------------------ giving the pinned length back
-  // A finished wash's section is still 100svh + the pin tall. It shrinks to one stage only in ways nothing on screen
-  // can show, whatever a finger is doing:
-  //  free  the section's top is at or below the top of the screen and the stage covers the rest of it, so all of the
-  //        pin lies below the screen: it goes with no scroll (moving down, only once the section is wholly below);
-  //  trim  back inside the pinned stage on the way up, the part of the pin below the screen goes (no scroll);
-  //  rest  at a proven moment (rest.proven), with a scroll by exactly what the layout moved, measured (when all of
-  //        the section is above the screen the page is scrolled first, so the shorter page never clamps);
-  //        STEP px a frame on iOS 26 and earlier, at once elsewhere;
-  //  hide  the home view is about to be hidden (a route change): no scroll; the caller stores the measured shift;
-  //  now   a click or a key asked for a jump (Explore Services, keyboard focus, the screenshot tool): at once.
-  // On iOS a watchdog puts the length back if the engine undoes a compensation (240 px or more, in one leap back).
-  function pinFold(section, stage, o = {}) {
-    const html = document.documentElement;
-    let armed = false, ready = false, folded = false, flat = false, creeping = false, tickQ = false, lastTrim = -1e9;
-    let watch = null, last = null, steps = 0, trims = 0, reverts = 0, undone = 0, flatTimer = 0;
-    const shown = () => section.getClientRects().length > 0;
-    const dpx = (v) => Math.floor(v);              // whole CSS px: window scroll offsets are whole CSS px
-    // Set the section's height; mode 'free' takes it back if anything on screen moved, 'scroll' moves the page by
-    // what the reference moved, 'hide' keeps it as it is. Returns the reference's move (null: not done).
-    function change(px, mode) {
-      const r0 = section.getBoundingClientRect();
-      const above = r0.bottom <= 0;                 // all of it is above the screen: the page loses exactly what it loses
-      const ref = above ? (section.nextElementSibling || stage) : stage;
-      const prev = section.style.height, y0 = window.scrollY;
-      const before = ref.getBoundingClientRect().top;
-      html.style.overflowAnchor = 'none';          // the engine's own anchoring would correct the same change again
-      // All above the screen: scroll first, so the shorter page never has to clamp the old position (the visitor at the
-      // very bottom); the scroll and the new height still reach the screen together, in one frame.
-      const pre = above && mode === 'scroll' ? r0.height - px : 0;
-      if (pre > 0.01) {
-        window.scrollBy({ top: -pre, left: 0, behavior: 'instant' });
-        rest.own(y0, window.scrollY);
-        if (Math.abs(window.scrollY - (y0 - pre)) > 1) {   // the engine did not take the scroll: nothing has changed size yet, so stop here
-          const back = window.scrollY - y0;
-          if (Math.abs(back) > 0.5) { const y1 = window.scrollY; window.scrollBy({ top: -back, left: 0, behavior: 'instant' }); rest.own(y1, window.scrollY); }
-          html.style.overflowAnchor = '';
-          reverts++;
-          return null;
-        }
-      }
-      section.style.height = px + 'px';
-      const delta = ref.getBoundingClientRect().top - before;   // a forced layout; after a scroll first, normally 0
-      const putBack = () => { section.style.height = prev; html.style.overflowAnchor = ''; };
-      if (Math.abs(delta) > 0.5 && mode === 'free') { putBack(); return null; }
-      if (mode === 'scroll' && (pre > 0.01 || Math.abs(delta) > 0.01)) {
-        if (Math.abs(delta) > 0.01) { const y1 = window.scrollY; window.scrollBy({ top: delta, left: 0, behavior: 'instant' }); rest.own(y1, window.scrollY); }
-        const left = ref.getBoundingClientRect().top - before;
-        if (Math.abs(left) > 1) {                  // the engine did not take it as asked: everything goes back
-          putBack();
-          const back = window.scrollY - y0;
-          if (Math.abs(back) > 0.5) { const y1 = window.scrollY; window.scrollBy({ top: -back, left: 0, behavior: 'instant' }); rest.own(y1, window.scrollY); }
-          reverts++;
-          return null;
-        }
-      }
-      requestAnimationFrame(() => { html.style.overflowAnchor = ''; });   // nothing else sets it (two changes in a frame must not leave 'none')
-      return delta - pre;                           // the reference's move the page made up for
-    }
-    function stageH() { return stage.getBoundingClientRect().height; }
-    function finishFold(mode, d) {
-      folded = true; creeping = false; last = { mode, d: Math.round(d * 10) / 10, y: Math.round(window.scrollY) };
-      section.classList.add('wash-folded');
-      section.style.height = '';                    // the stylesheet holds it at one stage from here, through any resize
-      if (mode === 'hide') flatten(); else flatSoon();
-      if (o.onFold) o.onFold(mode);
-    }
-    // .washed (the stage no longer sticky, the cards' layers dropped) has the same geometry once folded; it waits until
-    // the stage is off the screen (re-rasterising the cards on screen could flicker) and the watchdog's time is over
-    const flatIo = new IntersectionObserver((es) => { if (!es[es.length - 1].isIntersecting && (!watch || performance.now() > watch.until)) flatten(); });
-    function flatSoon() {
-      flatIo.observe(stage);
-      clearTimeout(flatTimer);
-      flatTimer = setTimeout(() => { flatIo.unobserve(stage); flatIo.observe(stage); }, 3100);  // asks the observer again after the watchdog
-    }
-    function flatten() {
-      if (flat || !folded) return;
-      flat = true; flatIo.disconnect(); clearTimeout(flatTimer);
-      section.classList.add('washed');
-      section.style.height = '';
-    }
-    function full(mode) {                          // all of it, at once
-      if (folded) return 0;
-      if (!shown()) return null;
-      const d = change(stageH(), mode);
-      if (d == null) return null;
-      finishFold(mode, d);
-      return d;
-    }
-    function free() {
-      if (!armed || folded || !shown()) return;
-      const st = rest.state, t = performance.now();
-      const r = section.getBoundingClientRect(), v = innerHeight, sh = stageH();
-      const down = st.dir > 0 && t - st.tScroll < 120;
-      if (r.top >= (down ? v : Math.max(0, v - sh) + 1)) { if (full('free') != null) return; }
-      if (!down && r.top < 0 && t - lastTrim > 100) {
-        const below = dpx(r.bottom - Math.max(sh, v));
-        if (below >= 8 && change(r.height - below, 'free') != null) { lastTrim = t; trims++; }
-      }
-    }
-    function onUserScroll() {
-      if (watch) checkWatch();
-      if (ready && !folded && !creeping) rest.when(restFold);   // (again) at the next proven moment
-      if (!armed || folded || tickQ) return;
-      tickQ = true;
-      requestAnimationFrame(() => { tickQ = false; free(); });
-    }
-    rest.onScroll(onUserScroll);
-    function checkWatch() {
-      const t = performance.now();
-      if (t > watch.until || !shown()) { watch = null; return; }
-      const jumped = window.scrollY - watch.yAfter;          // after our scrolls of watch.total, the page leapt back by about as much
-      if (Math.sign(jumped) === -Math.sign(watch.total) && Math.abs(jumped + watch.total) < Math.abs(watch.total) * 0.25) {
-        section.style.height = (section.getBoundingClientRect().height - watch.total) + 'px';
-        section.classList.remove('wash-folded', 'washed');
-        folded = false; flat = false; undone++; watch = null; creeping = false;
-        flatIo.disconnect();
-        rest.when(restFold);
-      } else watch.yAfter = window.scrollY;
-    }
-    function restFold() {
-      if (!armed || !ready || folded || creeping) return;
-      if (!shown()) return;                         // home is hidden: render() folded it on the way out
-      if (!rest.proven()) { rest.when(restFold); return; }
-      creeping = true;
-      const t0 = performance.now();
-      let total = 0;
-      const stepOnce = () => {
-        if (folded || !creeping) { creeping = false; return; }
-        const st = rest.state;
-        if (!shown() || st.touches || st.buttons || document.visibilityState !== 'visible' || Math.max(st.tScroll, st.tInput, st.tStart, st.tResize) > t0) {
-          creeping = false; rest.when(restFold); return;      // the visitor is back: wait for the next proven moment
-        }
-        const r = section.getBoundingClientRect(), sh = stageH(), spare = r.height - sh;
-        if (spare <= 0.5) { finishFold('rest', total); return; }
-        const x = Math.min(spare, STEP);
-        const d = change(x >= spare - 0.5 ? sh : r.height - x, 'scroll');
-        if (d == null) { creeping = false; return; }          // refused: tried again after the visitor's next scroll
-        steps++; total += d;
-        if (IOS && Math.abs(total) >= 240) watch = { total, yAfter: window.scrollY, until: performance.now() + 3000 };   // no single scroll event goes that far
-        if (x >= spare - 0.5) { finishFold('rest', total); return; }
-        requestAnimationFrame(stepOnce);
-      };
-      stepOnce();
-    }
-    return {
-      arm() { if (armed || folded) return; armed = true; free(); },           // free and trim from now on
-      ready() { if (ready) return; ready = true; rest.when(restFold); },        // rest folds from now on (the canvas is done)
-      now(opt) { return full(opt && opt.scroll === false ? 'hide' : 'scroll') || 0; },
-      folded: () => folded,
-      debug: () => ({ armed, ready, folded, flat, creeping, steps, trims, reverts, undone, last, step: STEP, ios: IOS, proven: rest.proven(), hasEnd: rest.hasEnd }),
-    };
-  }
 
   function mulberry32(a) {
     return function () {
@@ -792,84 +625,48 @@ void main(){
     }
 
     // ---------------------------------------------------------------- per-frame state
-    let p = 0, lastP = null, lastT = performance.now(), vel = 0, spray = 0, carry = 0;
+    // One way only: idle (the title and the Reveal; nothing draws) -> playing (a press: DURATION_MS on a clock, the
+    // cannon, the spray, the rinse, the services coming up, the drops drying) -> done (the services stay; the canvas is
+    // cleared and the loop has stopped for good).
+    let p = 0, lastT = performance.now(), spray = 0, carry = 0, elapsed = 0;
     let noz = [0, NOZ_Y], dir = [BAND, -1];
-    let drewLast = false, active = false, raf = 0;
+    let drewLast = false, raf = 0;
     let slowFrames = 0, shrink = false;
     const adaptive = o.adaptive !== false;
     const t0 = performance.now();
     let tipOff = 0, cannonW = 0;      // the nozzle's x inside the cannon element, and its width (px)
     let lastTitle = null, lastClean = null;
-    // One way only: running (scrubbed by the scroll) -> finished (the pin has let go at REL; never rewinds; the film
-    // and the drops dry) -> completed (the loop has stopped for good). The pinned length goes later (pinFold).
-    let finished = false, finishedAt = 0, runAtFinish = 1, completed = false;
-    const REL = parseFloat(getComputedStyle(section).getPropertyValue('--wash-release')) || RELEASE;
-    const pin = pinFold(section, stage);
+    let state = 'idle';
 
-    // progress on the wash's own scale (1 = the whole timeline: the pin, which ends at REL, plus the tail)
-    function progress(now) {
-      const r = section.getBoundingClientRect();
-      if (!r.height) return null;                                     // the home view is hidden
-      if (!finished) {
-        const run = (r.height - stage.offsetHeight) / REL;
-        const v = run > 0 ? clamp(-r.top / run, 0, 1) : 0;
-        if (v < REL - 0.002) return v;
-        finishMain(now, run);
-        if (!IOS) pin.now();   // a script's scroll under a finger sticks everywhere but iOS WebKit: the pinned length goes now
-      }
-      // the tail by the scroll: the stage's own move from the release on (the same before and after the fold)
-      const byScroll = REL - stage.getBoundingClientRect().top / runAtFinish, byTime = REL + (1 - REL) * clamp((now - finishedAt) / TAIL_MS, 0, 1);
-      return Math.min(1, Math.max(p, byScroll, byTime));              // the tail: the scroll or the clock, never back
+    // The press. Starts the clock; the loop runs only while it plays.
+    function play() {
+      if (state !== 'idle') return;
+      if (!measure()) { complete(); return; }   // the home view is hidden: nothing to play
+      measureCannon();
+      state = 'playing';
+      elapsed = 0; lastT = performance.now(); lastTitle = lastClean = null;
+      section.classList.add('wash-playing');
+      raf = requestAnimationFrame(frame);
     }
-    // The pin has let go (CSS: the section ends here): everything takes its final value; nothing changes size.
-    function finishMain(now, run) {
-      if (finished) return;
-      finished = true; finishedAt = now; runAtFinish = run > 0 ? run : 1;
-      // the pinned length in whole CSS pixels (a change of half a pixel at most): scroll offsets are whole CSS pixels at any
-      // device pixel ratio, so giving it back later moves the page by exactly what it removes
-      const r = section.getBoundingClientRect(), sh = stage.getBoundingClientRect().height;
-      if (r.height > sh) section.style.height = (sh + Math.round(r.height - sh)) + 'px';
+    // Everything takes its final value; the loop stops for good (the end of the clock, a context lost, a key into the
+    // services, a route that hides home, a jump that asks for the services at once).
+    function complete() {
+      if (state === 'done') return;
+      state = 'done';
+      cancelAnimationFrame(raf);
+      p = 1;
       stage.classList.add('revealed');
       stage.style.setProperty('--title-out', '1');
-      for (const el of reveal) el.style.setProperty('--r', '1');
-      section.classList.add('wash-finished');
-      removeEventListener('scroll', skipped);
-      pin.arm();
-    }
-    // The loop stops for good: the drops have dried, the stage left the screen, the pin was skipped in one jump, the
-    // context was lost, or a click, a key or a route asked for it.
-    function complete() {
-      if (completed) return;
-      if (!finished) {
-        const r = section.getBoundingClientRect();
-        finishMain(performance.now(), r.height ? (r.height - stage.offsetHeight) / REL : 1);
-      }
-      completed = true; p = 1;
       stage.style.setProperty('--clean', '1');
+      for (const el of reveal) el.style.setProperty('--r', '1');
       cannon.style.visibility = 'hidden';
       if (drewLast) { clear(); drewLast = false; }
-      setActive(false);
-      io.disconnect();
+      canvas.style.display = 'none';
+      section.classList.remove('wash-playing');
+      section.classList.add('wash-finished', 'washed');
       section.dispatchEvent(new Event('washend'));
-      pin.ready();
     }
-    // a click, a key or a route: no finger drags the page
-    function foldNow(opt) { if (!finished) return 0; complete(); return pin.now(opt); }
-    // keyboard focus in the services before they're revealed (and the screenshot tool's goTo): straight to them
-    function finish() {
-      complete();
-      if (!rest.state.touches) pin.now();
-      window.scrollTo({ top: scrollY + stage.getBoundingClientRect().top, behavior: 'auto' });
-    }
-    // A pin skipped in one jump (End, find in page, a restored position) never plays: once all of the section is above
-    // the screen the wash is over
-    let skipTick = false;
-    function skipped() {
-      if (finished || skipTick) return;
-      skipTick = true;
-      requestAnimationFrame(() => { skipTick = false; const r = section.getBoundingClientRect(); if (!finished && r.height && r.bottom <= 0) complete(); });
-    }
-    addEventListener('scroll', skipped, { passive: true });
+
 
     // the cannon's nozzle, in screen units, across the whole wash
     function measureCannon() {
@@ -1003,25 +800,23 @@ void main(){
     }
 
     function frame(now) {
+      if (state !== 'playing') return;
       raf = requestAnimationFrame(frame);
-      if (!section.getClientRects().length) return;   // the home view is hidden: write nothing (no p = 0 state)
+      if (!section.getClientRects().length) { complete(); return; }   // the home view was hidden mid-play
       if (!W && !measure()) return;
-      const dt = Math.min(0.1, Math.max(0.001, (now - lastT) / 1000));
+      // a slow frame moves the clock by 50ms at most: a hitch never throws the cannon across the screen
+      const dt = Math.min(0.05, Math.max(0.001, (now - lastT) / 1000));
       lastT = now;
       if (shrink) { shrink = false; W = 0; measure(); }
-      if (!finished) readNozzle();   // last frame's cannon position: no forced layout
-      const np = progress(now);
-      if (np == null) return;
-      p = np;
-      if (finished && p >= T.drops[1] + 0.005) { complete(); return; }   // dry
+      readNozzle();   // last frame's cannon position: no forced layout
+      elapsed += dt * SPEED;
+      p = elapsed * 1000 / DURATION_MS;
+      if (p >= 1) { complete(); return; }
       const fr = front(p, asp);
 
-      // the stream runs while the nozzle sweeps: a steady trickle, stronger the faster the visitor scrolls
-      const v = lastP == null ? 0 : (p - lastP) / dt;
-      lastP = p;
-      vel = lerp(vel, v, 1 - Math.exp(-dt * 12));
+      // the stream runs while the nozzle sweeps, full strength
       const inWindow = p > T.cannonIn[1] * 0.75 && p < T.spray[1] - 0.01;   // the cannon is on screen before it fires
-      const target = inWindow ? clamp(0.3 + vel * 5, 0, 1) : 0;
+      const target = inWindow ? 1 : 0;
       spray = lerp(spray, target, 1 - Math.exp(-dt * (target > spray ? 12 : 6)));
       if (spray > 0.04) {
         carry += spray * 120 * dt;
@@ -1036,84 +831,53 @@ void main(){
       const nx = nozzleX(p, cw, ch) * ch - tipOff;
       const walk = Math.sin((now - t0) / 1000 * Math.PI * 2 * 1.5);
       const bob = walk * 4 * spray, sway = walk * 1.2 * spray;
-      const lag = clamp(vel * 40, -4, 4);
+      const lag = 3 * spray;
       const kick = spray * 0.9;
       const jx = (Math.random() - 0.5) * kick, jy = (Math.random() - 0.5) * kick;
       cannon.style.transform = `translate(${nx.toFixed(1)}px, ${(bob + jy).toFixed(2)}px) rotate(${(CANNON_ROT + sway - lag).toFixed(2)}deg) translate(${jx.toFixed(2)}px, 0)`;
-      cannon.style.visibility = p <= 0 || p >= T.cannonOut[1] ? 'hidden' : 'visible';
+      cannon.style.visibility = p >= T.cannonOut[1] ? 'hidden' : 'visible';
 
       // page state that follows the wash (written only when it changes)
       const titleOut = sstep(T.titleOut[0], T.titleOut[1], p).toFixed(3);
       if (titleOut !== lastTitle) { lastTitle = titleOut; stage.style.setProperty('--title-out', titleOut); }
       const clean = easeOut3(fr.k).toFixed(3);
       if (clean !== lastClean) { lastClean = clean; stage.style.setProperty('--clean', clean); }
-      if (!finished) stage.classList.toggle('revealed', fr.k > 0.55);
-      if (!finished) for (const b of revealBoxes) {
+      stage.classList.toggle('revealed', fr.k > 0.55);
+      for (const b of revealBoxes) {
         const s = b.x * D[0] + b.y * D[1];
         const r = easeOut3(clamp((fr.s - s + 0.04) / 0.32, 0, 1)).toFixed(3);
         if (r !== b.last) { b.last = r; b.el.style.setProperty('--r', r); }
       }
 
-      // draw only while there's something to show
-      const visible = (p > T.spray[0] - 0.01 && p < T.drops[1] + 0.01) || parts.length > 0 || spray > 0.01;
-      if (visible && !completed) {
-        draw(now, fr);
-        drewLast = true;
-        // keep it smooth on slower phones
-        if (adaptive && dt > 0.026) { if (++slowFrames > 40 && scale > 0.42) { scale -= 0.08; slowFrames = 0; shrink = true; } }
-        else slowFrames = Math.max(0, slowFrames - 1);
-      } else if (drewLast) {
-        clear();
-        drewLast = false;
-      }
+      draw(now, fr);
+      drewLast = true;
+      // keep it smooth on slower phones
+      if (adaptive && dt > 0.026) { if (++slowFrames > 20 && scale > 0.42) { scale -= 0.08; slowFrames = 0; shrink = true; } }
+      else slowFrames = Math.max(0, slowFrames - 1);
     }
 
-    function setActive(on) {
-      if (on === active) return;
-      active = on;
-      if (on) { lastT = performance.now(); lastP = null; measure(); measureCannon(); raf = requestAnimationFrame(frame); }
-      else cancelAnimationFrame(raf);
-    }
-    const io = new IntersectionObserver((es) => {
-      if (completed) return;
-      const on = es[es.length - 1].isIntersecting;
-      if (finished && !on) complete();             // the stage left the screen while the drops dried: they are dry
-      else setActive(on);
-    }, { rootMargin: '25% 0px 25% 0px' });
-    io.observe(section);
-    skipped();
     let rt = 0;
-    window.addEventListener('resize', () => { if (finished) return; clearTimeout(rt); rt = setTimeout(() => { W = 0; measure(); measureCannon(); }, 120); });
+    window.addEventListener('resize', () => { if (state !== 'idle') return; clearTimeout(rt); rt = setTimeout(() => { W = 0; measure(); measureCannon(); }, 120); });
     // The GPU took the context away (a long time in the background, a reset): the wash cannot go on, so it finishes at
-    // once and the services show where they are. Not html.no-webgl: that collapses the section at once, perhaps under
-    // a finger; the pinned length goes like any finished wash's.
-    canvas.addEventListener('webglcontextlost', (e) => {
-      e.preventDefault();
-      cancelAnimationFrame(raf);
-      active = false;
-      canvas.style.display = 'none';
-      drewLast = false;
-      complete();
-    });
+    // once and the services show where they are.
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); complete(); });
+
+    // One unseen frame, so the shader is compiled before the press: the first frame of the wash is not the slow one.
+    if (measure()) {
+      try { draw(performance.now(), front(0, asp)); gl.finish(); } catch (err) { /* it compiles at the first frame instead */ }
+      clear();
+    }
 
     return {
-      debug() { return { p, lastN, lastFr, W, H, fw, fh, asp, blobs: blobs.length, parts: parts.length, err: gl.getError(), drewLast, lite, active,
-        done: finished, finished, completed, folded: pin.folded(), rel: REL, pin: pin.debug() }; },
-      state() { return { p, rel: REL, finished, completed, folded: pin.folded(), active }; },   // cheap (debug() syncs the GPU)
-      refresh() { if (finished) return; W = 0; measure(); measureCannon(); },
-      finish,
-      foldNow,
-      done() { return finished; },                 // the services are revealed: the wash never rewinds from here
-      live() { return !completed; },               // the canvas still draws
-      folded: pin.folded,
-      top() { return scrollY + stage.getBoundingClientRect().top; },
-      progressTo(target) {   // scroll position for a given progress: the release at most; once finished, the cards (folded first)
-        if (finished) { foldNow(); return scrollY + stage.getBoundingClientRect().top; }
-        const r = section.getBoundingClientRect();
-        return scrollY + r.top + (r.height - stage.offsetHeight) / REL * Math.min(target, REL);
-      },
+      play,
+      finish: complete,                            // the services at once (a key into them, a jump that asks for them)
+      done() { return state === 'done'; },         // the services are revealed
+      live() { return state === 'playing'; },      // the canvas is drawing
+      refresh() { if (state !== 'idle') return; W = 0; measure(); measureCannon(); },
+      state() { return { p, state, finished: state === 'done', completed: state === 'done', active: state === 'playing' }; },
+      debug() { return { p, state, lastN, lastFr, W, H, fw, fh, asp, blobs: blobs.length, parts: parts.length, err: gl.getError(), drewLast, lite }; },
     };
   }
 
-  window.AlchemistWash = { start, T, RELEASE, rest, pinFold };
+  window.AlchemistWash = { start, T, DURATION_MS, rest };
 })();

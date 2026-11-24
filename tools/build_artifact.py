@@ -19,7 +19,7 @@ body = body.replace('img/mono-metallic.webp', mono)
 css = css.replace('../img/mono-metallic.webp', mono)   # the monogram's glint is masked by its picture
 css = css.replace('url(../img/', 'url(img/')   # the other pictures the stylesheet names (the leather still) sit beside the page
 js = ''
-for name in ['hero-gl.js', 'foam.js', 'data.js', 'ui.js', 'booking.js', 'account.js', 'admin.js', 'team.js', 'reviews.js', 'content.js', 'gallery.js', 'services.js', 'app.js']:
+for name in ['hero-gl.js', 'foam.js', 'reveal.js', 'data.js', 'ui.js', 'booking.js', 'account.js', 'admin.js', 'team.js', 'reviews.js', 'content.js', 'gallery.js', 'services.js', 'app.js']:
     src = (site / 'js' / name).read_text()
     assert '</script' not in src.lower()
     js += f'<script>\n{src}\n</script>\n'
