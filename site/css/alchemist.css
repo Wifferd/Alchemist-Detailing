@@ -1336,7 +1336,7 @@ section { position: relative; }
 .reveal-word {
   position: relative;
   display: block;
-  font: 300 clamp(15px, 1.7vw, 21px)/1 var(--font-display);
+  font: 300 clamp(17px, 1.9vw, 24px)/1 var(--font-display);
   font-stretch: var(--wdth-display);
   letter-spacing: .62em;
   text-indent: .62em;

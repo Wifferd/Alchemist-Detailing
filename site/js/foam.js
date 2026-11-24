@@ -54,6 +54,7 @@
   const backOut = (t) => { const c1 = 1.35, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
   const QS = new URLSearchParams(location.search);
   const SPEED = clamp(+QS.get('washspeed') || 1, 0.05, 4);   // ?washspeed=0.25 plays it at a quarter of its speed (checks)
+  const AT = QS.has('washat') ? clamp(+QS.get('washat') || 0, 0, 0.99) : null;   // ?washat=0.5 holds the wash at that moment (stills for checks)
 
   // ------------------------------------------------------------------ is the glass free and the page still?
   // (kept from the pinned wash: the page's route cuts ask it, app.js, so no swap runs a scroll under a finger)
@@ -153,7 +154,7 @@
   function layout(asp, seed) {
     const R = mulberry32(seed);
     const out = [];
-    const g = 0.125;
+    const g = 0.1;
     const x0 = -0.1, y0 = -0.1, w = asp + 0.2, h = 1.2;
     const nx = Math.max(3, Math.round(w / g)), ny = Math.round(h / g);
     const gx = w / nx, gy = h / ny;
@@ -163,7 +164,7 @@
       for (let i = 0; i < nx; i++) {
         const x = x0 + (i + 0.5 + (R() - 0.5) * 0.85) * gx;
         const y = y0 + (j + 0.5 + (R() - 0.5) * 0.85) * gy;
-        const r = g * (1.0 + R() * 0.5);
+        const r = g * (1.3 + R() * 0.65);
         const need = x - BAND * (NOZ_Y - y);               // nozzle x at which the stream reaches this spot
         const u = clamp((need - xs) / (xe - xs) + (R() - 0.5) * 0.06, 0, 1);
         const a = T.spray[0] + 0.006 + span * easeInOutSine(u);
@@ -325,10 +326,10 @@ void main(){
     float bub = 1.0 - smoothstep(0.0, 0.8, vmL.x);
     float field = F.r + (e - 0.5)*0.26 + (bub - 0.5)*0.16;
     float rinsed = uRinse > 0.0 ? smoothstep(-0.01, 0.02, dd) : 1.0;
-    float cov = smoothstep(0.36, 0.48, field)*rinsed;
-    float skirt = smoothstep(0.22, 0.38, field)*(1.0 - cov)*rinsed;   // the wet, see-through hem of each mass
+    float cov = smoothstep(0.22, 0.34, field)*rinsed;
+    float skirt = smoothstep(0.12, 0.26, field)*(1.0 - cov)*rinsed;   // the wet, see-through hem of each mass
     if (cov > 0.002 || skirt > 0.002){
-      float th = clamp(F.g*4.2 + (field - 0.45)*1.2, 0.0, 1.0);
+      float th = clamp(F.g*5.6 + (field - 0.3)*1.5, 0.0, 1.0);
       if (uRinse > 0.0){
         th *= smoothstep(0.0, 0.05, dd);
         th += 0.35*smoothstep(0.08, 0.0, dd)*step(0.0, dd);        // the ridge the water pushes ahead of it
@@ -337,35 +338,35 @@ void main(){
       // big lumps: the slope of the field's thickness (normals here are in screen space, y down)
       float gR = texture2D(uField, fuv + vec2(uFieldPx.x, 0.0)).g, gL = texture2D(uField, fuv - vec2(uFieldPx.x, 0.0)).g;
       float gU = texture2D(uField, fuv + vec2(0.0, uFieldPx.y)).g, gD = texture2D(uField, fuv - vec2(0.0, uFieldPx.y)).g;
-      vec3 n = normalize(vec3(-(gR - gL)*8.0, (gU - gD)*8.0, 1.0));
+      vec3 n = normalize(vec3(-(gR - gL)*11.0, (gU - gD)*11.0, 1.0));
       // folds: whipped, soft ridges at a middle scale, from the slope of a two-octave noise
       vec2 lq = q*9.0 + vec2(0.0, -t*0.01);
       float l0 = noise(lq) + 0.5*noise(lq*2.1 + 4.0);
       float lx = noise(lq + vec2(0.06, 0.0)) + 0.5*noise((lq + vec2(0.06, 0.0))*2.1 + 4.0);
       float ly = noise(lq + vec2(0.0, 0.06)) + 0.5*noise((lq + vec2(0.0, 0.06))*2.1 + 4.0);
-      n = normalize(n + vec3(-(lx - l0)*3.2, -(ly - l0)*3.2, 0.0));
+      n = normalize(n + vec3(-(lx - l0)*3.8, -(ly - l0)*3.8, 0.0));
       // bubbles: a slight dome on each, counting for more where the foam is thin (the fine lattice's offset is
       // turned back into screen space before it shades)
       vec3 ndL = normalize(vec3(-offL*1.6, 1.0));
       vec2 oS = vec2(dot(offS, ROT[0]), dot(offS, ROT[1]));
       vec3 ndS = normalize(vec3(-oS*1.6, 1.0));
       n = normalize(mix(n, mix(ndL, ndS, wT), mix(0.42, 0.16, wT)));
-      float lam = pow(clamp(dot(n, L), 0.0, 1.0), 1.25);
+      float lam = pow(clamp(dot(n, L)*0.55 + 0.55, 0.0, 1.0), 1.1);   // wrapped: foam scatters the light into its own shade
       // the creases: where a thicker lump stands between this spot and the light, it sits in its shade
       // (the field is 8-bit, so this reads thickness a few texels away rather than a curvature)
       float gS = texture2D(uField, fuv + vec2(L.x, -L.y)*uFieldPx*2.0).g;
-      float ao = (1.0 - 0.26*smoothstep(0.02, 0.3, gS - F.g))*(0.9 + 0.1*smoothstep(0.35, 1.1, l0));
+      float ao = (1.0 - 0.3*smoothstep(0.02, 0.3, gS - F.g))*(0.9 + 0.1*smoothstep(0.35, 1.1, l0));
       float wallM = 1.0 - smoothstep(0.0, 0.10, vmL.y - vmL.x);
       float wallF = 1.0 - smoothstep(0.0, 0.14, vmS.y - vmS.x);
       float thin = 1.0 - th;
       // the body never clips: a grey-blue shade in the creases up to a warm off-white on the lit tops, the white
       // kept for the highlights (a shade lower on the ivory stage, so the highlights still read there)
-      vec3 shade = mix(vec3(0.76, 0.79, 0.84), vec3(0.64, 0.68, 0.74), uTheme);
-      vec3 top = mix(vec3(0.95, 0.94, 0.92), vec3(0.90, 0.89, 0.87), uTheme);
+      vec3 shade = mix(vec3(0.86, 0.85, 0.83), vec3(0.66, 0.68, 0.72), uTheme);
+      vec3 top = mix(vec3(1.0, 0.985, 0.95), vec3(0.93, 0.92, 0.90), uTheme);
       vec3 col = mix(shade, top, smoothstep(0.05, 0.85, lam));
       col *= ao;
-      col *= 0.88 + 0.12*smoothstep(0.2, 0.8, e);                 // big soft lumps
-      col += vec3(0.03, 0.02, 0.0)*th;                            // a faint warm cast where it is thick
+      col *= 0.8 + 0.2*smoothstep(0.2, 0.8, e);                   // big soft lumps
+      col += vec3(0.025, 0.015, 0.0)*th;                          // a faint warm cast where it is thick
       // walls: a whisper of grey on the fine bubbles of the body, more on the larger ones where the foam drains,
       // never a drawn net; a faint thin-film sheen on those larger walls
       col *= 1.0 - wallF*0.035*wT;
@@ -373,17 +374,17 @@ void main(){
       col += wallM*thin*(1.0 - wT)*(0.5 + 0.5*sin(th*18.0 + h21(idL)*6.28))*vec3(0.03, 0.025, 0.04);
       // sparkle: a few fine bubbles catch the light as pin-points, a few larger thin ones carry a soft window,
       // warm and gold where the bar passes
-      float pickS = step(0.8, h21(idS + 9.1)), pickL = step(0.6, h21(idL + 9.1));
-      float specM = (pow(max(dot(ndS, H), 0.0), 90.0)*pickS*0.55*wT + pow(max(dot(ndL, H), 0.0), 40.0)*pickL*0.32*(1.0 - wT))*(1.0 - wallM*0.7);
+      float pickS = step(0.84, h21(idS + 9.1))*(0.35 + 0.65*h21(idS + 3.3)), pickL = step(0.6, h21(idL + 9.1));
+      float specM = (pow(max(dot(ndS, H), 0.0), 70.0)*pickS*0.7*wT + pow(max(dot(ndL, H), 0.0), 40.0)*pickL*0.32*(1.0 - wT))*(1.0 - wallM*0.7);
       col += mix(vec3(1.0), GOLD, gl)*specM;
       col = mix(col, col*vec3(1.06, 0.98, 0.86), gl*0.45);
       // thin edges let the paint show through each bubble's face, with a cool tint
       float face = (1.0 - wallM)*(1.0 - wallF*0.5);
       float alpha = cov*mix(1.0 - face*0.55, 1.0, smoothstep(0.08, 0.45, th));
       alpha = max(alpha, cov*specM*0.6);
-      col = mix(vec3(0.80, 0.83, 0.87), col, smoothstep(0.0, 0.3, th));
+      col = mix(vec3(0.88, 0.86, 0.82), col, smoothstep(0.0, 0.3, th));
       // the skirt: a translucent grey-blue film in the dark (the rim around every hole), a grey shadow on ivory
-      vec4 sk = mix(vec4(vec3(0.72, 0.76, 0.82)*0.5, 0.5), vec4(vec3(0.50, 0.52, 0.56)*0.65, 0.65), uTheme)*skirt;
+      vec4 sk = mix(vec4(vec3(0.66, 0.63, 0.58)*0.5, 0.5), vec4(vec3(0.50, 0.52, 0.56)*0.65, 0.65), uTheme)*skirt;
       acc = over(vec4(col*alpha, alpha), sk);
     }
 #ifndef LITE
@@ -810,7 +811,7 @@ void main(){
       if (shrink) { shrink = false; W = 0; measure(); }
       readNozzle();   // last frame's cannon position: no forced layout
       elapsed += dt * SPEED;
-      p = elapsed * 1000 / DURATION_MS;
+      p = AT != null ? AT : elapsed * 1000 / DURATION_MS;
       if (p >= 1) { complete(); return; }
       const fr = front(p, asp);
 
