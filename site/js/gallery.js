@@ -35,10 +35,15 @@
   ];
   const FILTERS = [['all', 'All'], ['exterior', 'Exterior'], ['wheels', 'Wheels'], ['details', 'Details'], ['interior', 'Interior']];
   // Before / after pairs for the Transmutation: the same car from the same spot, before the wash and
-  // after it (`before` and `after` are photo keys, img/work/<key>-<w>.webp). There are no before photos
-  // yet, so `before` stays null: the live site then leaves the section out, and the preview shows the
-  // owner's placeholder in its place so he can see the design.
-  const PAIRS = [{ key: 'front', title: 'Exterior detail', before: null, after: 'front' }];
+  // after it (`before` and `after` are photo keys, img/work/<key>-<w>.webp; their alt text is `beforeAlt` /
+  // `afterAlt`, or a PHOTOS entry's). A pair whose `before` is null shows the owner's placeholder in preview and
+  // leaves the section out on the live site. Nov 24: the first real pair, two close-ups of one panel of white
+  // paint from the same spot (the owner's photos; which is before and which is after is his: doc 57).
+  const PAIRS = [{
+    key: 'paint', title: 'Paint close-up', before: 'paint-before', after: 'paint-after',
+    beforeAlt: 'Close-up of a panel of white paint before the detail, covered in small spots',
+    afterAlt: 'The same panel of white paint after the detail, smooth and glossy',
+  }];
   const NEXT = ['Wheels', 'Interior'];   // the pairs still to shoot, shown as dashed "Next pair" tiles
   // the service group behind a photo, by its tags: the group, never a package (which one the car got is the owner's to say)
   const groupOf = (p) => (p.tags.includes('interior') ? ['#services-interior', 'Inside only']
@@ -198,9 +203,9 @@
       NEXT.map((t) => el('div.tm-pair.next', el('div.tm-next', 'Next pair'), el('span', t))));
     const pick = (i) => {
       const p = pairs[i];
-      after.srcset = srcset(p.after); after.src = src(p.after, 1200); after.alt = byKey(p.after).alt || '';   // the sources after sizes (set when it was made)
+      after.srcset = srcset(p.after); after.src = src(p.after, 1200); after.alt = p.afterAlt || byKey(p.after).alt || '';   // the sources after sizes (set when it was made)
       before.replaceChildren(p.before
-        ? el('img', { sizes: after.sizes, decoding: 'async', srcset: srcset(p.before), src: src(p.before, 1200), alt: byKey(p.before).alt || '', width: 1200, height: 1600 })
+        ? el('img', { sizes: after.sizes, decoding: 'async', srcset: srcset(p.before), src: src(p.before, 1200), alt: p.beforeAlt || byKey(p.before).alt || '', width: 1200, height: 1600 })
         : el('div.tm-ph', el('div', el('b', 'Before photo'), el('span', 'Same angle, same light, shot before the wash'))));
       thumbs.querySelectorAll('.tm-thumb').forEach((t, j) => t.setAttribute('aria-pressed', j === i ? 'true' : 'false'));
     };

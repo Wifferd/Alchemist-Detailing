@@ -66,10 +66,23 @@ body and lengthen the drips toward that.
 - `foam-wheel` shows a house and a driveway behind the car (kids' bikes). The owner was asked whose they are and said to
   use the photos; he has not said whether to blur that background.
 
-## 6. Open for the owner
+## 6. The first before / after pair (Gallery, the Transmutation)
+
+- Two close-ups of one panel of white paint from the same spot (the sun glint is in the same place), sent by the owner in
+  the chat as 1086 x 1448 portraits, made into `paint-before` and `paint-after` (600 and 1200 px WebP). `gallery.js`
+  `PAIRS` now holds that pair (`beforeAlt`, `afterAlt` carry the alt text, so the two close-ups are not Gallery tiles); the
+  old placeholder pair (the BMW, no before photo) is gone, so the section now shows on the live site too.
+- **Which is before and which is after is the owner's to confirm.** The speckled one (small yellowish spots all over) was set
+  as the BEFORE and the smooth, glossy one as the AFTER: that was a reading of the pictures, not something he said. If it is
+  the other way round, swap `before` and `after` in `PAIRS`.
+- The two dashed "Next pair" tiles (Wheels, Interior) were part of the owner's design and now show live as well: keep them
+  or drop `NEXT`?
+
+## 7. Open for the owner
 
 1. Real iPhone check of the Reveal, the foam and the stop.
 2. "Services & prices" presses Reveal for the visitor: keep, or only scroll there?
 3. Keep the footer out of the page until Reveal is pressed, or keep it visible?
 4. Blur or keep the house behind the wheel photo? Better originals of the five photos if he has them.
 5. Doc 56's questions are still open.
+6. Confirm before / after (section 6), and the "Next pair" tiles.
