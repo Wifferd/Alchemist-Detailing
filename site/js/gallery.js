@@ -26,6 +26,12 @@
     { key: 'wheel', cap: 'Wheels and tires', alt: 'Rear wheel and arch after cleaning', tags: ['wheels'], tall: true },
     { key: 'lip', cap: 'Carbon care', alt: 'Carbon-fibre front lip with water beading', tags: ['exterior', 'details'], tall: true },
     { key: 'side', cap: 'Every panel', alt: 'Side skirt and carbon trim after a wash', tags: ['exterior'] },
+    // Nov 24: the first interior photos (wide, so never tall), and two of the foam
+    { key: 'foam-front', cap: 'Thick foam', alt: 'Front of a car under a thick blanket of white foam, with drips along the bumper', tags: ['exterior'] },
+    { key: 'seat-front', cap: 'Front seats', alt: 'Driver’s seat, steering wheel and center console inside a car with a black interior', tags: ['interior'] },
+    { key: 'foam-wheel', cap: 'Foam on the wheel', alt: 'Side and wheel of a car covered in thick white foam in a driveway', tags: ['exterior', 'wheels'] },
+    { key: 'seat-rear', cap: 'Back seat', alt: 'Rear seat of a car with a black leather interior, seen through the open back door', tags: ['interior'] },
+    { key: 'trunk', cap: 'Trunk', alt: 'The open trunk of a gray car', tags: ['interior'] },
   ];
   const FILTERS = [['all', 'All'], ['exterior', 'Exterior'], ['wheels', 'Wheels'], ['details', 'Details'], ['interior', 'Interior']];
   // Before / after pairs for the Transmutation: the same car from the same spot, before the wash and
