@@ -1,0 +1,75 @@
+# 57. The Reveal, the stop at it, thicker foam and the first interior photos (Nov 24, 2026)
+
+All of this is on the branch `claude/zen-fermat-59sjyv` (commits f4b93f0, 1495e15, 1811827, 562dc0f). **None of it is on
+`main` or live**: the owner's standing instruction is still "Dont go live till its ready to Push" (doc 56).
+
+## 1. What the owner asked for (Nov 24)
+
+- Undo the scroll-driven wash. When a visitor reaches Services on Home, "Services" shows in gold and a thin, ghostly
+  "Reveal" sits under it with its light withering off in every direction on a constant. Pressing it plays the foam
+  "smoothly and quick" and reveals the services.
+- "Make the screen stop when you're on the reveal button where you can't scroll past it."
+- Thick, "hyper realistic" foam.
+- He considered a video made elsewhere (Higgsfield, Claude Motion) and then said "leave that": the foam stays live code.
+  (Claude Motion is coded animation of text, charts and shapes, with no video-generation model: it can't make realistic
+  foam. A prompt for a video generator was written in the chat; it is not used.)
+- The five photos he put in Drive ("Alchemist detailing"): use them in the Gallery, not on Home.
+
+## 2. The Reveal (foam.js, reveal.js, app.js, alchemist.css, index.html)
+
+- `foam.js` no longer reads the scroll. `AlchemistWash.start(...)` returns `{ play, finish, done, live, refresh, state,
+  debug }`. `play()` runs the same timeline on a clock, `DURATION_MS` 2800 (the `T` segments were tightened: cannon in
+  0 to .10, spray .10 to .52, rinse .56 to .87, drops dry .84 to .985). A slow frame moves the clock by 50 ms at most. The
+  shader is compiled with one unseen draw at start, so the first frame of the press is not the slow one. The pin, the fold
+  and the iOS "rest" proofs for scripted scrolls are gone (`rest` stays: the router's cuts still ask it).
+- Checks: `?washspeed=0.25` plays at a quarter speed; `?washat=0.5` holds the wash at that moment (stills).
+- The stage is one `100lvh` screen (the doc 55 toolbar fix stays). The title block has "What we do", the gold Services,
+  the four kinds and the button `#revealBtn`. `reveal.js` sets the title's arrival (`.pre` then `.in`: it rises, one pass of
+  the shared light crosses Services) and draws the specks on `#revealDust` (letters sampled from the page, constant
+  emission, a rush outward on the press). Under reduced motion, without WebGL or without JavaScript the title and the
+  button are not shown and the services are simply there.
+- `app.js` `pressReveal()`: brings the stage to the top of the screen if it is not there, then plays. "Services & prices"
+  (hero) scrolls to the stage and presses it. A key into the cards before the press shows them at once. After the wash the
+  focus goes to the services heading. The row's gold light waits for `washend`.
+- Gone from `app.js`: `washPin`, `washSpare`, `landY`, `washOver`, `foldNow`, `progressTo`. The saved place of Home is
+  just `{ y }` now. `window.__alchemist` has `wash`, `start`, `press`. **`tools/qa/wash.py`, `wash_probe.js` and
+  `wash_compare.py` describe the old scroll wash and are out of date.**
+
+## 3. The stop at Reveal (the gate)
+
+- From the moment the visitor reaches the stage (coming down, the stage more than 40% on the screen) until Reveal is
+  pressed, `html.wash-gate` leaves everything after `#wash` on Home, and the footer, out of the page (`display: none`), so
+  the page ends at the stage. No script moves the scroll, so none of the iOS scripted-scroll trouble (doc 35) applies.
+  Up is free (scrolling back above the stage lets it go). A single jump over the stage from above (End, the scrollbar) is
+  brought back to it. Never gated without a Reveal (no WebGL, less motion), after the press or off Home.
+- Checked at 1280 x 800 and 390 x 844: wheel steps, a 5,000 px fling, End, Space and up. **Not tried on a real iPhone.**
+- Known cost: until Reveal is pressed a visitor at the stage cannot reach the footer (hours, phone). The top bar's Call
+  button is still there. The owner can choose to keep the footer visible.
+
+## 4. The foam
+
+Denser, fatter masses, bare gaps filled, wrapped lighting and a warm cream palette instead of grey-blue, fewer and varied
+pin-point highlights. A thick creamy blanket in dark and light. Tried and dropped: stronger bubble domes and cell walls
+(they drew a cracked-tile net). **Not photoreal.** The owner's own photos (Drive) show what real thick foam looks like: a
+smooth, heavy cloak with long drips hanging at the edges and no visible bubbles. A next step would be to smooth the
+body and lengthen the drips toward that.
+
+## 5. The first interior photos (Gallery)
+
+- Five frames the owner screen-recorded from a video (rotated, black bars, the caption "Reasons why you should book with
+  me" over the left edge). The caption is in the same place in all five, so the pixels that are white in every frame were
+  filled in from the surroundings (OpenCV inpaint) and the frames rotated and cropped to the video area: about 2342 x
+  1320 each, nearly the whole frame. Originals (without the caption) would be sharper.
+- In `site/img/work/` as `foam-front`, `foam-wheel`, `seat-front`, `seat-rear`, `trunk` at 600 and 1200 px WebP, listed in
+  `gallery.js` `PHOTOS` (13 now). Interior (3) shows as a filter again. Captions are plain descriptions: Thick foam, Front
+  seats, Foam on the wheel, Back seat, Trunk. No claims about the job or the car's make.
+- `foam-wheel` shows a house and a driveway behind the car (kids' bikes). The owner was asked whose they are and said to
+  use the photos; he has not said whether to blur that background.
+
+## 6. Open for the owner
+
+1. Real iPhone check of the Reveal, the foam and the stop.
+2. "Services & prices" presses Reveal for the visitor: keep, or only scroll there?
+3. Keep the footer out of the page until Reveal is pressed, or keep it visible?
+4. Blur or keep the house behind the wheel photo? Better originals of the five photos if he has them.
+5. Doc 56's questions are still open.
