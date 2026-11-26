@@ -78,7 +78,26 @@ body and lengthen the drips toward that.
 - The two dashed "Next pair" tiles (Wheels, Interior) were part of the owner's design and now show live as well: keep them
   or drop `NEXT`?
 
-## 7. Open for the owner
+## 7. "Included" on the booking page's add-ons (Migration 013, written, NOT applied)
+
+- The owner (Nov 26): with the Inside & Out or Full Detail chosen, Wheels & Tire Shine, Leather care and one other add-on are
+  greyed out but do not say "Included".
+- What the live database says (read-only query, Nov 26): `service_includes` holds only Leather care in the Full Detail and the
+  Interior Detail. `addon_allowed_with`: Wheels & Tire Shine with the Basic Wash only; Gloss wax foam with the Basic Wash, Hand
+  Wash and Inside & Out; Leather care with the Inside & Out and Interior Clean. So: Inside & Out greys only Wheels & Tire
+  Shine (reason "Goes with the Basic Wash"); Full Detail greys Wheels & Tire Shine and Gloss wax foam (same kind of reason)
+  and Leather care (which does say Included). The page says "Included" only where `service_includes` says so
+  (`booking.js` `includedCodes`, bundle parts counted).
+- Fix, one data row: **the Hand Wash includes Wheels & Tire Shine** (the owner's own Services-page words: "The Hand Wash
+  already has it"). `supabase/migrations/20261124090001_m013_hand_wash_includes_tire_shine.sql` (idempotent insert),
+  `db-tests/m013_tests_includes.sql` (3 read-only checks), and the preview's seed (`data.js` `includes`) mirrors it. Checked in the
+  preview: Inside & Out, Full Detail and Hand Wash now show "Included, already in the ...". No price or time changes.
+- **Not applied to either database**: TEST is paused (doc 56), live needs the owner's "push".
+- Still greyed without "Included": **Gloss wax foam with the Full Detail** ("Goes with the Basic Wash, Hand Wash or Inside &
+  Out"). The Full Detail has its own water-repellent sealant foam; whether that counts as the gloss wax foam, so the page may
+  say "Included", is the owner's call. (Not recorded as included: that would be a business fact he has not given.)
+
+## 8. Open for the owner
 
 1. Real iPhone check of the Reveal, the foam and the stop.
 2. "Services & prices" presses Reveal for the visitor: keep, or only scroll there?
@@ -86,3 +105,4 @@ body and lengthen the drips toward that.
 4. Blur or keep the house behind the wheel photo? Better originals of the five photos if he has them.
 5. Doc 56's questions are still open.
 6. Confirm before / after (section 6), and the "Next pair" tiles.
+7. Does the Full Detail's sealant foam count as the Gloss wax foam (say "Included")? (section 7)

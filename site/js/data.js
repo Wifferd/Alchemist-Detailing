@@ -74,7 +74,7 @@
       { code: 'both', name: 'Outside + inside', sort: 3, exterior: 'basic_wash', interior: 'interior_clean', rates: [[3500, 4499], [4000, 5499], [4000, 5499], [4000, 5499]] },
     ],
     bundle_parts: { inside_out: ['hand_wash', 'interior_clean'], full_detail_v2: ['hand_wash', 'interior_detail'] },
-    includes: { full_detail_v2: ['leather_care'], interior_detail: ['leather_care'] },
+    includes: { hand_wash: ['wheels_tire_shine'], full_detail_v2: ['leather_care'], interior_detail: ['leather_care'] },   // (Migration 013: the Hand Wash already has the wheels and the tire shine)
     addon_rules: { wheels_tire_shine: 'exterior', gloss_wax: 'exterior', engine_bay: 'any_main', film_care: 'exterior', leather_care: 'interior', stain_removal: 'interior', cond_pet_some: 'interior', cond_pet_lots: 'interior', cond_heavy_dirt: 'interior' },
     // an add-on that goes only with the services named here (addon_allowed_with)
     allowed_with: { wheels_tire_shine: ['basic_wash'], gloss_wax: ['basic_wash', 'hand_wash', 'inside_out'], leather_care: ['inside_out', 'interior_clean'] },
