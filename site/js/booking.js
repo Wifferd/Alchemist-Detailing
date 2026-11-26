@@ -1201,17 +1201,20 @@
     // The notes: optional, unless "Other" was chosen for the inside of the car (then they say what it is)
     before.push(notesField());
 
-    // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
+    // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded. The photo picker shows
+    // only once the phone is confirmed (the database's upload rule): not to a guest, and not on the account way
+    // before its code (reached from the step bar, doc 57)
+    const photosOk = !guest() && st.contact.phoneConfirmed;
     const more = el('div.bk-more-body',
       v.vehicleId ? null : choices({ id: 'modifications', label: 'Modifications', hint: 'For preparation only. Never a fee.', size: 'tile', multi: true, value: v.modifications, items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (vals) => { v.modifications = vals; } }),
-      guest() ? el('p.bk-note', 'Photos are optional and not needed to book.') : el('div.bk-photos', { dataset: { field: 'photos' } },
+      guest() ? el('p.bk-note', 'Photos are optional and not needed to book.') : !photosOk ? el('p.bk-note', 'Photos are optional. To add some, confirm your phone on step 03 first.') : el('div.bk-photos', { dataset: { field: 'photos' } },
         el('p.choice-label', 'Photos', el('small', ' optional · up to 6')),
         el('div.bk-photo-grid', { id: 'bk-photo-grid' },
           v.photos.map((p) => el('figure.bk-photo', el('img', { src: p.url, alt: '', width: 96, height: 96 }), el('button.bk-photo-x', { type: 'button', 'aria-label': 'Remove photo', onclick: async () => { await D.removePhoto(p.name).catch(() => {}); v.photos = v.photos.filter((x) => x !== p); render(); } }, '×'))),
           v.photos.length < 6 ? el('label.bk-photo-add', el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', multiple: true, onchange: addPhotos }), el('span', '+'), el('span.small', 'Add')) : null),
         el('p.choice-msg', { role: 'status', dataset: { hint: 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.' } }, 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.')));
     before.push(el('details.bk-more', { open: v.moreOpen || v.photos.length > 0 || v.modifications.length > 0, ontoggle: (e) => { v.moreOpen = e.target.open; } },
-      el('summary', el('span', v.vehicleId ? 'Photos' : guest() ? 'Modifications' : 'Modifications and photos', el('small', ' optional'))), more));
+      el('summary', el('span', v.vehicleId ? 'Photos' : photosOk ? 'Modifications and photos' : 'Modifications', el('small', ' optional'))), more));
     box.append(part('A', 'The car', carBox), part('B', 'Before we start', before));
     // what a change here did to the price and the held time (the re-fit), above Continue
     box.appendChild(el('div.bk-refit', { id: 'bk-refit', role: 'status' }, refitNodes()));

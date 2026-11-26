@@ -557,8 +557,13 @@
     return ready;
   }
 
-  // A new account can't be made right now (sign-ups off at Supabase): what to do instead
-  const SIGNUPS_CLOSED = () => 'New accounts can’t be made online yet. You can book without one, or call ' + ((settingsCache && settingsCache.public_phone) || '(945) 361-7551') + '.';
+  // A new account can't be made right now (sign-ups off at Supabase): what to do instead. "Book without one" only while
+  // a guest can actually book online (guest booking on, and online booking not switched off: config.js bookingClosed)
+  const guestsCanBook = () => !!(settingsCache && settingsCache.guest_booking) && !(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.bookingClosed);
+  const SIGNUPS_CLOSED = () => {
+    const ph = (settingsCache && settingsCache.public_phone) || '(945) 361-7551';
+    return 'New accounts can’t be made online yet. ' + (guestsCanBook() ? 'You can book without one, or call ' + ph + '.' : 'Please call ' + ph + '.');
+  };
 
   async function rpc(name, args) {
     const { data, error } = await sb.rpc(name, args);
@@ -583,6 +588,9 @@
     // booking): once text codes work (config.js textCodes, Twilio Verify, doc 57). Off, the Account and Appointments
     // pages show the "coming soon" panel, as before.
     get accountsOpen() { return !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.textCodes); },
+    // A guest can book online right now: guest booking on and the booking not switched off (guestBooking above is
+    // also on while booking is closed, for other reasons). For the Account pages' "book as a guest" lines.
+    get guestsCanBook() { return guestsCanBook(); },
     helpers: { normalizePhone, isValidName, nameProblem, nameMessage, refusalText, cleanName, textProblem, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
 
     async settings() { await init(); return settingsCache; },
@@ -767,8 +775,9 @@
         // a staff sign-in with a number no team account has: Supabase refuses to make one (shouldCreateUser false)
         if (staff && error.code === 'otp_disabled') throw fail('code_not_sent', 'No team account uses that number.', 'phone');
         // a customer's number with no account while Supabase's "Allow new users to sign up" is off (doc 57): the owner
-        // switches it on at go-live; until then only numbers that already have an account get a code
-        if (!staff && error.code === 'otp_disabled') throw fail('signups_closed', SIGNUPS_CLOSED(), 'phone');
+        // switches it on at go-live; until then only numbers that already have an account get a code. Supabase answers
+        // a new number with 422 signup_disabled ("Signups not allowed for this instance"); otp_disabled is kept in case
+        if (!staff && (/^(signup_disabled|otp_disabled)$/.test(error.code || '') || /signups? not allowed/i.test(error.message || ''))) throw fail('signups_closed', SIGNUPS_CLOSED(), 'phone');
         // texting not connected at Supabase yet (doc 36)
         if (/^(phone_provider_disabled|otp_disabled|sms_send_failed)$/.test(error.code || '')) throw fail('code_not_sent', "Text codes aren't working yet. Please call " + settingsCache.public_phone + '.', 'phone');
         throw fail('code_not_sent', "We can't text a code to this number right now. Call " + settingsCache.public_phone + '.', 'phone');
@@ -1027,9 +1036,11 @@
       return Object.assign({}, s, { roleUnknown: !!profErr, role: prof ? prof.role : 'customer', active: prof ? prof.is_active : true, aal, nextLevel,
         hasAuthenticator: !!(factors && factors.totp && factors.totp.length), mfaRequired: settingsCache.require_mfa_for_managers !== false });
     },
-    // Team sign-in with an email and a password (doc 43), for the owner and managers until text codes work. The
-    // login is made in the Supabase dashboard (Authentication, Users, Add user): the site never creates one, and new
-    // sign-ups are closed at Supabase. The authenticator step follows exactly as after a text code.
+    // Team sign-in with an email and a password (doc 43), for the owner and managers. The login is made in the
+    // Supabase dashboard (Authentication, Users, Add user): the site never creates one. Once "Allow new users to sign
+    // up" is on (doc 57, for customers' text codes), Supabase's email sign-up stays shut only through "Confirm email"
+    // (no email sender, so no confirmation arrives): doc 57's go-live steps. The authenticator step follows exactly as
+    // after a text code.
     async staffPasswordSignIn(email, password) {
       await init();
       const e = String(email || '').trim().toLowerCase();

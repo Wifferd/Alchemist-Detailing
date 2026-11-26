@@ -125,7 +125,7 @@
         oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); },
         onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(e.target.value); } },
         trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null,
-      D.guestBooking ? el('p.bk-muted', 'No account needed to book: you can also ', el('a', { href: '#book' }, 'book as a guest'), '.') : null,
+      D.guestsCanBook ? el('p.bk-muted', 'No account needed to book: you can also ', el('a', { href: '#book' }, 'book as a guest'), '.') : null,
       el('p.bk-muted', 'Need help? Call ', tel(phone), '.'));
     async function confirm(code) {
       try { session = await D.verifyPhoneCode(signin.phone, code, { first: signin.first.trim() }); signin.sent = false; await refreshSession(true); toast('Signed in'); after(); }
