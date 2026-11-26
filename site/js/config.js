@@ -39,7 +39,9 @@
   // Sign-in is by text code (Twilio Verify, set in Supabase). The optional email and its code show only once the
   // site can email codes (an email sender in Supabase): set this to true then.
   window.ALCHEMIST_CONFIG.emailCodes = false;
-  // Text codes need Twilio Verify connected in Supabase (doc 36). Until then a team login made with a phone only
-  // can't sign in, and the Admin page's "Add a team member" says so. Set this to true once texts work.
-  window.ALCHEMIST_CONFIG.textCodes = false;
+  // Text codes need Twilio Verify connected in Supabase (doc 36); it works on live since Nov 26 (the owner signed in
+  // to Admin with one). This also opens customer accounts on the site (data.js accountsOpen, doc 57): sign-in and
+  // sign-up by text code on Account, Appointments and the booking, beside guest booking. Set it to false to show
+  // "Online accounts are coming soon" again (the booking then offers the guest way only, while guest booking is on).
+  window.ALCHEMIST_CONFIG.textCodes = true;
 })();

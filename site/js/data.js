@@ -557,6 +557,9 @@
     return ready;
   }
 
+  // A new account can't be made right now (sign-ups off at Supabase): what to do instead
+  const SIGNUPS_CLOSED = () => 'New accounts can’t be made online yet. You can book without one, or call ' + ((settingsCache && settingsCache.public_phone) || '(945) 361-7551') + '.';
+
   async function rpc(name, args) {
     const { data, error } = await sb.rpc(name, args);
     if (error) throw fromDb(error);
@@ -571,10 +574,15 @@
     // On the site's own addresses, no answer from the database is an outage (a paused project, a network fault):
     // the pages show the phone number instead of the preview, which would take requests that go nowhere. Read after init().
     get isDown() { return mode !== 'live' && !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.deployed); },
-    // Visitors book without an account while the owner has no text codes (Migration 005, business_settings.guest_booking)
-    // (also on while online booking is switched off, config.js bookingClosed: the Account and Appointments pages keep
-    // their "coming soon" panel instead of a text-code sign-in that can't work yet; the booking itself shows its note)
+    // Visitors may book without an account (Migration 005, business_settings.guest_booking). Since Nov 26 (doc 57,
+    // the owner's "Both, build it") that sits beside accounts: a visitor books as a guest by default, or signs in or
+    // makes an account with a text code. (Also on while online booking is switched off, config.js bookingClosed; the
+    // booking itself shows its note then.)
     get guestBooking() { return !!(settingsCache && settingsCache.guest_booking) || !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.bookingClosed); },
+    // Customer accounts are open on the site (sign-in and sign-up by text code on Account, Appointments and the
+    // booking): once text codes work (config.js textCodes, Twilio Verify, doc 57). Off, the Account and Appointments
+    // pages show the "coming soon" panel, as before.
+    get accountsOpen() { return !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.textCodes); },
     helpers: { normalizePhone, isValidName, nameProblem, nameMessage, refusalText, cleanName, textProblem, isValidEmail, isCleanText, isoDate, addDays, todayLocal, todayIn, uuid },
 
     async settings() { await init(); return settingsCache; },
@@ -744,8 +752,13 @@
       await init();
       const n = normalizePhone(phone);
       if (!n) throw fail('invalid_input', 'Enter a 10-digit US phone number.', 'phone');
-      if (mode === 'preview') { await new Promise((r) => setTimeout(r, 600)); return { sent: true, preview: true }; }
       const staff = !!(opts && opts.staff);
+      if (mode === 'preview') {
+        await new Promise((r) => setTimeout(r, 600));
+        // ?signups=0: the answer while Supabase's "Allow new users to sign up" is off (screenshots of that message)
+        if (!staff && /[?&]signups=0\b/.test(location.search)) throw fail('signups_closed', SIGNUPS_CLOSED(), 'phone');
+        return { sent: true, preview: true };
+      }
       const data = { first_name: names && cleanName(names.first) || undefined, last_name: names && cleanName(names.last) || undefined };
       const { error } = await sb.auth.signInWithOtp({ phone: '+' + n, options: staff ? { shouldCreateUser: false } : { data } });
       if (error) {
@@ -753,6 +766,9 @@
         if (error.status === 429 || /rate_limit/.test(error.code || '')) throw fail('too_many_requests', 'Please wait a minute before asking for another code.', 'phone');
         // a staff sign-in with a number no team account has: Supabase refuses to make one (shouldCreateUser false)
         if (staff && error.code === 'otp_disabled') throw fail('code_not_sent', 'No team account uses that number.', 'phone');
+        // a customer's number with no account while Supabase's "Allow new users to sign up" is off (doc 57): the owner
+        // switches it on at go-live; until then only numbers that already have an account get a code
+        if (!staff && error.code === 'otp_disabled') throw fail('signups_closed', SIGNUPS_CLOSED(), 'phone');
         // texting not connected at Supabase yet (doc 36)
         if (/^(phone_provider_disabled|otp_disabled|sms_send_failed)$/.test(error.code || '')) throw fail('code_not_sent', "Text codes aren't working yet. Please call " + settingsCache.public_phone + '.', 'phone');
         throw fail('code_not_sent', "We can't text a code to this number right now. Call " + settingsCache.public_phone + '.', 'phone');
@@ -768,7 +784,8 @@
       if (mode === 'preview') {
         await new Promise((r) => setTimeout(r, 500));
         previewSession = { userId: 'preview', phone: n, firstName: names && names.first || null, lastName: names && names.last || null, phoneConfirmed: true, preview: true };
-        if (!previewBookings.some((b) => b.example)) previewBookings.push(...previewExamples());   // older than anything booked here
+        // older than anything booked here (?noexamples: a brand-new account's empty pages, for the owner's screenshots)
+        if (!previewBookings.some((b) => b.example) && !/[?&]noexamples\b/.test(location.search)) previewBookings.push(...previewExamples());
         return previewSession;
       }
       const { error } = await sb.auth.verifyOtp({ phone: '+' + n, token: c, type: 'sms' });
@@ -913,7 +930,9 @@
           first_visit_deal_name: q.first_visit && q.first_visit.status === 'applied' ? q.first_visit.name : null,
         };
         previewPhonesBooked.add(ph);
-        previewBookings.unshift(r);
+        // a guest's request belongs to no account (submit_guest_booking saves no customer), so it never shows under
+        // Appointments, as on the real site (doc 57: linking them by phone is only PROPOSED)
+        if (!(opts && opts.guest)) previewBookings.unshift(r);
         return r;
       }
       if (!(opts && opts.guest)) return rpc('submit_booking', { p });

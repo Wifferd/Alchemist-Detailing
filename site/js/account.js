@@ -2,8 +2,10 @@
    (#appointments), phase 2 (docs 19 and 26). Sign in with a phone code, edit
    the name, keep saved vehicles, see your own bookings. Cancellations and
    changes go through the owner: there is no cancel button, only the phone.
-   While guest booking is on (no text codes yet, doc 37) both pages are one
-   calm "accounts are coming soon" screen. */
+   Since Nov 26 (doc 57, the owner's "Both, build it") accounts sit beside
+   guest booking: a signed-out visitor signs in or makes an account here with
+   a text code. Only while accounts are closed (config.js textCodes off) are
+   both pages the calm "accounts are coming soon" screen (doc 37). */
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
@@ -71,7 +73,7 @@
 
   function shell(title, eyebrow, body, examples) {
     return el('div.bk.acct',
-      U.modeBanner('nothing is saved anywhere.' + (D.guestBooking ? '' : ' Any 6-digit code works.') + (examples ? ' The past details are examples.' : ''), D.isLive),
+      U.modeBanner('nothing is saved anywhere.' + (D.accountsOpen ? ' Any 6-digit code works.' : '') + (examples ? ' The past details are examples.' : ''), D.isLive),
       el('header.bk-head', el('p.eyebrow', eyebrow), el('h1.display.bk-title', title)),
       body);
   }
@@ -100,24 +102,31 @@
   }
 
   // ---------------------------------------------------------------- sign in (shared)
+  // Sign in, or make an account the first time (the first code makes it): the same text code either way, no password.
+  // While guest booking is on, a line says booking needs no account, and our number is there for help (doc 57).
   function signInBox(after) {
     const box = el('div.bk-grid',
-      el('p.bk-note', 'Sign in with your mobile number. We text you a 6-digit code; no password.'),
+      el('p.bk-note', 'Sign in or create an account with your mobile number. We text you a 6-digit code; no password. New here? The first code makes your account.'),
       field({ id: 'si_first', label: 'First name', optional: true, value: signin.first, autocomplete: 'given-name', maxlength: 40, hint: 'Only needed the first time.', oninput: (e) => { signin.first = e.target.value; } }),
       field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: signin.phone,
         oninput: (e) => { signin.phone = e.target.value; clearError(box, 'phone'); },
-        trailing: miniBtn(signin.sent ? 'Resend' : 'Send code', async () => {
+        trailing: miniBtn(signin.sent ? 'Resend' : 'Send code', async (ev) => {
+          if (signin.busy) return;   // one tap, one text (each code costs a little: doc 57)
           if (!D.helpers.normalizePhone(signin.phone)) return showError(box, 'phone', 'Enter a 10-digit US phone number.');
+          const btn = ev.currentTarget, was = btn.textContent;
+          signin.busy = true; btn.disabled = true; btn.textContent = 'Sending…';
           try {
-            await D.sendPhoneCode(signin.phone, { first: signin.first.trim() }); signin.sent = true; await after();
+            await D.sendPhoneCode(signin.phone, { first: signin.first.trim() }); signin.sent = true; signin.busy = false; await after();
             setTimeout(() => { const i = document.getElementById('phone_code'); if (i) i.focus(); }, 60);
-          } catch (e) { showError(box, e.hint || 'phone', e.message); }
+          } catch (e) { signin.busy = false; btn.disabled = false; btn.textContent = was; showError(box, e.hint || 'phone', e.message); }
         }) }),
       signin.sent ? field({ id: 'phone_code', label: 'Code from the text', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
         hint: D.isLive ? '' : 'Preview: any 6 digits work.',
         oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); },
         onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(e.target.value); } },
-        trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
+        trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null,
+      D.guestBooking ? el('p.bk-muted', 'No account needed to book: you can also ', el('a', { href: '#book' }, 'book as a guest'), '.') : null,
+      el('p.bk-muted', 'Need help? Call ', tel(phone), '.'));
     async function confirm(code) {
       try { session = await D.verifyPhoneCode(signin.phone, code, { first: signin.first.trim() }); signin.sent = false; await refreshSession(true); toast('Signed in'); after(); }
       catch (e) { showError(box, e.hint || 'phone_code', e.message); }
@@ -162,7 +171,7 @@
     if (D.isDown) { root.replaceChildren(downNote()); return; }
     if (await teamCard(root)) return;   // a team login: the way to the team's pages, not a customer account
     await refreshSession();
-    if (!session) { root.replaceChildren(D.guestBooking ? comingSoon() : shell('Your account', 'Account', signInBox(renderAccount))); return; }
+    if (!session) { root.replaceChildren(D.accountsOpen ? shell('Your account', 'Account', signInBox(renderAccount)) : comingSoon()); return; }
     if (acct.loading) {
       [acct.vehicles, acct.bookings, acct.reviews] = await Promise.all([D.myVehicles().catch(() => []), D.myBookings().catch(() => []), D.myReviews().catch(() => [])]);
       acct.loading = false;
@@ -385,7 +394,13 @@
     await load();
     if (D.isDown) { root.replaceChildren(downNote()); return; }
     await refreshSession();
-    if (!session) { root.replaceChildren(D.guestBooking ? comingSoon() : shell('Appointments', 'Your details', el('div.bk-grid', el('p.bk-muted', 'Sign in to see your upcoming and past details.'), signInBox(renderAppointments)))); return; }
+    // signed out: a calm prompt to sign in, and (guest booking on) where a guest's booking is: not in an account, so by phone
+    if (!session) {
+      root.replaceChildren(D.accountsOpen ? shell('Appointments', 'Your details', el('div.bk-grid',
+        el('p.bk-muted', 'Sign in to see your upcoming and past details.' + (D.guestBooking ? ' Booked as a guest? Those bookings aren’t in an account: call us to check one.' : '')),
+        signInBox(renderAppointments))) : comingSoon());
+      return;
+    }
     if (appts.list == null) {
       try { [appts.list, appts.reviews] = await Promise.all([D.myBookings(), D.myReviews().catch(() => [])]); } catch (e) { appts.list = []; appts.reviews = []; toast(e.message); }
       if (!session) return renderAppointments();   // signed out while loading
