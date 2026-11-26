@@ -11,7 +11,7 @@
   // ---------------------------------------------------------------- the menu, as Migrations 011 and 012 set it (Nov 17-18, 2026)
   const SEED = {
     settings: {
-      timezone: 'America/Chicago', first_start_min: 600, last_start_min: 1140, latest_end_min: 1200, slot_step_min: 30,
+      timezone: 'America/Chicago', first_start_min: 420, last_start_min: 1140, latest_end_min: 1200, slot_step_min: 30,
       min_days_ahead: 1, max_days_ahead: 60, hold_hours: 24, public_phone: '(945) 361-7551', public_area: 'Parker, Texas',
       mobile_radius_miles: 10, mobile_note: 'For mobile service, we use your outdoor water faucet and a power outlet.',
       // Migration 003: hours closed every week (ISO weekday, 1 = Monday), as get_public_settings returns them

@@ -39,7 +39,7 @@
         // repeat 'How do I pay?' (index.html): change them there too
         ['What does mobile service need from me?', 'An outdoor water faucet and a power outlet. It costs the same as coming to us.'],
         ['How do I book?', 'Online in a few minutes: your vehicle’s size, where and the service, a day and time, then your contact and the car. Your request holds that time for 24 hours while we review it, and we contact you to confirm.'],
-        ['How far ahead can I book?', 'From tomorrow up to 60 days ahead. Start times run every 30 minutes from 10 AM to 7 PM, and every job finishes by 8 PM. Monday to Thursday, jobs finish by 4 PM; on Fridays we’re closed from noon to 5 PM.'],
+        ['How far ahead can I book?', 'From tomorrow up to 60 days ahead. Start times run every 30 minutes from 7 AM to 7 PM, and every job finishes by 8 PM. Monday to Thursday, jobs finish by 4 PM; on Fridays we’re closed from noon to 5 PM.'],
         ['How do I pay?', 'In person after your detail: card, Apple Pay or tap to pay, cash, or Zelle. Nothing is charged online.'],
         // the costs answer is built from the database's rates as the page opens (costsAnswer); these typed words (the
         // menu of Migration 012, Nov 18) show until it answers, and with no answer
@@ -90,8 +90,8 @@
   ];
   // The week, Monday first. These must match the footer, the FAQ and the LD+JSON in index.html (CLAUDE.md lists all four).
   const HOURS = [
-    ['Monday', '10 AM – 4 PM'], ['Tuesday', '10 AM – 4 PM'], ['Wednesday', '10 AM – 4 PM'], ['Thursday', '10 AM – 4 PM'],
-    ['Friday', '10 AM – 12 PM, 5 – 8 PM'], ['Saturday', '10 AM – 8 PM'], ['Sunday', '10 AM – 8 PM'],
+    ['Monday', '7 AM – 4 PM'], ['Tuesday', '7 AM – 4 PM'], ['Wednesday', '7 AM – 4 PM'], ['Thursday', '7 AM – 4 PM'],
+    ['Friday', '7 AM – 12 PM, 5 – 8 PM'], ['Saturday', '7 AM – 8 PM'], ['Sunday', '7 AM – 8 PM'],
   ];
   const arrow = () => el('span.arrow', { 'aria-hidden': 'true' }, '→');
   // a hyphenated word never breaks at its hyphen ("one-off", "owner-run")

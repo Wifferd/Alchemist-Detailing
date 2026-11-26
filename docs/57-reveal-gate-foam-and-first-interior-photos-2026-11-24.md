@@ -97,7 +97,26 @@ body and lengthen the drips toward that.
   Out"). The Full Detail has its own water-repellent sealant foam; whether that counts as the gloss wax foam, so the page may
   say "Included", is the owner's call. (Not recorded as included: that would be a business fact he has not given.)
 
-## 8. Open for the owner
+## 8. Bookings open from 7 AM (Migration 014, written, NOT applied)
+
+- The owner (Nov 26): "Make bookings open from 7am". `business_settings.first_start_min` goes from 600 to 420 (live
+  read-only check: first 600, last 1140, latest end 1200, step 30; closures Mon to Thu 16:00 to 20:00, Fri 12:00 to 17:00).
+  Nothing else moves: starts every 30 minutes, last start 7 PM, jobs end by 8 PM, same closures. The days read Mon to Thu
+  7 AM to 4 PM, Fri 7 AM to 12 PM and 5 to 8 PM, Sat and Sun 7 AM to 8 PM.
+- `supabase/migrations/20261124090002_m014_open_from_7am.sql` (one update) and `db-tests/m014_tests_open_from_7am.sql` (8
+  read-only checks). **Not applied to either database**: TEST is paused, live needs the owner's "push".
+- The four typed copies of the hours changed on the branch (CLAUDE.md lists them): the footer and the LD+JSON in
+  `index.html`, the week and the FAQ's "How far ahead can I book?" in `content.js`; the preview's seed too (`data.js`
+  `first_start_min: 420`). Checked in the preview: 7:00 AM is offered on every day with nothing booked.
+- Assumed: 7 AM on every day, weekends included. Until the migration is applied the live booking page still starts at 10 AM
+  while the branch's text says 7 AM: the text and the database go live together.
+
+## 9. Twilio (the owner bought an account, Nov 26)
+
+Nothing is connected yet. The steps are in doc 36 (Twilio Verify in Supabase for text codes). What it unlocks and what it
+still needs are in the chat reply of Nov 26; the owner does the dashboard steps himself (no keys in chat).
+
+## 10. Open for the owner
 
 1. Real iPhone check of the Reveal, the foam and the stop.
 2. "Services & prices" presses Reveal for the visitor: keep, or only scroll there?
@@ -106,3 +125,4 @@ body and lengthen the drips toward that.
 5. Doc 56's questions are still open.
 6. Confirm before / after (section 6), and the "Next pair" tiles.
 7. Does the Full Detail's sealant foam count as the Gloss wax foam (say "Included")? (section 7)
+8. 7 AM on weekends too? (section 8)
