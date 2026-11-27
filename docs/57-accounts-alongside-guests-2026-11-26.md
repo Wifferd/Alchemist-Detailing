@@ -565,3 +565,21 @@ Checks (preview mode):
      `42703 column pr.contact_phone does not exist`. A guest-booking check needs a real customer login, so it happens on the real site in go-live step 7 (an account Basic Wash booking,
      and a number that once booked as a guest, with that booking confirmed, showing the "Booked as a guest" tag).
 4. Then merge and push the site (go-live step 4) right away.
+
+## Live (Nov 27, 2026)
+
+On the owner's "Push, yes for guest past bookings, no probe human":
+
+- **Pre-checks (read only):** my_bookings `1cb1eb7e…`, quote_booking `8152d24c…`, my_first_visit_offer `47b11043…`,
+  booking_receipt, app_role, assert_signed_in and normalize_phone as listed; my_bookings grants and settings as listed;
+  no `profiles.contact_phone`; last migration `m012_switch_prices`; 0 customer profiles.
+- **Applied:** `20261127211957 m013_profiles_contact_phone`, then `20261127212034 m013_guest_bookings_in_account` (the
+  function only; the file's header comments stay in the repo).
+- **Post-checks:** my_bookings `a3482b4aa5794b16256638a57861e008` with the same grants and settings; anon has no execute;
+  quote_booking and my_first_visit_offer unchanged; `contact_phone` is text with 0 filled rows. As the roles (rolled
+  back): `anon: 42501; no login: P0001 sign_in_required; anon quote: 3500; signed-in quote: 3500; pop-up check: false`.
+  The signed-in quote answered 42703 before part 1.
+- The site went to `main` straight after (this commit). TEST is still paused: re-run `m013_tests_guest_link.sql` there
+  once it's back.
+- Still open: point 7 (Gold client from a guest booking, PROPOSED), the owner's settings (go-live steps 2-3), then the
+  Confirm-phone check and the joint tests (step 7).
