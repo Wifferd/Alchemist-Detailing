@@ -1,13 +1,15 @@
 -- Migration 013 tests: a customer account sees that phone's earlier guest bookings (the owner's "yes for guest past
 -- bookings", Nov 27, doc 57 open point 1). my_bookings adds them, read only, marked "booked_as_guest": true.
 -- Needs the m001 framework and fixtures, the Migration 011 helpers (tst.m011_slot, m011_guest, m011_user,
--- m011_account, created by m011_tests_menu.sql) and Migration 013 applied.
+-- m011_account, created by m011_tests_menu.sql) and Migration 013 (both parts) applied.
+-- Build it without Migration 004, as on live: part 1 adds the profiles column live's quote_booking and
+-- my_first_visit_offer read, and without it the fixtures below (an account's Basic Wash) already stop with 42703.
 --
 -- How it runs: ONE DO block, one query through the Supabase MCP (role switches with "set local role", never a
 -- top-level "set role"). It ends by raising its own results as an error, so everything it did rolls back: no test
 -- booking or login stays, nothing counts toward the guest limits and no booking alert is sent (the alert runs only at
 -- commit). The error message is the result: "M013 TESTS (rolled back): <passed> of <total> passed (query md5 <md5>)",
--- then one line per check. Fixed test phones 1 (469) 823-xxxx, so it can run again at once.
+-- then one line per check. Fixed test phones 1 (469) 823-11xx, so it can run again at once.
 -- This file holds no word that the Supabase MCP stops on.
 do $$
 declare
@@ -18,7 +20,7 @@ declare
   adm uuid := '00000000-0000-4000-8000-0000000000a1';
   det uuid := '00000000-0000-4000-8000-0000000000c1';
   cus uuid; oth uuid; unc uuid; ano uuid; chg uuid;
-  g1 public.appointments; own public.appointments; a public.appointments;
+  g1 public.appointments; g2 public.appointments; own public.appointments; own2 public.appointments; a public.appointments;
   r_in_prog text; r_done text; r_edge_in text; r_edge_out text; r_req text; r_info text; r_decl text; r_canc text;
   r_spam text; r_anon text; r_staff text; r_other text; r_det text; r_adm text; r_unc text; r_ano text;
   v_rows jsonb; one jsonb; want jsonb; refs text[];
@@ -59,8 +61,12 @@ begin
                  'm013 A1: fixture: the guest path saves customer_id and created_by empty and the phone normalized',
                  coalesce(g1.contact_phone, 'null') || ' ' || g1.status);
 
-  -- the account's own request, for the "own rows unchanged" checks
+  -- a second guest request with the same number, "We come to you" (a street address), for section F
+  g2 := tst.m011_guest('{"location_type":"mobile","phone":"469-823-1101","special_request":"m013 test mobile","from_day":30}');
+
+  -- the account's own requests, for the "own rows unchanged" checks (a driveway one and a mobile one)
   own := tst.m011_account(cus, '{"location_type":"shop","from_day":20}');
+  own2 := tst.m011_account(cus, '{"location_type":"mobile","from_day":35}');
 
   -- ------------------------------------------------------------ B: status and lanes
   perform tst.login(cus, 'aal1');
@@ -77,6 +83,14 @@ begin
   perform tst.login(adm, 'aal2');
   execute 'set local role authenticated';
   perform public.confirm_booking(own.id, 'm013 team note');
+  execute 'reset role';
+  perform tst.login(adm, 'aal2');
+  execute 'set local role authenticated';
+  perform public.confirm_booking(g2.id, 'm013 team note');
+  execute 'reset role';
+  perform tst.login(adm, 'aal2');
+  execute 'set local role authenticated';
+  perform public.confirm_booking(own2.id, 'm013 team note');
   execute 'reset role';
 
   execute format(copy_sql, p_cus, 1, 'in_progress', 'requests', 'x.value_cents', null, now(), g1.id) into r_in_prog;
@@ -102,7 +116,7 @@ begin
   select coalesce(jsonb_agg(j), '[]') into v_rows from public.my_bookings() j;
   execute 'reset role';
   select coalesce(array_agg(e ->> 'ref' order by e ->> 'ref'), '{}') into refs from jsonb_array_elements(v_rows) e where e ? 'booked_as_guest';
-  perform tst.ok(refs = (select array_agg(x order by x) from unnest(array[g1.ref, r_in_prog, r_done, r_edge_in]) x),
+  perform tst.ok(refs = (select array_agg(x order by x) from unnest(array[g1.ref, g2.ref, r_in_prog, r_done, r_edge_in]) x),
                  'm013 B2: the customer sees exactly the confirmed, in progress and completed guest bookings of the last 12 months on their phone',
                  refs::text);
   perform tst.ok(g1.ref = any (refs), 'm013 B3: a guest request shows once the owner confirms it');
@@ -117,8 +131,9 @@ begin
                  'm013 B11: a booking the team entered for that phone (no account) is not a guest booking and stays out');
   perform tst.ok(not (r_other = any (refs)) and not (r_det = any (refs)) and not (r_unc = any (refs)) and not (r_ano = any (refs)),
                  'm013 B12: no other phone''s guest booking shows');
-  perform tst.ok(jsonb_array_length(v_rows) = 5 and exists (select 1 from jsonb_array_elements(v_rows) e where e ->> 'ref' = own.ref and not e ? 'booked_as_guest'),
-                 'm013 B13: the account''s own booking is there too, without the guest mark (5 rows in all)', jsonb_array_length(v_rows)::text);
+  perform tst.ok(jsonb_array_length(v_rows) = 7
+                 and (select count(*) from jsonb_array_elements(v_rows) e where e ->> 'ref' in (own.ref, own2.ref) and not e ? 'booked_as_guest') = 2,
+                 'm013 B13: the account''s own bookings are there too, without the guest mark (7 rows in all)', jsonb_array_length(v_rows)::text);
   perform tst.ok((select array_agg(e ->> 'service_date' order by n) from jsonb_array_elements(v_rows) with ordinality t(e, n))
                  = (select array_agg(e ->> 'service_date' order by e ->> 'service_date' desc) from jsonb_array_elements(v_rows) e),
                  'm013 B14: own and guest rows together, latest date first');
@@ -202,7 +217,8 @@ begin
   execute 'set local role authenticated';
   select coalesce(jsonb_agg(j ->> 'ref'), '[]') into v_rows from public.my_bookings() j;
   execute 'reset role';
-  perform tst.ok(v_rows = jsonb_build_array(own.ref), 'm013 D7: after a change to a new confirmed number, the old number''s guest bookings no longer show', v_rows::text);
+  perform tst.ok((select array_agg(x order by x) from jsonb_array_elements_text(v_rows) x) = (select array_agg(x order by x) from unnest(array[own.ref, own2.ref]) x),
+                 'm013 D7: after a change to a new confirmed number, the old number''s guest bookings no longer show', v_rows::text);
   update auth.users set phone = p_cus, phone_confirmed_at = now() where id = cus;
 
   -- signed out
@@ -242,6 +258,34 @@ begin
                  'm013 E3: grants and settings unchanged: authenticated only, security definer, empty search_path, stable',
                  (select proconfig::text from pg_proc where oid = 'public.my_bookings()'::regprocedure));
   perform tst.ok(pg_get_function_result('public.my_bookings()'::regprocedure) = 'SETOF jsonb', 'm013 E4: still returns setof jsonb');
+
+  -- ------------------------------------------------------------ F: a "We come to you" guest booking's street; part 1
+  perform tst.login(cus, 'aal1');
+  execute 'set local role authenticated';
+  select coalesce(jsonb_agg(j), '[]') into v_rows from public.my_bookings() j;
+  execute 'reset role';
+  select e into one from jsonb_array_elements(v_rows) e where e ->> 'ref' = g2.ref;
+  select e into want from jsonb_array_elements(v_rows) e where e ->> 'ref' = own2.ref;
+  perform tst.ok(g2.location_type = 'mobile' and g2.address is not null and one is not null and one ->> 'status' = 'confirmed'
+                 and one ? 'address' and one -> 'address' = 'null'::jsonb and one ->> 'address_zip' = g2.address_zip,
+                 'm013 F1: a confirmed "We come to you" guest booking shows its ZIP but never its street', coalesce(one::text, 'not listed'));
+  perform tst.ok(want ->> 'location_type' = 'mobile' and want ->> 'address' = own2.address and want ->> 'address_zip' = own2.address_zip,
+                 'm013 F2: the account''s own "We come to you" booking still shows its street');
+  perform tst.ok(exists (select 1 from information_schema.columns
+                         where table_schema = 'public' and table_name = 'profiles' and column_name = 'contact_phone' and data_type = 'text'),
+                 'm013 F3: part 1: profiles has the contact_phone column that quote_booking and my_first_visit_offer read');
+  perform tst.login(cus, 'aal1');
+  execute 'set local role authenticated';
+  begin
+    one := public.quote_booking('{"location_type":"shop","exterior":"basic_wash","vehicle_type":"sedan","conditions":[]}');
+    want := public.my_first_visit_offer();
+    v_state := 'no error'; v_msg := null;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate, v_msg = message_text;
+  end;
+  execute 'reset role';
+  perform tst.ok(v_state = 'no error' and one ? 'total_cents' and want ? 'show',
+                 'm013 F4: part 1: a signed-in customer''s Basic Wash quote and the deal pop-up check run (no 42703)',
+                 v_state || ' ' || coalesce(v_msg, ''));
 
   -- ===================== Results (then everything is rolled back) =====================
   select count(*) filter (where passed), count(*),

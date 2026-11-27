@@ -170,10 +170,15 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 - **Visitors, while `guest_booking` is on (Migration 005, doc 37):** `submit_guest_booking(p jsonb)` (adds `phone`; no `vehicle_id`, no `photos`). Since Migration 007 part 4, a repeat is found by `request_id` alone: the same phone gets the first receipt, another phone is refused (`wrong_state`, hint `request_id`).
 - **Signed-in users:**
   - `submit_booking(p jsonb)`: needs a text-confirmed phone. Since Migration 002, `conditions` is required with an interior service (`none` or codes from `form_options`), `other` needs `special_request`, and `quote_booking` takes `conditions` too (fee lines carry `"condition": true`).
-  - `my_bookings()` (Migration 013, Nov 27, doc 57, **branch `accounts-both`, not live yet**: a customer account also gets
-    its confirmed phone's guest bookings the owner confirmed, in progress or completed, last 12 months, read only,
-    marked `"booked_as_guest": true`, no owner's address, no notes; no review for them. 36 checks in
-    `db-tests/m013_tests_guest_link.sql`)
+  - `my_bookings()` (Migration 013 part 2, Nov 27, doc 57, **branch `accounts-both`, not live yet**: a customer account
+    also gets its confirmed phone's guest bookings the owner confirmed, in progress or completed, last 12 months, read
+    only, marked `"booked_as_guest": true`, no owner's address, no street (ZIP only), no notes; no review for them; they
+    don't make the account a Gold client until the owner says so (PROPOSED). Its privacy needs Supabase "Confirm
+    phone" ON. 40 checks in `db-tests/m013_tests_guest_link.sql`)
+  - **Live bug found Nov 27 (doc 57):** live's `quote_booking` and `my_first_visit_offer` read `profiles.contact_phone`,
+    which only Migration 004 (TEST only) adds, so every signed-in Basic Wash quote/booking and the deal pop-up fail with
+    42703 on live. Migration 013 part 1 adds the column (`add column if not exists`); needs the owner's OK like part 2.
+    Build local test databases **without m004** to mirror live.
   - `update_my_profile(first, last)`
   - `delete_my_vehicle(id)`
   - their own `vehicles` rows

@@ -135,7 +135,16 @@ The Reviews page shows "Had a detail with us? Sign in to your account…" again 
 Files (Nov 26): `site/js/booking.js`, `account.js`, `data.js`, `reviews.js`, `config.js`. No CSS change: the cards are the
 booking's own choice cards. No database change.
 
-## The database needs no change (checked read-only on live, Nov 26)
+## The database needs no change (checked read-only on live, Nov 26) — corrected Nov 27
+
+**Wrong, found by the Nov 27 verification:** live's `quote_booking` and `my_first_visit_offer` (Migration 012) read
+`coalesce(pr.phone, pr.contact_phone)`, and live's `profiles` has no `contact_phone` column (only Migration 004 adds it,
+and live never got 004). So on live, any signed-in customer whose quote carries a First Timer Deal price (a Basic Wash
+with an account) gets error 42703, and the deal pop-up check fails for every account. Nobody has met it: live has no
+customer accounts and the site was booking as guests only. The local test build had included Migration 004, which hid
+it. Fixed by **Migration 013 part 1** (one added column, below); accounts must not go on before it is applied. The rest
+of the table holds.
+
 
 | What | Evidence |
 |---|---|
@@ -171,7 +180,8 @@ the end). `submit_guest_booking` saves them with `customer_id = null`, and `my_b
      anyone could make a junk account with any email and a password, get signed in at once, and add saved vehicles
      (they still could not book, upload photos or see anything of anyone else: the database refuses).
    - **Phone → "Confirm phone" (phone confirmations) ON.** Otherwise a phone-and-password sign-up could mark a number
-     as confirmed without a text. That would be a real hole: booking the account way trusts the confirmed phone.
+     as confirmed without a text. That would be a real hole: booking the account way trusts the confirmed phone, and
+     since Migration 013 so does seeing that number's guest bookings (with their ZIP, vehicle and price).
    - **Anonymous sign-ins OFF.**
 3. **Supabase (live) → Authentication → Rate Limits:**
    - **"Rate limit for sending SMS messages"** is one limit for the whole project, per hour. Supabase's default is
@@ -182,7 +192,8 @@ the end). `submit_guest_booking` saves them with `customer_id = null`, and `my_b
      random numbers can cause that. The owner's **email-and-password sign-in to Admin still works**, and guest
      booking needs no text, so customers can still book.
    - Leave the per-number wait between codes at its default.
-4. **Migration 013 on live first** (Nov 27, "Live steps for Migration 013" at the end), then merge the branch and push
+4. **Migration 013 (both parts) on live first** (Nov 27, "Live steps for Migration 013" at the end; part 1 is
+   needed for any account booking, see the correction above), then merge the branch and push
    (both Vercel projects). Check each deployment by its commit.
 5. **Test on the real site, sign-ups still OFF:** one Send code from #account with a number that has no account. The
    page should say "New accounts can't be made online yet. You can book without one, or call (945) 361-7551." If it
@@ -191,6 +202,10 @@ the end). `submit_guest_booking` saves them with `customer_id = null`, and `my_b
 6. **Supabase (live) → Authentication → turn on "Allow new users to sign up"** (under Sign In / Providers, user
    signups). Customers' first code is a sign-up.
 7. Test on the real site:
+   - **"Confirm phone" really is on** (Migration 013 depends on it): a phone-and-password sign-up for a number nobody
+     on the team controls must give no session, and that login's `phone_confirmed_at` must stay empty (Supabase →
+     Authentication → Users; Claude can read it with a read-only query). If it gives a session, stop and turn the
+     setting on before anything else.
    - A new number from #account: code, account, name.
    - The "Sign in or create an account" card on a booking: code, step 04 photos, Send, then Appointments.
    - A guest booking.
@@ -243,6 +258,14 @@ the end). `submit_guest_booking` saves them with `customer_id = null`, and `my_b
    photos after you book." The site never sends photos on a guest booking, so customers don't see it today. It may
    not match the rule that our number is never described as taking texts. **Recommended:** change the words in the
    next migration (for example "You can add photos with an account."), with your OK.
+
+7. **Gold client from a guest detail. Needs your answer (PROPOSED, Nov 27).** A completed guest booking of $200 or
+   more now shows in the account with its gold card on Appointments (the booking is gold, doc 22). Should it also
+   make the account a **Gold client** (the Gold card on the Account page)? It is the same phone number and you
+   confirmed the booking, but the customer never confirmed that number when booking. Gold follows payments you
+   recorded (doc 21), and doc 22 ties gold to the booking and the customer; neither says what a guest booking does.
+   **Built for now: no** (only details booked with the account count, as before Migration 013). **Recommended: yes**
+   (it's the same customer, and you reached that number); it's a one-line change in `account.js`.
 
 ## Checks run (preview mode, Nov 26)
 
@@ -332,12 +355,24 @@ they can't:
   `submit_review` only takes the account's own bookings.)
 - **See your address** on a "Come to us" guest booking. It says "booked as a guest, so the address isn't shown here.
   Call (945) 361-7551." Your address goes out with your own confirmation, never through this link (house rule 6).
+- **See the street** of a "We come to you" guest booking: only its ZIP (Nov 27 fix). A guest's phone is typed, so a
+  mistyped or borrowed number would otherwise show someone's home street to whoever holds that number. The date,
+  time, services, price, vehicle and ZIP still show.
 - **See the team's notes.** The progress line shows statuses and times only (as it already did on the site).
 - Anything else tied to the account (photos, saved vehicles, cancelling online) is unchanged: guest bookings have no
   photos or saved vehicle, and nothing is cancelled online.
 
-A completed guest detail counts in History, and a completed guest detail of $200 or more is gold, like any other.
-The Gold client card's "Leave a review" button only ever opens a booking made with the account.
+A completed guest detail counts in History, and its card on Appointments is gold at $200 or more, like any other.
+It does **not** make the account a Gold client for now: open point 7 asks you (PROPOSED). The Gold client card's
+"Leave a review" button only ever opens a booking made with the account.
+
+**If a guest's number turns out to be wrong** (mistyped, or someone else's), cancel that booking: it then leaves that
+account at once. Nothing else corrects a guest's phone today. This is why only bookings you confirmed show: you
+reached that number.
+
+**This depends on Supabase "Confirm phone" being ON** (go-live step 2, checked in step 7). With it off, someone could
+sign up with a phone and a password and get the number marked confirmed without a text, and then read that number's
+guest bookings.
 
 ### Who never sees a guest booking this way
 
@@ -355,12 +390,18 @@ lists it as well, read only. Anything keyed on the account stays closed for it. 
 booking's owner: nothing to undo if a number changes hands, and reviews, photos and the deal history stay as they
 were.
 
-- `supabase/migrations/20261127090001_m013_guest_bookings_in_account.sql`: one file, `create or replace` of
-  `public.my_bookings()` only. No table, grant or other function changes. It has no word the Supabase MCP holds
-  (checked), and the function it replaces has none either.
+- `supabase/migrations/20261127090001_m013_profiles_contact_phone.sql` (part 1): `alter table public.profiles add
+  column if not exists contact_phone text;`, the column live's `quote_booking` and `my_first_visit_offer` already read
+  (see "corrected Nov 27" above). Nothing on live writes it (sign-in is by text code), so `coalesce(pr.phone,
+  pr.contact_phone)` returns the confirmed phone as intended. No function, grant or policy changes; the audit trigger
+  already hides the column. A no-op on TEST (it has Migration 004). If 004 ever goes to live, its "add column" line
+  needs "if not exists".
+- `supabase/migrations/20261127090002_m013_guest_bookings_in_account.sql` (part 2): `create or replace` of
+  `public.my_bookings()` only. No table, grant or other function changes.
+- Neither file has a word the Supabase MCP holds (checked), and the function part 2 replaces has none either.
 - The account's own rows are built exactly as before (same keys and values). A guest row has the same keys plus
-  `"booked_as_guest": true`, `shop_address` always empty and the history's notes always empty. Order: latest date
-  first, own and guest rows together.
+  `"booked_as_guest": true`, `shop_address` always empty, `address` (the street) always empty with `address_zip`
+  kept, and the history's notes always empty. Order: latest date first, own and guest rows together.
 - The tests guest rows pass: the caller's role is `customer`; `auth.users` has the phone confirmed
   (`phone_confirmed_at`), the login isn't anonymous, and the profile holds that same number; the booking has no
   account and no `created_by` (the guest path), the same normalized phone, status `confirmed`, `in_progress` or
@@ -373,7 +414,10 @@ were.
 | | md5 |
 |---|---|
 | Live now (read Nov 27) and Migration 008 part 3 | `1cb1eb7e9fc1667854c12822aedd5760` |
-| After Migration 013 (local Postgres 16) | `2c4403298ec09ebd5b5a49a2a72ad40f` |
+| After Migration 013 (local Postgres 16, with and without Migration 004) | `a3482b4aa5794b16256638a57861e008` (was `2c440329…` before the Nov 27 street fix) |
+
+Part 1 changes no function: `quote_booking` stays `8152d24c70925e5c2e30cfa9f1023eea` and `my_first_visit_offer`
+`47b110437d4c3726f32acf3fbc80b51b` (live, Nov 27).
 
 Functions it calls, not replaced (live md5s, Nov 27): `booking_receipt` `59c2d2464e8d0951823d0f79f8d4a3f4`,
 `app_role` `6f99df2aeda27a33e713415f5f4ef0e6`, `assert_signed_in` `865a656f6ed3a33397bc9edc9cbc06d2`,
@@ -386,7 +430,7 @@ on `my_bookings`: postgres, service_role, authenticated (no anon); security defi
 
 ### Tests
 
-`db-tests/m013_tests_guest_link.sql`: one DO block that rolls itself back (like Migration 012's), 36 checks: the guest
+`db-tests/m013_tests_guest_link.sql`: one DO block that rolls itself back (like Migration 012's), 40 checks: the guest
 path saves the phone normalized; a request shows only once confirmed; in progress and completed show; requested,
 needs information, declined, cancelled, Spam, anonymized and team-entered stay out; 12 months less a minute in, 12
 months and a minute out; another customer's, a detailer's, the admin's, an unconfirmed phone's and an anonymous
@@ -394,52 +438,130 @@ login's never cross; a profile out of step with the login's phone sees none; a n
 signed out refused (anon has no execute; no login gets "Please sign in first."); a guest row's keys are an own row's
 plus `booked_as_guest`, with no owner's address and no notes; the account's own row is unchanged value for value
 (the old formula rebuilt in the test, the address left out and never read); `submit_review` refuses a completed
-guest booking; the guest bookings keep `customer_id` empty; grants and settings unchanged.
+guest booking; the guest bookings keep `customer_id` empty; grants and settings unchanged; **F (Nov 27):** a
+confirmed "We come to you" guest booking shows its ZIP and never its street, the account's own one still shows its
+street, `profiles.contact_phone` exists, and a signed-in customer's Basic Wash quote and the deal pop-up check run.
 
-Run on a throwaway local Postgres 16 with every migration 001 to 013 and the m001 framework and fixtures (TEST is
-paused):
+Run on a throwaway local Postgres 16 **built like live: every migration except Migration 004 and the email
+blocklist** (TEST is paused), then the m001 framework and fixtures, in one database (`db-tests/README.md`):
 
-- `m013_tests_guest_link.sql`: **36 of 36** with Migration 013; 25 of 36 without it (the 11 that need it fail).
-  Seven deliberate breaks of the function (no role check, no anonymous check, no `created_by` check, no Spam check,
-  the address passed through, no profile check, a 13-month window) each fail at least one check.
-- The other suites that touch `my_bookings`, before and after Migration 013, identical: `m008_tests.sql` 40 of 40;
-  `m011_tests_menu.sql` 134 of 136 and `m012_tests_deals.sql` 105 of 106 (their A1 fingerprints are stored on TEST
-  before a migration, not locally, and m011 A5 fails locally before and after); the Migration 001 suites (access,
-  booking, staff, round 8) 311 of 382 both times (the known failures of those old suites on a database with the later
-  migrations, README).
+| Suite | Live today (no 013) | Part 1 only | Both parts |
+|---|---|---|---|
+| `m013_tests_guest_link.sql` | stops in its fixtures (42703) | 28 of 40 | **40 of 40** |
+| `m008_tests.sql` | 29 of 31, then stops (42703) | 40 of 40 | 40 of 40 |
+| `m011_tests_menu.sql` | stops (42703) | 134 of 136 | 134 of 136 |
+| `m012_tests_deals.sql` | stops (42703) | 105 of 106 | 105 of 106 |
+| m001 suites (access, booking, staff, round 8) | 312 of 383 | 312 of 383 | 312 of 383 |
+
+- The "live today" column is the bug in the correction above, reproduced; part 1 fixes it.
+- m001, m008, m011 and m012 give identical lines with part 1 only and with both parts. m011 A1 and m012 A1 compare
+  fingerprints stored on TEST before those migrations (not locally); m011 A5 fails locally whatever the branch. The
+  m001 failures are those old suites against the later migrations (README). These counts depend on the build and the
+  day: the Nov 27 verifier's own build got m011 136 of 136 and m001 295 of 362, also unchanged by Migration 013. (The
+  first version of this section gave 311 of 382 and 36 of 36 from a build that included Migration 004.)
+- With Migration 004 as well (TEST's set): m013 40 of 40, m011 134 of 136, m012 105 of 106, m001 315 of 383.
+- The verifier's own leak checks (phones stored with "+" or 10 digits, a manager, an inactive and a removed profile,
+  RLS on a direct select, a signed-in person filing a guest booking with someone else's number) pass on the new build.
 - Re-run `m013_tests_guest_link.sql` on TEST once it is back (needs the m011 helpers, already there).
 
 ### Site
 
 - `account.js`: the "Booked as a guest" tag on Appointments cards and on the Account page's upcoming card; no review
-  button on a guest booking (the sentence instead); the Gold card's review button skips guest bookings; the address
-  line for a "Come to us" guest booking; the signed-out Appointments sentence.
+  button on a guest booking (the sentence instead); the address line for a "Come to us" guest booking; the
+  signed-out Appointments sentence. A "We come to you" guest booking shows its ZIP (the database sends no street).
+- **Fixed Nov 27 (verification, blocking):** a completed guest booking of $200 or more stuck the Account page on
+  "Loading…" (the Gold card looked up a review for a booking that had none). Now the Gold client card counts only
+  details booked with the account (open point 7), and its review lookup skips guest bookings and bookings without a
+  review.
 - `data.js`: the preview's example First Timer Basic Wash is "booked as a guest", as `my_bookings` would return it;
   comments.
 - `alchemist.css`: the tag is the Example pill with a solid line.
-- Without Migration 013 the site works as before (no booking carries the tag), so the site and the database can go
-  live in either order. Only the signed-out sentence promises the guest bookings, so apply Migration 013 first.
+- Without Migration 013 the site works as before (no booking carries the tag). Apply Migration 013 first anyway: the
+  signed-out sentence promises the guest bookings, and part 1 is needed for any account booking.
+- Between the migration and the site push, the old site would list guest bookings without the tag and with a review
+  button that answers "That booking wasn't found." Live has no customer accounts, so nobody sees it; push the site
+  right after the migration.
 
-Checks (preview mode, `walk.py` in the session scratchpad `guestlink/`): phone 390 and desk 1440, dark and light: 14
-checks each, **0 failures**, no page errors, no sideways scroll. `tools/qa/smoke.py site`: 72 ok, 0 FAIL. No regex lookbehind in
-`site/js`.
+Checks (preview mode):
+
+- `tools/qa/guest_walk.py site <out> <phone|desk> <dark|light>` (new, in the repo): four scenarios: the preview as it
+  is; the example Full Detail turned into a guest booking (the only gold detail is a guest one); a guest Full Detail
+  beside the account's own; and that, then a review sent for the own one (waiting for approval). 32 checks each:
+  the Account page finishes loading, no page errors, the Gold card only from the account's own details and its review
+  button never on a guest booking, the guest gold card tagged with no review, no sideways scroll. **0 failures** at
+  phone and desk, dark and light. On the commit before the fix it fails 4 (stuck on "Loading…" and the page error),
+  so it catches the bug.
+- The first walk (`walk.py` in the session scratchpad `guestlink/`): phone dark and desk light, 0 failures.
+- `tools/qa/smoke.py site`: 72 ok, 0 FAIL. No regex lookbehind in `site/js` or `site/*.html`.
+
+### Small things written down (Nov 27 verification)
+
+- **Team accounts** the owner creates get a confirmed phone without a code (the Edge Function). If one is later set to
+  customer, it sees the guest bookings of the number he typed for it. Staff never see them while staff.
+- **"What for" on Set price** (`extra_cost_note`) shows on a guest booking listed in an account, as it already does on
+  an account's own booking. The history notes (Decline, Cancel, Ask for info) still never show for a guest booking.
+- The vehicle (make, model, colour or the description typed) still shows on a guest booking: it's how the customer
+  recognises it.
 
 ### Live steps for Migration 013 (only with the owner's "push")
 
 1. **Read-only pre-checks on live** (`execute_sql`; never `select *` from `business_settings`, never `shop_address`):
-   - `select md5(pg_get_functiondef('public.my_bookings()'::regprocedure))` = `1cb1eb7e9fc1667854c12822aedd5760`.
-     Anything else: stop, someone changed it.
+   - `select md5(pg_get_functiondef('public.my_bookings()'::regprocedure))` = `1cb1eb7e9fc1667854c12822aedd5760`;
+     `quote_booking(jsonb)` = `8152d24c70925e5c2e30cfa9f1023eea`; `my_first_visit_offer()` =
+     `47b110437d4c3726f32acf3fbc80b51b`. Anything else: stop, someone changed it.
    - `select proacl::text, prosecdef, proconfig::text, provolatile from pg_proc where oid = 'public.my_bookings()'::regprocedure`
      = `{postgres=X/postgres,service_role=X/postgres,authenticated=X/postgres}`, true, `{"search_path=\"\""}`, `s`.
-   - The md5s of `booking_receipt`, `app_role`, `assert_signed_in`, `normalize_phone` above unchanged.
+   - The live md5s of `booking_receipt`, `app_role`, `assert_signed_in`, `normalize_phone` above unchanged (compare
+     with the live values listed, not a local build: some live bodies have Windows line endings).
+   - `profiles` has no `contact_phone` column yet (if it has, part 1 is a no-op; go on).
    - `enum_range(null::public.appointment_status)` holds confirmed, in_progress and completed;
      `enum_range(null::public.intake_queue)` holds spam; `auth.users` has `phone`, `phone_confirmed_at` and
-     `is_anonymous`.
-2. **Apply** with `apply_migration`, name `m013_guest_bookings_in_account`, the whole file in one part (6 KB, one
-   statement; no held word).
-3. **Post-checks (read-only):**
-   - the md5 is now `2c4403298ec09ebd5b5a49a2a72ad40f`;
-   - grants, security definer, `search_path` and stable as in step 1; `has_function_privilege('anon', 'public.my_bookings()', 'execute')` false;
-   - `supabase_migrations.schema_migrations` has the new row.
-4. Then merge and push the site (go-live step 4), and on the real site, with a customer account whose number once
-   booked as a guest and that booking confirmed, check the "Booked as a guest" tag (go-live step 7).
+     `is_anonymous`; the last migration row is `m012_switch_prices`.
+2. **Apply** with `apply_migration`, in this order, each file whole:
+   1. name `m013_profiles_contact_phone`, file `20261127090001_m013_profiles_contact_phone.sql` (one statement);
+   2. name `m013_guest_bookings_in_account`, file `20261127090002_m013_guest_bookings_in_account.sql` (one statement,
+      6.6 KB). Neither has a held word.
+3. **Post-checks:**
+   - read-only: the `my_bookings` md5 is now `a3482b4aa5794b16256638a57861e008`; `quote_booking` and
+     `my_first_visit_offer` unchanged; grants, security definer, `search_path` and stable as in step 1;
+     `has_function_privilege('anon', 'public.my_bookings()', 'execute')` false; `profiles.contact_phone` exists, type
+     text, and `select count(*) from public.profiles where contact_phone is not null` is 0;
+     `supabase_migrations.schema_migrations` has the two new rows.
+   - **As the roles, in a block that undoes itself** (one `execute_sql`, a DO block that ends with `raise exception`
+     carrying its results, so nothing stays; no login or booking is created):
+     ```sql
+     do $$
+     declare r text := ''; v text;
+     begin
+       -- signed out: no execute
+       begin execute 'set local role anon'; perform public.my_bookings(); r := r || 'anon: ran (BAD); ';
+       exception when others then r := r || 'anon: ' || sqlstate || '; '; end;
+       execute 'reset role';
+       -- authenticated with no login: "Please sign in first."
+       perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+       begin execute 'set local role authenticated'; perform public.my_bookings(); r := r || 'no login: ran (BAD); ';
+       exception when others then get stacked diagnostics v = message_text; r := r || 'no login: ' || sqlstate || ' ' || v || '; '; end;
+       execute 'reset role';
+       -- a visitor's Basic Wash quote still works (no login)
+       begin execute 'set local role anon';
+         v := public.quote_booking('{"location_type":"shop","exterior":"basic_wash","vehicle_type":"sedan","conditions":[]}') ->> 'total_cents';
+         r := r || 'anon quote: ' || coalesce(v, 'null') || '; ';
+       exception when others then r := r || 'anon quote: ' || sqlstate || '; '; end;
+       execute 'reset role';
+       -- part 1: the signed-in path of quote_booking and my_first_visit_offer, as the owner's own login (read only)
+       perform set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'sub',
+         (select id from public.profiles where role = 'admin' and is_active order by created_at limit 1))::text, true);
+       begin execute 'set local role authenticated';
+         v := public.quote_booking('{"location_type":"shop","exterior":"basic_wash","vehicle_type":"sedan","conditions":[]}') ->> 'total_cents';
+         r := r || 'signed-in quote: ' || coalesce(v, 'null') || '; ';
+         r := r || 'pop-up check: ' || coalesce(public.my_first_visit_offer() ->> 'show', 'null') || '; ';
+       exception when others then r := r || 'signed-in: ' || sqlstate || ' ' || sqlerrm || '; '; end;
+       execute 'reset role';
+       raise exception 'M013 POST (rolled back): %', r;
+     end $$;
+     ```
+     Expect `anon: 42501`, `no login: P0001 sign_in_required`, an anon quote total (a number), a signed-in quote
+     total and `pop-up check: false` (the owner is not a customer). Before part 1 the signed-in line reads
+     `42703 column pr.contact_phone does not exist`. A guest-booking check needs a real customer login, so it happens on the real site in go-live step 7 (an account Basic Wash booking,
+     and a number that once booked as a guest, with that booking confirmed, showing the "Booked as a guest" tag).
+4. Then merge and push the site (go-live step 4) right away.

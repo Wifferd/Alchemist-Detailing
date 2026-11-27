@@ -1,4 +1,4 @@
--- Migration 013 (Nov 27, 2026; the owner's "yes for guest past bookings", doc 57 open point 1):
+-- Migration 013, part 2 (Nov 27, 2026; the owner's "yes for guest past bookings", doc 57 open point 1):
 -- a customer account also sees that phone's earlier guest bookings, read only.
 --
 -- my_bookings is the live definition (Migration 008 part 3, live md5 1cb1eb7e9fc1667854c12822aedd5760) with one
@@ -20,15 +20,19 @@
 -- these rows: submit_review (customer_id = auth.uid()), photos (none on a guest booking), saved vehicles, the First
 -- Timer Deal history (already by phone), anonymize_customer (the account's own rows only).
 --
--- A guest row differs from an own row in three ways only:
+-- A guest row differs from an own row in four ways only:
 --   * it carries "booked_as_guest": true (own rows carry no such key, so they are unchanged byte for byte);
 --   * "shop_address" is always null: the owner's address goes out with his own confirmation text, never by this link
 --     (house rule 6);
+--   * "address" (the street of a "We come to you" booking) is always null; "address_zip" stays. A guest's phone is
+--     typed, so a wrong or borrowed number would otherwise show that street to whoever holds the number. The site
+--     shows the ZIP instead;
 --   * the history keeps status and time, with the note always null (the notes are the team's).
+-- If a guest's number turns out to be wrong, the owner cancels that booking: it then leaves that account.
 --
 -- create or replace keeps the owner and the grants (authenticated only; anon has no execute and assert_signed_in
 -- refuses a signed-out caller). md5 of pg_get_functiondef(my_bookings): before 1cb1eb7e9fc1667854c12822aedd5760,
--- after 2c4403298ec09ebd5b5a49a2a72ad40f (Postgres 16 locally; the "before" value matched live, Nov 27).
+-- after a3482b4aa5794b16256638a57861e008 (Postgres 16 locally, with and without Migration 004; the "before" value matched live, Nov 27).
 create or replace function public.my_bookings() returns setof jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -73,6 +77,7 @@ begin
         and a.anonymized_at is null
       union all
       select public.booking_receipt(g) || jsonb_build_object(
+               'address', null,
                'conditions', to_jsonb(coalesce(g.conditions, '{}'::text[])),
                'shop_address', null,
                'team', coalesce((

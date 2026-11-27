@@ -182,8 +182,10 @@
     const body = el('div.bk-grid');
 
     // The Gold client card (the owner's design): only for a customer with a completed detail of $200 or more,
-    // dated from the first of them (in the preview, its example Full Detail)
-    const gold = acct.bookings.filter(isGold).sort(byWhen);
+    // dated from the first of them (in the preview, its example Full Detail). Only details booked with the account
+    // count for now: whether a guest detail of $200 or more listed here (Migration 013) makes the account Gold is the
+    // owner's call (doc 57, PROPOSED). The booking's own card on Appointments still shows its gold either way.
+    const gold = acct.bookings.filter((b) => isGold(b) && !b.booked_as_guest).sort(byWhen);
     if (gold.length) body.appendChild(goldSection(monthOf(gold[0].service_date), gold));
 
     const next = acct.bookings.filter(isLive).sort(byWhen)[0];
@@ -298,12 +300,13 @@
   // a published one links to Reviews; one waiting says so; with nothing to review there is no action.
   function goldAction(gold) {
     const mine = (id) => acct.reviews.find((r) => r.appointment_id === id);
-    const todo = gold.slice().reverse().find((b) => !b.booked_as_guest && !mine(b.id));   // a guest booking can't be reviewed (Migration 013)
+    const own = gold.filter((b) => !b.booked_as_guest);   // a guest booking can't be reviewed (Migration 013)
+    const todo = own.slice().reverse().find((b) => !mine(b.id));
     if (todo) {
       return el('a.btn.btn-gold.shine', { href: '#appointments', onclick: () => { openCard(todo.id); appts.form = { id: todo.id, rating: 5, body: '' }; appts.focus = todo.id; } },
         'Leave a review ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
     }
-    const done = gold.map((b) => mine(b.id));
+    const done = own.map((b) => mine(b.id)).filter(Boolean);
     if (done.some((r) => r.status === 'approved')) return el('a.btn.btn-gold.shine', { href: '#reviews' }, 'See it on Reviews ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
     if (done.some((r) => r.status === 'pending')) return el('p.gold-wait', 'Your review is waiting for approval');
     return null;
