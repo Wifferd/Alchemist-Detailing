@@ -506,8 +506,10 @@
       make(weekend(1), 600, { location_type: 'mobile', bundle: 'full_detail_v2', vehicle_type: 'large_suv', conditions: ['none'] }, 'completed'),
       make(weekend(3, true), 600, { location_type: 'shop', bundle: 'inside_out', vehicle_type: 'large_suv', conditions: ['none'] }, 'cancelled'),
       make(weekend(5, true), 660, { location_type: 'shop', interior: 'interior_detail', vehicle_type: 'large_suv', conditions: ['pet_hair_some'] }, 'completed'),
-      // the first visit: a Basic Wash at the Outside First Timer Deal's price (Migrations 011 and 012)
-      make(weekend(8), 840, { location_type: 'shop', exterior: 'basic_wash', vehicle_type: 'large_suv', fv: 'applied' }, 'completed'),
+      // the first visit: a Basic Wash at the Outside First Timer Deal's price (Migrations 011 and 012), booked as a
+      // guest before the account was made: my_bookings lists a confirmed or completed guest booking of the same phone
+      // from the last 12 months, marked booked_as_guest, with no owner's address and no team notes (Migration 013)
+      make(weekend(8), 840, { location_type: 'shop', exterior: 'basic_wash', vehicle_type: 'large_suv', fv: 'applied' }, 'completed', { booked_as_guest: true }),
     ];
   }
   // the deals as the site reads them: an array (jsonb keeps no key order, so the order is the deals' sort)
@@ -939,8 +941,9 @@
           first_visit_deal_name: q.first_visit && q.first_visit.status === 'applied' ? q.first_visit.name : null,
         };
         previewPhonesBooked.add(ph);
-        // a guest's request belongs to no account (submit_guest_booking saves no customer), so it never shows under
-        // Appointments, as on the real site (doc 57: linking them by phone is only PROPOSED)
+        // a guest's request belongs to no account (submit_guest_booking saves no customer); my_bookings lists it for
+        // an account with the same confirmed phone only once the owner confirms it (Migration 013), and the preview
+        // can't confirm, so a guest request made here never shows under Appointments, as on the real site
         if (!(opts && opts.guest)) previewBookings.unshift(r);
         return r;
       }

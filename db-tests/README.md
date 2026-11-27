@@ -48,3 +48,15 @@ Order that passes: `m001_framework.sql`, `m001_fixtures.sql`, then the `m001_tes
 - The result line carries `query md5`: the md5 of the block as the server received it (the Supabase MCP adds a "-- source:" trailer, which is cut off), so a run can be matched to the file: md5 of the text from `do $$` to the final `$$;` with no newline after it.
 - `m012_tests_race.sql`: block L (Nov 19): a guest Both request holds the guest (7305), day (7302), phone (7311) and address (7312) locks. Two overlapping sessions need two SQL Editor tabs (`m011_tests_race.sql` blocks A and B with the Both services).
 - `m011_tests_menu.sql` updated for Migration 012's prices and deal words (its header lists the changed checks): 136 of 136 on the test project (Nov 19, run `9083008d310661391f83934bda5e1531`).
+
+## Migration 013 tests: guest bookings in the account (Nov 27, 2026)
+
+- `m013_tests_guest_link.sql`: one DO block that rolls itself back (result raised as "M013 TESTS (rolled back): ..."),
+  36 checks. Needs the m001 framework and fixtures and the Migration 011 helpers (`m011_tests_menu.sql`). Which guest
+  bookings `my_bookings` lists for a customer account (confirmed, in progress, completed; same confirmed phone; 12
+  months; not Spam, anonymized or team-entered), who never gets them (other phones, unconfirmed or anonymous logins,
+  staff, signed out), the shape (own rows unchanged value for value, guest rows plus `booked_as_guest`, no address, no
+  notes), `submit_review` refusing them, grants unchanged. Fixed test phones 1 (469) 823-11xx.
+- Run Nov 27 on a local Postgres 16 with every migration (TEST is paused): 36 of 36 with Migration 013, 25 of 36
+  without; `m008_tests.sql`, `m011_tests_menu.sql`, `m012_tests_deals.sql` and the m001 suites gave the same results
+  before and after (doc 57). Re-run on TEST once it is back.

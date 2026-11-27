@@ -170,7 +170,10 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 - **Visitors, while `guest_booking` is on (Migration 005, doc 37):** `submit_guest_booking(p jsonb)` (adds `phone`; no `vehicle_id`, no `photos`). Since Migration 007 part 4, a repeat is found by `request_id` alone: the same phone gets the first receipt, another phone is refused (`wrong_state`, hint `request_id`).
 - **Signed-in users:**
   - `submit_booking(p jsonb)`: needs a text-confirmed phone. Since Migration 002, `conditions` is required with an interior service (`none` or codes from `form_options`), `other` needs `special_request`, and `quote_booking` takes `conditions` too (fee lines carry `"condition": true`).
-  - `my_bookings()`
+  - `my_bookings()` (Migration 013, Nov 27, doc 57, **branch `accounts-both`, not live yet**: a customer account also gets
+    its confirmed phone's guest bookings the owner confirmed, in progress or completed, last 12 months, read only,
+    marked `"booked_as_guest": true`, no owner's address, no notes; no review for them. 36 checks in
+    `db-tests/m013_tests_guest_link.sql`)
   - `update_my_profile(first, last)`
   - `delete_my_vehicle(id)`
   - their own `vehicles` rows
@@ -180,7 +183,7 @@ The owner has stopped the question rounds and wants **Claude Code to ask whateve
 **Before launch** (none done yet):
 - Twilio Verify for text codes.
 - An email sender (custom SMTP) for email codes.
-- A bot check (CAPTCHA) on code requests.
+- ~~A bot check (CAPTCHA) on code requests~~: declined by the owner on Nov 27 ("no prove human", doc 57).
 - Authenticator-app MFA for admin and manager.
 - An hourly Cron running `cleanup-unattached-photos`.
 - Optional: leaked-password protection.

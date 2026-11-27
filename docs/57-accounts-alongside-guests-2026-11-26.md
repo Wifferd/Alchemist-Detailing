@@ -36,8 +36,9 @@ A signed-in customer sees their bookings, as before.
 
 A signed-out visitor sees a calm prompt instead of "coming soon":
 
-- "Sign in to see your upcoming and past details. Booked as a guest? Those bookings aren't in an account: call us to
-  check one."
+- "Sign in to see your upcoming and past details. Booked as a guest? Sign in with the same mobile number: the guest
+  bookings we confirmed in the last 12 months show here too." (Nov 27, Migration 013; until Nov 27 it said "Those
+  bookings aren't in an account: call us to check one.")
 - The same sign-in box, which ends with our phone number.
 
 ### Booking, step 03 (Contact)
@@ -127,9 +128,11 @@ The Reviews page shows "Had a detail with us? Sign in to your account…" again 
 - `?signups=0` shows the sign-ups-closed message.
 - `?noexamples` shows a brand-new account with no example history.
 - In the preview, a guest's request no longer appears under a later sign-in's Appointments. That matches the real
-  site.
+  site: a guest request shows in an account only once the owner confirms it (Migration 013), and the preview can't
+  confirm. The preview's example history has one guest booking instead (the First Timer Basic Wash, "Booked as a
+  guest").
 
-Files: `site/js/booking.js`, `account.js`, `data.js`, `reviews.js`, `config.js`. No CSS change: the cards are the
+Files (Nov 26): `site/js/booking.js`, `account.js`, `data.js`, `reviews.js`, `config.js`. No CSS change: the cards are the
 booking's own choice cards. No database change.
 
 ## The database needs no change (checked read-only on live, Nov 26)
@@ -146,9 +149,9 @@ booking's own choice cards. No database change.
 | First Timer Deals | `save_booking` decides by phone (`first_visit_eligible(contact_phone, address key, customer_id)`) under a per-phone lock. A guest who later makes an account with the same phone can't get a second deal that way. |
 | Customers on live today | One profile, the owner's (admin). No customer accounts yet. |
 
-**A guest's earlier bookings don't show in a new account.** `submit_guest_booking` saves them with
-`customer_id = null`, and `my_bookings` reads only the caller's `customer_id`. That is why Appointments tells a
-signed-out visitor that guest bookings aren't in an account.
+**A guest's earlier bookings don't show in a new account** (true on Nov 26; changed by Migration 013 on Nov 27, see
+the end). `submit_guest_booking` saves them with `customer_id = null`, and `my_bookings` read only the caller's
+`customer_id`.
 
 ## Go-live steps, in order (only after the owner says "push")
 
@@ -179,7 +182,8 @@ signed-out visitor that guest bookings aren't in an account.
      random numbers can cause that. The owner's **email-and-password sign-in to Admin still works**, and guest
      booking needs no text, so customers can still book.
    - Leave the per-number wait between codes at its default.
-4. Merge the branch and push (both Vercel projects). Check each deployment by its commit.
+4. **Migration 013 on live first** (Nov 27, "Live steps for Migration 013" at the end), then merge the branch and push
+   (both Vercel projects). Check each deployment by its commit.
 5. **Test on the real site, sign-ups still OFF:** one Send code from #account with a number that has no account. The
    page should say "New accounts can't be made online yet. You can book without one, or call (945) 361-7551." If it
    shows "We can't text a code to this number right now" instead, Supabase uses another error name: tell Claude
@@ -191,9 +195,9 @@ signed-out visitor that guest bookings aren't in an account.
    - The "Sign in or create an account" card on a booking: code, step 04 photos, Send, then Appointments.
    - A guest booking.
    - The owner then declines or cancels the test bookings, as before.
-8. **A bot check (CAPTCHA)** on code requests: Supabase **Attack Protection → CAPTCHA** (hCaptcha or Cloudflare
-   Turnstile). Needs a site change (open point 3). Recommended **at once if the SMS limit is ever hit**, since that is
-   the way it fails; otherwise in the first weeks.
+8. ~~A bot check (CAPTCHA) on code requests~~. **Declined by the owner on Nov 27** ("no prove human"): no CAPTCHA.
+   What stands in for it: Twilio Fraud Guard and Geo permissions (step 1) and the SMS rate limit (step 3). If the SMS
+   limit is ever hit, tell him: that is when a bot check would help, and he can change his mind then.
 
 **Verified or not:**
 
@@ -214,8 +218,9 @@ signed-out visitor that guest bookings aren't in an account.
 
 ## Open points for the owner (PROPOSED, not built)
 
-1. **Guest bookings in a new account.** Should a new account with the same phone pick up that phone's earlier guest
-   bookings? It would need a small database change. **Careful:** a guest's phone is typed, never confirmed. Anyone who
+1. **Answered Nov 27: "yes for guest past bookings"** (with the recommendation below). Built as Migration 013; see
+   "Nov 27: guest bookings in the account" at the end. The question was: **Guest bookings in a new account.** Should a
+   new account with the same phone pick up that phone's earlier guest bookings? It would need a small database change. **Careful:** a guest's phone is typed, never confirmed. Anyone who
    mistypes a number, or types someone else's on purpose, would put their booking (name, address, vehicle) into that
    person's account. **Recommended: link only bookings you confirmed or completed** (you actually reached that
    number), from the last 12 months; or don't link at all. Until then, Appointments tells guests to call.
@@ -227,7 +232,8 @@ signed-out visitor that guest bookings aren't in an account.
    and their Appointments, until they sign out on the Account page. **Recommended: keep it** (that is what an
    account is for; most people book on their own phone). If you'd rather sign them out, it's a one-line change, and
    the receipt then drops its "see it under Appointments" line.
-3. **A bot check (CAPTCHA)** on code requests, the "before launch" item in CLAUDE.md. **Recommended:** at once if the
+3. **Answered Nov 27: no CAPTCHA** ("no prove human"). Go-live step 8 is struck. The question was: **A bot check
+   (CAPTCHA)** on code requests, the "before launch" item in CLAUDE.md. **Recommended:** at once if the
    SMS limit is ever hit (that stops every text code, yours too), otherwise in the first weeks.
 4. **The Account icon in the top bar** opens Account as before. No new wording in the menu.
 5. **Saved vehicles only with a confirmed phone** (a small database change, written and tested before it goes
@@ -295,3 +301,145 @@ What was fixed or written down:
 
 New owner screenshots: `owner/phone-dark-6-account-04-before-code.png` and `owner/desk-light-6-account-04-before-code.png`
 (step 04 on the account card before the code). The other owner screenshots are unchanged: nothing else visible moved.
+
+## Nov 27: guest bookings in the account (Migration 013), and no CAPTCHA
+
+### The owner's words
+
+- **"yes for guest past bookings"**: open point 1, with the recommendation (only bookings he confirmed or completed,
+  from the last 12 months).
+- **"no prove human"**: no CAPTCHA (open point 3). Go-live step 8 is struck; CLAUDE.md's "before launch" list says so.
+
+### What a customer sees
+
+Someone who makes an account (or signs in) with the same mobile number they once typed on a guest booking now also
+sees, on Appointments and the Account page, **that number's guest bookings you confirmed**: confirmed, in progress or
+completed, made in the last 12 months. Each carries a small **"Booked as a guest"** tag.
+
+They don't see:
+
+- guest requests you haven't confirmed yet (requested, or waiting for information), declined or cancelled ones, or
+  anything in the Spam lane;
+- guest bookings older than 12 months, or ones that were anonymized;
+- bookings your team entered for that number on the Admin page (those aren't guest bookings);
+- any booking made with a different number.
+
+What they can do with a guest booking: look at it (date, time, services, price, vehicle, progress, reference). What
+they can't:
+
+- **Review it.** The review button stays for bookings made with the account; a guest booking says "Booked as a guest,
+  so it can't be reviewed here. Reviews are for details booked with your account." (The database refuses too:
+  `submit_review` only takes the account's own bookings.)
+- **See your address** on a "Come to us" guest booking. It says "booked as a guest, so the address isn't shown here.
+  Call (945) 361-7551." Your address goes out with your own confirmation, never through this link (house rule 6).
+- **See the team's notes.** The progress line shows statuses and times only (as it already did on the site).
+- Anything else tied to the account (photos, saved vehicles, cancelling online) is unchanged: guest bookings have no
+  photos or saved vehicle, and nothing is cancelled online.
+
+A completed guest detail counts in History, and a completed guest detail of $200 or more is gold, like any other.
+The Gold client card's "Leave a review" button only ever opens a booking made with the account.
+
+### Who never sees a guest booking this way
+
+- **Anyone whose phone isn't confirmed by a text code.** A guest's phone is typed, never confirmed, so only bookings
+  you confirmed count (you reached that number), and only for an account whose own number was confirmed by a code.
+- **The team** (detailer, manager, admin): only customer accounts. Your own test bookings as a guest stay out of
+  your account.
+- **Signed-out visitors** and anonymous logins.
+- An account that changes its number stops seeing the old number's guest bookings.
+
+### How it's built
+
+**Nothing is moved or copied.** The guest booking keeps no account (`customer_id` stays empty); `my_bookings` simply
+lists it as well, read only. Anything keyed on the account stays closed for it. This is safer than rewriting the
+booking's owner: nothing to undo if a number changes hands, and reviews, photos and the deal history stay as they
+were.
+
+- `supabase/migrations/20261127090001_m013_guest_bookings_in_account.sql`: one file, `create or replace` of
+  `public.my_bookings()` only. No table, grant or other function changes. It has no word the Supabase MCP holds
+  (checked), and the function it replaces has none either.
+- The account's own rows are built exactly as before (same keys and values). A guest row has the same keys plus
+  `"booked_as_guest": true`, `shop_address` always empty and the history's notes always empty. Order: latest date
+  first, own and guest rows together.
+- The tests guest rows pass: the caller's role is `customer`; `auth.users` has the phone confirmed
+  (`phone_confirmed_at`), the login isn't anonymous, and the profile holds that same number; the booking has no
+  account and no `created_by` (the guest path), the same normalized phone, status `confirmed`, `in_progress` or
+  `completed` (the live enum: requested, needs_information, confirmed, in_progress, completed, declined, cancelled),
+  not the `spam` lane, not anonymized, and `created_at` within 12 months.
+- **In progress** counts as confirmed (you only start a job you confirmed).
+
+**md5 of `pg_get_functiondef('public.my_bookings()')`:**
+
+| | md5 |
+|---|---|
+| Live now (read Nov 27) and Migration 008 part 3 | `1cb1eb7e9fc1667854c12822aedd5760` |
+| After Migration 013 (local Postgres 16) | `2c4403298ec09ebd5b5a49a2a72ad40f` |
+
+Functions it calls, not replaced (live md5s, Nov 27): `booking_receipt` `59c2d2464e8d0951823d0f79f8d4a3f4`,
+`app_role` `6f99df2aeda27a33e713415f5f4ef0e6`, `assert_signed_in` `865a656f6ed3a33397bc9edc9cbc06d2`,
+`normalize_phone` `c59b555677fbc00ba7401c4969f9996d`, `submit_review` `aa5641b40ba1841249c5bab9b1f4d745` (keyed on
+`customer_id`, so it refuses guest bookings), `submit_guest_booking` `e10b418f0f760052c735f87faa6954bf` (saves the
+normalized phone, `customer_id` and `created_by` empty).
+
+**Live today (read-only, Nov 27):** no customer accounts yet, and 0 guest bookings would show in any account. Grants
+on `my_bookings`: postgres, service_role, authenticated (no anon); security definer, `search_path=""`, stable.
+
+### Tests
+
+`db-tests/m013_tests_guest_link.sql`: one DO block that rolls itself back (like Migration 012's), 36 checks: the guest
+path saves the phone normalized; a request shows only once confirmed; in progress and completed show; requested,
+needs information, declined, cancelled, Spam, anonymized and team-entered stay out; 12 months less a minute in, 12
+months and a minute out; another customer's, a detailer's, the admin's, an unconfirmed phone's and an anonymous
+login's never cross; a profile out of step with the login's phone sees none; a number change takes them away;
+signed out refused (anon has no execute; no login gets "Please sign in first."); a guest row's keys are an own row's
+plus `booked_as_guest`, with no owner's address and no notes; the account's own row is unchanged value for value
+(the old formula rebuilt in the test, the address left out and never read); `submit_review` refuses a completed
+guest booking; the guest bookings keep `customer_id` empty; grants and settings unchanged.
+
+Run on a throwaway local Postgres 16 with every migration 001 to 013 and the m001 framework and fixtures (TEST is
+paused):
+
+- `m013_tests_guest_link.sql`: **36 of 36** with Migration 013; 25 of 36 without it (the 11 that need it fail).
+  Seven deliberate breaks of the function (no role check, no anonymous check, no `created_by` check, no Spam check,
+  the address passed through, no profile check, a 13-month window) each fail at least one check.
+- The other suites that touch `my_bookings`, before and after Migration 013, identical: `m008_tests.sql` 40 of 40;
+  `m011_tests_menu.sql` 134 of 136 and `m012_tests_deals.sql` 105 of 106 (their A1 fingerprints are stored on TEST
+  before a migration, not locally, and m011 A5 fails locally before and after); the Migration 001 suites (access,
+  booking, staff, round 8) 311 of 382 both times (the known failures of those old suites on a database with the later
+  migrations, README).
+- Re-run `m013_tests_guest_link.sql` on TEST once it is back (needs the m011 helpers, already there).
+
+### Site
+
+- `account.js`: the "Booked as a guest" tag on Appointments cards and on the Account page's upcoming card; no review
+  button on a guest booking (the sentence instead); the Gold card's review button skips guest bookings; the address
+  line for a "Come to us" guest booking; the signed-out Appointments sentence.
+- `data.js`: the preview's example First Timer Basic Wash is "booked as a guest", as `my_bookings` would return it;
+  comments.
+- `alchemist.css`: the tag is the Example pill with a solid line.
+- Without Migration 013 the site works as before (no booking carries the tag), so the site and the database can go
+  live in either order. Only the signed-out sentence promises the guest bookings, so apply Migration 013 first.
+
+Checks (preview mode, `walk.py` in the session scratchpad `guestlink/`): phone 390 and desk 1440, dark and light: 14
+checks each, **0 failures**, no page errors, no sideways scroll. `tools/qa/smoke.py site`: 72 ok, 0 FAIL. No regex lookbehind in
+`site/js`.
+
+### Live steps for Migration 013 (only with the owner's "push")
+
+1. **Read-only pre-checks on live** (`execute_sql`; never `select *` from `business_settings`, never `shop_address`):
+   - `select md5(pg_get_functiondef('public.my_bookings()'::regprocedure))` = `1cb1eb7e9fc1667854c12822aedd5760`.
+     Anything else: stop, someone changed it.
+   - `select proacl::text, prosecdef, proconfig::text, provolatile from pg_proc where oid = 'public.my_bookings()'::regprocedure`
+     = `{postgres=X/postgres,service_role=X/postgres,authenticated=X/postgres}`, true, `{"search_path=\"\""}`, `s`.
+   - The md5s of `booking_receipt`, `app_role`, `assert_signed_in`, `normalize_phone` above unchanged.
+   - `enum_range(null::public.appointment_status)` holds confirmed, in_progress and completed;
+     `enum_range(null::public.intake_queue)` holds spam; `auth.users` has `phone`, `phone_confirmed_at` and
+     `is_anonymous`.
+2. **Apply** with `apply_migration`, name `m013_guest_bookings_in_account`, the whole file in one part (6 KB, one
+   statement; no held word).
+3. **Post-checks (read-only):**
+   - the md5 is now `2c4403298ec09ebd5b5a49a2a72ad40f`;
+   - grants, security definer, `search_path` and stable as in step 1; `has_function_privilege('anon', 'public.my_bookings()', 'execute')` false;
+   - `supabase_migrations.schema_migrations` has the new row.
+4. Then merge and push the site (go-live step 4), and on the real site, with a customer account whose number once
+   booked as a guest and that booking confirmed, check the "Booked as a guest" tag (go-live step 7).

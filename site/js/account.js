@@ -23,6 +23,8 @@
   const lit = new Set();   // the bookings already opened on this visit: the light crosses a card once
   // the 200+ gold rule (doc 22): a completed detail of $200 or more makes the booking, and the customer, Gold
   const isGold = (b) => b.status === 'completed' && b.total_cents != null && b.total_cents >= 20000;
+  // my_bookings marks a guest booking it lists for this phone (Migration 013): read only, no review, no address
+  const guestNote = (b) => (b.booked_as_guest === true ? el('small.appt-ex.appt-guest', 'Booked as a guest') : null);
   const isLive = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= D.helpers.isoDate(D.helpers.todayLocal());
   // a request with the "Other" condition, not yet confirmed: the owner prices it, so the total is "to be confirmed"
   // (doc 46); once confirmed, the total shows. my_bookings returns the booking's conditions since Migration 008 part 3;
@@ -203,7 +205,7 @@
         el('span.nx-day', d.toLocaleDateString('en-US', { weekday: 'long' })),
         el('b.nx-date', d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })),
         el('span.nx-time', el('span.tnum', clock(b.start_min)), ' · ' + whereText(b)),
-        what(b)),
+        what(b), guestNote(b)),
       el('span.appt-status', (STATUS[b.status] || [b.status])[0]),
       el('div.nx-foot',
         el('div.appt-refline', el('span.ref-k', 'Reference'), refValue(b)),
@@ -296,7 +298,7 @@
   // a published one links to Reviews; one waiting says so; with nothing to review there is no action.
   function goldAction(gold) {
     const mine = (id) => acct.reviews.find((r) => r.appointment_id === id);
-    const todo = gold.slice().reverse().find((b) => !mine(b.id));
+    const todo = gold.slice().reverse().find((b) => !b.booked_as_guest && !mine(b.id));   // a guest booking can't be reviewed (Migration 013)
     if (todo) {
       return el('a.btn.btn-gold.shine', { href: '#appointments', onclick: () => { openCard(todo.id); appts.form = { id: todo.id, rating: 5, body: '' }; appts.focus = todo.id; } },
         'Leave a review ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
@@ -394,10 +396,11 @@
     await load();
     if (D.isDown) { root.replaceChildren(downNote()); return; }
     await refreshSession();
-    // signed out: a calm prompt to sign in, and (guest booking on) where a guest's booking is: not in an account, so by phone
+    // signed out: a calm prompt to sign in, and (guest booking on) where a guest's booking is: since Migration 013 an
+    // account with the same confirmed phone also lists that phone's guest bookings the owner confirmed (last 12 months)
     if (!session) {
       root.replaceChildren(D.accountsOpen ? shell('Appointments', 'Your details', el('div.bk-grid',
-        el('p.bk-muted', 'Sign in to see your upcoming and past details.' + (D.guestBooking ? ' Booked as a guest? Those bookings aren’t in an account: call us to check one.' : '')),
+        el('p.bk-muted', 'Sign in to see your upcoming and past details.' + (D.guestBooking ? ' Booked as a guest? Sign in with the same mobile number: the guest bookings we confirmed in the last 12 months show here too.' : '')),
         signInBox(renderAppointments))) : comingSoon());
       return;
     }
@@ -470,7 +473,7 @@
     const hasAu = mains(b).some((l) => FULL.includes(l.code));   // its own Au mark is the seal: never two Au tiles in one row
     const head = [
       done ? el('span.appt-au', { 'aria-hidden': 'true' }) : null,
-      el('span.appt-when', el('b', longDate(b.service_date)), el('span', clock(b.start_min) + ' · ' + whereText(b)), b.example ? el('small.appt-ex', 'Example') : null),
+      el('span.appt-when', el('b', longDate(b.service_date)), el('span', clock(b.start_min) + ' · ' + whereText(b)), b.example ? el('small.appt-ex', 'Example') : null, guestNote(b)),
       what(b, gold),
       el('span.appt-state', el('span.appt-status', label), gold && !hasAu ? el('span.sig.au.seal', { 'aria-hidden': 'true' }, el('small', '79'), 'Au') : null),
       el('span.appt-ref.tnum', b.ref),
@@ -487,13 +490,13 @@
         note ? el('p.bk-muted', note) : null,
         el('dl.sum-body',
           el('dt', 'Reference'), el('dd.appt-refline', refValue(b)),
-          el('dt', 'Where'), el('dd', b.location_type === 'mobile' ? ([b.address, b.address_zip].filter(Boolean).join(', ') || whereText(b)) : (b.shop_address ? b.shop_address : isLive(b) ? settings.public_area + ' — we send the address with your confirmation' : settings.public_area)),
+          el('dt', 'Where'), el('dd', b.location_type === 'mobile' ? ([b.address, b.address_zip].filter(Boolean).join(', ') || whereText(b)) : (b.shop_address ? b.shop_address : isLive(b) && b.booked_as_guest ? [settings.public_area + ' — booked as a guest, so the address isn’t shown here. Call ', tel(phone), '.'] : isLive(b) ? settings.public_area + ' — we send the address with your confirmation' : settings.public_area)),
           el('dt', 'Vehicle'), el('dd', b.vehicle ? (b.vehicle.not_sure ? b.vehicle.description : [b.vehicle.year, b.vehicle.make, b.vehicle.model, b.vehicle.color && '· ' + b.vehicle.color].filter(Boolean).join(' ')) : ''),
           el('dt', 'Length'), el('dd', 'About ' + minutesText(b.duration_min)),
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
           b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { timeZone: settings.timezone || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/[ \u202f]([AP]M)(?:[ \u202f](\S+))?$/, (m, ap, tz) => '\u00a0' + ap + (tz ? '\u00a0' + tz : '')).replace(/([A-Z][a-z]{2}) (\d{1,2}),/, '$1\u00a0$2,'))] : null),
         el('div.bk-summary-card', priceLines(b, { mark: (code) => sigMark(code), otherCondition: otherPending(b) })),
-        done ? reviewBlock(b) : null,
+        done ? (b.booked_as_guest ? el('p.bk-muted', 'Booked as a guest, so it can’t be reviewed here. Reviews are for details booked with your account.') : reviewBlock(b)) : null,
         isLive(b) ? el('p.bk-muted', 'Payment in person after your detail. To cancel or change, call ', tel(phone), '.') : el('p.bk-muted', 'Questions? Call ', tel(phone), '.')) : null);
   }
   // The progress line, like a service tracker: Requested, Confirmed, In progress, Completed. Each stop it has
