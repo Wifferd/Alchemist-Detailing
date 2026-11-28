@@ -236,3 +236,22 @@ change). Rollback: promote the previous production deployments, the builds of `4
 test `dpl_4vfFp3rzpmsmRUC3RNPiwfeK9FKB`; the notes-only build of `34b4403` after it serves the same site). Not yet seen on a real
 iPhone: the foam (no bubbles, ripples, dripping blobs, about 6 s), the gold glow and drips on The Standard.
 
+## 15. The gold drips, rebuilt to sit in the letters (Nov 28, on the branch, NOT live)
+
+The owner, on the live version of section 13: "put a lot more work into the dripping effect, it should stay flush with the text and
+not be a whole animation on top of the text, and only the gold texts."
+
+- **Only the gold words drip** (`gilt.js`): the gold phrase (only once its light has settled: `em.au-lit` and not `.au-run`), the
+  promise line and the label. The white sentence and the grey list never drip.
+- **Flush with the letters.** A drip no longer starts at a random point on a line. Each gold letter is drawn off screen in the same
+  font and the lowest points of its ink are found (cached per letter and font); the drip starts there, a hair inside the ink, as wide
+  as that stroke (a wider flare where it leaves the letter), in the exact colour of that text, with a soft glow like the text's.
+  Baseline from `fontBoundingBoxAscent`, each letter's position from a `Range` per character.
+- **Room.** It stays in the room under its own line: the thread and the fall are limited by the distance to the next block of text,
+  so a drip never crosses into the next line.
+- **Life of a drip.** The gold swells under the letter, stretches into a thread (slowly, then more and more) with a bulb at its end, the
+  neck thins; then 60% let go (a pinch, the bulb falls a short way and fades, the stub draws back into the letter) and 40% simply draw
+  back in after a short hold. Up to 6 at a time, one every 0.7 to 2 s.
+- Checked on close-ups at 1280 x 900 (dark and light) and 390 x 844. Not on a real iPhone. The glyph probe uses the page's font
+  string, so a font that loads late is re-measured (`document.fonts.ready` clears the cache).
+
