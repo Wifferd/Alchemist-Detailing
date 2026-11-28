@@ -289,3 +289,8 @@ individually and then place the text."
   under reduced motion.
 - Checked at 1280 x 900 (dark), 390 x 844 and light mode (it starts a little later there); no page errors. Not on a real iPhone.
   Backup of the previous script: none in the repo (git history has it).
+
+**Live (Nov 28, on the owner's "Push").** Sections 15 to 17 went live together: main fast-forwarded `f712afd` to `8bedfdc` (site only, no
+database step). Both Vercel projects built it from main (live `dpl_F1Bhu2vwKYx2CruHx2LYrp3P1k21`, test `dpl_DMWC4RbsCAZX8qErmrVYxAdADR1C`), and
+thealchemistdetailing.com serves the new `gilt.js` (checked). Rollback: promote live `dpl_25JbpkVbCr6jte1uMP5fmNu2nBGj` and test
+`dpl_CHT8Az7KAoXVPp1ofeN73SWnq9ML` (both `f712afd`).
