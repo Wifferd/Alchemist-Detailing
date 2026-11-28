@@ -192,7 +192,7 @@ the page until Reveal is pressed.
   `dpl_GpCjre4iQzQL1Nu62kfj6jmPCyc7`, test `dpl_CQavwnm3zQ3vRBBgtRZQMJQkPfAk`; the notes-only builds after it show the same site).
 - The "Next pair" tiles were NOT answered before the push, so they show on Home as built. Still to ask: keep or hide on Home.
 
-## 13. The owner's iPhone feedback (Nov 28, on the branch, NOT live)
+## 13. The owner's iPhone feedback (Nov 28; LIVE on "Push it asap", main 90102cd)
 
 Tried on his iPhone: "Leave them" (the dashed Next pair tiles stay), "reveal works". Then: the foam doesn't feel thick; the water that
 sprays it is too fast and too strong; it should spray it with foam dripping off, making the animation longer; and the section in
@@ -214,7 +214,7 @@ his screenshot (The Alchemist Standard) should get "a glow on the words and gold
   in the deep gold. Checked at 1280 x 900 (dark and light) and 390 x 844.
 - Open: is the drip too much, too little, or the right amount? (Rates and sizes are two lines in `gilt.js`: `spawn` and `frame`.)
 
-## 14. "A lot less bubbly ... dripping blobs ... ripples" (Nov 28, on the branch, NOT live)
+## 14. "A lot less bubbly ... dripping blobs ... ripples" (Nov 28; LIVE on "Push it asap", main 90102cd)
 
 The owner, after seeing section 13's version: close to thick foam; **a lot less bubbly, because on real foam you don't see bubbles;
 make dripping blobs of foam, because when it is thick it makes ripples.**
@@ -230,4 +230,9 @@ make dripping blobs of foam, because when it is thick it makes ripples.**
   it runs down faster than the rest and off the screen, in the same warm cream as the body (smaller on a narrow phone).
 - Checked on stills (`?washat=`) in dark and light, at 1280 x 800 and 390 x 844 (the lighter phone shader), the full run
   (about 5.9 s) and the page stop. Not on a real device.
+
+**Live record (sections 13 and 14).** The owner said "Push it asap". `main` fast-forwarded `34b4403` to `90102cd` (site only, no database
+change). Rollback: promote the previous production deployments, the builds of `48afb17` (live `dpl_rskF6eoZGB58932EX1swNfQbC3dn`,
+test `dpl_4vfFp3rzpmsmRUC3RNPiwfeK9FKB`; the notes-only build of `34b4403` after it serves the same site). Not yet seen on a real
+iPhone: the foam (no bubbles, ripples, dripping blobs, about 6 s), the gold glow and drips on The Standard.
 
