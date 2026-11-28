@@ -255,3 +255,21 @@ not be a whole animation on top of the text, and only the gold texts."
 - Checked on close-ups at 1280 x 900 (dark and light) and 390 x 844. Not on a real iPhone. The glyph probe uses the page's font
   string, so a font that loads late is re-measured (`document.fonts.ready` clears the cache).
 
+## 16. One piece of bright gold, and water that looks like water (Nov 28, on the branch, NOT live)
+
+The owner, on section 15: "Yes but it shouldn't have two different parts, I want it to be a bright saturated gold color on golden
+text that drips, also the droplets on the main page need to be more realistic, maybe smaller and scattered and more water looking."
+
+- **The gold (`alchemist.css`, `gilt.js`).** The Standard's gold words (the gold phrase, the promise line) were the pale `--gold-hi`; they are
+  the bright, saturated brand gold `--gold` now (the light pass's gradient too, and the reduced-motion style). A drip is drawn as
+  ONE outline (the thread and its bulb a single shape) in that exact colour, with only a faint darkening toward the edges of
+  the same hue: no separate bead, highlight dot or rim. Bulbs capped at 17% of the text size. In light mode `--gold` is the
+  deeper gold, the drips match.
+- **Droplets (`hero-gl.js`).** The five layers of beads (hero, the Services stage, the art stills) are smaller and more scattered:
+  the largest drops are about 55 px on a computer (were about 90) and fewer (density .55 to .26), the middle layers smaller and
+  fewer, the fine layers more numerous (more mist). Shading toward water: the interior shows 24% of the paint through it, the dark
+  rim is thinner (.85 to .58; on cream .6 to .38) and the white ring on cream is about a third as strong (.45 to .16).
+  Parameters are in `layer()` (`sc` is the grid scale: a bigger number is a smaller drop).
+- Checked: the hero at 1280 x 800 (dark, light) and 390 x 844, the Services stage, the Services page, the gold in light mode. Not
+  on a real iPhone.
+

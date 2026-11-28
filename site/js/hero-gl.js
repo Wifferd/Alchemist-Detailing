@@ -226,11 +226,11 @@ float beads(vec2 g, float density, float rmin, float rmax, float sag, float runs
 vec3 layer(vec3 col, int k, vec2 q, float t, float blur, float sag, float d0, float density, float zoom, float hole, vec2 qc, vec4 flow){
   vec2 LP = vec2(-LD.y, LD.x);     // along the bar
   float sc, dens, rmin, rmax;
-  if (k == 0){ sc = 70.0; dens = 0.35; rmin = 0.03; rmax = 0.05; }        // mist between the beads
-  else if (k == 1){ sc = 34.0; dens = 0.30; rmin = 0.06; rmax = 0.12; }
-  else if (k == 2){ sc = 19.0; dens = 0.55; rmin = 0.11; rmax = 0.28; }
-  else if (k == 3){ sc = 9.0; dens = 0.58; rmin = 0.15; rmax = 0.36; }
-  else { sc = 4.6; dens = 0.55; rmin = 0.18; rmax = mix(0.30, 0.22, uStudio); }   // the largest drops stay under ~90px (65px on cream)
+  if (k == 0){ sc = 85.0; dens = 0.45; rmin = 0.03; rmax = 0.05; }        // mist between the beads
+  else if (k == 1){ sc = 46.0; dens = 0.42; rmin = 0.06; rmax = 0.12; }
+  else if (k == 2){ sc = 27.0; dens = 0.46; rmin = 0.11; rmax = 0.26; }
+  else if (k == 3){ sc = 14.0; dens = 0.36; rmin = 0.15; rmax = 0.32; }
+  else { sc = 8.5; dens = 0.26; rmin = 0.18; rmax = mix(0.30, 0.22, uStudio); }   // the largest drops: about 55px on a computer (they were 90), and few
   // the two finest layers melt into the blur above and below the focus band
   float keep = k <= 1 ? 1.0 - smoothstep(0.45, 0.65, blur) : 1.0;
   if (keep <= 0.0) return col;
@@ -272,8 +272,9 @@ vec3 layer(vec3 col, int k, vec2 q, float t, float blur, float sag, float d0, fl
   // carries the bar's halo, the far half the darker paint
   vec2 qr = q + o*(rr/sc)*2.6 - away*0.12*rr;
   vec3 c = envFast(qr, t, 0.6)*0.9*(1.0 - fres*0.85)*(1.0 + 0.05*uStudio);
+  c = mix(c, col*0.95, 0.24);                          // water is clear: the paint shows through it
   // the meniscus: a dark band just inside the edge (on cream paint a thinner, lighter one)
-  c *= 1.0 - mix(smoothstep(0.62, 0.97, tt)*0.85, smoothstep(0.78, 0.97, tt)*0.6, uStudio);
+  c *= 1.0 - mix(smoothstep(0.70, 0.97, tt)*0.58, smoothstep(0.82, 0.98, tt)*0.38, uStudio);
   // a darker crescent on the side away from the bar
   c *= 1.0 - 0.55*smoothstep(0.3, 0.95, dot(o, away))*smoothstep(0.5, 1.0, tt);
   // the bar compressed into the drop: a short warm streak on the bar's side (the lit face of every
@@ -285,7 +286,7 @@ vec3 layer(vec3 col, int k, vec2 q, float t, float blur, float sag, float d0, fl
   // the cool panel in the far rim
   float rim = fres*(mix(0.25, 0.15, uStudio) + mix(0.75, 0.85, uStudio)*lightSide);
   c += rimCol*rim*(0.35 + 0.75*near)*uIntro*(1.0 - uStudio*0.8);
-  c += vec3(1.0)*rim*0.45*uStudio*uIntro;
+  c += vec3(1.0)*rim*0.16*uStudio*uIntro;
   c += COOL*fres*(1.0 - lightSide)*0.06*(1.0 - uStudio)*uIntro;
   c += CORE*spec*(1.0 + 1.2*uStudio);
   // on the paint around the drop: a soft contact shadow on the far side, and the bar's light

@@ -127,53 +127,35 @@
     const sw = clamp(pt.sw, 2.0, a.fs * 0.16);
     const fall = Math.random() < 0.6;
     const Lmax = Math.min(room * (fall ? 0.5 : 0.62), a.fs * (0.55 + Math.random() * 0.8));
-    drips.push({ x, y0, color: a.color, sw, room, fall, Lmax, rb: sw * (1.0 + Math.random() * 0.55) + 1.0,
+    drips.push({ x, y0, color: a.color, sw, room, fall, Lmax, rb: Math.min(a.fs * 0.17, sw * (1.0 + Math.random() * 0.45) + 0.9),
       tSwell: 0.8 + Math.random() * 0.7, tStretch: 1.5 + Math.random() * 1.6, t: 0, ph: 0, vy: 0, by: 0, fell: 0, stub: 0, hold: 0.5 + Math.random() * 0.5 });
   }
 
   // ---- drawing ------------------------------------------------------------------------------------------------------
+  // A drip is ONE piece of gold (the owner, Nov 28: "it shouldn't have two different parts"): the thread and its bulb are
+  // a single outline filled with the text's own colour, no separate bead, highlight or rim. Only a faint darkening toward
+  // the edges (the same hue) so it reads as round.
   const rgba = (c, a) => 'rgba(' + c.map((v) => Math.round(clamp(v, 0, 255))).join(',') + ',' + a + ')';
-  const mixw = (c, f) => c.map((v) => v + (255 - v) * f);       // toward white
-  const mixk = (c, f) => c.map((v) => v * f);                   // toward black
+  const darker = (c, f) => c.map((v) => v * f);
 
-  // gold has the text's own colour; a bar of light across it, a darker rim either side, so a thread and a bead read round
-  function fillGold(c, x, r, a) {
-    const g = ctx.createLinearGradient(x - r, 0, x + r, 0);
-    g.addColorStop(0, rgba(mixk(c, 0.62), a));
-    g.addColorStop(0.3, rgba(c, a));
-    g.addColorStop(0.48, rgba(mixw(c, 0.55), a));
-    g.addColorStop(0.7, rgba(c, a));
-    g.addColorStop(1, rgba(mixk(c, 0.6), a));
-    ctx.fillStyle = g;
-  }
-
-  // the thread: from its top (as wide as the letter's stroke, a little wider where it leaves the letter) down to its
-  // bottom, thinning as it goes
-  function thread(d, yTop, yBot, wTop, wBot, a) {
-    const n = 9, r = Math.max(wTop, wBot) * 0.5 + 1;
-    fillGold(d.color, d.x, r, a);
+  // yTop: where it leaves the letter (wTop wide: the flare), by: the centre of the bulb (rb its radius, stretch its height
+  // over its width), wNeck: the neck between. A short bulb with no thread is a swelling.
+  function drop(d, yTop, wTop, wNeck, by, rb, stretch, a) {
+    const x = d.x, yN = Math.max(yTop + 0.5, by - rb * stretch * 1.05), n = 8, r = Math.max(rb, wTop * 0.5);
+    const gr = ctx.createLinearGradient(x - r, 0, x + r, 0);
+    gr.addColorStop(0, rgba(darker(d.color, 0.86), a));
+    gr.addColorStop(0.5, rgba(d.color, a));
+    gr.addColorStop(1, rgba(darker(d.color, 0.86), a));
+    ctx.fillStyle = gr;
+    const wAt = (t) => wNeck + (wTop - wNeck) * Math.pow(1 - t, 2.2);
     ctx.beginPath();
-    for (let i = 0; i <= n; i++) {
-      const t = i / n, y = yTop + (yBot - yTop) * t, w = wBot + (wTop - wBot) * Math.pow(1 - t, 2.2);
-      if (i === 0) ctx.moveTo(d.x - w * 0.5, y); else ctx.lineTo(d.x - w * 0.5, y);
-    }
-    for (let i = n; i >= 0; i--) {
-      const t = i / n, y = yTop + (yBot - yTop) * t, w = wBot + (wTop - wBot) * Math.pow(1 - t, 2.2);
-      ctx.lineTo(d.x + w * 0.5, y);
-    }
+    ctx.moveTo(x - wTop * 0.5, yTop);
+    for (let i = 1; i <= n; i++) { const t = i / n; ctx.lineTo(x - wAt(t) * 0.5, yTop + (yN - yTop) * t); }
+    ctx.bezierCurveTo(x - wNeck * 0.5, yN + rb * 0.4, x - rb, by - rb * stretch * 0.85, x - rb, by);
+    ctx.ellipse(x, by, rb, rb * stretch, 0, Math.PI, 0, true);            // left, round the bottom, right
+    ctx.bezierCurveTo(x + rb, by - rb * stretch * 0.85, x + wNeck * 0.5, yN + rb * 0.4, x + wNeck * 0.5, yN);
+    for (let i = n - 1; i >= 0; i--) { const t = i / n; ctx.lineTo(x + wAt(t) * 0.5, yTop + (yN - yTop) * t); }
     ctx.closePath();
-    ctx.fill();
-  }
-
-  // a bead: round, a little taller than wide as it hangs, with a small bright point on its lit side
-  function bead(d, y, r, stretch, a) {
-    fillGold(d.color, d.x, r, a);
-    ctx.beginPath();
-    ctx.ellipse(d.x, y, r, r * stretch, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = rgba(mixw(d.color, 0.85), a * 0.85);
-    ctx.beginPath();
-    ctx.ellipse(d.x - r * 0.3, y - r * stretch * 0.35, Math.max(0.5, r * 0.18), Math.max(0.6, r * stretch * 0.26), 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -185,7 +167,7 @@
     if (wait <= 0) { spawn(); wait = 0.7 + Math.random() * 1.3; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    if (drips.length) { const c = drips[0].color; ctx.shadowColor = rgba(c, 0.4); ctx.shadowBlur = 6; }
+    if (drips.length) { ctx.shadowColor = rgba(drips[0].color, 0.4); ctx.shadowBlur = 6; }   // lit as the letters are
     for (let i = drips.length - 1; i >= 0; i--) {
       const d = drips[i];
       d.t += dt;
@@ -193,43 +175,40 @@
       if (d.ph === 0) {
         if (d.t < Ts) {
           // the gold swells under the letter: a bulge a little wider than the stroke
-          const e = ease(d.t / Ts), h = d.sw * 0.9 * e;
-          bead(d, d.y0 + h * 0.35, d.sw * (0.62 + 0.3 * e), 0.55 + 0.45 * e, 1);
+          const e = ease(d.t / Ts), h = d.sw * 1.1 * e;
+          drop(d, d.y0 - 1, d.sw * 1.5, d.sw, d.y0 + h * 0.55, d.sw * (0.6 + 0.34 * e), 0.6 + 0.4 * e, 1);
         } else {
           // it stretches: the thread lengthens (slowly, then more and more), the neck thins, the bulb at the end grows
-          let u = clamp((d.t - Ts) / Tst, 0, 1);
-          let L = d.Lmax * Math.pow(u, 1.7), neck = d.sw * (1 - 0.55 * u), rb = d.sw * 0.75 + (d.rb - d.sw * 0.75) * u;
+          const u = clamp((d.t - Ts) / Tst, 0, 1);
+          let L = d.Lmax * Math.pow(u, 1.7), neck = d.sw * (1 - 0.5 * u), rb = d.sw * 0.8 + (d.rb - d.sw * 0.8) * u;
           if (!d.fall && u >= 1) {          // a drip that does not let go: it holds, then draws back into the letter
             const back = clamp((d.t - Ts - Tst - d.hold) / 1.1, 0, 1);
             if (back >= 1) { drips.splice(i, 1); continue; }
             const k = 1 - ease(back);
-            L = d.Lmax * k; neck = d.sw * (0.45 + 0.55 * (1 - k)); rb = d.sw * 0.75 + (d.rb - d.sw * 0.75) * k;
+            L = d.Lmax * k; neck = d.sw * (0.5 + 0.5 * (1 - k)); rb = d.sw * 0.8 + (d.rb - d.sw * 0.8) * k;
           }
-          const by = d.y0 + L + rb * 0.7;
-          thread(d, d.y0 - 1, by, d.sw * 1.8, neck, 1);
-          bead(d, by, rb, 1.2, 1);
+          const by = d.y0 + L + rb * 0.9;
+          drop(d, d.y0 - 1, d.sw * 1.8, neck, by, rb, 1.2, 1);
           if (d.fall && u >= 1) { d.ph = 1; d.pinch = 0; d.by = by; d.L = L; d.rbNow = rb; d.neck = neck; }
         }
       } else if (d.ph === 1) {
-        // the neck pinches off (a moment), the bulb goes
+        // the neck pinches thin (a moment) and the bulb goes
         d.pinch += dt;
-        const k = clamp(d.pinch / 0.18, 0, 1);
-        const by = d.by + k * 2;
-        thread(d, d.y0 - 1, by - d.rbNow * 0.5, d.sw * 1.8, d.neck * (1 - k), 1 - k * 0.2);
-        bead(d, by, d.rbNow * (1 - 0.1 * k), 1.2 + 0.25 * k, 1);
-        if (k >= 1) { d.ph = 2; d.vy = 50; d.fell = 0; d.stubT = 0; d.stubL = d.L * 0.4; }
+        const k = clamp(d.pinch / 0.2, 0, 1), by = d.by + k * 2;
+        drop(d, d.y0 - 1, d.sw * 1.8, Math.max(0.5, d.neck * (1 - 0.85 * k)), by, d.rbNow * (1 - 0.08 * k), 1.2 + 0.3 * k, 1);
+        if (k >= 1) { d.ph = 2; d.vy = 50; d.fell = 0; d.stubT = 0; d.stubL = d.L * 0.45; }
       } else {
-        // the bulb falls (stretching as it speeds up) a short way and is gone before the next line; what stayed behind
-        // draws back into the letter
+        // the bulb falls (stretching, with a short tail as it speeds up) a short way and is gone before the next line;
+        // what stayed behind draws back into the letter
         d.vy += 900 * dt; d.by += d.vy * dt; d.fell += d.vy * dt; d.stubT += dt;
         const lim = Math.max(14, Math.min(d.room * 0.55, 52)), a = clamp(1 - (d.fell - lim * 0.6) / (lim * 0.5), 0, 1);
         if (d.stubT < 0.4) {
-          const k = 1 - ease(d.stubT / 0.4);
-          const sl = d.stubL * k;
-          if (sl > 0.6) { thread(d, d.y0 - 1, d.y0 + sl, d.sw * 1.8, d.sw * 0.8, 1); bead(d, d.y0 + sl, d.sw * (0.6 + 0.2 * k), 0.9, 1); }
+          const k = 1 - ease(d.stubT / 0.4), sl = d.stubL * k;
+          if (sl > 0.6) drop(d, d.y0 - 1, d.sw * 1.8, d.sw * 0.8, d.y0 + sl, d.sw * (0.55 + 0.25 * k), 0.9, 1);
         }
         if (a <= 0) { drips.splice(i, 1); continue; }
-        bead(d, d.by, d.rbNow * (1 - Math.min(0.3, d.fell / 160)), 1.2 + Math.min(1, d.vy / 600), a);
+        const rb = d.rbNow * (1 - Math.min(0.3, d.fell / 160)), tail = Math.min(rb * 2.4, d.vy / 170);
+        drop(d, d.by - rb - tail, rb * 0.5, rb * 0.4, d.by, rb, 1.15, a);
       }
     }
     ctx.shadowBlur = 0;

@@ -1188,8 +1188,8 @@ section { position: relative; }
   color: var(--ink);
   text-wrap: balance;
 }
-.standard .statement em { font-style: normal; color: var(--gold-hi); }
-.standard .script { margin: 26px 0 0; text-wrap: balance; }   /* two even lines on a narrow phone, never gold ✦ alone */
+.standard .statement em { font-style: normal; color: var(--gold); }   /* the bright, saturated gold (the owner, Nov 28), the same the drips are */
+.standard .script { margin: 26px 0 0; text-wrap: balance; color: var(--gold); }   /* two even lines on a narrow phone, never gold ✦ alone */
 .standard h2.eyebrow { margin: 0; }
 .facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 34px; margin-top: 46px; color: var(--ink-2); font: 600 var(--fs-xs)/1.4 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; }
 .facts span { display: inline-flex; align-items: center; gap: 12px; }
@@ -1229,7 +1229,7 @@ section { position: relative; }
 @keyframes giltGlowSoft { 0% { text-shadow: 0 0 0 rgba(var(--gold-rgb), 0); } 38% { text-shadow: 0 0 26px rgba(var(--gold-hi-rgb), .8); } 100% { text-shadow: 0 0 20px rgba(var(--gold-rgb), .36); } }
 [data-theme="light"] .standard :is(.statement, .statement em, .script, .facts span) { text-shadow: none !important; }   /* on the cream the glow would only smudge: the drips alone */
 .standard[data-std] .statement em { color: var(--ink); }
-.standard[data-std] .statement em.au-lit { color: var(--gold-hi); }
+.standard[data-std] .statement em.au-lit { color: var(--gold); }
 .standard .statement em.std-fade { transition: color .45s var(--ease-in-out); }
 /* the light's edge goes from 20% before the phrase to 20% past it: inside the letters, the gold behind it, a bright
    edge, the ink ahead; on the black round them, the shared band of light (--au-band) travels with the edge, on a layer
@@ -1237,7 +1237,7 @@ section { position: relative; }
    never shows a box */
 .standard .statement em.au-run {
   position: relative;
-  background: linear-gradient(var(--au-angle), var(--gold-hi) calc(var(--au-p) * 140% - 26%), var(--std-edge, var(--au-glint)) calc(var(--au-p) * 140% - 20%), var(--ink) calc(var(--au-p) * 140% - 14%));
+  background: linear-gradient(var(--au-angle), var(--gold) calc(var(--au-p) * 140% - 26%), var(--std-edge, var(--au-glint)) calc(var(--au-p) * 140% - 20%), var(--ink) calc(var(--au-p) * 140% - 14%));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -4914,7 +4914,7 @@ html:not(.no-js) .hero:not(.met) .actions .shine::after { animation-delay: 3290m
   .rule { transform: scaleX(1); }
   [data-head]:not(.in) :is([data-hd], .rule) { opacity: 1; transform: none; }   /* the heads are simply there (app.js never holds one) */
   .standard[data-std]:not(.in) :is(.emblem img, h2.eyebrow, .statement, .script, .facts span) { opacity: 1; transform: none; }   /* the card is set */
-  .standard[data-std] .statement em { color: var(--gold-hi); }
+  .standard[data-std] .statement em { color: var(--gold); }
   [data-room]:not(.in)::before { opacity: 1; }   /* the rooms' light is on and still */
   .menu.on nav a > span, .menu.on nav a::after, .menu.on nav a[aria-current="page"]::before, .menu.on .menu-foot { animation: none; }   /* the items are there the frame the menu opens (a choice changes the page at once: no line, app.js) */
   .menu.on::after { animation: none; opacity: .25; }   /* the glass edge at rest */
