@@ -324,12 +324,12 @@ void main(){
 #endif
     float e = fbm3(q*4.5 + vec2(t*0.01, 0.0));
     float bub = 1.0 - smoothstep(0.0, 0.8, vmL.x);
-    float field = F.r + (e - 0.5)*0.26 + (bub - 0.5)*0.16;
+    float field = F.r + (e - 0.5)*0.14 + (bub - 0.5)*0.05;
     float rinsed = uRinse > 0.0 ? smoothstep(-0.01, 0.02, dd) : 1.0;
-    float cov = smoothstep(0.22, 0.34, field)*rinsed;
-    float skirt = smoothstep(0.12, 0.26, field)*(1.0 - cov)*rinsed;   // the wet, see-through hem of each mass
+    float cov = smoothstep(0.13, 0.25, field)*rinsed;
+    float skirt = smoothstep(0.06, 0.18, field)*(1.0 - cov)*rinsed;   // the wet, see-through hem of each mass
     if (cov > 0.002 || skirt > 0.002){
-      float th = clamp(F.g*5.6 + (field - 0.3)*1.5, 0.0, 1.0);
+      float th = clamp(F.g*8.0 + (field - 0.12)*2.2, 0.0, 1.0);
       if (uRinse > 0.0){
         th *= smoothstep(0.0, 0.05, dd);
         th += 0.35*smoothstep(0.08, 0.0, dd)*step(0.0, dd);        // the ridge the water pushes ahead of it
@@ -338,24 +338,24 @@ void main(){
       // big lumps: the slope of the field's thickness (normals here are in screen space, y down)
       float gR = texture2D(uField, fuv + vec2(uFieldPx.x, 0.0)).g, gL = texture2D(uField, fuv - vec2(uFieldPx.x, 0.0)).g;
       float gU = texture2D(uField, fuv + vec2(0.0, uFieldPx.y)).g, gD = texture2D(uField, fuv - vec2(0.0, uFieldPx.y)).g;
-      vec3 n = normalize(vec3(-(gR - gL)*11.0, (gU - gD)*11.0, 1.0));
+      vec3 n = normalize(vec3(-(gR - gL)*6.0, (gU - gD)*6.0, 1.0));
       // folds: whipped, soft ridges at a middle scale, from the slope of a two-octave noise
       vec2 lq = q*9.0 + vec2(0.0, -t*0.01);
       float l0 = noise(lq) + 0.5*noise(lq*2.1 + 4.0);
       float lx = noise(lq + vec2(0.06, 0.0)) + 0.5*noise((lq + vec2(0.06, 0.0))*2.1 + 4.0);
       float ly = noise(lq + vec2(0.0, 0.06)) + 0.5*noise((lq + vec2(0.0, 0.06))*2.1 + 4.0);
-      n = normalize(n + vec3(-(lx - l0)*3.8, -(ly - l0)*3.8, 0.0));
+      n = normalize(n + vec3(-(lx - l0)*2.0, -(ly - l0)*2.0, 0.0));
       // bubbles: a slight dome on each, counting for more where the foam is thin (the fine lattice's offset is
       // turned back into screen space before it shades)
       vec3 ndL = normalize(vec3(-offL*1.6, 1.0));
       vec2 oS = vec2(dot(offS, ROT[0]), dot(offS, ROT[1]));
       vec3 ndS = normalize(vec3(-oS*1.6, 1.0));
-      n = normalize(mix(n, mix(ndL, ndS, wT), mix(0.42, 0.16, wT)));
+      n = normalize(mix(n, mix(ndL, ndS, wT), mix(0.3, 0.08, wT)));
       float lam = pow(clamp(dot(n, L)*0.55 + 0.55, 0.0, 1.0), 1.1);   // wrapped: foam scatters the light into its own shade
       // the creases: where a thicker lump stands between this spot and the light, it sits in its shade
       // (the field is 8-bit, so this reads thickness a few texels away rather than a curvature)
       float gS = texture2D(uField, fuv + vec2(L.x, -L.y)*uFieldPx*2.0).g;
-      float ao = (1.0 - 0.3*smoothstep(0.02, 0.3, gS - F.g))*(0.9 + 0.1*smoothstep(0.35, 1.1, l0));
+      float ao = (1.0 - 0.12*smoothstep(0.02, 0.3, gS - F.g))*(0.94 + 0.06*smoothstep(0.35, 1.1, l0));
       float wallM = 1.0 - smoothstep(0.0, 0.10, vmL.y - vmL.x);
       float wallF = 1.0 - smoothstep(0.0, 0.14, vmS.y - vmS.x);
       float thin = 1.0 - th;
@@ -365,7 +365,8 @@ void main(){
       vec3 top = mix(vec3(1.0, 0.985, 0.95), vec3(0.93, 0.92, 0.90), uTheme);
       vec3 col = mix(shade, top, smoothstep(0.05, 0.85, lam));
       col *= ao;
-      col *= 0.8 + 0.2*smoothstep(0.2, 0.8, e);                   // big soft lumps
+      col *= 0.95 + 0.05*noise(q*2.3 + vec2(0.0, t*0.01));   // broad, soft dappling across the cloak
+      col *= 0.9 + 0.1*smoothstep(0.2, 0.8, e);                   // big soft lumps
       col += vec3(0.025, 0.015, 0.0)*th;                          // a faint warm cast where it is thick
       // walls: a whisper of grey on the fine bubbles of the body, more on the larger ones where the foam drains,
       // never a drawn net; a faint thin-film sheen on those larger walls
@@ -374,8 +375,8 @@ void main(){
       col += wallM*thin*(1.0 - wT)*(0.5 + 0.5*sin(th*18.0 + h21(idL)*6.28))*vec3(0.03, 0.025, 0.04);
       // sparkle: a few fine bubbles catch the light as pin-points, a few larger thin ones carry a soft window,
       // warm and gold where the bar passes
-      float pickS = step(0.84, h21(idS + 9.1))*(0.35 + 0.65*h21(idS + 3.3)), pickL = step(0.6, h21(idL + 9.1));
-      float specM = (pow(max(dot(ndS, H), 0.0), 70.0)*pickS*0.7*wT + pow(max(dot(ndL, H), 0.0), 40.0)*pickL*0.32*(1.0 - wT))*(1.0 - wallM*0.7);
+      float pickS = step(0.97, h21(idS + 9.1))*(0.35 + 0.65*h21(idS + 3.3)), pickL = step(0.6, h21(idL + 9.1));
+      float specM = (pow(max(dot(ndS, H), 0.0), 70.0)*pickS*0.35*wT + pow(max(dot(ndL, H), 0.0), 40.0)*pickL*0.32*(1.0 - wT))*(1.0 - wallM*0.7);
       col += mix(vec3(1.0), GOLD, gl)*specM;
       col = mix(col, col*vec3(1.06, 0.98, 0.86), gl*0.45);
       // thin edges let the paint show through each bubble's face, with a cool tint

@@ -54,6 +54,12 @@ pin-point highlights. A thick creamy blanket in dark and light. Tried and droppe
 smooth, heavy cloak with long drips hanging at the edges and no visible bubbles. A next step would be to smooth the
 body and lengthen the drips toward that.
 
+Nov 28 pass, against the owner's real foam photos: the surface is smoother (gentler slopes and bubble domes, a thicker body so
+fewer thin spots show black), the white pin-point highlights are almost gone, a very soft broad dapple was added, and the
+bare gaps are filled. Dark and light checked at two moments of the wash. It reads as a smooth cream cloak now; what is left
+of the real thing is its long drips and its absolute smoothness. Next step if the owner wants more: a different foam body
+(a height field instead of overlapping blobs) or a clip made elsewhere.
+
 ## 5. The first interior photos (Gallery)
 
 - Five frames the owner screen-recorded from a video (rotated, black bars, the caption "Reasons why you should book with
