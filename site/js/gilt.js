@@ -114,7 +114,7 @@
   }
 
   function spawn() {
-    if (drips.length >= 6) return;
+    if (drips.filter((d) => !d.wave).length >= 6) return;
     const A = anchors();
     if (!A.length) return;
     let total = 0; A.forEach((a) => { total += a.w; });
@@ -131,6 +131,27 @@
       tSwell: 0.8 + Math.random() * 0.7, tStretch: 1.5 + Math.random() * 1.6, t: 0, ph: 0, vy: 0, by: 0, fell: 0, stub: 0, hold: 0.5 + Math.random() * 0.5 });
   }
 
+  // The entrance: once, each gold letter in reading order lets a short drip swell from its own foot and draws it back in,
+  // one letter after another (the owner, Nov 28: "animate each letter individually and then place the text"), and then
+  // the text simply stands there and the slow drips begin.
+  let waved = false;
+  function waveSpawn() {
+    const A = anchors();
+    if (!A.length) return false;
+    waved = true;
+    const line = (a) => Math.round(a.baseY / 8);
+    A.sort((p, q) => line(p) - line(q) || p.x - q.x);
+    A.forEach((a, i) => {
+      const pt = a.pts[Math.floor(a.pts.length / 2)];
+      const x = a.x + pt.dx, y0 = a.baseY + pt.dy - 1.2;
+      const room = Math.max(10, a.nextTop - y0 - 4), sw = clamp(pt.sw, 2.0, a.fs * 0.16);
+      drips.push({ wave: true, x, y0, color: a.color, sw, room, fall: false, Lmax: Math.min(room * 0.5, a.fs * (0.18 + Math.random() * 0.42)),
+        rb: Math.min(a.fs * 0.1, sw * (0.8 + Math.random() * 0.3) + 0.3), tSwell: 0.3, tStretch: 0.4 + Math.random() * 0.3, back: 0.7, hold: 0.05,
+        t: -i * 0.045, ph: 0, vy: 0, by: 0, fell: 0, stub: 0 });
+    });
+    return true;
+  }
+
   // ---- drawing ------------------------------------------------------------------------------------------------------
   // A drip is ONE piece of gold (the owner, Nov 28: "it shouldn't have two different parts"): the thread and its bulb are
   // a single outline filled with the text's own colour, no separate bead, highlight or rim. Only a faint darkening toward
@@ -141,12 +162,8 @@
   // yTop: where it leaves the letter (wTop wide: the flare), by: the centre of the bulb (rb its radius, stretch its height
   // over its width), wNeck: the neck between. A short bulb with no thread is a swelling.
   function drop(d, yTop, wTop, wNeck, by, rb, stretch, a) {
-    const x = d.x, yN = Math.max(yTop + 0.5, by - rb * stretch * 1.05), n = 8, r = Math.max(rb, wTop * 0.5);
-    const gr = ctx.createLinearGradient(x - r, 0, x + r, 0);
-    gr.addColorStop(0, rgba(darker(d.color, 0.86), a));
-    gr.addColorStop(0.5, rgba(d.color, a));
-    gr.addColorStop(1, rgba(darker(d.color, 0.86), a));
-    ctx.fillStyle = gr;
+    const x = d.x, yN = Math.max(yTop + 0.5, by - rb * stretch * 1.05), n = 8;
+    ctx.fillStyle = rgba(d.color, a);                  // the letter's own colour, flat: no shading, so it reads as the letter
     const wAt = (t) => wNeck + (wTop - wNeck) * Math.pow(1 - t, 2.2);
     ctx.beginPath();
     ctx.moveTo(x - wTop * 0.5, yTop);
@@ -164,13 +181,14 @@
     const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
     last = now;
     wait -= dt;
-    if (wait <= 0) { spawn(); wait = 0.7 + Math.random() * 1.3; }
+    if (wait <= 0) { if (!waved) { if (!waveSpawn()) wait = 0.4; else wait = 3.2; } else { spawn(); wait = 0.7 + Math.random() * 1.3; } }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    if (drips.length) { ctx.shadowColor = rgba(drips[0].color, 0.4); ctx.shadowBlur = 6; }   // lit as the letters are
+    if (drips.length) { ctx.shadowColor = rgba(drips[0].color, 0.45); ctx.shadowBlur = 6; }   // lit as the letters are
     for (let i = drips.length - 1; i >= 0; i--) {
       const d = drips[i];
       d.t += dt;
+      if (d.t < 0) continue;                     // its turn in the wave has not come
       const Ts = d.tSwell, Tst = d.tStretch;
       if (d.ph === 0) {
         if (d.t < Ts) {
@@ -182,7 +200,7 @@
           const u = clamp((d.t - Ts) / Tst, 0, 1);
           let L = d.Lmax * Math.pow(u, 1.7), neck = d.sw * (1 - 0.5 * u), rb = d.sw * 0.8 + (d.rb - d.sw * 0.8) * u;
           if (!d.fall && u >= 1) {          // a drip that does not let go: it holds, then draws back into the letter
-            const back = clamp((d.t - Ts - Tst - d.hold) / 1.1, 0, 1);
+            const back = clamp((d.t - Ts - Tst - d.hold) / (d.back || 1.1), 0, 1);
             if (back >= 1) { drips.splice(i, 1); continue; }
             const k = 1 - ease(back);
             L = d.Lmax * k; neck = d.sw * (0.5 + 0.5 * (1 - k)); rb = d.sw * 0.8 + (d.rb - d.sw * 0.8) * k;

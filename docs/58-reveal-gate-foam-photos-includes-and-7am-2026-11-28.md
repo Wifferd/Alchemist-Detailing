@@ -273,3 +273,19 @@ text that drips, also the droplets on the main page need to be more realistic, m
 - Checked: the hero at 1280 x 800 (dark, light) and 390 x 844, the Services stage, the Services page, the gold in light mode. Not
   on a real iPhone.
 
+
+## 17. One flat colour, letter by letter (Nov 28, on the branch, NOT live)
+
+The owner, on section 16: "Make the gold drips on text one single color that's connected to the text, so animate each letter
+individually and then place the text."
+
+- **One colour (`gilt.js`).** A drip is a flat fill in the exact colour of the letter it hangs from: the gradient and edge
+  darkening are gone, so thread, bulb and letter read as one gold. It starts a hair inside the letter's ink, so it is joined to
+  it, and carries the same soft glow as the text.
+- **Letter by letter.** When the section's entrance has played (3.2 s after it shows) every gold letter, in reading order
+  (the label, the gold phrase, the promise line), swells a short thread from its own foot, 45 ms after the one before, and
+  draws it back in. Thread lengths and bulbs vary a little so it does not read as a row of beads. Then the text simply stands and
+  the slow ambient drips (a few at a time, some fall) carry on. The wave plays once per visit to the page; nothing runs
+  under reduced motion.
+- Checked at 1280 x 900 (dark), 390 x 844 and light mode (it starts a little later there); no page errors. Not on a real iPhone.
+  Backup of the previous script: none in the repo (git history has it).
