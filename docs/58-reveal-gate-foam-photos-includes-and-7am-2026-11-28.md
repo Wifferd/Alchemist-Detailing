@@ -173,3 +173,18 @@ Answers to the numbered questions of the previous reply ("3 no, 4 yes, 5 later")
 Still not answered in words: the paint pair's order (the speckled photo is BEFORE; "go live with everything" accepted it, but he
 has not said it is right), the real iPhone test of the Reveal, the page stop and the foam, and whether to keep the footer out of
 the page until Reveal is pressed.
+
+## 12. Before / after and the photos above the services (Nov 28, on the branch, NOT live)
+
+- The owner (Nov 28): "The white side is the after" (so the paint pair is right as set: speckled BEFORE, smooth AFTER), and "the
+  before and after and photos should be higher on the home page so they're seen before the services".
+- Home's order is now: hero, Standard, **Before / after** (the Transmutation slider, `#homeTm`), **Our work** photos (`#work`, moved
+  from after the wash), then the **Services stage with Reveal**, then Why and the rest. `gallery.js` `mountHome()` builds the
+  slider into `#homeTmBox` once the data layer has answered (the Gallery keeps its own). The page stop at Reveal is unchanged:
+  what is before the stage is always visible, and only what is after it waits for the press, so the photos are no longer hidden
+  from a visitor who never presses Reveal.
+- Checked at 1280 x 900 and 390 x 844: the slider and the photos show, the page stops at the stage (y 3925 of 3925 on desktop),
+  Reveal plays, scrolling on works. The dock (Call and Book Now on phones) is on in the new sections, as it is between the other
+  sections.
+- Open: the dashed "Next pair" tiles under the slider now also show on Home. Keep, or hide them on Home?
+

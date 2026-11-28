@@ -553,5 +553,20 @@
     if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
   }
 
-  window.AlchemistGallery = { mount, unmount, open, openKey, compare, PHOTOS, PAIRS };
+  // Home shows the same slider above its photos and the services (the owner, Nov 28). It waits for the data layer, as the
+  // Gallery's does (a database that is down shows nothing without a real before photo), then fills #homeTmBox.
+  function mountHome() {
+    const box = document.getElementById('homeTmBox'), D = window.AlchemistData;
+    if (!box || box.firstChild) return;
+    const put = () => {
+      const sec = compare(PAIRS);
+      if (!sec || !box.isConnected) return;
+      box.appendChild(sec);
+      box.parentElement.hidden = false;
+    };
+    if (!D || PAIRS.some((p) => p.before)) put(); else D.init().then(put);
+  }
+  mountHome();
+
+  window.AlchemistGallery = { mount, unmount, open, openKey, compare, mountHome, PHOTOS, PAIRS };
 })();
