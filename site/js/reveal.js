@@ -24,7 +24,7 @@
   const word = btn.querySelector('.reveal-word');
   let W = 0, H = 0, dpr = 1, spots = [], on = false, raf = 0, last = 0, burst = 0, heat = 0, carry = 0, hover = false;
   const specks = [];
-  const MAX = 90;
+  const MAX = 150;
   let rgb = [253, 221, 151], light = false;
 
   // one soft dot, drawn once and scaled for every speck
@@ -88,7 +88,7 @@
       const a = Math.random() * Math.PI * 2;                 // any direction at all
       const v = (fast ? 90 : 5) + Math.random() * (fast ? 160 : 20);
       specks.push({ x: s[0], y: s[1], vx: Math.cos(a) * v, vy: Math.sin(a) * v - (fast ? 0 : 2), age: 0, life: (fast ? 0.5 : 1.7) + Math.random() * (fast ? 0.5 : 1.8),
-        r: 0.7 + Math.random() * 1.5, k: Math.random() < 0.3 ? 1 : 0, ph: Math.random() * 6.28 });
+        r: 0.9 + Math.random() * 1.7, k: Math.random() < 0.3 ? 1 : 0, ph: Math.random() * 6.28 });
     }
   }
 
@@ -97,7 +97,7 @@
     const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
     last = now;
     heat += ((hover || document.activeElement === btn ? 1 : 0) - heat) * Math.min(1, dt * 5);
-    carry += (26 + heat * 22) * dt;
+    carry += (46 + heat * 30) * dt;
     const n = Math.floor(carry); carry -= n;
     if (n) emit(n, false);
     if (burst > 0) { emit(Math.ceil(120 * dt / 0.016 * 0.3), true); burst -= dt; }
@@ -113,7 +113,7 @@
       q.vx = q.vx * drag + Math.cos(q.ph + q.age * 1.7) * 3 * dt;
       q.vy = q.vy * drag + Math.sin(q.ph + q.age * 1.3) * 3 * dt;
       q.x += q.vx * dt; q.y += q.vy * dt;
-      const a = Math.min(1, t * 8) * Math.pow(1 - t, 1.6) * (light ? 0.55 : 0.85);   // in quickly, a long fade out
+      const a = Math.min(1, t * 8) * Math.pow(1 - t, 1.6) * (light ? 0.7 : 1);   // in quickly, a long fade out
       const sz = q.r * (1 - t * 0.55) * 7;                     // the sprite is 32px with a soft edge
       ctx.globalAlpha = a;
       ctx.drawImage(q.k && !light ? dot : tint, q.x - sz / 2, q.y - sz / 2, sz, sz);

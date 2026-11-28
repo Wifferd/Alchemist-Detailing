@@ -1348,28 +1348,28 @@ section { position: relative; }
 .reveal-word {
   position: relative;
   display: block;
-  font: 300 clamp(17px, 1.9vw, 24px)/1 var(--font-display);
+  font: 300 clamp(24px, 3vw, 38px)/1 var(--font-display);
   font-stretch: var(--wdth-display);
-  letter-spacing: .62em;
-  text-indent: .62em;
+  letter-spacing: .6em;
+  text-indent: .6em;
   text-transform: uppercase;
-  color: var(--ink-2);
-  text-shadow: 0 0 22px rgba(var(--gold-hi-rgb), .38), 0 0 2px rgba(var(--gold-hi-rgb), .25);
+  color: var(--ink);
+  text-shadow: 0 0 30px rgba(var(--gold-hi-rgb), .6), 0 0 10px rgba(var(--gold-hi-rgb), .38), 0 0 2px rgba(var(--gold-hi-rgb), .5);
   animation: revealBreath 5.2s var(--ease-in-out) infinite;
   transition: color .5s var(--ease), text-shadow .5s var(--ease), letter-spacing .9s var(--ease-glide), text-indent .9s var(--ease-glide);
 }
-@keyframes revealBreath { 0%, 100% { opacity: .62; } 50% { opacity: 1; } }
+@keyframes revealBreath { 0%, 100% { opacity: .8; } 50% { opacity: 1; } }
 .reveal-btn:focus-visible { outline: 1px solid rgba(var(--gold-rgb), .55); outline-offset: 4px; border-radius: var(--r-sm); }
 .reveal-btn:focus-visible .reveal-word { opacity: 1; }
 @media (hover: hover) and (pointer: fine) {
-  .reveal-btn:hover .reveal-word { color: var(--gold-hi); text-shadow: 0 0 26px rgba(var(--gold-hi-rgb), .6), 0 0 3px rgba(var(--gold-hi-rgb), .45); letter-spacing: .7em; text-indent: .7em; }
+  .reveal-btn:hover .reveal-word { color: var(--gold-hi); text-shadow: 0 0 36px rgba(var(--gold-hi-rgb), .85), 0 0 12px rgba(var(--gold-hi-rgb), .55), 0 0 3px rgba(var(--gold-hi-rgb), .6); letter-spacing: .68em; text-indent: .68em; }
 }
 .reveal-btn:active .reveal-word { transform: scale(.985); transition-duration: var(--dur-press); }
-:where([data-theme="light"]) .reveal-word { text-shadow: 0 0 20px rgba(var(--gold-rgb), .22); }
+:where([data-theme="light"]) .reveal-word { color: var(--gold-ink); text-shadow: 0 0 22px rgba(var(--gold-rgb), .38), 0 0 3px rgba(var(--gold-rgb), .3); }
 /* The gate (app.js washGate): once the visitor reaches the stage and Reveal has not been pressed, the page ends at the
-   stage: what comes after it on Home is not there yet, so nothing scrolls past it. It is not there only while the
+   stage: what comes after it on Home is not there yet, so only the footer follows it. It is not there only while the
    visitor is at the stage; pressing Reveal (or scrolling back above the stage) brings it back. */
-html.wash-gate [data-view="home"] #wash ~ *, html.wash-gate:has([data-view="home"]:not([hidden])) .footer { display: none !important; }
+html.wash-gate [data-view="home"] #wash ~ * { display: none !important; }   /* (the footer stays: hours and the phone are always one scroll away) */
 .reveal-dust { position: absolute; left: -150px; right: -150px; top: -110px; bottom: -110px; width: calc(100% + 300px); height: calc(100% + 220px); pointer-events: none; }
 .foam-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
 .cannon {

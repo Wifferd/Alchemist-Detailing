@@ -294,3 +294,19 @@ individually and then place the text."
 database step). Both Vercel projects built it from main (live `dpl_F1Bhu2vwKYx2CruHx2LYrp3P1k21`, test `dpl_DMWC4RbsCAZX8qErmrVYxAdADR1C`), and
 thealchemistdetailing.com serves the new `gilt.js` (checked). Rollback: promote live `dpl_25JbpkVbCr6jte1uMP5fmNu2nBGj` and test
 `dpl_CHT8Az7KAoXVPp1ofeN73SWnq9ML` (both `f712afd`).
+
+## 18. The footer stays, the page locks while it plays, a stronger Reveal (Nov 28, on the branch, NOT live)
+
+The owner (asked about the footer, which the gate hid): "Show the footer and make it so when they press Reveal it locks the page,
+make the ghostly letters have more presence."
+
+- **Footer.** The gate (`html.wash-gate`) now hides only what comes after the stage inside Home; the footer stays, so the page ends
+  at the stage with the hours, the phone number and the links under it. The stage still cannot be scrolled past into the page
+  until Reveal is pressed.
+- **Lock.** From the press (after the stage is brought to the top) until the wash ends (`washend`), the page does not scroll:
+  the wheel, a finger's drag and the scroll keys are not taken, a scrollbar drag is put back (`app.js` `lockPage`). Nothing
+  moves the scroll while a finger could be on the glass (doc 35). The menu still scrolls. Leaving the page, the end of the wash
+  or a 12 s timer lets it go. Checked on a computer: the wheel, Page Down and End leave the scroll where it was during the wash
+  and work after it. Not on a real iPhone.
+- **Reveal.** Bigger (24 to 38 px, was 17 to 24), white (gold in the cream theme) instead of grey, a stronger gold glow, it breathes
+  between 80% and 100% (was 62%), and the light specks are more numerous, larger and brighter (`reveal.js`).

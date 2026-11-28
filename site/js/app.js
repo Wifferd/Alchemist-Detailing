@@ -805,7 +805,7 @@
     if (!heavy) startHeavy();
     if (!wash) { noWash(); return; }
     const st = $('#washStage'), r = st.getBoundingClientRect();
-    const play = () => { if (!wash.done()) { fitServices(); wash.refresh(); wash.play(); overWashNow(); } };
+    const play = () => { if (!wash.done()) { fitServices(); wash.refresh(); lockPage(); wash.play(); overWashNow(); } };
     if (Math.abs(r.top) < 2 || r.bottom <= 0 || r.top >= window.innerHeight) { play(); return; }
     let arrived = false;
     const go = () => { if (arrived) return; arrived = true; clearTimeout(t); play(); };
@@ -813,6 +813,32 @@
     addEventListener('scrollend', go, { once: true });
     window.scrollTo({ top: window.scrollY + r.top, behavior: reduce ? 'auto' : 'smooth' });
   }
+  // The lock: from the press until the wash has ended the page does not scroll (the owner, Nov 28: "when they press Reveal
+  // it locks the page"). Nothing moves the scroll: the wheel, a finger's drag and the scroll keys are simply not taken
+  // (a drag of the scrollbar is put back where it was); the menu still scrolls; going to another page, or the end of the
+  // wash, lets it go (and a timer, so a wash that never reports its end cannot hold the page).
+  let lockY = null, lockT = 0;
+  const lockKeys = ['PageDown', 'PageUp', 'Home', 'End', 'ArrowDown', 'ArrowUp', ' ', 'Spacebar'];
+  const stopMove = (e) => { if (e.target && e.target.closest && e.target.closest('.menu')) return; if (e.cancelable) e.preventDefault(); };
+  const stopKey = (e) => { if (lockKeys.includes(e.key) && !/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test((e.target && e.target.tagName) || '')) e.preventDefault(); };
+  const holdY = () => { if (lockY != null && Math.abs(window.scrollY - lockY) > 1) window.scrollTo({ top: lockY, behavior: 'instant' }); };
+  function lockPage() {
+    if (lockY != null) return;
+    lockY = window.scrollY;
+    addEventListener('wheel', stopMove, { passive: false });
+    addEventListener('touchmove', stopMove, { passive: false });
+    addEventListener('keydown', stopKey);
+    addEventListener('scroll', holdY, { passive: true });
+    lockT = setTimeout(unlockPage, 12000);
+  }
+  function unlockPage() {
+    if (lockY == null) return;
+    lockY = null; clearTimeout(lockT);
+    removeEventListener('wheel', stopMove); removeEventListener('touchmove', stopMove);
+    removeEventListener('keydown', stopKey); removeEventListener('scroll', holdY);
+  }
+  addEventListener('hashchange', unlockPage);
+  $('#wash').addEventListener('washend', unlockPage);
   if (revealBtn) revealBtn.addEventListener('click', pressReveal);
   // The gate: from the moment the visitor reaches the stage (coming down the page, the stage more than 40% on the
   // screen and the screen not yet past its foot) until Reveal is pressed, everything after the stage on Home is left
