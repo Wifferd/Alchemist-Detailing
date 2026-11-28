@@ -159,3 +159,17 @@ of this section said nothing was connected: that was wrong. Sign-ups are still o
 6. Confirm before / after (section 6), and the "Next pair" tiles.
 7. Does the Full Detail's sealant foam count as the Gloss wax foam (say "Included")? (section 7)
 8. 7 AM on weekends too? (section 8)
+
+## 11. The owner's answers (Nov 28, after going live)
+
+Answers to the numbered questions of the previous reply ("3 no, 4 yes, 5 later"):
+
+3. **Gloss wax foam with the Full Detail: do NOT say "Included".** It stays greyed with its reason ("Goes with the Basic Wash,
+   Hand Wash or Inside & Out"). Nothing to change: that is what is live.
+4. **7 AM on weekends too: yes.** Migration 015 applies to every day, as live.
+5. **The gold-liquid reveal and the Alchemist name: later.** Not built, not decided. The idea (doc 58's chat of Nov 27): a second
+   reveal behind a hidden `?reveal=gold` link to compare with the foam, only worth doing if the alchemy theme stays.
+
+Still not answered in words: the paint pair's order (the speckled photo is BEFORE; "go live with everything" accepted it, but he
+has not said it is right), the real iPhone test of the Reveal, the page stop and the foam, and whether to keep the footer out of
+the page until Reveal is pressed.
