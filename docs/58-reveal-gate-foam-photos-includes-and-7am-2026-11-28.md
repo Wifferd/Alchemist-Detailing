@@ -174,7 +174,7 @@ Still not answered in words: the paint pair's order (the speckled photo is BEFOR
 has not said it is right), the real iPhone test of the Reveal, the page stop and the foam, and whether to keep the footer out of
 the page until Reveal is pressed.
 
-## 12. Before / after and the photos above the services (Nov 28, on the branch, NOT live)
+## 12. Before / after and the photos above the services (Nov 28; LIVE on the owner's "Push", main 48afb17)
 
 - The owner (Nov 28): "The white side is the after" (so the paint pair is right as set: speckled BEFORE, smooth AFTER), and "the
   before and after and photos should be higher on the home page so they're seen before the services".
@@ -187,4 +187,7 @@ the page until Reveal is pressed.
   Reveal plays, scrolling on works. The dock (Call and Book Now on phones) is on in the new sections, as it is between the other
   sections.
 - Open: the dashed "Next pair" tiles under the slider now also show on Home. Keep, or hide them on Home?
-
+- **Live record:** the owner said "Push" after seeing the order described. `main` fast-forwarded `8fb4b3b` to `48afb17` (site-only,
+  no database change). Rollback: promote the previous production deployments (the builds of `0ff2204`, live
+  `dpl_GpCjre4iQzQL1Nu62kfj6jmPCyc7`, test `dpl_CQavwnm3zQ3vRBBgtRZQMJQkPfAk`; the notes-only builds after it show the same site).
+- The "Next pair" tiles were NOT answered before the push, so they show on Home as built. Still to ask: keep or hide on Home.
