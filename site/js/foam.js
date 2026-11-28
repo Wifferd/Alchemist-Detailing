@@ -1,30 +1,24 @@
 /* Alchemist Detailing — the wash.
    A press plays it. On Home the Services section waits with its title and a quiet "Reveal"; pressing Reveal plays
-   the wash on a clock, in about three seconds: the foam cannon walks in from the left and sprays a steady stream
-   across the stage, left to right, until it is covered; then a sheet of rinse water sweeps across, the services come
-   up behind it, and the last film and drops dry. It plays once, on the press, never on the scroll, and stays
-   finished: the services are simply there from then on. (Until Nov 24 the scroll drove it and pinned the page for it;
-   see docs/58.)
+   the wash on a clock, in about six seconds: the foam cannon walks in from the left and sprays a steady stream
+   across the stage, left to right, until it is covered in thick foam; then a gentle water line crosses, the foam thins and
+   slides down behind it in runs and dripping blobs, the services come up, and the last drops dry. It plays once, on the
+   press, never on the scroll, and stays finished: the services are simply there from then on. (Until Nov 24 the scroll
+   drove it and pinned the page for it; see docs/58.)
 
    Rendering, in two WebGL passes:
      1. Every foam blob is drawn as a soft disc into a small field texture
         (red = coverage, green = thickness, blue = foam in flight), summed with
         additive blending.
-     2. One full-screen pass turns that field into foam: big soft lumps from the
-        field's thickness, domed bubbles of two sizes shaded from grey creases
-        to warm off-white tops with small highlights on some, fine froth where it is
-        thin, occlusion in the creases, cool see-through edges, a wet skirt and
-        a contact shadow on the paint; then the mist and jet from the nozzle,
-        the rinse (one bright crest line on the rinsed side, a dark wet film
-        with long sheens, runoff, the foam bending at the front) and the small
-        drops it leaves, each lit from the bar's side with a gold caustic.
-        The bubbles are two Voronoi lattices: fine ones in the thick body (soft
-        folds and pin-point sparkle carry the shading there) and medium ones that
-        show where the foam thins and drains, as real foam does at its edges.
+     2. One full-screen pass turns that field into foam: a smooth, matte, heavy cream (no bubbles: real foam shows none)
+        whose surface ripples where it piles up (soft bands along the thickness contours, ridges running down, big slow
+        folds), occlusion in the creases, a wet skirt and a contact shadow on the paint; then the mist and jet from the
+        nozzle, the rinse (a soft water line, a faint film, the foam breaking into runs behind it) and the small drops
+        it leaves, each lit from the bar's side with a gold caustic. Drips carry on as blobs of their own after the line.
    The light is the site's: the gold bar along the 118deg axis (the same one
    the hero reflects), and the foam is lit from the bar's side.
-   Phones (< 600px) compile a lighter shader (#define LITE: no fine froth,
-   contact shadow or sparkle); the resolution still adapts to slow frames.
+   Phones (< 600px) compile a lighter shader (#define LITE: no contact shadow or sparkle); the resolution still adapts
+   to slow frames.
    Usage: w = AlchemistWash.start({ section, stage, canvas, cannon, tip, back, reveal: [elements] }); w.play() */
 (function () {
   'use strict';
