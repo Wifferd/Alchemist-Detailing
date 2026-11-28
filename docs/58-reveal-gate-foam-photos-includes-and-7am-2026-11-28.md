@@ -111,10 +111,11 @@ body and lengthen the drips toward that.
 - Assumed: 7 AM on every day, weekends included. Until the migration is applied the live booking page still starts at 10 AM
   while the branch's text says 7 AM: the text and the database go live together.
 
-## 9. Twilio (the owner bought an account, Nov 26)
+## 9. Twilio (corrected Nov 28)
 
-Nothing is connected yet. The steps are in doc 36 (Twilio Verify in Supabase for text codes). What it unlocks and what it
-still needs are in the chat reply of Nov 26; the owner does the dashboard steps himself (no keys in chat).
+Twilio Verify has been connected on live since Nov 26 (the owner did it; doc 57 and the Nov 28 handoff). An earlier version
+of this section said nothing was connected: that was wrong. Sign-ups are still off in Supabase until the owner's go-live steps
+(doc 57). This doc changes nothing about that.
 
 ## 10. Open for the owner
 
