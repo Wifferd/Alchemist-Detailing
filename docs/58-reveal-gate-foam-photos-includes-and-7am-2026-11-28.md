@@ -191,3 +191,26 @@ the page until Reveal is pressed.
   no database change). Rollback: promote the previous production deployments (the builds of `0ff2204`, live
   `dpl_GpCjre4iQzQL1Nu62kfj6jmPCyc7`, test `dpl_CQavwnm3zQ3vRBBgtRZQMJQkPfAk`; the notes-only builds after it show the same site).
 - The "Next pair" tiles were NOT answered before the push, so they show on Home as built. Still to ask: keep or hide on Home.
+
+## 13. The owner's iPhone feedback (Nov 28, on the branch, NOT live)
+
+Tried on his iPhone: "Leave them" (the dashed Next pair tiles stay), "reveal works". Then: the foam doesn't feel thick; the water that
+sprays it is too fast and too strong; it should spray it with foam dripping off, making the animation longer; and the section in
+his screenshot (The Alchemist Standard) should get "a glow on the words and gold dripping for the texts".
+
+- **Foam and rinse (`foam.js`).** `DURATION_MS` 2800 to 5800 (measured press to done: about 6.0 s headless: foam built by about 2.5 s,
+  the rinse about 2.5 s to 5.1 s, drops dry to 5.9 s). The water is much softer: the bright crest, the film, the sheen, the
+  runoff streaks and the bend of the foam at the front are roughly halved or less. The foam is no longer swept along by the
+  water: behind the water line it thins over a long stretch (the fade is spread over about 0.6 of the screen height), slides
+  down, and breaks into vertical runs that run down and leave (a stretched noise carried down as the line moves). Longer drips
+  hang from the masses (45% of them, longer). Thickness: broader, softer dollops of relief (a low-frequency fold term, slopes
+  up) so the cloak reads as heavy. Judged on stills only (`?washat=`), not on a real device.
+- **The Standard (`gilt.js`, `alchemist.css`).** The gold phrase glows as its light settles (after the existing pass of light,
+  `em.au-lit:not(.au-run)`), the promise line glows after it, the rest has a faint warmth, and it rests at a soft glow (no pulsing:
+  the light stays the design's one repeating light). `gilt.js` draws gold drips on a canvas over the text: a bead swells under
+  a word, stretches a thread, lets go, falls and fades; up to 9 at a time, a new one every 0.35 to 1.15 s, bigger under bigger
+  words, most from the gold phrase and the promise line; only while the section is on the screen, after its entrance (3.2 s) and
+  with the tab visible. Not under reduced motion (the glow is simply there). Light mode: no glow (it only smudges on cream), the drips
+  in the deep gold. Checked at 1280 x 900 (dark and light) and 390 x 844.
+- Open: is the drip too much, too little, or the right amount? (Rates and sizes are two lines in `gilt.js`: `spawn` and `frame`.)
+

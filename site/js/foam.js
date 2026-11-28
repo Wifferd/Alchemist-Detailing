@@ -30,14 +30,14 @@
   'use strict';
 
   // Timeline of the wash (0..1), played on a clock over DURATION_MS: quick and smooth (the owner, Nov 24).
-  const DURATION_MS = 2800;
+  const DURATION_MS = 5800;
   const T = {
-    cannonIn: [0.0, 0.10],     // the cannon walks in from the left, its body seen arriving, before it fires
-    spray: [0.10, 0.52],       // the nozzle sweeps left to right; foam lands along the stream
-    cannonOut: [0.52, 0.61],
-    titleOut: [0.05, 0.30],    // the title and the Reveal fade as the first foam lands
-    sag: [0.40, 0.80],         // the foam slides down a little
-    rinse: [0.56, 0.87],       // the water sheet sweeps across
+    cannonIn: [0.0, 0.06],     // the cannon walks in from the left, its body seen arriving, before it fires
+    spray: [0.06, 0.40],       // the nozzle sweeps left to right; foam lands along the stream
+    cannonOut: [0.40, 0.47],
+    titleOut: [0.03, 0.16],    // the title and the Reveal fade as the first foam lands
+    sag: [0.28, 0.90],         // the foam slides down, slowly, all through the rinse
+    rinse: [0.44, 0.88],       // the water line crosses, gently: about 2.5 s
     drops: [0.84, 0.985],      // droplets left on the glass fade away
   };
   const CANNON_ROT = -58;      // degrees: nozzle points up and to the right
@@ -190,10 +190,10 @@
       }
     }
     // drips that grow under some of the masses: four beads in a line, the last one the rounded head
-    const drips = Math.round(big * 0.3);
+    const drips = Math.round(big * 0.45);
     for (let d = 0; d < drips; d++) {
       const B = out[Math.floor(R() * big)];
-      const L = 0.07 + R() * 0.15;
+      const L = 0.12 + R() * 0.28;
       const ox = (R() - 0.5) * B.r * 0.6;
       for (let n = 1; n <= 4; n++) out.push({ x: B.x + ox, y: B.y + B.r * 0.42, r: B.r * (0.27 - n * 0.035) * (n === 4 ? 1.3 : 1), a: B.a + 0.01, w: B.w, k: 2, n, L });
     }
@@ -296,7 +296,7 @@ void main(){
   }
   // the crest bends what lies just ahead of it: the field is read through the sheet's slope there
   if (uRinse > 0.0){
-    float bend = dd*exp(-dd*dd*800.0)*0.5*uDrops;
+    float bend = dd*exp(-dd*dd*800.0)*0.18*uDrops;
     fuv += vec2(uD.x/uAsp, -uD.y)*bend;
   }
   vec4 F = texture2D(uField, fuv);
@@ -325,26 +325,34 @@ void main(){
     float e = fbm3(q*4.5 + vec2(t*0.01, 0.0));
     float bub = 1.0 - smoothstep(0.0, 0.8, vmL.x);
     float field = F.r + (e - 0.5)*0.14 + (bub - 0.5)*0.05;
-    float rinsed = uRinse > 0.0 ? smoothstep(-0.01, 0.02, dd) : 1.0;
-    float cov = smoothstep(0.13, 0.25, field)*rinsed;
+    float rinsed = uRinse > 0.0 ? smoothstep(-0.62, 0.02, dd) : 1.0;   // the foam fades out behind the water line, not at it
+    // behind the water line the foam does not just vanish: it breaks into vertical runs that slide down and leave (the
+    // pattern is stretched tall and carried down as the line moves on)
+    float melt = 0.0;
+    if (uRinse > 0.0){
+      float bh = max(0.0, -dd);
+      float strand = noise(vec2(q.x*30.0, q.y*1.1 - bh*2.2)) * 0.7 + noise(vec2(q.x*71.0 + 3.7, q.y*1.9 - bh*2.9)) * 0.3;
+      melt = smoothstep(0.03, 0.5, bh) * smoothstep(0.44, 0.62, strand);
+    }
+    float cov = smoothstep(0.13, 0.25, field)*rinsed*(1.0 - melt);
     float skirt = smoothstep(0.06, 0.18, field)*(1.0 - cov)*rinsed;   // the wet, see-through hem of each mass
     if (cov > 0.002 || skirt > 0.002){
       float th = clamp(F.g*8.0 + (field - 0.12)*2.2, 0.0, 1.0);
       if (uRinse > 0.0){
-        th *= smoothstep(0.0, 0.05, dd);
+        th *= smoothstep(-0.55, 0.05, dd);
         th += 0.35*smoothstep(0.08, 0.0, dd)*step(0.0, dd);        // the ridge the water pushes ahead of it
         th = min(th, 1.0);
       }
       // big lumps: the slope of the field's thickness (normals here are in screen space, y down)
       float gR = texture2D(uField, fuv + vec2(uFieldPx.x, 0.0)).g, gL = texture2D(uField, fuv - vec2(uFieldPx.x, 0.0)).g;
       float gU = texture2D(uField, fuv + vec2(0.0, uFieldPx.y)).g, gD = texture2D(uField, fuv - vec2(0.0, uFieldPx.y)).g;
-      vec3 n = normalize(vec3(-(gR - gL)*6.0, (gU - gD)*6.0, 1.0));
+      vec3 n = normalize(vec3(-(gR - gL)*9.0, (gU - gD)*9.0, 1.0));
       // folds: whipped, soft ridges at a middle scale, from the slope of a two-octave noise
-      vec2 lq = q*9.0 + vec2(0.0, -t*0.01);
+      vec2 lq = q*4.5 + vec2(0.0, -t*0.01);
       float l0 = noise(lq) + 0.5*noise(lq*2.1 + 4.0);
       float lx = noise(lq + vec2(0.06, 0.0)) + 0.5*noise((lq + vec2(0.06, 0.0))*2.1 + 4.0);
       float ly = noise(lq + vec2(0.0, 0.06)) + 0.5*noise((lq + vec2(0.0, 0.06))*2.1 + 4.0);
-      n = normalize(n + vec3(-(lx - l0)*2.0, -(ly - l0)*2.0, 0.0));
+      n = normalize(n + vec3(-(lx - l0)*3.8, -(ly - l0)*3.8, 0.0));
       // bubbles: a slight dome on each, counting for more where the foam is thin (the fine lattice's offset is
       // turned back into screen space before it shades)
       vec3 ndL = normalize(vec3(-offL*1.6, 1.0));
@@ -355,7 +363,7 @@ void main(){
       // the creases: where a thicker lump stands between this spot and the light, it sits in its shade
       // (the field is 8-bit, so this reads thickness a few texels away rather than a curvature)
       float gS = texture2D(uField, fuv + vec2(L.x, -L.y)*uFieldPx*2.0).g;
-      float ao = (1.0 - 0.12*smoothstep(0.02, 0.3, gS - F.g))*(0.94 + 0.06*smoothstep(0.35, 1.1, l0));
+      float ao = (1.0 - 0.2*smoothstep(0.02, 0.3, gS - F.g))*(0.94 + 0.06*smoothstep(0.35, 1.1, l0));
       float wallM = 1.0 - smoothstep(0.0, 0.10, vmL.y - vmL.x);
       float wallF = 1.0 - smoothstep(0.0, 0.14, vmS.y - vmS.x);
       float thin = 1.0 - th;
@@ -430,28 +438,28 @@ void main(){
   // ---------------------------------------------------------------- rinse water
   if (uRinse > 0.0){
     // the sheet: a dark film that reads as wet, long sheens stretched along the sweep, runoff behind the front
-    float film = sheet*0.22;
+    float film = sheet*0.10;
     acc = over(vec4(vec3(0.03, 0.04, 0.06)*film, film), acc);
-    float sheen = pow(noise(vec2(across*9.0, s*0.2 - t*1.6)), 3.0)*0.5*sheet;
+    float sheen = pow(noise(vec2(across*9.0, s*0.2 - t*1.6)), 3.0)*0.22*sheet;
     acc = over(vec4(vec3(0.9, 0.93, 0.97)*sheen, sheen), acc);
     float runMask = smoothstep(0.06, 0.25, behind)*(1.0 - smoothstep(0.45, 0.85, behind))*uDrops;
     if (runMask > 0.001){
       float line = smoothstep(0.80, 0.86, noise(vec2(across*40.0, s*2.5)));
       float lineL = smoothstep(0.80, 0.86, noise(vec2((across - 1.5/uRes.y)*40.0, s*2.5)));
-      float edge = max(line - lineL, 0.0)*0.2*runMask;        // a darker edge on the lines' left
+      float edge = max(line - lineL, 0.0)*0.1*runMask;        // a darker edge on the lines' left
       acc = over(vec4(vec3(0.0), edge), acc);
-      float ra = line*0.12*runMask;
+      float ra = line*0.06*runMask;
       acc = over(vec4(vec3(0.88, 0.91, 0.95)*ra, ra), acc);
       // a few short bright runoff streaks just behind the crest
-      float streak = pow(noise(vec2(across*30.0, s*2.0 - t)), 6.0)*0.4*runMask*smoothstep(0.3, 0.1, behind);
+      float streak = pow(noise(vec2(across*30.0, s*2.0 - t)), 6.0)*0.2*runMask*smoothstep(0.3, 0.1, behind);
       acc = over(vec4(mix(vec3(0.95), GOLD, gl*0.4)*streak, streak), acc);
     }
     // the crest: one bright line on the rinsed side (on the dark paint, where it shows), soft with a sharp
     // core, warm where the bar crosses it, sparkling; the refraction's dark line just ahead, on the foam
     float dc2 = dd + 0.018;
-    float crest = (exp(-dc2*dc2*2500.0)*0.35 + exp(-dc2*dc2*20000.0)*0.5)*uDrops;
+    float crest = (exp(-dc2*dc2*2500.0)*0.16 + exp(-dc2*dc2*20000.0)*0.2)*uDrops;
     vec3 cc = mix(vec3(0.93, 0.95, 0.98), vec3(1.0, 0.90, 0.64), 0.35 + gl*0.5);
-    float sh = exp(-pow(dd - 0.012, 2.0)*9000.0)*0.45*uDrops;
+    float sh = exp(-pow(dd - 0.012, 2.0)*9000.0)*0.2*uDrops;
     acc = over(vec4(vec3(0.0), sh), acc);
     float cs = exp(-pow(dd + 0.01, 2.0)*4000.0)*0.15*uTheme*uDrops;   // on ivory, a cool shadow under the crest
     acc = over(vec4(vec3(0.30, 0.33, 0.40)*cs, cs), acc);
@@ -721,9 +729,9 @@ void main(){
         if (b.k === 2) y += (b.L * (sstep(b.a, b.a + 0.2, p) + 0.6 * sagK) + sag * 0.6) * b.n / 4;
         if (fr.k > 0) {
           const behind = fr.s - (x * D[0] + y * D[1]);
-          if (behind > 0) {   // swept along by the water: bunches up a little, then shrinks away
-            x += D[0] * behind; y += D[1] * behind;
-            r *= (1 + 0.15 * Math.min(1, behind / 0.04)) * Math.exp(-Math.max(0, behind - 0.04) * 8);
+          if (behind > 0) {   // the rinse is gentle: the foam is not pushed along, it slides down and thins, dripping off
+            y += 0.35 * behind; x += 0.04 * D[0] * behind;
+            r *= (1 + 0.1 * Math.min(1, behind / 0.05)) * Math.exp(-Math.max(0, behind - 0.06) * 1.15);
             if (r < 0.006) continue;
           }
         }

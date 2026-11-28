@@ -1216,6 +1216,18 @@ section { position: relative; }
 .standard[data-std].in .facts span { transition: opacity var(--dur-rise) var(--ease-fade), transform var(--dur-rise) var(--ease-glide); transition-delay: calc(var(--std-tail) + 200ms + var(--k, 0) * var(--line-gap)); }
 .standard .facts span:nth-child(2) { --k: 1; }
 .standard .facts span:nth-child(3) { --k: 2; }
+/* Gold on the Standard's words (the owner, Nov 28: "a glow on the words and gold dripping for the texts"). The gold phrase
+   glows as its light settles, the promise line glows after it, the rest carries a faint warmth, and all of it rests at a soft
+   glow (it does not pulse). gilt.js draws the drips on .gilt-drips, a canvas over the text. */
+.standard .wrap { position: relative; }
+.gilt-drips { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.standard .statement { text-shadow: 0 0 28px rgba(var(--gold-hi-rgb), .14); }
+.standard[data-std] .statement em.au-lit:not(.au-run) { text-shadow: 0 0 14px rgba(var(--gold-rgb), .5), 0 0 38px rgba(var(--gold-rgb), .26); animation: giltGlow 2.6s var(--ease-in-out) 1 both; }
+.standard[data-std].in .script { text-shadow: 0 0 20px rgba(var(--gold-rgb), .36); animation: giltGlowSoft 2.4s var(--ease-in-out) calc(var(--std-tail) + 400ms) 1 both; }
+.standard[data-std].in .facts span { text-shadow: 0 0 16px rgba(var(--gold-rgb), .18); }
+@keyframes giltGlow { 0% { text-shadow: 0 0 0 rgba(var(--gold-rgb), 0), 0 0 0 rgba(var(--gold-rgb), 0); } 38% { text-shadow: 0 0 22px rgba(var(--gold-hi-rgb), .95), 0 0 54px rgba(var(--gold-rgb), .55); } 100% { text-shadow: 0 0 14px rgba(var(--gold-rgb), .5), 0 0 38px rgba(var(--gold-rgb), .26); } }
+@keyframes giltGlowSoft { 0% { text-shadow: 0 0 0 rgba(var(--gold-rgb), 0); } 38% { text-shadow: 0 0 26px rgba(var(--gold-hi-rgb), .8); } 100% { text-shadow: 0 0 20px rgba(var(--gold-rgb), .36); } }
+[data-theme="light"] .standard :is(.statement, .statement em, .script, .facts span) { text-shadow: none !important; }   /* on the cream the glow would only smudge: the drips alone */
 .standard[data-std] .statement em { color: var(--ink); }
 .standard[data-std] .statement em.au-lit { color: var(--gold-hi); }
 .standard .statement em.std-fade { transition: color .45s var(--ease-in-out); }
