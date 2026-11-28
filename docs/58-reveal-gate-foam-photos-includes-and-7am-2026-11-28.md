@@ -1,7 +1,33 @@
-# 58. The Reveal, the stop at it, thicker foam and the first interior photos (Nov 24, 2026)
+# 58. The Reveal, the stop at it, thicker foam and the first interior photos (Nov 24 to 28, 2026; LIVE Nov 28)
 
 All of this is on the branch `claude/zen-fermat-59sjyv` (commits f4b93f0, 1495e15, 1811827, 562dc0f). **None of it is on
 `main` or live**: the owner's standing instruction is still "Dont go live till its ready to Push" (doc 56).
+
+## LIVE (Nov 28, 2026): the owner said "Go live with everything"
+
+Everything below is live. Done in this order, each step checked before the next:
+
+1. Read-only checks on live: last migration 013 (`20261127212034`), `first_start_min` 600, no Hand Wash include row, `main`
+   still at `caf15d9` (the branch was 11 commits ahead, a fast-forward).
+2. **Migration 014** applied to live (`m014_hand_wash_includes_tire_shine`): the Hand Wash includes Wheels & Tire Shine; the
+   add-on's rate is still 2000 cents in every size. Anon quotes on live after it: Inside & Out 11499, Full Detail 17999,
+   Hand Wash + Gloss wax 10999, Basic Wash + Wheels & Tire Shine 5500 (the $35 first-visit price + $20).
+3. **Migration 015** applied to live (`m015_open_from_7am`): `first_start_min` 420. `db-tests/m015_tests_open_from_7am.sql`
+   run on live as anon: PASSED (8 checks); `get_public_settings()` returns 420 / 1140 / 1200.
+4. `main` fast-forwarded `caf15d9` to `0ff2204` (the whole branch). Both Vercel projects built it: live
+   `dpl_GpCjre4iQzQL1Nu62kfj6jmPCyc7`, test `dpl_CQavwnm3zQ3vRBBgtRZQMJQkPfAk` (READY). The served home page has `#revealBtn`,
+   `js/reveal.js`, "Mon-Thu 7 AM" and the LD+JSON `07:00`; no "Keep scrolling", no "10 AM".
+5. The test database is still paused (doc 56): Migrations 014 and 015 are NOT on it. The site's preview mirrors them.
+
+What the owner accepted by saying "everything" (my defaults, not his words): the speckled photo is the BEFORE and the smooth one
+the AFTER; 7 AM applies to every day including weekends; Gloss wax foam with the Full Detail stays greyed ("Goes with ...")
+and does not say Included; the footer is out of the page until Reveal is pressed on Home; "Services & prices" plays the
+Reveal; the two dashed "Next pair" tiles now show on the live Gallery. **Not yet tried on a real iPhone.**
+
+**Rollback.** Site: promote the previous production deployments, live `dpl_3haG1hrBKYzeSMnge23WZdVcsfZs` and test
+`dpl_DLgcC9rfQPrmxF74UeQwzzjHAQ6T` (both `main` at `caf15d9`). Database, only on the owner's word:
+`update public.business_settings set first_start_min = 600 where id = 1;` (the text on the old site says 10 AM) and, if wanted,
+remove the one include row (`service_includes`: Hand Wash, Wheels & Tire Shine).
 
 ## 1. What the owner asked for (Nov 24)
 
