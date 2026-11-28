@@ -214,3 +214,20 @@ his screenshot (The Alchemist Standard) should get "a glow on the words and gold
   in the deep gold. Checked at 1280 x 900 (dark and light) and 390 x 844.
 - Open: is the drip too much, too little, or the right amount? (Rates and sizes are two lines in `gilt.js`: `spawn` and `frame`.)
 
+## 14. "A lot less bubbly ... dripping blobs ... ripples" (Nov 28, on the branch, NOT live)
+
+The owner, after seeing section 13's version: close to thick foam; **a lot less bubbly, because on real foam you don't see bubbles;
+make dripping blobs of foam, because when it is thick it makes ripples.**
+
+- **No bubbles (`foam.js` shader).** Removed: both Voronoi bubble lattices (the medium and the fine one), their domes, walls and
+  thin-film tint, the pin-point and window sparkles, the loose bubble discs around the edges, the glassy highlight on the
+  flying globs. The body is a matte, heavy cream (a faint satin sheen only). Cheaper to draw too (two `vor` calls fewer per pixel).
+- **Ripples.** Soft ridges that follow the outline of each mass (bands of equal thickness: `cos(F.g*8 + ...)` pushes the normal
+  along the thickness gradient), ridges that run down where it flows, and the big slow folds over them. A first try with tight
+  bands looked like a contour map; the final frequency is low (about one band across a pile) and the amplitude small.
+- **Dripping blobs.** The drip chains are chunkier (fat bulb at the end of each, 40% of the masses). Once the water line has
+  passed, each drip carries on as a blob of its own (drawn through the in-flight path, so the melt and the fade do not take it):
+  it runs down faster than the rest and off the screen, in the same warm cream as the body (smaller on a narrow phone).
+- Checked on stills (`?washat=`) in dark and light, at 1280 x 800 and 390 x 844 (the lighter phone shader), the full run
+  (about 5.9 s) and the page stop. Not on a real device.
+

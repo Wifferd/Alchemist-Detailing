@@ -190,12 +190,12 @@
       }
     }
     // drips that grow under some of the masses: four beads in a line, the last one the rounded head
-    const drips = Math.round(big * 0.45);
+    const drips = Math.round(big * 0.4);
     for (let d = 0; d < drips; d++) {
       const B = out[Math.floor(R() * big)];
-      const L = 0.12 + R() * 0.28;
+      const L = 0.14 + R() * 0.32;
       const ox = (R() - 0.5) * B.r * 0.6;
-      for (let n = 1; n <= 4; n++) out.push({ x: B.x + ox, y: B.y + B.r * 0.42, r: B.r * (0.27 - n * 0.035) * (n === 4 ? 1.3 : 1), a: B.a + 0.01, w: B.w, k: 2, n, L });
+      for (let n = 1; n <= 4; n++) out.push({ x: B.x + ox, y: B.y + B.r * 0.42, r: B.r * (0.36 - n * 0.04) * (n === 4 ? 1.6 : 1), a: B.a + 0.01, w: B.w, k: 2, n, L });
     }
     return out;
   }
@@ -309,22 +309,12 @@ void main(){
 
   // ---------------------------------------------------------------- foam
   if (F.r > 0.08){
-    // snow foam: a creamy mass of fine bubbles shaped by soft folds; where it thins and drains the bubbles
-    // grow and their walls show, as real foam does at its edges. Two lattices: medium bubbles (seen where the
-    // foam is thin, and in the scalloped outline) and fine ones (the body), the fine one turned 37deg
+    // thick snow foam: a smooth, heavy cream. No bubbles show in real foam (the owner, Nov 28), so there are none: its
+    // surface ripples the way thick cream does where it piles up. Soft ridges follow the outline of each mass (bands of
+    // equal thickness), run down where it drips, and big slow folds lie over them.
     float wT = smoothstep(0.04, 0.22, F.g);                       // 1 where the foam is thick
-    vec2 idL, offL;
-    vec2 vmL = vor(q*34.0 + vec2(0.0, -t*0.015), idL, offL);
-    vec2 idS, offS;
-    const mat2 ROT = mat2(0.7986, 0.6018, -0.6018, 0.7986);
-#ifndef LITE
-    vec2 vmS = vor(ROT*q*96.0 + vec2(3.0, -t*0.012), idS, offS);
-#else
-    vec2 vmS = vor(ROT*q*70.0 + vec2(3.0, -t*0.012), idS, offS);
-#endif
     float e = fbm3(q*4.5 + vec2(t*0.01, 0.0));
-    float bub = 1.0 - smoothstep(0.0, 0.8, vmL.x);
-    float field = F.r + (e - 0.5)*0.14 + (bub - 0.5)*0.05;
+    float field = F.r + (e - 0.5)*0.14;
     float rinsed = uRinse > 0.0 ? smoothstep(-0.62, 0.02, dd) : 1.0;   // the foam fades out behind the water line, not at it
     // behind the water line the foam does not just vanish: it breaks into vertical runs that slide down and leave (the
     // pattern is stretched tall and carried down as the line moves on)
@@ -346,29 +336,28 @@ void main(){
       // big lumps: the slope of the field's thickness (normals here are in screen space, y down)
       float gR = texture2D(uField, fuv + vec2(uFieldPx.x, 0.0)).g, gL = texture2D(uField, fuv - vec2(uFieldPx.x, 0.0)).g;
       float gU = texture2D(uField, fuv + vec2(0.0, uFieldPx.y)).g, gD = texture2D(uField, fuv - vec2(0.0, uFieldPx.y)).g;
-      vec3 n = normalize(vec3(-(gR - gL)*9.0, (gU - gD)*9.0, 1.0));
-      // folds: whipped, soft ridges at a middle scale, from the slope of a two-octave noise
+      vec2 gr = vec2(gR - gL, gU - gD);
+      vec3 n = normalize(vec3(-gr.x*9.0, gr.y*9.0, 1.0));
+      // ripples: bands that follow the thickness contours, strongest where the foam is deep
+      float ph = F.g*8.0 + e*1.0;
+      float rc = cos(ph);
+      n = normalize(n + vec3(-gr.x, gr.y, 0.0)*rc*(3.2*wT));
+      // runs: soft vertical ridges where it flows down
+      vec2 rq = vec2(q.x*9.0, q.y*1.2);
+      float rv0 = noise(rq), rvx = noise(rq + vec2(0.05, 0.0));
+      n = normalize(n + vec3(-(rvx - rv0)*2.2, 0.0, 0.0));
+      // big slow folds, from the slope of a two-octave noise
       vec2 lq = q*4.5 + vec2(0.0, -t*0.01);
       float l0 = noise(lq) + 0.5*noise(lq*2.1 + 4.0);
       float lx = noise(lq + vec2(0.06, 0.0)) + 0.5*noise((lq + vec2(0.06, 0.0))*2.1 + 4.0);
       float ly = noise(lq + vec2(0.0, 0.06)) + 0.5*noise((lq + vec2(0.0, 0.06))*2.1 + 4.0);
       n = normalize(n + vec3(-(lx - l0)*3.8, -(ly - l0)*3.8, 0.0));
-      // bubbles: a slight dome on each, counting for more where the foam is thin (the fine lattice's offset is
-      // turned back into screen space before it shades)
-      vec3 ndL = normalize(vec3(-offL*1.6, 1.0));
-      vec2 oS = vec2(dot(offS, ROT[0]), dot(offS, ROT[1]));
-      vec3 ndS = normalize(vec3(-oS*1.6, 1.0));
-      n = normalize(mix(n, mix(ndL, ndS, wT), mix(0.3, 0.08, wT)));
       float lam = pow(clamp(dot(n, L)*0.55 + 0.55, 0.0, 1.0), 1.1);   // wrapped: foam scatters the light into its own shade
-      // the creases: where a thicker lump stands between this spot and the light, it sits in its shade
-      // (the field is 8-bit, so this reads thickness a few texels away rather than a curvature)
+      // the creases: where a thicker lump stands between this spot and the light it sits in its shade, and the floor of
+      // each ripple is a touch darker than its crest
       float gS = texture2D(uField, fuv + vec2(L.x, -L.y)*uFieldPx*2.0).g;
-      float ao = (1.0 - 0.2*smoothstep(0.02, 0.3, gS - F.g))*(0.94 + 0.06*smoothstep(0.35, 1.1, l0));
-      float wallM = 1.0 - smoothstep(0.0, 0.10, vmL.y - vmL.x);
-      float wallF = 1.0 - smoothstep(0.0, 0.14, vmS.y - vmS.x);
-      float thin = 1.0 - th;
-      // the body never clips: a grey-blue shade in the creases up to a warm off-white on the lit tops, the white
-      // kept for the highlights (a shade lower on the ivory stage, so the highlights still read there)
+      float ao = (1.0 - 0.2*smoothstep(0.02, 0.3, gS - F.g))*(0.94 + 0.06*smoothstep(0.35, 1.1, l0))*(1.0 - 0.05*wT*(0.5 - 0.5*rc));
+      // the body never clips: a soft grey shade in the creases up to a warm off-white on the lit tops
       vec3 shade = mix(vec3(0.86, 0.85, 0.83), vec3(0.66, 0.68, 0.72), uTheme);
       vec3 top = mix(vec3(1.0, 0.985, 0.95), vec3(0.93, 0.92, 0.90), uTheme);
       vec3 col = mix(shade, top, smoothstep(0.05, 0.85, lam));
@@ -376,23 +365,14 @@ void main(){
       col *= 0.95 + 0.05*noise(q*2.3 + vec2(0.0, t*0.01));   // broad, soft dappling across the cloak
       col *= 0.9 + 0.1*smoothstep(0.2, 0.8, e);                   // big soft lumps
       col += vec3(0.025, 0.015, 0.0)*th;                          // a faint warm cast where it is thick
-      // walls: a whisper of grey on the fine bubbles of the body, more on the larger ones where the foam drains,
-      // never a drawn net; a faint thin-film sheen on those larger walls
-      col *= 1.0 - wallF*0.035*wT;
-      col *= 1.0 - wallM*(0.04 + 0.14*thin)*(1.0 - 0.8*wT);
-      col += wallM*thin*(1.0 - wT)*(0.5 + 0.5*sin(th*18.0 + h21(idL)*6.28))*vec3(0.03, 0.025, 0.04);
-      // sparkle: a few fine bubbles catch the light as pin-points, a few larger thin ones carry a soft window,
-      // warm and gold where the bar passes
-      float pickS = step(0.97, h21(idS + 9.1))*(0.35 + 0.65*h21(idS + 3.3)), pickL = step(0.6, h21(idL + 9.1));
-      float specM = (pow(max(dot(ndS, H), 0.0), 70.0)*pickS*0.35*wT + pow(max(dot(ndL, H), 0.0), 40.0)*pickL*0.32*(1.0 - wT))*(1.0 - wallM*0.7);
-      col += mix(vec3(1.0), GOLD, gl)*specM;
+      // a satin sheen over the ripples (foam is matte: broad and faint), warm and gold where the bar passes
+      float sheen = pow(max(dot(n, H), 0.0), 5.0)*0.035*wT;
+      col += mix(vec3(1.0), GOLD, gl)*sheen;
       col = mix(col, col*vec3(1.06, 0.98, 0.86), gl*0.45);
-      // thin edges let the paint show through each bubble's face, with a cool tint
-      float face = (1.0 - wallM)*(1.0 - wallF*0.5);
-      float alpha = cov*mix(1.0 - face*0.55, 1.0, smoothstep(0.08, 0.45, th));
-      alpha = max(alpha, cov*specM*0.6);
+      // thin edges let the paint show through a little
+      float alpha = cov*mix(0.82, 1.0, smoothstep(0.08, 0.45, th));
       col = mix(vec3(0.88, 0.86, 0.82), col, smoothstep(0.0, 0.3, th));
-      // the skirt: a translucent grey-blue film in the dark (the rim around every hole), a grey shadow on ivory
+      // the skirt: a translucent grey film in the dark (the rim around every hole), a grey shadow on ivory
       vec4 sk = mix(vec4(vec3(0.66, 0.63, 0.58)*0.5, 0.5), vec4(vec3(0.50, 0.52, 0.56)*0.65, 0.65), uTheme)*skirt;
       acc = over(vec4(col*alpha, alpha), sk);
     }
@@ -402,37 +382,17 @@ void main(){
     float shadow = smoothstep(0.14, 0.5, shF)*(1.0 - cov)*rinsed*mix(0.4, 0.65, uTheme);
     acc = over(acc, vec4(vec3(0.0), shadow));
 #endif
-    // loose bubbles around the foam's edge: soft domes, lit from the bar's side
-    if (F.r < 0.62){
-      vec2 idL, offL;
-      vor(q*10.0 + 5.3, idL, offL);
-      float rad = 0.22 + 0.16*h21(idL + 2.1);
-      float rr = length(offL)/rad;
-      if (h21(idL*1.7) > 0.76 && rr < 1.0 && (uRinse <= 0.0 || dd > 0.02)){
-        vec2 rel = -offL/rad;
-        float rim = smoothstep(0.55, 1.0, rr)*(1.0 - smoothstep(0.95, 1.0, rr))*0.5;
-        vec3 nl = normalize(vec3(rel*1.4, 1.0));
-        float ll = clamp(dot(nl, L), 0.0, 1.0);
-        float hl1 = pow(max(dot(nl, H), 0.0), 24.0);
-        vec2 a2 = rel - vec2(0.42, 0.40);
-        float hl2 = exp(-dot(a2, a2)*50.0);
-        float ba = clamp(rim*0.7 + 0.25 + hl1*0.7 + hl2*0.3, 0.0, 1.0)*smoothstep(0.14, 0.3, F.r);
-        vec3 bc = clamp(mix(vec3(0.72, 0.76, 0.82), vec3(0.93, 0.92, 0.9), ll)*(0.6 + rim*0.4) + vec3(1.0)*hl1*0.8 + GOLD*hl2*gl, 0.0, 1.0);
-        acc = over(vec4(bc*ba, ba), acc);
-      }
-    }
   }
 
   // ---------------------------------------------------------------- foam in flight: shaded globs, not flat discs
   if (F.b > 0.2){
-    float fa = smoothstep(0.3, 0.6, F.b)*0.8;
+    float fa = smoothstep(0.3, 0.55, F.b)*0.97;
     float bR = texture2D(uField, uv + vec2(uFieldPx.x, 0.0)).b, bL = texture2D(uField, uv - vec2(uFieldPx.x, 0.0)).b;
     float bU = texture2D(uField, uv + vec2(0.0, uFieldPx.y)).b, bD = texture2D(uField, uv - vec2(0.0, uFieldPx.y)).b;
     vec3 nf = normalize(vec3(-(bR - bL)*6.0, (bU - bD)*6.0, 1.0));
     float lf = clamp(dot(nf, L), 0.0, 1.0);
-    vec3 fc = mix(vec3(0.72, 0.75, 0.80), vec3(0.95, 0.94, 0.92), smoothstep(0.2, 0.9, lf));
-    fc += pow(max(dot(nf, H), 0.0), 24.0)*0.35;
-    acc = over(vec4(fc*fa*0.95, fa*0.95), acc);
+    vec3 fc = mix(mix(vec3(0.85, 0.84, 0.81), vec3(0.79, 0.78, 0.76), uTheme), mix(vec3(1.0, 0.985, 0.95), vec3(0.94, 0.93, 0.91), uTheme), smoothstep(0.2, 0.9, lf));   // the same warm cream as the body
+    acc = over(vec4(fc*fa, fa), acc);
   }
 
   // ---------------------------------------------------------------- rinse water
@@ -726,9 +686,16 @@ void main(){
         let r = b.r * (b.k === 0 ? backOut(grow) : easeOut3(grow));
         let x = b.x, y = b.y + sag * (0.35 + 0.65 * b.w);
         // drips stretch as they form, then keep stretching with gravity while the foam sags
-        if (b.k === 2) y += (b.L * (sstep(b.a, b.a + 0.2, p) + 0.6 * sagK) + sag * 0.6) * b.n / 4;
+        if (b.k === 2) y += (b.L * (sstep(b.a, b.a + 0.2, p) + 1.1 * sagK) + sag * 0.6) * b.n / 4;
         if (fr.k > 0) {
           const behind = fr.s - (x * D[0] + y * D[1]);
+          if (behind > 0 && b.k === 2) {   // a drip does not melt with the rest: it runs on down as a blob of its own, off the screen
+            y += 0.8 * behind;
+            r *= Math.exp(-Math.max(0, behind - 0.3) * 1.2);
+            if (r < 0.006 || y > 1.2) continue;
+            writeBlob(n++, x, y, r * (asp < 0.8 ? 0.68 : 1.15), -1.0);   // (smaller on a narrow phone, where a blob is a lot of the width)
+            continue;
+          }
           if (behind > 0) {   // the rinse is gentle: the foam is not pushed along, it slides down and thins, dripping off
             y += 0.35 * behind; x += 0.04 * D[0] * behind;
             r *= (1 + 0.1 * Math.min(1, behind / 0.05)) * Math.exp(-Math.max(0, behind - 0.06) * 1.15);
