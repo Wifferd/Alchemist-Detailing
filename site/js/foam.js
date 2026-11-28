@@ -4,7 +4,7 @@
    across the stage, left to right, until it is covered; then a sheet of rinse water sweeps across, the services come
    up behind it, and the last film and drops dry. It plays once, on the press, never on the scroll, and stays
    finished: the services are simply there from then on. (Until Nov 24 the scroll drove it and pinned the page for it;
-   see docs/57.)
+   see docs/58.)
 
    Rendering, in two WebGL passes:
      1. Every foam blob is drawn as a soft disc into a small field texture

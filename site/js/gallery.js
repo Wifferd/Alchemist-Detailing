@@ -38,7 +38,7 @@
   // after it (`before` and `after` are photo keys, img/work/<key>-<w>.webp; their alt text is `beforeAlt` /
   // `afterAlt`, or a PHOTOS entry's). A pair whose `before` is null shows the owner's placeholder in preview and
   // leaves the section out on the live site. Nov 24: the first real pair, two close-ups of one panel of white
-  // paint from the same spot (the owner's photos; which is before and which is after is his: doc 57).
+  // paint from the same spot (the owner's photos; which is before and which is after is his: doc 58).
   const PAIRS = [{
     key: 'paint', title: 'Paint close-up', before: 'paint-before', after: 'paint-after',
     beforeAlt: 'Close-up of a panel of white paint before the detail, covered in small spots',

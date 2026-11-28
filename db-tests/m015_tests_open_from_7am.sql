@@ -1,4 +1,4 @@
--- Migration 014 checks (read-only; one DO block that raises its result). Run after the migration is applied.
+-- Migration 015 checks (read-only; one DO block that raises its result). Run after the migration is applied.
 do $t$
 declare mon date; bad text := ''; n int;
 begin
@@ -13,6 +13,6 @@ begin
   if not (420 = any (public.get_availability(mon + 4, 60, 'mobile'))) then bad := bad || ' [Friday 7:00 AM is not offered]'; end if;
   if 780 = any (public.get_availability(mon + 4, 60, 'mobile')) then bad := bad || ' [Friday 1:00 PM is offered: the closure moved]'; end if;
   if not (420 = any (public.get_availability(mon + 5, 60, 'mobile'))) then bad := bad || ' [Saturday 7:00 AM is not offered]'; end if;
-  if bad <> '' then raise exception 'm014 FAILED:%', bad; end if;
-  raise exception 'm014 PASSED (8 checks)';
+  if bad <> '' then raise exception 'm015 FAILED:%', bad; end if;
+  raise exception 'm015 PASSED (8 checks)';
 end $t$;

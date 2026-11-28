@@ -1,4 +1,4 @@
-# 57. The Reveal, the stop at it, thicker foam and the first interior photos (Nov 24, 2026)
+# 58. The Reveal, the stop at it, thicker foam and the first interior photos (Nov 24, 2026)
 
 All of this is on the branch `claude/zen-fermat-59sjyv` (commits f4b93f0, 1495e15, 1811827, 562dc0f). **None of it is on
 `main` or live**: the owner's standing instruction is still "Dont go live till its ready to Push" (doc 56).
@@ -78,7 +78,7 @@ body and lengthen the drips toward that.
 - The two dashed "Next pair" tiles (Wheels, Interior) were part of the owner's design and now show live as well: keep them
   or drop `NEXT`?
 
-## 7. "Included" on the booking page's add-ons (Migration 013, written, NOT applied)
+## 7. "Included" on the booking page's add-ons (Migration 014, written, NOT applied)
 
 - The owner (Nov 26): with the Inside & Out or Full Detail chosen, Wheels & Tire Shine, Leather care and one other add-on are
   greyed out but do not say "Included".
@@ -89,21 +89,21 @@ body and lengthen the drips toward that.
   and Leather care (which does say Included). The page says "Included" only where `service_includes` says so
   (`booking.js` `includedCodes`, bundle parts counted).
 - Fix, one data row: **the Hand Wash includes Wheels & Tire Shine** (the owner's own Services-page words: "The Hand Wash
-  already has it"). `supabase/migrations/20261124090001_m013_hand_wash_includes_tire_shine.sql` (idempotent insert),
-  `db-tests/m013_tests_includes.sql` (3 read-only checks), and the preview's seed (`data.js` `includes`) mirrors it. Checked in the
+  already has it"). `supabase/migrations/20261128090001_m014_hand_wash_includes_tire_shine.sql` (idempotent insert),
+  `db-tests/m014_tests_includes.sql` (3 read-only checks), and the preview's seed (`data.js` `includes`) mirrors it. Checked in the
   preview: Inside & Out, Full Detail and Hand Wash now show "Included, already in the ...". No price or time changes.
 - **Not applied to either database**: TEST is paused (doc 56), live needs the owner's "push".
 - Still greyed without "Included": **Gloss wax foam with the Full Detail** ("Goes with the Basic Wash, Hand Wash or Inside &
   Out"). The Full Detail has its own water-repellent sealant foam; whether that counts as the gloss wax foam, so the page may
   say "Included", is the owner's call. (Not recorded as included: that would be a business fact he has not given.)
 
-## 8. Bookings open from 7 AM (Migration 014, written, NOT applied)
+## 8. Bookings open from 7 AM (Migration 015, written, NOT applied)
 
 - The owner (Nov 26): "Make bookings open from 7am". `business_settings.first_start_min` goes from 600 to 420 (live
   read-only check: first 600, last 1140, latest end 1200, step 30; closures Mon to Thu 16:00 to 20:00, Fri 12:00 to 17:00).
   Nothing else moves: starts every 30 minutes, last start 7 PM, jobs end by 8 PM, same closures. The days read Mon to Thu
   7 AM to 4 PM, Fri 7 AM to 12 PM and 5 to 8 PM, Sat and Sun 7 AM to 8 PM.
-- `supabase/migrations/20261124090002_m014_open_from_7am.sql` (one update) and `db-tests/m014_tests_open_from_7am.sql` (8
+- `supabase/migrations/20261128090002_m015_open_from_7am.sql` (one update) and `db-tests/m015_tests_open_from_7am.sql` (8
   read-only checks). **Not applied to either database**: TEST is paused, live needs the owner's "push".
 - The four typed copies of the hours changed on the branch (CLAUDE.md lists them): the footer and the LD+JSON in
   `index.html`, the week and the FAQ's "How far ahead can I book?" in `content.js`; the preview's seed too (`data.js`

@@ -11,9 +11,14 @@
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // the optional email and its code show only once the site can email codes (config.js)
   const emailCodes = () => !!(window.ALCHEMIST_CONFIG && window.ALCHEMIST_CONFIG.emailCodes);
-  // A guest booking (no text codes yet, Migration 005): the name and phone as typed, no code, no photos. Someone
-  // already signed in with a confirmed phone books as before.
-  const guest = () => D.guestBooking && !(session && session.phoneConfirmed);
+  // A guest booking (Migration 005): the name and phone as typed, no code, no photos. Someone already signed in with a
+  // confirmed phone books on the account path. Since Nov 26 (doc 57, the owner's "Both, build it") a signed-out
+  // visitor books as a guest by default, or chooses on step 03 to sign in or make an account with a text code
+  // (st.contact.path 'account', while accounts are open: config.js textCodes); that booking then goes the account way
+  // (a confirmed phone, saved vehicles, photos). With guest booking off, everyone confirms a phone, as before.
+  const guest = () => D.guestBooking && !(session && session.phoneConfirmed) && !(D.accountsOpen && st.contact.path === 'account');
+  // the choice between the two ways shows only to someone who could take either
+  const canChoose = () => D.guestBooking && D.accountsOpen && !(session && session.phoneConfirmed);
 
   // The steps by name: never a bare number (the order changed on Nov 18 and may change again)
   const S_SERVICE = 1, S_WHEN = 2, S_CONTACT = 3, S_VEHICLE = 4, S_SUMMARY = 5;
@@ -78,7 +83,8 @@
   let summaryShownAt = -Infinity;
   const markSummary = () => { summaryShownAt = performance.now(); };
   const blank = {
-    contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '' }),
+    // path: 'guest' (the default) or 'account', the visitor's choice on step 03 while both ways are open (guest)
+    contact: () => ({ first: '', last: '', phone: '', email: '', phoneSent: false, phoneConfirmed: false, emailState: 'none', website: '', path: 'guest' }),
     vehicle: (saved) => ({ vehicleId: null, addingNew: false, moreOpen: false, saved: saved || [], year: '', make: '', model: '', color: '', type: null, notSure: false, description: '', size: 'standard', modifications: [], conditions: [], damage: ['none'], damageNote: '', photos: [] }),
     location: () => ({ type: null, address: '', zip: '' }),
     // carried: the service chosen on the Services page, while it is still the choice; deal: the First Timer Deal's token
@@ -163,7 +169,7 @@
     const c = st.contact, v = st.vehicle, l = st.location, s = st.service, w = st.when;
     const d = {
       v: 2, step, farthest,   // (v: 2 since the steps' order changed on Nov 18: a v1 copy's step numbers meant other steps)
-      contact: { first: c.first, last: c.last, phone: c.phone },
+      contact: { first: c.first, last: c.last, phone: c.phone, path: c.path },
       vehicle: { year: v.year, make: v.make, model: v.model, color: v.color, type: v.type, size: v.size, notSure: v.notSure, description: v.description, conditions: v.conditions, damage: v.damage, damageNote: v.damageNote, modifications: v.modifications, moreOpen: v.moreOpen },
       location: { type: l.type, address: l.address, zip: l.zip },
       service: { size: s.size, bundle: s.bundle, exterior: s.exterior, interior: s.interior, addons: s.addons, notes: s.notes, carried: s.carried, deal: s.deal },
@@ -199,6 +205,7 @@
     if (!c.first) c.first = txt(dc.first);
     if (!c.last) c.last = txt(dc.last);
     if (!c.phone) c.phone = txt(dc.phone);
+    if (dc.path === 'account') c.path = 'account';   // (the way chosen on step 03; a code sent before the reload is sent again)
     Object.assign(v, {
       year: txt(dv.year), make: txt(dv.make), model: txt(dv.model), color: txt(dv.color),
       type: dv.notSure !== true && known(dv.type, menu.vehicleTypes) ? dv.type : null, size: 'standard',   // (sizes go by rows since Migration 011: no XL choice for a vehicle typed in)
@@ -833,7 +840,7 @@
       // a guest's ten digits (or 1 and ten) that no number can have: said so, not asked for ten digits again
       const d = String(c.phone || '').replace(/\D/g, '');
       if (!H.normalizePhone(c.phone)) bad('phone', guest() ? (d.length === 10 || (d.length === 11 && d[0] === '1') ? 'That doesn’t look like a number we can reach. Please check the digits.' : 'Enter a 10-digit US mobile number, so we can reach you about the booking.') : 'Enter a 10-digit US phone number.');
-      else if (!guest() && !c.phoneConfirmed) bad('phone', c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press “Send code” and confirm your phone to continue.');
+      else if (!guest() && !c.phoneConfirmed) bad('phone', (c.phoneSent ? 'Enter the code we texted you, then press Confirm.' : 'Press “Send code” and confirm your phone to continue.') + (canChoose() ? ' Or choose “Book as a guest” above: no code needed.' : ''));
       if (emailCodes() && c.email.trim() && !H.isValidEmail(c.email)) bad('email', 'Enter a valid email, or leave it empty.');
       else if (emailCodes() && c.email.trim() && c.emailState === 'sent') bad('email', 'Enter the email code, or press Skip.');
       // the street address of a mobile detail (its ZIP was checked on step 01)
@@ -943,6 +950,9 @@
     const box = el('div.bk-grid');
     const signed = session && session.phoneConfirmed && c.phoneConfirmed;
     if (signed) box.appendChild(el('p.bk-note.ok', 'Signed in as ', el('b', [c.first, c.last].filter(Boolean).join(' ') || phonePretty(c.phone)), '. ', el('button.link', { type: 'button', onclick: notYou }, 'Not you?')));
+    // signed out, with guest booking and accounts both open: book as a guest (the default, no code), or sign in or
+    // make an account with a text code for this booking (doc 57)
+    if (canChoose()) box.appendChild(pathChoice());
 
     box.appendChild(el('div.bk-row.two',
       field({ id: 'first_name', label: 'First name', required: true, value: c.first, autocomplete: 'given-name', maxlength: 40, oninput: (e) => { c.first = e.target.value; clearError(root, 'first_name'); } }),
@@ -1016,6 +1026,30 @@
     box.appendChild(el('div.bk-hp', { 'aria-hidden': 'true' }, el('label', { for: 'bk-website' }, 'Website'), el('input', { id: 'bk-website', name: 'website', type: 'text', tabIndex: -1, autocomplete: 'off', value: c.website, oninput: (e) => { c.website = e.target.value; } })));
     return box;
   }
+  // The two ways to book (doc 57): a radio pair, guest first and chosen unless the visitor picks the account. What
+  // is typed stays; a code asked for under the account way no longer applies once the guest way is chosen.
+  function pathChoice() {
+    const c = st.contact;
+    return choices({
+      id: 'contact_path', label: 'How would you like to book?', size: 'cards', value: c.path === 'account' ? 'account' : 'guest',
+      items: [
+        { code: 'guest', label: 'Book as a guest', sub: 'No code and no account. We call or text you to confirm.' },
+        { code: 'account', label: 'Sign in or create an account', sub: 'We text you a 6-digit code. See your bookings online, save your vehicle and add photos.' },
+      ],
+      onchange: (code) => setPath(code),
+    });
+  }
+  function setPath(code) {
+    const c = st.contact, v = st.vehicle;
+    if (c.path === code) return;
+    c.path = code; c.phoneSent = false;
+    // the guest way keeps nothing of an account: no saved vehicle, no photos (doc 37)
+    if (code === 'guest') { v.saved = []; v.photos = []; v.vehicleId = null; }
+    drafting = true; saveDraftSoon();
+    render();
+    const on = root.querySelector('[data-field="contact_path"] .choice-item.on');
+    if (on) on.focus({ preventScroll: true });
+  }
   // A mobile detail's street address (its ZIP was checked on step 01, where it can be changed)
   function addressBlock() {
     const l = st.location;
@@ -1064,16 +1098,29 @@
       await D.sendPhoneCode(c.phone, { first: c.first.trim(), last: c.last.trim() });
       c.phoneSent = true; render();
       setTimeout(() => { const i = root.querySelector('#phone_code'); if (i) i.focus(); }, 60);
-    } catch (e) { render(); showError(root, e.hint || 'phone', e.message); }
+    } catch (e) {
+      render();
+      // no new accounts yet (Supabase sign-ups off): the guest way is right above, for this booking
+      const msg = e.code === 'signups_closed' && canChoose() ? 'New accounts can’t be made online yet. Choose “Book as a guest” above to book without one, or call ' + phone + '.' : e.message;
+      showError(root, e.hint || 'phone', msg);
+    }
   }
   async function confirmPhone(code) {
     const c = st.contact;
     try {
       session = await D.verifyPhoneCode(c.phone, code, { first: c.first.trim(), last: c.last.trim() });
-      c.phoneConfirmed = true; signedInHere = true;
+      c.phoneConfirmed = true;
+      // chosen as the account way (doc 57): the account stays signed in after Send, to see the booking under
+      // Appointments; a code asked for only because guest booking is off is signed out once the request is in, as before
+      signedInHere = !(D.guestBooking && c.path === 'account');
       if (session && session.firstName && !c.first) c.first = session.firstName;
       try { st.vehicle.saved = await D.myVehicles(); } catch (e) { /* none */ }
+      if (window.AlchemistAccount) window.AlchemistAccount.refresh();
+      // the price is the database's for this account now (a First Timer Deal goes by its history): quoted again,
+      // and the held time checked again (the re-fit), as after "Not you?"
+      invalidateQuotes();
       render(); drawTick('phone'); toast('Phone confirmed');
+      refit();
     } catch (e) { showError(root, e.hint || 'phone_code', e.message); }
   }
   // The tick of a field the database just confirmed draws itself once (a later drawing of the step shows it set)
@@ -1154,17 +1201,20 @@
     // The notes: optional, unless "Other" was chosen for the inside of the car (then they say what it is)
     before.push(notesField());
 
-    // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded
+    // Modifications (of a vehicle typed in; a saved one carries its own) and photos, folded. The photo picker shows
+    // only once the phone is confirmed (the database's upload rule): not to a guest, and not on the account way
+    // before its code (reached from the step bar, doc 57)
+    const photosOk = !guest() && st.contact.phoneConfirmed;
     const more = el('div.bk-more-body',
       v.vehicleId ? null : choices({ id: 'modifications', label: 'Modifications', hint: 'For preparation only. Never a fee.', size: 'tile', multi: true, value: v.modifications, items: menu.options.modification.map((o) => ({ code: o.code, label: o.label })), onchange: (vals) => { v.modifications = vals; } }),
-      guest() ? el('p.bk-note', 'Photos are optional and not needed to book.') : el('div.bk-photos', { dataset: { field: 'photos' } },
+      guest() ? el('p.bk-note', 'Photos are optional and not needed to book.') : !photosOk ? el('p.bk-note', 'Photos are optional. To add some, confirm your phone on step 03 first.') : el('div.bk-photos', { dataset: { field: 'photos' } },
         el('p.choice-label', 'Photos', el('small', ' optional · up to 6')),
         el('div.bk-photo-grid', { id: 'bk-photo-grid' },
           v.photos.map((p) => el('figure.bk-photo', el('img', { src: p.url, alt: '', width: 96, height: 96 }), el('button.bk-photo-x', { type: 'button', 'aria-label': 'Remove photo', onclick: async () => { await D.removePhoto(p.name).catch(() => {}); v.photos = v.photos.filter((x) => x !== p); render(); } }, '×'))),
           v.photos.length < 6 ? el('label.bk-photo-add', el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', multiple: true, onchange: addPhotos }), el('span', '+'), el('span.small', 'Add')) : null),
         el('p.choice-msg', { role: 'status', dataset: { hint: 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.' } }, 'JPEG, PNG or WebP, 8 MB each. Location data is removed before upload.')));
     before.push(el('details.bk-more', { open: v.moreOpen || v.photos.length > 0 || v.modifications.length > 0, ontoggle: (e) => { v.moreOpen = e.target.open; } },
-      el('summary', el('span', v.vehicleId ? 'Photos' : guest() ? 'Modifications' : 'Modifications and photos', el('small', ' optional'))), more));
+      el('summary', el('span', v.vehicleId ? 'Photos' : photosOk ? 'Modifications and photos' : 'Modifications', el('small', ' optional'))), more));
     box.append(part('A', 'The car', carBox), part('B', 'Before we start', before));
     // what a change here did to the price and the held time (the re-fit), above Continue
     box.appendChild(el('div.bk-refit', { id: 'bk-refit', role: 'status' }, refitNodes()));
@@ -2554,6 +2604,8 @@
         el('h2.bk-h2', { id: 'sent-know-h' }, 'Good to know'),
         el('ul.sent-know-list',
           el('li', st.sentAsGuest ? 'Wrong number, or need to change or cancel? Call ' : 'To change or cancel, call ', tel(phone), ' and give your reference ', el('span.tnum.sent-ref-sm', groups.map((g) => el('span', g))), '.'),
+          // booked from an account that stays signed in (doc 57): where to find it again
+          !st.sentAsGuest && session && session.phoneConfirmed && !signedInHere ? el('li', 'It’s in your account: see it any time under ', el('a', { href: '#appointments' }, 'Appointments'), '.') : null,
           el('li.sent-card', el('a', { href: 'alchemist-detailing.vcf' }, 'Save our number'), ', so you know it’s us when we call.'),
           r.location_type === 'mobile' && settings.mobile_note ? el('li', settings.mobile_note) : null)),
       el('div.bk-actions', { class: cal ? 'with-cal' : null },

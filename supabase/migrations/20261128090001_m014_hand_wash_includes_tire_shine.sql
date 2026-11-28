@@ -1,4 +1,4 @@
--- Migration 013 (Nov 24, 2026): the Hand Wash already includes Wheels & Tire Shine.
+-- Migration 014 (Nov 28, 2026; main's Migration 013 is the accounts one, doc 57): the Hand Wash already includes Wheels & Tire Shine.
 --
 -- The owner's own words on the Services page: "The Hand Wash already has it." The booking page greyed that add-on out
 -- for the Hand Wash, the Inside & Out and the Full Detail with the reason "Goes with the Basic Wash", because the
@@ -10,7 +10,7 @@
 -- with a Hand Wash. One row, and it is safe to run twice.
 --
 -- NOT applied anywhere yet. Test project first (the owner's Supabase account must have room to bring it back), then
--- live only on the owner's "push". After it: db-tests/m013_tests_includes.sql.
+-- live only on the owner's "push". After it: db-tests/m014_tests_includes.sql.
 
 insert into public.service_includes (service_id, included_id)
 select h.id, w.id

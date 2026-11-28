@@ -2,8 +2,10 @@
    (#appointments), phase 2 (docs 19 and 26). Sign in with a phone code, edit
    the name, keep saved vehicles, see your own bookings. Cancellations and
    changes go through the owner: there is no cancel button, only the phone.
-   While guest booking is on (no text codes yet, doc 37) both pages are one
-   calm "accounts are coming soon" screen. */
+   Since Nov 26 (doc 57, the owner's "Both, build it") accounts sit beside
+   guest booking: a signed-out visitor signs in or makes an account here with
+   a text code. Only while accounts are closed (config.js textCodes off) are
+   both pages the calm "accounts are coming soon" screen (doc 37). */
 (function () {
   'use strict';
   const U = window.AlchemistUI, D = window.AlchemistData;
@@ -21,6 +23,8 @@
   const lit = new Set();   // the bookings already opened on this visit: the light crosses a card once
   // the 200+ gold rule (doc 22): a completed detail of $200 or more makes the booking, and the customer, Gold
   const isGold = (b) => b.status === 'completed' && b.total_cents != null && b.total_cents >= 20000;
+  // my_bookings marks a guest booking it lists for this phone (Migration 013): read only, no review, no address
+  const guestNote = (b) => (b.booked_as_guest === true ? el('small.appt-ex.appt-guest', 'Booked as a guest') : null);
   const isLive = (b) => ['requested', 'needs_information', 'confirmed', 'in_progress'].includes(b.status) && b.service_date >= D.helpers.isoDate(D.helpers.todayLocal());
   // a request with the "Other" condition, not yet confirmed: the owner prices it, so the total is "to be confirmed"
   // (doc 46); once confirmed, the total shows. my_bookings returns the booking's conditions since Migration 008 part 3;
@@ -71,7 +75,7 @@
 
   function shell(title, eyebrow, body, examples) {
     return el('div.bk.acct',
-      U.modeBanner('nothing is saved anywhere.' + (D.guestBooking ? '' : ' Any 6-digit code works.') + (examples ? ' The past details are examples.' : ''), D.isLive),
+      U.modeBanner('nothing is saved anywhere.' + (D.accountsOpen ? ' Any 6-digit code works.' : '') + (examples ? ' The past details are examples.' : ''), D.isLive),
       el('header.bk-head', el('p.eyebrow', eyebrow), el('h1.display.bk-title', title)),
       body);
   }
@@ -100,24 +104,31 @@
   }
 
   // ---------------------------------------------------------------- sign in (shared)
+  // Sign in, or make an account the first time (the first code makes it): the same text code either way, no password.
+  // While guest booking is on, a line says booking needs no account, and our number is there for help (doc 57).
   function signInBox(after) {
     const box = el('div.bk-grid',
-      el('p.bk-note', 'Sign in with your mobile number. We text you a 6-digit code; no password.'),
+      el('p.bk-note', 'Sign in or create an account with your mobile number. We text you a 6-digit code; no password. New here? The first code makes your account.'),
       field({ id: 'si_first', label: 'First name', optional: true, value: signin.first, autocomplete: 'given-name', maxlength: 40, hint: 'Only needed the first time.', oninput: (e) => { signin.first = e.target.value; } }),
       field({ id: 'phone', label: 'Mobile phone', required: true, type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: signin.phone,
         oninput: (e) => { signin.phone = e.target.value; clearError(box, 'phone'); },
-        trailing: miniBtn(signin.sent ? 'Resend' : 'Send code', async () => {
+        trailing: miniBtn(signin.sent ? 'Resend' : 'Send code', async (ev) => {
+          if (signin.busy) return;   // one tap, one text (each code costs a little: doc 57)
           if (!D.helpers.normalizePhone(signin.phone)) return showError(box, 'phone', 'Enter a 10-digit US phone number.');
+          const btn = ev.currentTarget, was = btn.textContent;
+          signin.busy = true; btn.disabled = true; btn.textContent = 'Sending…';
           try {
-            await D.sendPhoneCode(signin.phone, { first: signin.first.trim() }); signin.sent = true; await after();
+            await D.sendPhoneCode(signin.phone, { first: signin.first.trim() }); signin.sent = true; signin.busy = false; await after();
             setTimeout(() => { const i = document.getElementById('phone_code'); if (i) i.focus(); }, 60);
-          } catch (e) { showError(box, e.hint || 'phone', e.message); }
+          } catch (e) { signin.busy = false; btn.disabled = false; btn.textContent = was; showError(box, e.hint || 'phone', e.message); }
         }) }),
       signin.sent ? field({ id: 'phone_code', label: 'Code from the text', required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6,
         hint: D.isLive ? '' : 'Preview: any 6 digits work.',
         oninput: (e) => { if (e.target.value.replace(/\D/g, '').length === 6) confirm(e.target.value); },
         onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(e.target.value); } },
-        trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null);
+        trailing: miniBtn('Confirm', () => confirm(box.querySelector('#phone_code').value)) }) : null,
+      D.guestsCanBook ? el('p.bk-muted', 'No account needed to book: you can also ', el('a', { href: '#book' }, 'book as a guest'), '.') : null,
+      el('p.bk-muted', 'Need help? Call ', tel(phone), '.'));
     async function confirm(code) {
       try { session = await D.verifyPhoneCode(signin.phone, code, { first: signin.first.trim() }); signin.sent = false; await refreshSession(true); toast('Signed in'); after(); }
       catch (e) { showError(box, e.hint || 'phone_code', e.message); }
@@ -162,7 +173,7 @@
     if (D.isDown) { root.replaceChildren(downNote()); return; }
     if (await teamCard(root)) return;   // a team login: the way to the team's pages, not a customer account
     await refreshSession();
-    if (!session) { root.replaceChildren(D.guestBooking ? comingSoon() : shell('Your account', 'Account', signInBox(renderAccount))); return; }
+    if (!session) { root.replaceChildren(D.accountsOpen ? shell('Your account', 'Account', signInBox(renderAccount)) : comingSoon()); return; }
     if (acct.loading) {
       [acct.vehicles, acct.bookings, acct.reviews] = await Promise.all([D.myVehicles().catch(() => []), D.myBookings().catch(() => []), D.myReviews().catch(() => [])]);
       acct.loading = false;
@@ -171,8 +182,10 @@
     const body = el('div.bk-grid');
 
     // The Gold client card (the owner's design): only for a customer with a completed detail of $200 or more,
-    // dated from the first of them (in the preview, its example Full Detail)
-    const gold = acct.bookings.filter(isGold).sort(byWhen);
+    // dated from the first of them (in the preview, its example Full Detail). Only details booked with the account
+    // count for now: whether a guest detail of $200 or more listed here (Migration 013) makes the account Gold is the
+    // owner's call (doc 57, PROPOSED). The booking's own card on Appointments still shows its gold either way.
+    const gold = acct.bookings.filter((b) => isGold(b) && !b.booked_as_guest).sort(byWhen);
     if (gold.length) body.appendChild(goldSection(monthOf(gold[0].service_date), gold));
 
     const next = acct.bookings.filter(isLive).sort(byWhen)[0];
@@ -194,7 +207,7 @@
         el('span.nx-day', d.toLocaleDateString('en-US', { weekday: 'long' })),
         el('b.nx-date', d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })),
         el('span.nx-time', el('span.tnum', clock(b.start_min)), ' · ' + whereText(b)),
-        what(b)),
+        what(b), guestNote(b)),
       el('span.appt-status', (STATUS[b.status] || [b.status])[0]),
       el('div.nx-foot',
         el('div.appt-refline', el('span.ref-k', 'Reference'), refValue(b)),
@@ -287,12 +300,13 @@
   // a published one links to Reviews; one waiting says so; with nothing to review there is no action.
   function goldAction(gold) {
     const mine = (id) => acct.reviews.find((r) => r.appointment_id === id);
-    const todo = gold.slice().reverse().find((b) => !mine(b.id));
+    const own = gold.filter((b) => !b.booked_as_guest);   // a guest booking can't be reviewed (Migration 013)
+    const todo = own.slice().reverse().find((b) => !mine(b.id));
     if (todo) {
       return el('a.btn.btn-gold.shine', { href: '#appointments', onclick: () => { openCard(todo.id); appts.form = { id: todo.id, rating: 5, body: '' }; appts.focus = todo.id; } },
         'Leave a review ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
     }
-    const done = gold.map((b) => mine(b.id));
+    const done = own.map((b) => mine(b.id)).filter(Boolean);
     if (done.some((r) => r.status === 'approved')) return el('a.btn.btn-gold.shine', { href: '#reviews' }, 'See it on Reviews ', el('span.arrow', { 'aria-hidden': 'true' }, '→'));
     if (done.some((r) => r.status === 'pending')) return el('p.gold-wait', 'Your review is waiting for approval');
     return null;
@@ -385,7 +399,14 @@
     await load();
     if (D.isDown) { root.replaceChildren(downNote()); return; }
     await refreshSession();
-    if (!session) { root.replaceChildren(D.guestBooking ? comingSoon() : shell('Appointments', 'Your details', el('div.bk-grid', el('p.bk-muted', 'Sign in to see your upcoming and past details.'), signInBox(renderAppointments)))); return; }
+    // signed out: a calm prompt to sign in, and (guest booking on) where a guest's booking is: since Migration 013 an
+    // account with the same confirmed phone also lists that phone's guest bookings the owner confirmed (last 12 months)
+    if (!session) {
+      root.replaceChildren(D.accountsOpen ? shell('Appointments', 'Your details', el('div.bk-grid',
+        el('p.bk-muted', 'Sign in to see your upcoming and past details.' + (D.guestBooking ? ' Booked as a guest? Sign in with the same mobile number: the guest bookings we confirmed in the last 12 months show here too.' : '')),
+        signInBox(renderAppointments))) : comingSoon());
+      return;
+    }
     if (appts.list == null) {
       try { [appts.list, appts.reviews] = await Promise.all([D.myBookings(), D.myReviews().catch(() => [])]); } catch (e) { appts.list = []; appts.reviews = []; toast(e.message); }
       if (!session) return renderAppointments();   // signed out while loading
@@ -455,7 +476,7 @@
     const hasAu = mains(b).some((l) => FULL.includes(l.code));   // its own Au mark is the seal: never two Au tiles in one row
     const head = [
       done ? el('span.appt-au', { 'aria-hidden': 'true' }) : null,
-      el('span.appt-when', el('b', longDate(b.service_date)), el('span', clock(b.start_min) + ' · ' + whereText(b)), b.example ? el('small.appt-ex', 'Example') : null),
+      el('span.appt-when', el('b', longDate(b.service_date)), el('span', clock(b.start_min) + ' · ' + whereText(b)), b.example ? el('small.appt-ex', 'Example') : null, guestNote(b)),
       what(b, gold),
       el('span.appt-state', el('span.appt-status', label), gold && !hasAu ? el('span.sig.au.seal', { 'aria-hidden': 'true' }, el('small', '79'), 'Au') : null),
       el('span.appt-ref.tnum', b.ref),
@@ -472,13 +493,13 @@
         note ? el('p.bk-muted', note) : null,
         el('dl.sum-body',
           el('dt', 'Reference'), el('dd.appt-refline', refValue(b)),
-          el('dt', 'Where'), el('dd', b.location_type === 'mobile' ? ([b.address, b.address_zip].filter(Boolean).join(', ') || whereText(b)) : (b.shop_address ? b.shop_address : isLive(b) ? settings.public_area + ' — we send the address with your confirmation' : settings.public_area)),
+          el('dt', 'Where'), el('dd', b.location_type === 'mobile' ? ([b.address, b.address_zip].filter(Boolean).join(', ') || whereText(b)) : (b.shop_address ? b.shop_address : isLive(b) && b.booked_as_guest ? [settings.public_area + ' — booked as a guest, so the address isn’t shown here. Call ', tel(phone), '.'] : isLive(b) ? settings.public_area + ' — we send the address with your confirmation' : settings.public_area)),
           el('dt', 'Vehicle'), el('dd', b.vehicle ? (b.vehicle.not_sure ? b.vehicle.description : [b.vehicle.year, b.vehicle.make, b.vehicle.model, b.vehicle.color && '· ' + b.vehicle.color].filter(Boolean).join(' ')) : ''),
           el('dt', 'Length'), el('dd', 'About ' + minutesText(b.duration_min)),
           b.team && b.team.length ? [el('dt', 'Your detailer'), el('dd', b.team.join(', '))] : null,
           b.hold_expires_at && ['requested', 'needs_information'].includes(b.status) ? [el('dt', 'Held until'), el('dd', new Date(b.hold_expires_at).toLocaleString('en-US', { timeZone: settings.timezone || 'America/Chicago', timeZoneName: 'short', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/[ \u202f]([AP]M)(?:[ \u202f](\S+))?$/, (m, ap, tz) => '\u00a0' + ap + (tz ? '\u00a0' + tz : '')).replace(/([A-Z][a-z]{2}) (\d{1,2}),/, '$1\u00a0$2,'))] : null),
         el('div.bk-summary-card', priceLines(b, { mark: (code) => sigMark(code), otherCondition: otherPending(b) })),
-        done ? reviewBlock(b) : null,
+        done ? (b.booked_as_guest ? el('p.bk-muted', 'Booked as a guest, so it can’t be reviewed here. Reviews are for details booked with your account.') : reviewBlock(b)) : null,
         isLive(b) ? el('p.bk-muted', 'Payment in person after your detail. To cancel or change, call ', tel(phone), '.') : el('p.bk-muted', 'Questions? Call ', tel(phone), '.')) : null);
   }
   // The progress line, like a service tracker: Requested, Confirmed, In progress, Completed. Each stop it has

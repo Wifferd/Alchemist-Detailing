@@ -1,4 +1,4 @@
--- Migration 013 checks: one DO block that raises its result (read-only: no row is written).
+-- Migration 014 checks: one DO block that raises its result (read-only: no row is written).
 do $t$
 declare n int; bad text := '';
 begin
@@ -13,6 +13,6 @@ begin
   -- no price changed: the add-on and the Hand Wash keep their rates
   select count(*) into n from public.service_size_rates r join public.services s on s.id = r.service_id and s.code = 'wheels_tire_shine' where r.price_cents <> 2000;
   if n <> 0 then bad := bad || ' [wheels_tire_shine rate changed]'; end if;
-  if bad <> '' then raise exception 'm013 FAILED:%', bad; end if;
-  raise exception 'm013 PASSED (3 checks)';
+  if bad <> '' then raise exception 'm014 FAILED:%', bad; end if;
+  raise exception 'm014 PASSED (3 checks)';
 end $t$;

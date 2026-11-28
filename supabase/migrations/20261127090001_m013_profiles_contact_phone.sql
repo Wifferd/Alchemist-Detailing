@@ -1,0 +1,13 @@
+-- Migration 013, part 1 (Nov 27, 2026): the profiles column that live's own functions already read.
+--
+-- On live, quote_booking (Migration 012 part 2) and my_first_visit_offer (Migration 012 part 5) both read
+-- coalesce(pr.phone, pr.contact_phone) from public.profiles. That column comes from Migration 004 (email sign-in), which
+-- went to TEST only, so on live any signed-in caller whose quote carries a First Timer Deal price stops with 42703
+-- "column pr.contact_phone does not exist": an account booking of a Basic Wash (submit_booking reads the quote) and the
+-- deal pop-up check fail for every account. Live has no customer accounts yet, so nobody has met it.
+--
+-- The fix is the column itself, as Migration 004 made it (text, empty). Nothing on live writes it: sign-in is by text
+-- code, so profiles.phone is always the one that counts and coalesce() returns it. No function, grant or policy changes;
+-- the audit trigger already hides contact_phone from its log. On TEST (which has Migration 004) this is a no-op.
+-- If Migration 004 ever goes to live, its "add column contact_phone" line becomes "add column if not exists".
+alter table public.profiles add column if not exists contact_phone text;

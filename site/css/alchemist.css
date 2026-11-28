@@ -3868,6 +3868,8 @@ textarea.fld-input { height: auto; padding: 14px 18px; resize: vertical; line-he
 .appt-state { display: inline-flex; align-items: center; gap: 8px; justify-self: end; }
 .acct .appt-ref { font: 600 13px/1 var(--font-ui); letter-spacing: .05em; color: var(--ink-2); }
 .appt-ex { justify-self: start; margin-top: 5px; padding: 3px 8px; border-radius: 999px; border: 1px dashed currentColor; font: 600 var(--fs-2xs)/1 var(--font-ui-caps); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+/* a guest booking my_bookings lists for this phone (Migration 013): the same pill, a solid line (Example is dashed) */
+.appt-ex.appt-guest { border-style: solid; width: max-content; max-width: 100%; }
 .sig.seal { background: var(--on-gold); border-color: var(--on-gold); color: var(--gold-s5); }
 .sig.seal small { color: var(--gold-s2); }
 /* the prices in a customer's opened card, laid out like the receipt's build sheet: the marks in a gutter, the names

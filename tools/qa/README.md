@@ -31,6 +31,7 @@ WebGL runs in SwiftShader (no GPU here).
 | `toolbar.py <site_copy> <out_dir> <dark\|light> <slow\|flick\|mixed\|keys>` | The Home wash on an iPhone whose Safari toolbar collapses on every scroll down and comes back on every scroll up (390 x 664 / 750, CDP touch); fails when any frame shows the page under the pinned stage |
 | `heads.py <site_dir> <out_dir> [label]` | The seven centred headings (the owner's Nov 5 answer): each title's offset from its column's centre, and a shot |
 | `budget.py <route> <site_a> <site_b> [walks] [out_dir]` | Hard rule 5's long tasks: a first visit on a phone (390x844, CPU slowed 4x) walked down a page, two sites in turn, each long task placed and (with a trace) split by cause |
+| `guest_walk.py <site_dir> <out_dir> <phone\|desk> <dark\|light>` | Guest bookings in an account (Migration 013, doc 57): Appointments and the Account page with a guest booking, a guest Full Detail of $200+ alone and beside the account's own, and a review waiting; the page must finish loading with no errors |
 | `check_site.sh <out_dir> [wash]` | All of the checks in one go |
 | `wash_compare.py <baseline> <results>...` | Compares `wash.py` lines with the baseline |
 | `make_baseline.sh <scratch_dir> [commit]` | Writes `wash_baseline.txt` from the live site (main, 6dbb2c7) |

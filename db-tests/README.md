@@ -48,3 +48,31 @@ Order that passes: `m001_framework.sql`, `m001_fixtures.sql`, then the `m001_tes
 - The result line carries `query md5`: the md5 of the block as the server received it (the Supabase MCP adds a "-- source:" trailer, which is cut off), so a run can be matched to the file: md5 of the text from `do $$` to the final `$$;` with no newline after it.
 - `m012_tests_race.sql`: block L (Nov 19): a guest Both request holds the guest (7305), day (7302), phone (7311) and address (7312) locks. Two overlapping sessions need two SQL Editor tabs (`m011_tests_race.sql` blocks A and B with the Both services).
 - `m011_tests_menu.sql` updated for Migration 012's prices and deal words (its header lists the changed checks): 136 of 136 on the test project (Nov 19, run `9083008d310661391f83934bda5e1531`).
+
+## Migration 013 tests: guest bookings in the account (Nov 27, 2026)
+
+- `m013_tests_guest_link.sql`: one DO block that rolls itself back (result raised as "M013 TESTS (rolled back): ..."),
+  40 checks. Needs the m001 framework and fixtures and the Migration 011 helpers (`m011_tests_menu.sql`). Which guest
+  bookings `my_bookings` lists for a customer account (confirmed, in progress, completed; same confirmed phone; 12
+  months; not Spam, anonymized or team-entered), who never gets them (other phones, unconfirmed or anonymous logins,
+  staff, signed out), the shape (own rows unchanged value for value, guest rows plus `booked_as_guest`, no owner's
+  address, no street on a "We come to you" guest booking, no notes), `submit_review` refusing them, grants unchanged,
+  and part 1 (the `profiles.contact_phone` column; a signed-in Basic Wash quote and `my_first_visit_offer` run).
+  Fixed test phones 1 (469) 823-11xx.
+- **Build local databases the way live is: without Migration 004** (and without the email blocklist file, whose data
+  isn't in the repo). Live never got 004, and a build with it hid a live bug: live's `quote_booking` and
+  `my_first_visit_offer` read `profiles.contact_phone`, which only 004 adds. Without Migration 013 part 1 a no-004
+  build stops in the fixtures of `m011_tests_menu.sql`, `m013_tests_guest_link.sql` and part of `m008_tests.sql` with
+  42703 "column pr.contact_phone does not exist" (29 of 31 for m008 before it stops).
+- Run Nov 27 on a local Postgres 16 (TEST is paused), every migration file in order except m004 and the blocklist,
+  then the m001 framework and fixtures, then the m001 suites (access, booking, staff, round 8), `m008_tests.sql`,
+  `m011_tests_menu.sql`, `m012_tests_deals.sql`, `m013_tests_guest_link.sql`, in one database:
+  - Migration 013 part 1 only: m013 28 of 40 (the 12 that need part 2 fail); the others as below.
+  - Both parts: m013 **40 of 40**; m008 40 of 40; m011 134 of 136; m012 105 of 106; the m001 suites 312 of 383.
+  - m001, m008, m011 and m012 give the same lines with part 1 only and with both parts (m001 also the same with
+    neither part). m011 A1 and m012 A1 compare a fingerprint stored on TEST before those migrations (never stored
+    locally) and m011 A5 fails locally whatever the branch; the m001 suites' known failures come from the later
+    migrations (above). These counts move with the build and the day, so compare before and after on one build;
+    a verifier's own build on Nov 27 got m011 136 of 136 and m001 295 of 362, unchanged by Migration 013 too.
+  - With Migration 004 too (TEST's set): m013 40 of 40, m011 134 of 136, m012 105 of 106, m001 315 of 383.
+- Re-run `m013_tests_guest_link.sql` on TEST once it is back (needs the m011 helpers, already there).
